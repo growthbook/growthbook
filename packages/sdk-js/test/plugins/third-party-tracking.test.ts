@@ -36,6 +36,37 @@ describe("thirdPartyTrackingPlugin", () => {
 
     gb.destroy();
   });
+  it("returns no promise when no tracker consumed the exposure", () => {
+    delete window.gtag;
+    delete window.analytics;
+    const savedDataLayer = window.dataLayer;
+    delete window.dataLayer;
+    const gb = new GrowthBook({ plugins: [thirdPartyTrackingPlugin()] });
+    const cb = gb.getTrackingCallback()!;
+
+    expect(
+      cb(
+        { key: "exp", variations: [0, 1] } as Experiment<number>,
+        {
+          key: "1",
+        } as never,
+      ),
+    ).toBeUndefined();
+
+    window.dataLayer = [];
+    expect(
+      cb(
+        { key: "exp", variations: [0, 1] } as Experiment<number>,
+        {
+          key: "1",
+        } as never,
+      ),
+    ).toBeInstanceOf(Promise);
+
+    window.dataLayer = savedDataLayer;
+    gb.destroy();
+  });
+
   it("should call gtag if enabled", async () => {
     const plugin = thirdPartyTrackingPlugin({
       trackers: ["gtag"],

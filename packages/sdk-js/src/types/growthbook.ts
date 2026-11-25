@@ -625,6 +625,32 @@ export type FeatureDefinitions<
       >;
     };
 
+// Remote settings override the plugin's local ones, except that a local
+// `enabled: false` is definitive
+export type SessionReplaySettings = {
+  enabled?: boolean;
+  samplingRate?: number; // 0-1
+};
+
+export type AutoEventCategorySettings = {
+  enabled?: boolean;
+  samplingRate?: number; // 0-1
+};
+
+export type AutoEventsRemoteSettings = Partial<
+  Record<
+    "pageEvents" | "errors" | "cwv" | "clickstream",
+    AutoEventCategorySettings
+  >
+>;
+
+// Remotely-delivered plugin settings. Riding inside the features payload
+// inherits its caching, refresh, and SSE streaming for free.
+export type SdkSettings = {
+  sessionReplay?: SessionReplaySettings;
+  autoEvents?: AutoEventsRemoteSettings;
+};
+
 export type FeatureApiResponse<
   AppFeatures extends Record<string, any> = Record<string, any>,
   AppAttributes extends Attributes = any,
@@ -638,6 +664,7 @@ export type FeatureApiResponse<
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  sdkSettings?: SdkSettings;
   interleavings?: InterleavingDefinitions<AppAttributes>;
   encryptedInterleavings?: string;
 };
@@ -727,6 +754,7 @@ export type Polyfills = {
   SubtleCrypto: any;
   EventSource: any;
   localStorage?: LocalStorageCompat;
+  sessionStorage?: SessionStorageCompat;
 };
 
 export type Helpers = {
@@ -768,6 +796,8 @@ export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
 }
+
+export type SessionStorageCompat = LocalStorageCompat;
 
 export type CacheSettings = {
   backgroundSync: boolean;

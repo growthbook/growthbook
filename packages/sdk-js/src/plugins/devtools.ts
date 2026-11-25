@@ -1,5 +1,18 @@
+/**
+ * Connects an SDK instance to the GrowthBook DevTools browser extension.
+ * Applies overrides from DevTools (attributes, forced features, forced
+ * variations) to the instance — in dev mode only.
+ *
+ * Overrides arrive as a `DevtoolsState` payload: passed directly to
+ * `devtoolsPlugin`, or extracted from the `_gbdebug` querystring param /
+ * cookie by the server-side variants (`devtoolsNextjsPlugin`,
+ * `devtoolsExpressPlugin`) so SSR evaluations honor DevTools overrides too.
+ * For the reverse direction, `getDebugScriptContents`/`getDebugEvent` emit
+ * the instance's logs and SDK info onto `window._gbdebugEvents`, where the
+ * extension picks up server-rendered evaluations.
+ */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GrowthBook } from "../GrowthBook";
+import type { GrowthBook } from "../GrowthBook";
 import {
   Attributes,
   FeatureApiResponse,
@@ -7,6 +20,7 @@ import {
   Plugin,
 } from "../types/growthbook";
 import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
 
 export type DevtoolsState = {
   attributes?: Record<string, any>;
@@ -61,7 +75,7 @@ function applyDevtoolsState(
 export function devtoolsPlugin(devtoolsState?: DevtoolsState): Plugin {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // Only works for user-scoped GrowthBook instances
-    if ("createScopedInstance" in gb) {
+    if (isGrowthBookClient(gb)) {
       throw new Error(
         "devtoolsPlugin can only be set on a user-scoped instance",
       );
@@ -207,7 +221,7 @@ export function getDebugEvent(
   if (!gb.inDevMode()) {
     return null;
   }
-  if (gb instanceof GrowthBook) {
+  if (isFullGrowthBook(gb)) {
     // GrowthBook SDK
     const [apiHost, clientKey] = gb.getApiInfo();
     return {

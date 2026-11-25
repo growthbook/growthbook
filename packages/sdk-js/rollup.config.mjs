@@ -18,17 +18,33 @@ const terserSettings = terser({
   mangle: {
     properties: {
       regex: /^_/,
+      // _cssText is rrweb's snapshot field, read by the replayer; the rest
+      // are GrowthBook hooks that npm-installed plugins call on CDN instances
       reserved: [
+        "_cssText",
         "_experimentsDisabled",
         "_hasEventConsumer",
         "_subscribeCustomEvents",
         "_subscribeExperimentViewed",
         "_subscribeFeatureUsage",
+        "_subscribePayloadUpdates",
+        "_updateAttributesWithoutRefresh",
       ],
     },
   },
   ecma: 5,
 });
+
+const rrwebRecordOnly = {
+  name: "rrweb-record-only",
+  resolveId(source, importer, options) {
+    if (source !== "rrweb") return null;
+    return this.resolve("@rrweb/record", importer, {
+      ...options,
+      skipSelf: true,
+    });
+  },
+};
 
 export default [
   {
@@ -103,6 +119,50 @@ export default [
       babel({
         babelHelpers: "bundled",
         extensions,
+      }),
+    ],
+  },
+  {
+    input: "src/auto-wrapper-plus.ts",
+    external: () => false,
+    output: [
+      {
+        file: "dist/bundles/core+sessions.js",
+        format: "iife",
+        name: "_growthbook",
+        sourcemap: true,
+      },
+      {
+        file: "dist/bundles/core+sessions.min.js",
+        format: "iife",
+        name: "_growthbook",
+        plugins: [terserSettings],
+        sourcemap: true,
+      },
+    ],
+    plugins: [
+      rrwebRecordOnly,
+      resolve({ extensions, jsnext: true }),
+      replace({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      replace({
+        __SDK_VERSION__: JSON.stringify(version),
+        preventAssignment: true,
+      }),
+      babel({
+        babelHelpers: "bundled",
+        extensions,
+      }),
+      // rrweb is inlined from node_modules, where the package .babelrc doesn't
+      // apply; downlevel it to the same browserslist as our own code
+      babel({
+        include: /node_modules[\\/]+(rrweb|@rrweb)[\\/]/,
+        babelHelpers: "bundled",
+        babelrc: false,
+        configFile: false,
+        presets: ["@babel/preset-env"],
       }),
     ],
   },

@@ -232,6 +232,7 @@ export default function CloudUsage() {
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
         managedClickhouseEvents: Math.floor(Math.random() * 1000000),
+        sessionReplays: Math.floor(Math.random() * 5000),
         eventForwarderEvents: Math.floor(Math.random() * 100000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
@@ -310,6 +311,10 @@ export default function CloudUsage() {
     (sum, u) => sum + u.managedClickhouseEvents,
     0,
   );
+  const totalSessionReplays = usage.reduce(
+    (sum, u) => sum + u.sessionReplays,
+    0,
+  );
   const totalEventForwarderEvents = usage.reduce(
     (sum, u) => sum + u.eventForwarderEvents,
     0,
@@ -366,6 +371,7 @@ export default function CloudUsage() {
                       // Raw bytes: full precision, unlike the page's rounded display
                       bandwidth_bytes: u.bandwidth,
                       managed_clickhouse_events: u.managedClickhouseEvents,
+                      session_replays: u.sessionReplays,
                       event_forwarder_events: u.eventForwarderEvents,
                     })),
                     `cdn-usage-${month}.csv`,
@@ -433,6 +439,10 @@ export default function CloudUsage() {
         <Metadata
           label="Total managed ClickHouse events"
           value={requestsFormatter.format(totalManagedClickhouseEvents)}
+        />
+        <Metadata
+          label="Total session replays"
+          value={requestsFormatter.format(totalSessionReplays)}
         />
         <Metadata
           label="Total Event Forwarder events"
@@ -591,6 +601,27 @@ export default function CloudUsage() {
                 ? null
                 : limits.managedClickhouseEvents
             }
+          />
+        </Box>
+      )}
+      {totalSessionReplays > 0 && (
+        <Box mt="5">
+          <Heading as="h3" size="sm" mb="2">
+            Session Replays
+          </Heading>
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: { [TOTAL_KEY]: u.sessionReplays },
+            }))}
+            series={[
+              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+            ]}
+            formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
+            start={startDate}
+            end={endDate}
+            limitLine={null}
           />
         </Box>
       )}

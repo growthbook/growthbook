@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
+export const DEFAULT_SESSION_LIST_LOOKBACK_DAYS = 30;
+
+export const SESSION_REPLAY_MAX_FILTER_LENGTH = 255;
+export const SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH = 2048;
+export const SESSION_REPLAY_MAX_URL_FILTER_LENGTH = 2048;
+
 /**
  * Single rrweb event. We intentionally don't validate the inner shape — rrweb
  * has many event variants and they evolve with the library. We just gate on
@@ -73,8 +79,16 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   startedAt: z.date(),
   endedAt: z.date(),
   lastEventAt: z.date(),
+  // Latest server-side ingest time across the session's chunks. Used (with the
+  // server clock, not client-skewed lastEventAt) to infer whether a session is
+  // still actively recording.
+  ingestedAt: z.date(),
   durationMs: z.number().int().nonnegative(),
   eventCount: z.number().int().nonnegative(),
+  // "Worth reviewing" signal: intentional user actions (clicks, inputs, media,
+  // drags) classified from rrweb events by the ingestor — as opposed to
+  // eventCount, which is the raw rrweb total (mostly mutation/mousemove noise).
+  keyEventCount: z.number().int().nonnegative(),
   errorCount: z.number().int().nonnegative(),
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),

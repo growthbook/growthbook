@@ -1,9 +1,24 @@
+/**
+ * Populates a GrowthBook instance with common targeting attributes
+ * automatically. Covers identity (a cookie-persisted anonymous id and the
+ * shared session id), page context (url/path/host/query, title, viewport),
+ * device (browser, device type), UTM params, and GTM dataLayer variables.
+ *
+ * Attributes refresh on URL changes and on a `growthbookrefresh`
+ * DOM event; `growthbookpersist` forces the anonymous-id cookie write (for
+ * deferred-consent flows). Also the config point for the shared gb session's
+ * expiry policy (`idleTimeout` / `maxDuration`). Browser only.
+ */
 import type { GrowthBook } from "../GrowthBook";
 import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
+import { configureSession, getOrCreateSessionId } from "./utils/session";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
+import { readSessionJSON, writeSessionJSON } from "./utils/storage";
+import { subscribeToUrlChanges } from "./utils/url-change-observer";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -14,6 +29,12 @@ export type AutoAttributeSettings = {
   // anonymous id is shared across subdomains. Without this the cookie is
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
+  // Inactivity window (ms) on the shared gb session; each read refreshes it.
+  // Defaults to 10 minutes.
+  idleTimeout?: number;
+  // Hard time cap (ms) on the shared gb session, regardless of activity.
+  // Defaults to 1 hour.
+  maxDuration?: number;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -47,6 +68,12 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   if (typeof window === "undefined") {
     throw new Error("autoAttributesPlugin only works in the browser");
   }
+
+  // Module-level, so every consumer touches the session with the same windows
+  configureSession({
+    idleTimeout: settings.idleTimeout,
+    maxDuration: settings.maxDuration,
+  });
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
   const COOKIE_DOMAIN = settings.uuidCookieDomain || "";
@@ -100,8 +127,11 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
+      sessionId: getOrCreateSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
       ...getBrowserDevice(ua),
       ...getUtmAttributes(url),
     };
@@ -109,7 +139,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // Only works for instances with user attributes
-    if ("createScopedInstance" in gb) {
+    if (isGrowthBookClient(gb)) {
       return;
     }
 
@@ -118,15 +148,20 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     attributes.url && gb.setURL(attributes.url);
     gb.updateAttributes(attributes);
 
-    // Poll for URL changes and update GrowthBook
+    // Refresh on SPA navigation — synchronously via the history hooks so
+    // plugins registered after this one see fresh attributes, with a poll as
+    // the fallback for routers that bypass them
     let currentUrl = attributes.url;
-    const intervalTimer = setInterval(() => {
-      if (location.href !== currentUrl) {
-        currentUrl = location.href;
-        gb.setURL(currentUrl);
-        gb.updateAttributes(getAutoAttributes(settings));
-      }
-    }, 500);
+    const refreshIfUrlChanged = () => {
+      if (location.href === currentUrl) return;
+      currentUrl = location.href;
+      gb.setURL(currentUrl);
+      gb.updateAttributes(getAutoAttributes(settings));
+    };
+    const unsubUrlChanges = subscribeToUrlChanges(refreshIfUrlChanged, {
+      trackQueryString: true,
+    });
+    const intervalTimer = setInterval(refreshIfUrlChanged, 500);
 
     // Listen for a custom event to update URL and attributes
     const refreshListener = () => {
@@ -138,9 +173,10 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     };
     document.addEventListener("growthbookrefresh", refreshListener);
 
-    if ("onDestroy" in gb) {
+    if (isFullGrowthBook(gb)) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
+        unsubUrlChanges();
         document.removeEventListener("growthbookrefresh", refreshListener);
       });
     }
@@ -172,13 +208,9 @@ function getCookie(name: string): string {
 function getUtmAttributes(url: URL | Location | undefined) {
   // Store utm- params in sessionStorage for future page loads
   let utms: Record<string, string> = {};
-  try {
-    const existing = sessionStorage.getItem("utm_params");
-    if (existing) {
-      utms = JSON.parse(existing);
-    }
-  } catch (e) {
-    // Do nothing if sessionStorage is disabled (e.g. incognito window)
+  const existing = readSessionJSON("utm_params");
+  if (existing && typeof existing === "object") {
+    utms = existing as Record<string, string>;
   }
 
   // Add utm params from querystring
@@ -197,13 +229,9 @@ function getUtmAttributes(url: URL | Location | undefined) {
       }
     });
 
-    // Write back to sessionStorage
+    // Write back to sessionStorage; failures (e.g. incognito window) are fine
     if (hasChanges) {
-      try {
-        sessionStorage.setItem("utm_params", JSON.stringify(utms));
-      } catch (e) {
-        // Do nothing if sessionStorage is disabled (e.g. incognito window)
-      }
+      writeSessionJSON("utm_params", utms);
     }
   }
 

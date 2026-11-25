@@ -1,3 +1,14 @@
+/**
+ * Forwards experiment exposures to third-party analytics tools. Registers as
+ * the instance's tracking callback and fires an "experiment_viewed" event
+ * (experiment id + variation id) to each detected tracker.
+ *
+ * Supports GA4 (`gtag`), GTM (`dataLayer`), and Segment (`analytics.track`),
+ * each skipped when absent on the page, plus an optional custom callback.
+ * The callback's promise resolves once every tracker has acknowledged the
+ * event, so redirect-style experiments don't navigate away before the
+ * exposure is sent. Browser only.
+ */
 import type { TrackingCallback } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
 import type {
@@ -20,7 +31,7 @@ export function thirdPartyTrackingPlugin({
   }
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
-    gb.setTrackingCallback(async (e, r) => {
+    gb.setTrackingCallback((e, r) => {
       const promises: Promise<unknown>[] = [];
       const eventParams = { experiment_id: e.key, variation_id: r.key };
 
@@ -68,7 +79,10 @@ export function thirdPartyTrackingPlugin({
         promises.push(segmentPromise);
       }
 
-      await Promise.all(promises);
+      // No promise when nothing consumed the event, so callers can't mistake
+      // "no tracker on the page" for delivery
+      if (!promises.length) return;
+      return Promise.all(promises).then(() => undefined);
     });
   };
 }

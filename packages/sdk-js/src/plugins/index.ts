@@ -8,6 +8,13 @@ export {
 } from "./interleave";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
+export { autoEventsPlugin } from "./auto-events/index";
+export type { AutoEventsSettings } from "./auto-events/index";
+export {
+  configureSession,
+  getOrCreateSessionId,
+  resolveSessionId,
+} from "./utils/session";
 export {
   tracingPlugin,
   getTracingTags,
@@ -39,6 +46,8 @@ export type {
   TrackingTransport,
 } from "./growthbook-tracking";
 export type { Trackers } from "./third-party-tracking";
+export type { SessionConfig } from "./utils/session";
+export type { PrivacySettings, UrlScrubSettings } from "./utils/privacy";
 export type { TracingAssignment, TracingPluginOptions } from "./tracing";
 export type {
   DevtoolsState,
@@ -48,3 +57,7 @@ export type {
   LogEvent,
   SdkInfo,
 } from "./devtools";
+
+// Session replay is intentionally absent (its types depend on rrweb); it ships
+// via the auto-wrapper-plus bundle and the
+// "@growthbook/growthbook/plugins/session-replay" subpath export.

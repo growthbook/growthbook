@@ -30,6 +30,7 @@ import {
   resolveAnalysisIdentifierType,
   getTempRolloutStaleReason,
   pValueFormatter,
+  safeDecodeURIComponent,
 } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit, startCase } from "lodash";
@@ -1588,7 +1589,7 @@ export function getAvailableSliceTags({
       if (!tag.startsWith("dim:")) return "";
       const withoutDim = tag.substring(4);
       const equalsIndex = withoutDim.indexOf("=");
-      return decodeURIComponent(
+      return safeDecodeURIComponent(
         withoutDim.slice(0, equalsIndex >= 0 ? equalsIndex : undefined),
       );
     };

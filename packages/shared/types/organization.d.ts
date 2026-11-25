@@ -610,6 +610,7 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  sessionReplays: number;
   eventForwarderEvents: number;
 };
 
@@ -630,6 +631,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    sessionReplaySessions?: UsageLimit;
     tracesBytes?: UsageLimit;
     eventForwarderEvents?: UsageLimit;
   };
@@ -640,6 +642,13 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  sessionReplay?: {
+    lastUpdated?: Date;
+    status?: "under" | "approaching" | "over";
+    sessions?: number;
+    events?: number;
+    errors?: number;
   };
   traces?: {
     lastUpdated: Date;

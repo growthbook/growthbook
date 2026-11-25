@@ -2,16 +2,20 @@ import {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
+import { parseIntWithDefault } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
   getSessionReplayChunksBySessionId,
   listSessionReplays,
+  SessionReplayListRow,
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import {
   filterClientKeysByProject,
-  getSessionReplayEventsByStoragePrefix,
+  getSessionReplayEventsByChunkKeys,
+  extractSortedChunkKeys,
+  dedupeNewestChunkRows,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -38,7 +42,15 @@ export class SessionReplayModel {
   private async getPermittedClientKeys(): Promise<Map<string, string[]>> {
     if (this._permittedKeys) return this._permittedKeys;
     const connections = await findSDKConnectionsByOrganization(this.context);
-    this._permittedKeys = new Map(connections.map((c) => [c.key, c.projects]));
+    this._permittedKeys = new Map(
+      connections
+        .filter((c) =>
+          this.context.permissions.canViewSessionReplay({
+            projects: c.projects,
+          }),
+        )
+        .map((c) => [c.key, c.projects]),
+    );
     return this._permittedKeys;
   }
 
@@ -72,14 +84,16 @@ export class SessionReplayModel {
     userId?: string;
     clientKey?: string;
     url?: string;
-    country?: string;
-    device?: string;
+    country?: string[];
+    device?: string[];
     minDurationSecs?: number;
     maxDurationSecs?: number;
     minEventCount?: number;
     maxEventCount?: number;
-    featureKey?: string;
-    experimentKey?: string;
+    featureKey?: string[];
+    experimentKey?: string[];
+    dateAfter?: string;
+    dateBefore?: string;
     project?: string;
     limit?: number;
     offset?: number;
@@ -97,42 +111,59 @@ export class SessionReplayModel {
       ...options,
       clientKeys,
     });
-    return rows.map((row) => this.toInterface(row));
+    return rows
+      .map((row) => this.toListInterface(row))
+      .filter((doc) => {
+        const projects = permittedKeys.get(doc.clientKey) ?? [];
+        return this.canRead(doc, projects);
+      });
   }
 
-  public async getBySessionId(
-    sessionId: string,
-  ): Promise<SessionReplayInterface | null> {
+  /**
+   * Merged session metadata plus the S3 key of every chunk backing it, in
+   * chunk-index order.
+   *
+   * The keys come from the metadata rows the ClickHouse query already
+   * returned, so the caller does not need a separate S3 listing to find them.
+   */
+  public async getSessionWithChunkKeys(sessionId: string): Promise<{
+    session: SessionReplayInterface;
+    chunkKeys: string[];
+  } | null> {
     const chunks = await getSessionReplayChunksBySessionId(
       this.context,
       sessionId,
     );
     if (!chunks.length) return null;
-    const doc = this.mergeChunks(chunks);
+    const session = this.mergeChunks(chunks);
 
     const permittedKeys = await this.getPermittedClientKeys();
-    const projects = permittedKeys.get(doc.clientKey);
+    const projects = permittedKeys.get(session.clientKey);
     // clientKey not in permitted set — orphaned or no access
     if (projects === undefined) return null;
-    if (!this.canRead(doc, projects)) return null;
+    if (!this.canRead(session, projects)) return null;
 
-    return doc;
+    return { session, chunkKeys: extractSortedChunkKeys(chunks) };
   }
 
-  public async getEventsForS3Key(
-    s3Key: string,
+  public async getBySessionId(
+    sessionId: string,
+  ): Promise<SessionReplayInterface | null> {
+    const result = await this.getSessionWithChunkKeys(sessionId);
+    return result ? result.session : null;
+  }
+
+  public async getEventsForChunkKeys(
+    chunkKeys: string[],
   ): Promise<SessionReplayRrwebEvent[]> {
-    // s3Key is the full object key (e.g. .../uuid/0.json.gz); strip the
-    // chunk filename so the S3 listing finds all chunks for the session.
-    const prefix = s3Key.substring(0, s3Key.lastIndexOf("/") + 1);
     const datasource = await getGrowthbookDatasource(this.context);
     const region =
       datasource?.type === "growthbook_clickhouse" &&
       datasource.settings.region === "eu-west-1"
         ? "eu-west-1"
         : "us-east-1";
-    const events = (await getSessionReplayEventsByStoragePrefix(
-      prefix,
+    const events = (await getSessionReplayEventsByChunkKeys(
+      chunkKeys,
       region,
     )) as unknown as SessionReplayRrwebEvent[];
     return events;
@@ -145,7 +176,23 @@ export class SessionReplayModel {
    * Scalars use first-row / max / sum as appropriate; arrays are
    * union-deduped; JSON eval items are concatenated across chunks.
    */
-  private mergeChunks(chunks: SessionReplayRow[]): SessionReplayInterface {
+  private dedupeChunks(chunks: SessionReplayRow[]): SessionReplayRow[] {
+    const deduped = dedupeNewestChunkRows(chunks);
+    if (deduped.length < chunks.length) {
+      logger.warn(
+        {
+          sessionReplayId: chunks[0]?.session_replay_id,
+          rows: chunks.length,
+          chunks: deduped.length,
+        },
+        "session-replay: duplicate chunk indexes; earlier uploads were overwritten",
+      );
+    }
+    return deduped;
+  }
+
+  private mergeChunks(allRows: SessionReplayRow[]): SessionReplayInterface {
+    const chunks = this.dedupeChunks(allRows);
     const base = this.toInterface(chunks[0]);
     if (chunks.length === 1) return base;
 
@@ -159,9 +206,17 @@ export class SessionReplayModel {
         base.lastEventAt = lastEventAt;
         base.dateUpdated = lastEventAt;
       }
-      if (row.duration_ms > base.durationMs) base.durationMs = row.duration_ms;
-      base.eventCount += row.event_count;
-      base.errorCount += row.error_count;
+      const ingestedAt = parseClickHouseDate(row.ingested_at);
+      if (ingestedAt > base.ingestedAt) base.ingestedAt = ingestedAt;
+
+      const durationMs = parseIntWithDefault(row.duration_ms, 0);
+      const eventCount = parseIntWithDefault(row.event_count, 0);
+      const keyEventCount = parseIntWithDefault(row.key_event_count, 0);
+      const errorCount = parseIntWithDefault(row.error_count, 0);
+      if (durationMs > base.durationMs) base.durationMs = durationMs;
+      base.eventCount += eventCount;
+      base.keyEventCount += keyEventCount;
+      base.errorCount += errorCount;
 
       for (const url of row.urls_visited ?? []) {
         if (!base.urlsVisited.includes(url)) base.urlsVisited.push(url);
@@ -181,6 +236,21 @@ export class SessionReplayModel {
     return base;
   }
 
+  private toListInterface(row: SessionReplayListRow): SessionReplayInterface {
+    return {
+      ...this.toInterface({
+        ...row,
+        s3_key: "",
+        chunk_index: 0,
+        urls_visited: [],
+        attributes: {},
+        user_agent: "",
+        feature_keys: [],
+        experiment_keys: [],
+      }),
+    };
+  }
+
   /**
    * The ClickHouse table uses snake_case column names. The
    * `SessionReplayInterface` validator in `shared` uses camelCase. This
@@ -191,6 +261,7 @@ export class SessionReplayModel {
     const startedAt = parseClickHouseDate(row.started_at);
     const endedAt = parseClickHouseDate(row.ended_at);
     const lastEventAt = parseClickHouseDate(row.last_event_at);
+    const ingestedAt = parseClickHouseDate(row.ingested_at);
     const createdAt = parseClickHouseDate(row.created_at);
 
     return {
@@ -205,14 +276,16 @@ export class SessionReplayModel {
       startedAt,
       endedAt,
       lastEventAt,
-      durationMs: row.duration_ms,
-      eventCount: row.event_count,
-      errorCount: row.error_count,
+      ingestedAt,
+      durationMs: parseIntWithDefault(row.duration_ms, 0),
+      eventCount: parseIntWithDefault(row.event_count, 0),
+      keyEventCount: parseIntWithDefault(row.key_event_count, 0),
+      errorCount: parseIntWithDefault(row.error_count, 0),
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",
-      viewportWidth: row.viewport_width ?? 0,
-      viewportHeight: row.viewport_height ?? 0,
+      viewportWidth: parseIntWithDefault(row.viewport_width, 0),
+      viewportHeight: parseIntWithDefault(row.viewport_height, 0),
       attributes: row.attributes ?? {},
       featureKeys: row.feature_keys ?? [],
       experimentKeys: row.experiment_keys ?? [],

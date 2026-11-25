@@ -1,19 +1,19 @@
-import React, {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import React, { useEffect, useRef } from "react";
 import "rrweb-player/dist/style.css";
 import type { eventWithTime } from "@rrweb/types";
 import Player from "rrweb-player";
 
 export type RrwebPlayerHandle = {
   goto: (timeOffsetMs: number) => void;
+  /** Returns false if the batch could not be appended, so the caller can
+   *  surface it rather than silently dropping the events. */
+  appendEvents: (events: eventWithTime[]) => boolean;
 };
 
 type Props = {
-  events: eventWithTime[];
+  initialEvents: eventWithTime[];
+  handleRef?: React.MutableRefObject<RrwebPlayerHandle | null>;
+  onReady?: () => void;
 };
 
 const PLAYER_CONTROLLER_PX = 80;
@@ -45,23 +45,50 @@ function measurePlayerDims(container: HTMLElement | null): {
  *   - "Node with id N not found" comes from multi-FullSnapshot stitching
  *     in sessions that span a page reload
  */
-const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
-  { events },
-  ref,
-) {
+// next/dynamic doesn't forward refs, so we use a regular prop instead.
+function RrwebPlayer({ initialEvents, handleRef, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const playerInstance = useRef<any>(null);
 
-  useImperativeHandle(
-    ref,
-    () => ({
+  const initialEventsRef = useRef(initialEvents);
+
+  useEffect(() => {
+    if (!handleRef) return;
+    handleRef.current = {
       goto: (timeOffsetMs: number) => {
         playerInstance.current?.goto?.(timeOffsetMs);
       },
-    }),
-    [],
-  );
+      appendEvents: (events: eventWithTime[]) => {
+        const inst = playerInstance.current;
+        if (!inst) return false;
+        if (!events.length) return true;
+        const replayer = inst.getReplayer?.();
+        try {
+          if (replayer?.addEvent) {
+            for (let i = 0; i < events.length - 1; i++) {
+              replayer.addEvent(events[i]);
+            }
+            inst.addEvent?.(events[events.length - 1]);
+          } else {
+            events.forEach((e) => inst.addEvent?.(e));
+          }
+        } catch (error) {
+          console.error("Failed to append session replay events", error);
+          return false;
+        }
+        return true;
+      },
+    };
+    return () => {
+      handleRef.current = null;
+    };
+  }, [handleRef]);
+
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -77,7 +104,7 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
     const player = new Player({
       target: containerRef.current,
       props: {
-        events,
+        events: initialEventsRef.current,
         showController: true,
         width: measured.width,
         height: measured.height,
@@ -93,6 +120,8 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
       replayer.config.showWarning = false;
       replayer.config.logger = silentLogger;
     }
+
+    onReadyRef.current?.();
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeTarget =
@@ -134,9 +163,9 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
         console.debug("Error destroying player on teardown:", error);
       }
     };
-  }, [events]);
+  }, []);
 
   return <div ref={containerRef} />;
-});
+}
 
 export default RrwebPlayer;

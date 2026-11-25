@@ -1,5 +1,6 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
+import { _resetSessionForTests } from "../../src/plugins/utils/session";
 
 declare global {
   interface Window {
@@ -52,6 +53,9 @@ describe("autoAttributesPlugin", () => {
     pageTitle: "",
     path: "/",
     query: "",
+    viewportWidth: expect.any(Number),
+    viewportHeight: expect.any(Number),
+    sessionId: expect.any(String),
   };
 
   beforeEach(() => {
@@ -62,6 +66,13 @@ describe("autoAttributesPlugin", () => {
     });
 
     deleteAllCookies();
+    if (typeof sessionStorage.clear === "function") {
+      sessionStorage.clear();
+    }
+    if (typeof localStorage.clear === "function") {
+      localStorage.clear();
+    }
+    _resetSessionForTests();
   });
 
   it("should set initial attributes", async () => {
@@ -83,6 +94,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
+      sessionId: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -90,10 +102,58 @@ describe("autoAttributesPlugin", () => {
       pageTitle: "Test Title",
       path: "/test",
       query: "?hello=world",
+      viewportWidth: expect.any(Number),
+      viewportHeight: expect.any(Number),
     });
 
     gb.destroy();
   });
+
+  it("stores sessionId in localStorage", () => {
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      plugins: [plugin],
+    });
+
+    const stored = JSON.parse(
+      localStorage.getItem("gb_session_id") || "{}",
+    ) as {
+      gb_session_id?: string;
+    };
+    expect(stored.gb_session_id).toBe(gb.getAttributes().sessionId);
+
+    gb.destroy();
+  });
+
+  it("preserves customer session_id while owning sessionId", () => {
+    localStorage.setItem(
+      "gb_session_id",
+      JSON.stringify({
+        gb_session_id: "internal-session-id",
+        createdAt: Date.now(),
+        lastActiveAt: Date.now(),
+      }),
+    );
+
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      attributes: {
+        session_id: "customer-session-id",
+        sessionId: "user-supplied-replay-id",
+      },
+      plugins: [plugin],
+    });
+
+    expect(gb.getAttributes()).toEqual(
+      expect.objectContaining({
+        session_id: "customer-session-id",
+        sessionId: "internal-session-id",
+      }),
+    );
+
+    gb.destroy();
+  });
+
   it("should update attributes on URL change", async () => {
     setWindowURL("http://localhost/test?hello=world");
 
@@ -150,6 +210,7 @@ describe("autoAttributesPlugin", () => {
       "http://localhost/?utm_source=google&utm_medium=cpc&utm_unknown=foo",
     );
 
+    const originalSessionStorage = window.sessionStorage;
     // Mock sessionStorage
     const sessionStorage = {
       getItem: jest.fn(),
@@ -159,7 +220,6 @@ describe("autoAttributesPlugin", () => {
       value: sessionStorage,
       writable: true,
     });
-    const originalSessionStorage = window.sessionStorage;
     window.sessionStorage =
       sessionStorage as unknown as typeof window.sessionStorage;
 
@@ -189,6 +249,7 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
+    // utm_params is the only sessionStorage read; the session uses localStorage
     sessionStorage.getItem.mockReturnValueOnce(
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );

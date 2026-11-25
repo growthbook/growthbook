@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { eventWithTime } from "@rrweb/types";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -7,24 +13,36 @@ import dynamic from "next/dynamic";
 import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
+  PiCaretLeft,
+  PiCaretRight,
   PiCopy,
+  PiCursorClick,
+  PiDesktop,
+  PiDeviceMobile,
+  PiGlobeSimple,
   PiListBullets,
-  PiPlus,
+  PiMapPin,
+  PiRecord,
+  PiTimer,
   PiX,
 } from "react-icons/pi";
+import { DEFAULT_SESSION_LIST_LOOKBACK_DAYS } from "shared/validators";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
+import VariationNumber from "@/ui/VariationNumber";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FilterQueryPopover, {
-  FilterCondition,
-} from "@/components/SessionReplay/FilterQueryPopover";
+import SessionReplaySearchFilters from "@/components/Search/SessionReplaySearchFilters";
+import { useSessionReplayFilters } from "@/hooks/useSessionReplayFilters";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import Custom404 from "@/pages/404";
 
 // rrweb-player accesses `document` at the module level, so it must be
@@ -41,8 +59,10 @@ type SessionReplayRow = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -75,8 +95,10 @@ type SessionMetadata = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -107,13 +129,29 @@ type SessionMetadata = {
 type SessionResponse = {
   events: eventWithTime[];
   metadata: SessionMetadata;
+  chunkCount: number;
 };
+
+// A session is treated as "still recording" when its most recent chunk was
+// ingested within this window. Aligned to the SDK's ~15-min idle timeout — a
+// live recorder flushes on a timer, so a gap longer than the idle timeout
+// means it has almost certainly stopped. Uses ingestedAt (server clock), never
+// lastEventAt (client clock, subject to skew).
+const LIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+function isSessionLive(ingestedAt: string | undefined): boolean {
+  if (!ingestedAt) return false;
+  const t = new Date(ingestedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < LIVE_THRESHOLD_MS;
+}
 
 type EvaluationEntry = {
   timestamp: number;
   kind: "flag" | "exp" | "event";
   label: string;
   formattedMessage: string;
+  variationId?: number;
 };
 
 function formatDuration(ms: number): string {
@@ -204,7 +242,8 @@ function buildEvaluationsFromMetadata(
       timestamp: toMs(item.timestamp),
       kind: "exp",
       label: item.key,
-      formattedMessage: `${item.key} → variation ${variationId ?? "?"}`,
+      formattedMessage: item.key,
+      variationId: typeof variationId === "number" ? variationId : undefined,
     });
   }
 
@@ -221,32 +260,25 @@ function buildEvaluationsFromMetadata(
   return entries;
 }
 
-const FILTER_LABELS: Record<string, string> = {
-  userId: "user",
-  clientKey: "client",
-  url: "url",
-  country: "country",
-  device: "device",
-  durationMinSecs: "duration ≥",
-  durationMaxSecs: "duration ≤",
-  eventCountMin: "events ≥",
-  eventCountMax: "events ≤",
-  featureKey: "flag",
-  experimentKey: "experiment",
-};
-
 export default function SessionReplayPage() {
   const gb = useGrowthBook();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
+  const permissionsUtil = usePermissionsUtil();
 
   const router = useRouter();
   const { apiCall } = useAuth();
   const { project } = useDefinitions();
 
+  // Re-evaluate isSessionLive every 60s so Recording badges expire
+  const [, liveTick] = useIncrementer();
+  useEffect(() => {
+    const id = setInterval(liveTick, 60_000);
+    return () => clearInterval(id);
+  }, [liveTick]);
+
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
-  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const page = useMemo(() => {
     const raw = router.query.page;
@@ -264,65 +296,48 @@ export default function SessionReplayPage() {
     }
   }, [selectedSessionId]);
 
-  const FILTER_KEYS = [
-    "userId",
-    "clientKey",
-    "url",
-    "country",
-    "device",
-    "durationMinSecs",
-    "durationMaxSecs",
-    "eventCountMin",
-    "eventCountMax",
-    "featureKey",
-    "experimentKey",
-  ] as const;
+  // ---- search / filters ----------------------------------------------------
+  const {
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+    queryParams,
+    droppedFilters,
+  } = useSessionReplayFilters(router, project);
+
+  const activeRangeLabel = useMemo(() => {
+    const { dateAfter, dateBefore } = queryParams;
+    if (dateAfter && dateBefore) return `${dateAfter} to ${dateBefore}`;
+    if (dateAfter) return `since ${dateAfter}`;
+    // The lookback anchors to the end of the range, so an upper bound alone
+    // still covers only that window — saying "up to" would imply everything
+    // before it.
+    if (dateBefore)
+      return `${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days before ${dateBefore}`;
+    return `last ${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days`;
+  }, [queryParams]);
+
+  const isDefaultRange = !queryParams.dateAfter && !queryParams.dateBefore;
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
     if (project) params.set("project", project);
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) {
-        params.set(key, val);
-      }
+    for (const [k, v] of Object.entries(queryParams)) {
+      if (v) params.set(k, v);
     }
     return params.toString();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, project, ...FILTER_KEYS.map((k) => router.query[k])]);
+  }, [page, project, queryParams]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
+    hasMore: boolean;
   }>(`/session-replay?${queryString}`);
 
   const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
-  const hasNextPage = sessions.length === 100;
-
-  /** Read all current filter values from the URL. */
-  const currentFilters = useMemo(() => {
-    const result: Record<string, string> = {};
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) result[key] = val;
-    }
-    return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...FILTER_KEYS.map((k) => router.query[k])]);
-
-  const updateRouteQuery = (
-    filters: Record<string, string>,
-    opts: { page: number; sessionId?: string },
-  ) => {
-    const query: Record<string, string> = { page: String(opts.page) };
-    for (const [k, v] of Object.entries(filters)) {
-      if (v) query[k] = v;
-    }
-    if (opts.sessionId) query.sessionId = opts.sessionId;
-    void router.push({ pathname: "/session-replay", query }, undefined, {
-      shallow: true,
-    });
-  };
+  // From the server, which over-fetches a row. Counting rows here would offer
+  // an empty next page whenever the result is an exact multiple of the page size.
+  const hasNextPage = !!sessionsData?.hasMore;
 
   // Clear selected session when project changes so a session from another
   // project doesn't stay visible after switching.
@@ -341,70 +356,38 @@ export default function SessionReplayPage() {
     }
   }, [project, selectedSessionId, router]);
 
-  /** Map a FilterCondition from the popover to route query params. */
-  const conditionToParams = (c: FilterCondition): Record<string, string> => {
-    if (c.property === "durationMs") {
-      if (c.operator === "gte") return { durationMinSecs: c.value };
-      if (c.operator === "lte") return { durationMaxSecs: c.value };
-      return { durationMinSecs: c.value, durationMaxSecs: c.value };
-    }
-    if (c.property === "eventCount") {
-      if (c.operator === "gte") return { eventCountMin: c.value };
-      if (c.operator === "lte") return { eventCountMax: c.value };
-      return { eventCountMin: c.value, eventCountMax: c.value };
-    }
-    if (c.property.startsWith("featureKey:")) {
-      return { featureKey: c.property.split(":")[1] };
-    }
-    if (c.property.startsWith("experimentKey:")) {
-      return { experimentKey: c.property.split(":")[1] };
-    }
-    return { [c.property]: c.value };
-  };
-
-  const onAddFilter = (condition: FilterCondition) => {
-    const newParams = conditionToParams(condition);
-    updateRouteQuery(
-      { ...currentFilters, ...newParams },
-      { page: 1, sessionId: selectedSessionId },
-    );
-  };
-
-  const clearFilters = () => {
-    updateRouteQuery({}, { page: 1, sessionId: selectedSessionId });
-  };
-
   const goToPage = (nextPage: number) => {
-    updateRouteQuery(currentFilters, {
-      page: nextPage,
-      sessionId: selectedSessionId,
+    const query: Record<string, string> = {
+      page: String(nextPage),
+      ...queryParams,
+    };
+    if (selectedSessionId) query.sessionId = selectedSessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
     });
   };
 
   const selectSession = (sessionId: string) => {
-    updateRouteQuery(currentFilters, { page, sessionId });
-  };
-
-  // ---- active filter chips -------------------------------------------------
-  const activeFilters = useMemo(() => {
-    const chips: { key: string; label: string }[] = [];
-    for (const [key, val] of Object.entries(currentFilters)) {
-      const prefix = FILTER_LABELS[key] ?? key;
-      chips.push({ key, label: `${prefix}: ${val}` });
-    }
-    return chips;
-  }, [currentFilters]);
-
-  const removeFilter = (key: string) => {
-    const next = { ...currentFilters };
-    delete next[key];
-    updateRouteQuery(next, { page: 1, sessionId: selectedSessionId });
+    const query: Record<string, string> = {
+      page: String(page),
+      ...queryParams,
+    };
+    query.sessionId = sessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
+    });
   };
 
   // ---- player / chunk loading ----------------------------------------------
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [events, setEvents] = useState<eventWithTime[] | null>(null);
+  const [pendingAppend, setPendingAppend] = useState<eventWithTime[] | null>(
+    null,
+  );
+  const [playerReady, setPlayerReady] = useState(false);
+  const handlePlayerReady = useCallback(() => setPlayerReady(true), []);
+  const [partialLoadError, setPartialLoadError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
@@ -421,6 +404,9 @@ export default function SessionReplayPage() {
       setEvaluations([]);
       setFirstEvent(null);
       setPlayerError(null);
+      setPendingAppend(null);
+      setPlayerReady(false);
+      setPartialLoadError(null);
       return;
     }
     // Clear previous session's state synchronously before the new fetch
@@ -433,34 +419,69 @@ export default function SessionReplayPage() {
     setMetadata(null);
     setEvaluations([]);
     setFirstEvent(null);
+    setPendingAppend(null);
+    setPlayerReady(false);
+    setPartialLoadError(null);
     let cancelled = false;
     setPlayerLoading(true);
     setPlayerError(null);
 
+    const fetchChunks = async (query: string) => {
+      const response = await apiCall<
+        SessionResponse | { status?: number; message?: string }
+      >(`/session-replay/${selectedSessionId}?${query}`, { method: "GET" });
+
+      if (
+        !response ||
+        !("events" in response) ||
+        !Array.isArray(response.events)
+      ) {
+        const msg =
+          response && "message" in response && response.message
+            ? response.message
+            : "unexpected response shape";
+        throw new Error(`/session-replay/${selectedSessionId} failed: ${msg}`);
+      }
+      return response;
+    };
+
+    const loadRemainingChunks = async () => {
+      try {
+        const rest = await fetchChunks("fromChunk=1");
+        if (cancelled) return;
+        setPendingAppend(rest.events);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Failed to load remaining session replay chunks", e);
+        setPartialLoadError(
+          "Couldn't load the rest of this session. Playback will stop early — reload to try again.",
+        );
+      }
+    };
+
     const load = async () => {
       try {
-        const response = await apiCall<
-          SessionResponse | { status?: number; message?: string }
-        >(`/session-replay/${selectedSessionId}`, { method: "GET" });
-
+        const first = await fetchChunks("maxChunks=1");
         if (cancelled) return;
 
-        if (
-          !response ||
-          !("events" in response) ||
-          !Array.isArray(response.events)
-        ) {
-          const msg =
-            response && "message" in response && response.message
-              ? response.message
-              : "unexpected response shape";
-          throw new Error(
-            `/session-replay/${selectedSessionId} failed: ${msg}`,
-          );
+        setMetadata(first.metadata);
+
+        const hasMore = first.chunkCount > 1;
+        if (!hasMore) {
+          setEvents(first.events);
+          return;
         }
 
-        setMetadata(response.metadata);
-        setEvents(response.events);
+        if (getReplayBlockReason(first.events)) {
+          const rest = await fetchChunks("fromChunk=1");
+          if (cancelled) return;
+          setEvents([...first.events, ...rest.events]);
+          return;
+        }
+
+        setEvents(first.events);
+        setPlayerLoading(false);
+        void loadRemainingChunks();
       } catch (e) {
         if (cancelled) return;
 
@@ -482,26 +503,40 @@ export default function SessionReplayPage() {
   }, [apiCall, selectedSessionId]);
 
   useEffect(() => {
-    if (!events) {
-      setFirstEvent(null);
-      setEvaluations([]);
-      return;
+    if (!pendingAppend?.length || !playerReady) return;
+    const handle = playerHandle.current;
+    if (!handle) return;
+    if (handle.appendEvents(pendingAppend)) {
+      setPendingAppend(null);
+    } else {
+      setPartialLoadError(
+        "Couldn't load all of this session. Playback may stop early — reload to try again.",
+      );
     }
-    const blockReason = getReplayBlockReason(events);
-    if (blockReason) {
-      setPlayerError(blockReason);
+  }, [pendingAppend, playerReady]);
+
+  // Derived during render, not in an effect: React flushes child effects
+  // before parent ones, so an effect here runs *after* RrwebPlayer has already
+  // constructed the Replayer — too late to stop rrweb throwing on an
+  // unplayable session. The render below has to gate on this instead.
+  const blockReason = useMemo(
+    () => (events ? getReplayBlockReason(events) : null),
+    [events],
+  );
+
+  useEffect(() => {
+    if (!events || blockReason) {
       setFirstEvent(null);
       setEvaluations([]);
       return;
     }
 
-    setPlayerError(null);
     setFirstEvent(events[0]);
 
     if (metadata) {
       setEvaluations(buildEvaluationsFromMetadata(metadata));
     }
-  }, [events, metadata]);
+  }, [events, metadata, blockReason]);
 
   const jumpToEvent = (timestamp: number) => {
     const offset = firstEvent?.timestamp || 0;
@@ -535,7 +570,7 @@ export default function SessionReplayPage() {
     if (sessionId) void navigator.clipboard.writeText(sessionId);
   };
 
-  if (!sessionReplayEnabled) {
+  if (!sessionReplayEnabled || !permissionsUtil.canViewSessionReplay({})) {
     return <Custom404 />;
   }
 
@@ -558,8 +593,9 @@ export default function SessionReplayPage() {
             width: 36,
             flexShrink: 0,
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "center",
+            paddingTop: 16,
           }}
         >
           <Button
@@ -595,7 +631,7 @@ export default function SessionReplayPage() {
                 Recorded Sessions
               </Text>
               <Text color="text-mid" size="sm" as="div">
-                Select a session to begin playback
+                Showing {activeRangeLabel}
               </Text>
             </Box>
             <Button
@@ -611,54 +647,20 @@ export default function SessionReplayPage() {
             </Button>
           </Flex>
 
-          {/* Filter popover + chips */}
+          {/* Search bar + filter dropdowns */}
           <Box mt="2">
-            <Flex align="center" gap="2" wrap="wrap">
-              <FilterQueryPopover
-                open={filterPopoverOpen}
-                onOpenChange={setFilterPopoverOpen}
-                onAdd={onAddFilter}
-                sessions={sessions}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<PiPlus />}
-                    onClick={() => setFilterPopoverOpen(true)}
-                  >
-                    Add filter
-                  </Button>
-                }
+            <TextField
+              placeholder="Search filters (e.g. user:alice duration:>30)"
+              type="search"
+              {...searchInputProps}
+            />
+            <Flex mt="2" wrap="wrap">
+              <SessionReplaySearchFilters
+                searchInputProps={searchInputProps}
+                syntaxFilters={syntaxFilters}
+                setSearchValue={setSearchValue}
               />
-              {activeFilters.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={clearFilters}>
-                  Clear
-                </Button>
-              )}
             </Flex>
-            {activeFilters.length > 0 && (
-              <Flex gap="1" wrap="wrap" mt="2">
-                {activeFilters.map((chip) => (
-                  <Badge
-                    key={chip.key}
-                    label={
-                      <Flex
-                        align="center"
-                        gap="1"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => removeFilter(chip.key)}
-                      >
-                        {chip.label}
-                        <PiX style={{ fontSize: 10, opacity: 0.7 }} />
-                      </Flex>
-                    }
-                    size="xs"
-                    variant="soft"
-                    radius="full"
-                  />
-                ))}
-              </Flex>
-            )}
           </Box>
 
           {/* Session list */}
@@ -672,6 +674,20 @@ export default function SessionReplayPage() {
               paddingTop: 8,
             }}
           >
+            {droppedFilters.truncated.length > 0 && (
+              <Callout status="warning">
+                Too many values selected for{" "}
+                {droppedFilters.truncated.join(", ")} — some were left out of
+                the filter.
+              </Callout>
+            )}
+            {droppedFilters.negated.length > 0 && (
+              <Callout status="warning">
+                Session replay search cannot exclude values, so the{" "}
+                {droppedFilters.negated.join(", ")} exclusion
+                {droppedFilters.negated.length > 1 ? "s were" : " was"} ignored.
+              </Callout>
+            )}
             {sessionsError && (
               <Callout status="warning">Failed to load sessions</Callout>
             )}
@@ -680,7 +696,9 @@ export default function SessionReplayPage() {
             )}
             {sessionsData && sessions.length === 0 && (
               <Text color="text-mid">
-                No matching sessions for the current filters.
+                {isDefaultRange
+                  ? `No sessions in the last ${DEFAULT_SESSION_LIST_LOOKBACK_DAYS} days. Add a date filter to look further back.`
+                  : "No matching sessions for the current filters."}
               </Text>
             )}
             {sessionsData &&
@@ -738,13 +756,102 @@ export default function SessionReplayPage() {
                         </span>
                       </Text>
                     </Box>
-                    <Flex gap="3" mt="1">
-                      <Text color="text-low" size="sm">
-                        ⌁ {session.eventCount} events
+                    {session.urlFirst && (
+                      <Text
+                        size="sm"
+                        color="text-mid"
+                        weight="medium"
+                        truncate={true}
+                        mt="1"
+                      >
+                        URL: {session.urlFirst}
                       </Text>
-                      <Text color="text-low" size="sm">
-                        ⏱ {formatDuration(session.durationMs)}
-                      </Text>
+                    )}
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
+                      <Flex align="center" gap="1" asChild>
+                        <Text color="text-low" size="sm">
+                          <PiCursorClick aria-hidden />
+                          {session.keyEventCount.toLocaleString()} key events
+                        </Text>
+                      </Flex>
+                      <Flex align="center" gap="1" asChild>
+                        <Text color="text-low" size="sm">
+                          <PiTimer aria-hidden />
+                          {formatDuration(session.durationMs)}
+                        </Text>
+                      </Flex>
+                      {session.errorCount > 0 && (
+                        <Badge
+                          label={`${session.errorCount} error${
+                            session.errorCount === 1 ? "" : "s"
+                          }`}
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
+                      {isSessionLive(session.ingestedAt) && (
+                        <Badge
+                          label={
+                            <Flex align="center" gap="1">
+                              <PiRecord aria-hidden /> Recording
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
+                    </Flex>
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
+                      {session.browser && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiGlobeSimple size={12} />
+                              {session.browser}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.device && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              {session.device.toLowerCase() === "mobile" ? (
+                                <PiDeviceMobile size={12} />
+                              ) : (
+                                <PiDesktop size={12} />
+                              )}
+                              {session.device}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.country && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiMapPin size={12} />
+                              {session.country}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
                     </Flex>
                   </Box>
                 );
@@ -762,16 +869,20 @@ export default function SessionReplayPage() {
                 variant="outline"
                 disabled={page <= 1}
                 onClick={() => goToPage(page - 1)}
+                aria-label="Previous page"
               >
-                ‹
+                <PiCaretLeft aria-hidden />
               </Button>
-              <Button variant="ghost">{page}</Button>
+              <Text size="sm" weight="medium">
+                <span aria-current="page">{page}</span>
+              </Text>
               <Button
                 variant="outline"
                 disabled={!hasNextPage}
                 onClick={() => goToPage(page + 1)}
+                aria-label="Next page"
               >
-                ›
+                <PiCaretRight aria-hidden />
               </Button>
             </Flex>
           </Flex>
@@ -852,10 +963,44 @@ export default function SessionReplayPage() {
               </Flex>
               <Flex gap="1" align="center">
                 <Text weight="medium" color="text-high">
-                  Events
+                  Key events
                 </Text>
-                <Text color="text-low">{metadata?.eventCount ?? "—"}</Text>
+                <Text color="text-low">
+                  {metadata?.keyEventCount?.toLocaleString() ?? "—"}
+                </Text>
+                {metadata ? (
+                  <Text color="text-low" size="sm" ml="1">
+                    ({metadata.eventCount.toLocaleString()} total)
+                  </Text>
+                ) : null}
               </Flex>
+              {metadata && metadata.errorCount > 0 && (
+                <Flex gap="1" align="center">
+                  <Text weight="medium" color="text-high">
+                    Errors
+                  </Text>
+                  <Badge
+                    label={metadata.errorCount.toLocaleString()}
+                    size="sm"
+                    variant="soft"
+                    color="red"
+                    radius="full"
+                  />
+                </Flex>
+              )}
+              {isSessionLive(metadata?.ingestedAt) && (
+                <Badge
+                  label={
+                    <Flex align="center" gap="1">
+                      <PiRecord aria-hidden /> Recording
+                    </Flex>
+                  }
+                  size="sm"
+                  variant="soft"
+                  color="red"
+                  radius="full"
+                />
+              )}
               {/* Evaluations toggle — pushed to far right */}
               <Box style={{ marginLeft: "auto" }}>
                 <Button
@@ -894,7 +1039,7 @@ export default function SessionReplayPage() {
             position: "relative",
           }}
         >
-          {!selectedSessionId || playerLoading || playerError ? (
+          {!selectedSessionId || playerLoading || playerError || blockReason ? (
             <Flex
               align="center"
               justify="center"
@@ -905,21 +1050,43 @@ export default function SessionReplayPage() {
                   Select a session on the left to begin playback.
                 </Text>
               )}
-              {selectedSessionId && playerError && (
+              {selectedSessionId && (playerError || blockReason) && (
                 <Box style={{ maxWidth: 480, padding: 16 }}>
-                  <Callout status="warning">{playerError}</Callout>
+                  <Callout status="warning">
+                    {playerError || blockReason}
+                  </Callout>
                 </Box>
               )}
-              {selectedSessionId && playerLoading && !playerError && (
-                <Text color="text-mid">Loading session data…</Text>
-              )}
+              {selectedSessionId &&
+                playerLoading &&
+                !playerError &&
+                !blockReason && (
+                  <Text color="text-mid">Loading session data…</Text>
+                )}
             </Flex>
           ) : events ? (
-            <RrwebPlayer
-              key={selectedSessionId}
-              events={events}
-              ref={playerHandle}
-            />
+            <>
+              <RrwebPlayer
+                key={selectedSessionId}
+                initialEvents={events}
+                handleRef={playerHandle}
+                onReady={handlePlayerReady}
+              />
+              {partialLoadError && (
+                <Box
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    maxWidth: 480,
+                    zIndex: 2,
+                  }}
+                >
+                  <Callout status="warning">{partialLoadError}</Callout>
+                </Box>
+              )}
+            </>
           ) : null}
         </Box>
 
@@ -1013,78 +1180,91 @@ export default function SessionReplayPage() {
               </Tabs>
             </Box>
 
-            {/* Evaluation rows */}
+            {/* Content rows */}
             <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-              {selectedSessionId &&
-                events &&
-                visibleEvaluations.length === 0 && (
+              <>
+                {selectedSessionId &&
+                  events &&
+                  visibleEvaluations.length === 0 && (
+                    <Box style={{ padding: "12px 16px" }}>
+                      <Text size="sm" color="text-low" weight="regular">
+                        No evaluations recorded for this session.
+                      </Text>
+                    </Box>
+                  )}
+                {!events && !playerError && selectedSessionId && (
                   <Box style={{ padding: "12px 16px" }}>
                     <Text size="sm" color="text-low" weight="regular">
-                      No evaluations recorded for this session.
+                      Loading evaluations…
                     </Text>
                   </Box>
                 )}
-              {!events && !playerError && selectedSessionId && (
-                <Box style={{ padding: "12px 16px" }}>
-                  <Text size="sm" color="text-low" weight="regular">
-                    Loading evaluations…
-                  </Text>
-                </Box>
-              )}
-              {visibleEvaluations.map((evt, index) => (
-                <Flex
-                  key={index}
-                  align="center"
-                  justify="between"
-                  gap="2"
-                  onClick={() => jumpToEvent(evt.timestamp)}
-                  style={{
-                    padding: "0 16px",
-                    height: 49,
-                    borderBottom: "1px solid var(--slate-a3)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      as="div"
-                      size="md"
-                      weight="semibold"
-                      color="text-high"
-                      truncate={true}
-                    >
-                      {evt.formattedMessage}
-                    </Text>
-                    <Text as="div" size="sm" weight="regular" color="text-low">
-                      {(() => {
-                        const d = new Date(evt.timestamp);
-                        return isNaN(d.getTime()) ? "" : d.toLocaleString();
-                      })()}
-                    </Text>
-                  </Box>
-                  <Badge
-                    label={
-                      evt.kind === "flag"
-                        ? "Flag"
-                        : evt.kind === "exp"
-                          ? "Exp"
-                          : "Event"
-                    }
-                    size="xs"
-                    variant="soft"
-                    color={
-                      evt.kind === "flag"
-                        ? "indigo"
-                        : evt.kind === "exp"
-                          ? "violet"
-                          : "amber"
-                    }
-                    radius="full"
-                    style={{ flexShrink: 0 }}
-                  />
-                </Flex>
-              ))}
+                {visibleEvaluations.map((evt, index) => (
+                  <Flex
+                    key={index}
+                    align="center"
+                    justify="between"
+                    gap="2"
+                    onClick={() => jumpToEvent(evt.timestamp)}
+                    style={{
+                      padding: "0 16px",
+                      height: 49,
+                      borderBottom: "1px solid var(--slate-a3)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Flex align="center" gap="1">
+                        <Text
+                          as="div"
+                          size="md"
+                          weight="semibold"
+                          color="text-high"
+                          truncate={true}
+                        >
+                          {evt.formattedMessage}
+                        </Text>
+                        {evt.kind === "exp" &&
+                          typeof evt.variationId === "number" && (
+                            <VariationNumber number={evt.variationId} />
+                          )}
+                      </Flex>
+                      <Text
+                        as="div"
+                        size="sm"
+                        weight="regular"
+                        color="text-low"
+                      >
+                        {(() => {
+                          const d = new Date(evt.timestamp);
+                          return isNaN(d.getTime()) ? "" : d.toLocaleString();
+                        })()}
+                      </Text>
+                    </Box>
+                    <Badge
+                      label={
+                        evt.kind === "flag"
+                          ? "Feature Flag"
+                          : evt.kind === "exp"
+                            ? "Experiment"
+                            : "Event"
+                      }
+                      size="xs"
+                      variant="soft"
+                      color={
+                        evt.kind === "flag"
+                          ? "indigo"
+                          : evt.kind === "exp"
+                            ? "violet"
+                            : "amber"
+                      }
+                      radius="full"
+                      style={{ flexShrink: 0 }}
+                    />
+                  </Flex>
+                ))}
+              </>
             </Box>
           </div>
         )}

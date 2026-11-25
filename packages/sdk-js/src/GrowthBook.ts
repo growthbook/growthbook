@@ -3,6 +3,7 @@ import type {
   ApiHost,
   Attributes,
   AutoExperiment,
+  TrackingUserContext,
   AutoExperimentVariation,
   ClientKey,
   Options,
@@ -100,6 +101,7 @@ export class GrowthBook<
   private _subscriptions: Set<SubscriptionFunction>;
   private _featureUsageSubs: Set<FeatureUsageSubCallback>;
   private _customEventSubs: Set<CustomEventSubCallback>;
+  private _payloadUpdateSubs: Set<() => void>;
   private _experimentViewedSubs: Set<ExperimentViewedSubCallback>;
   private _assigned: Map<
     string,
@@ -128,6 +130,15 @@ export class GrowthBook<
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
 
+  // Bounded buffer for events logged before an eventLogger is registered
+  private _pendingEvents: Array<{
+    eventName: string;
+    properties?: EventProperties;
+    userContext?: Partial<TrackingUserContext>;
+  }> = [];
+  private static _MAX_PENDING_EVENTS = 100;
+  private _warnedNoEventLogger?: boolean;
+
   constructor(options?: Options<NoInferType<AppAttributes>>) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
@@ -142,6 +153,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this._featureUsageSubs = new Set();
     this._customEventSubs = new Set();
+    this._payloadUpdateSubs = new Set();
     this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
@@ -258,6 +270,17 @@ export class GrowthBook<
     }
     this.ready = true;
     this._render();
+    this._notifyPayloadUpdate();
+  }
+
+  private _notifyPayloadUpdate() {
+    this._payloadUpdateSubs.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(e);
+      }
+    });
   }
 
   public initSync(options: InitSyncOptions<AppFeatures>): this {
@@ -299,6 +322,7 @@ export class GrowthBook<
     }
 
     this.ready = true;
+    this._notifyPayloadUpdate();
 
     startBackgroundSync(this, options);
 
@@ -607,6 +631,18 @@ export class GrowthBook<
   }
 
   // Internal — first-party plugin use only.
+  public _updateAttributesWithoutRefresh(attributes: Attributes) {
+    this._options.attributes = { ...this._options.attributes, ...attributes };
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires after every setPayload() so plugins can react to remote settings.
+  public _subscribePayloadUpdates(cb: () => void): () => void {
+    this._payloadUpdateSubs.add(cb);
+    return () => this._payloadUpdateSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
   // The two gates runExperiment applies (core.ts): `enabled: false` turns
   // experiments off, qaMode keeps QA users out of them and out of tracking.
   // A forced feature rule never reaches runExperiment, so a plugin that assigns
@@ -616,8 +652,8 @@ export class GrowthBook<
   }
 
   // Internal — first-party plugin use only.
-  // Whether logEvent would reach anything. Without it logEvent logs an error of
-  // its own, which a plugin logging per impression would repeat endlessly.
+  // Whether logEvent would reach anything. Without it a plugin logging per
+  // impression would fill the pending-event buffer with events nobody consumes.
   public _hasEventConsumer(): boolean {
     return (
       !!this._options.eventLogger ||
@@ -667,7 +703,9 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();
+    this._payloadUpdateSubs.clear();
     this._experimentViewedSubs.clear();
+    this._pendingEvents = [];
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -1093,12 +1131,35 @@ export class GrowthBook<
     this.fireDeferredTrackingCalls();
   }
 
+  public getTrackingCallback(): TrackingCallback | undefined {
+    return this._options.trackingCallback;
+  }
+
   public setFeatureUsageCallback(callback: FeatureUsageCallback) {
     this._options.onFeatureUsage = callback;
   }
 
   public setEventLogger(logger: EventLogger) {
     this._options.eventLogger = logger;
+    // Flush any events buffered before a logger was registered
+    // Hand buffered events straight to the logger — they already went
+    // through logEvent's devtools/subscriber hooks when first logged
+    if (this._pendingEvents.length) {
+      const pending = this._pendingEvents;
+      this._pendingEvents = [];
+      for (const { eventName, properties, userContext } of pending) {
+        try {
+          Promise.resolve(
+            logger(eventName, properties || {}, {
+              ...getTrackingUserContext(this._getUserContext()),
+              ...userContext,
+            }),
+          ).catch((e) => console.error(e));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
   }
 
   // Event names and properties are checked against the registered events
@@ -1106,7 +1167,19 @@ export class GrowthBook<
     eventName: K,
     ...args: EventArgs<RegisteredEvents[K]>
   ): Promise<void>;
-  public async logEvent(eventName: string, properties?: EventProperties) {
+  // userContext overrides fields of the instance's own context for this event
+  // (e.g. the url of a page already navigated away from), mirroring
+  // GrowthBookClient.logEvent
+  public logEvent<K extends string & keyof RegisteredEvents>(
+    eventName: K,
+    properties: RegisteredEvents[K],
+    userContext: Partial<TrackingUserContext>,
+  ): Promise<void>;
+  public async logEvent(
+    eventName: string,
+    properties?: EventProperties,
+    userContext?: Partial<TrackingUserContext>,
+  ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
@@ -1130,16 +1203,30 @@ export class GrowthBook<
     }
     if (this._options.eventLogger) {
       try {
-        await this._options.eventLogger(
-          eventName,
-          properties || {},
-          getTrackingUserContext(this._getUserContext()),
-        );
+        await this._options.eventLogger(eventName, properties || {}, {
+          ...getTrackingUserContext(this._getUserContext()),
+          ...userContext,
+        });
       } catch (e) {
         console.error(e);
       }
-    } else if (!this._options.enableDevMode && !this._customEventSubs.size) {
-      console.error("No event logger configured");
+    } else {
+      // Buffer for a logger registered later (e.g. plugin-order race);
+      // drop the oldest when over cap. Supersedes the old "No event logger
+      // configured" error, which dropped the event outright.
+      this._pendingEvents.push({ eventName, properties, userContext });
+      if (this._pendingEvents.length > GrowthBook._MAX_PENDING_EVENTS) {
+        this._pendingEvents.shift();
+      }
+      if (!this._warnedNoEventLogger) {
+        this._warnedNoEventLogger = true;
+        console.warn(
+          "GrowthBook: logEvent called before an event logger was registered. " +
+            "Events are being buffered (up to " +
+            GrowthBook._MAX_PENDING_EVENTS +
+            ") and will flush when setEventLogger is called.",
+        );
+      }
     }
   }
 

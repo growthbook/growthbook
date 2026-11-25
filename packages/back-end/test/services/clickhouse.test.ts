@@ -10,6 +10,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import {
   listSessionReplays,
+  MAX_SESSION_PAGE_SIZE,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
 import {
@@ -87,46 +88,226 @@ describe("listSessionReplays", () => {
     mockGetGrowthbookDatasource.mockResolvedValue(datasource);
   });
 
-  it("adds supported session replay filters to the ClickHouse query", async () => {
+  const FROZEN_NOW = new Date("2026-11-20T12:00:00.000Z");
+
+  function runQueryMock() {
     const runQuery = jest.fn().mockResolvedValue({ rows: [] });
     mockGetSourceIntegrationObject.mockReturnValue({
       runQuery,
+      getSqlDialect: () => ({
+        escapeStringLiteral: (v: string) =>
+          v.replace(/\\/g, "\\\\").replace(/'/g, "''"),
+      }),
     } as never);
+    return runQuery;
+  }
 
-    await listSessionReplays(context, {
-      userId: "user'1",
-      clientKey: "ck_1",
-      url: "https://example.com/path",
-      country: "US",
-      device: "desktop",
-      minDurationSecs: 1.25,
-      maxDurationSecs: 10,
-      minEventCount: 5,
-      maxEventCount: 25,
-      featureKey: "flag'one",
-      experimentKey: "exp_one",
-      limit: 50,
-      offset: 100,
-    });
+  it("adds supported session replay filters to the ClickHouse query", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(
+      context,
+      {
+        userId: "user'1",
+        clientKey: "ck_1",
+        url: "https://example.com/path",
+        country: ["US"],
+        device: ["desktop"],
+        minDurationSecs: 1.25,
+        maxDurationSecs: 10,
+        minEventCount: 5,
+        maxEventCount: 25,
+        featureKey: ["flag'one"],
+        experimentKey: ["exp_one"],
+        dateAfter: "2026-07-01",
+        dateBefore: "2026-07-21",
+        limit: 50,
+        offset: 100,
+      },
+      FROZEN_NOW,
+    );
 
     expect(runQuery).toHaveBeenCalledTimes(1);
     const query = runQuery.mock.calls[0][0] as string;
-    expect(query).toContain("deleted_at IS NULL");
-    expect(query).toContain("user_id = 'user\\'1'");
+
+    expect(query).toContain("FROM session_replay_metadata");
+    // Aggregated over a deduped subquery aliased m, not the table directly.
+    expect(query).toContain(") AS m");
+    expect(query).toContain("GROUP BY m.session_replay_id");
+    expect(query).toContain("LIMIT 1 BY session_replay_id, chunk_index");
+    expect(query).toContain("HAVING max(m.deleted_at) IS NULL");
+    expect(query).toContain("ORDER BY min(m.started_at) DESC");
+
+    // Chunk-invariant filters prune before the grouping.
     expect(query).toContain("client_key = 'ck_1'");
+    expect(query).toContain(`${"min(m.started_at)"} >= '2026-07-01'`);
+    expect(query).toContain(`${"min(m.started_at)"} < '2026-07-22'`);
+
+    // Everything computed across chunks is evaluated after it.
+    expect(query).toContain("max(m.user_id = 'user''1') = 1");
+    expect(query).toContain("max(m.duration_ms) >= 1250");
+    expect(query).toContain("max(m.duration_ms) <= 10000");
+    expect(query).toContain("sum(m.event_count) >= 5");
+    expect(query).toContain("sum(m.event_count) <= 25");
+    expect(query).toContain("max(has(m.feature_keys, 'flag''one')) = 1");
+    expect(query).toContain("max(has(m.experiment_keys, 'exp_one')) = 1");
+    expect(query).toContain("any(m.country) = 'US'");
+    expect(query).toContain("any(m.device) = 'desktop'");
     expect(query).toContain(
-      "positionCaseInsensitive(url_first, 'https://example.com/path') > 0",
+      "positionCaseInsensitive(argMin(m.url_first, m.chunk_index), 'https://example.com/path') > 0",
     );
-    expect(query).toContain("country = 'US'");
-    expect(query).toContain("device = 'desktop'");
-    expect(query).toContain("duration_ms >= 1250");
-    expect(query).toContain("duration_ms <= 10000");
-    expect(query).toContain("event_count >= 5");
-    expect(query).toContain("event_count <= 25");
-    expect(query).toContain("has(feature_keys, 'flag\\'one')");
-    expect(query).toContain("has(experiment_keys, 'exp_one')");
+
     expect(query).toContain("LIMIT 50");
     expect(query).toContain("OFFSET 100");
+  });
+
+  // Filtering below the GROUP BY removes rows from the aggregate state, so a
+  // session that loses chunks to a filter reports wrong totals. Only columns
+  // that are identical on every chunk may be pushed down.
+  it("keeps chunk-varying predicates after the GROUP BY", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(
+      context,
+      {
+        userId: "u1",
+        url: "example.com",
+        country: ["US"],
+        device: ["desktop"],
+        minDurationSecs: 1,
+        minEventCount: 1,
+        featureKey: ["f1"],
+        experimentKey: ["e1"],
+        clientKeys: ["ck_1"],
+        dateAfter: "2026-07-01",
+      },
+      FROZEN_NOW,
+    );
+
+    const query = runQuery.mock.calls[0][0] as string;
+    // These aggregates also appear in the projection, so compare against the
+    // clause sections rather than the first occurrence anywhere.
+    const whereClause = query.slice(
+      query.indexOf("WHERE"),
+      query.indexOf("GROUP BY"),
+    );
+    const havingClause = query.slice(query.indexOf("HAVING"));
+
+    for (const pushedDown of ["client_key IN"]) {
+      expect(whereClause).toContain(pushedDown);
+    }
+    for (const afterGrouping of [
+      "max(m.deleted_at)",
+      "max(m.duration_ms)",
+      "sum(m.event_count)",
+      "max(has(m.feature_keys",
+      "max(has(m.experiment_keys",
+      "max(m.user_id =",
+      "any(m.country)",
+      "any(m.device)",
+      "min(m.started_at) >=",
+    ]) {
+      expect(havingClause).toContain(afterGrouping);
+      expect(whereClause).not.toContain(afterGrouping);
+    }
+  });
+
+  // Experiment tracking keys have no character validation, so a comma inside
+  // one is a real key. It used to be split into two unrelated keys.
+  it("keeps a comma inside a single key intact", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(
+      context,
+      { experimentKey: ["checkout,v2"] },
+      FROZEN_NOW,
+    );
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("max(has(m.experiment_keys, 'checkout,v2')) = 1");
+    expect(query).not.toContain("hasAny");
+  });
+
+  it("bounds the scan by ingested_at, widened past the requested dates", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(
+      context,
+      { dateAfter: "2026-07-01", dateBefore: "2026-07-21" },
+      FROZEN_NOW,
+    );
+
+    const query = runQuery.mock.calls[0][0] as string;
+    // 24h of slack on each end: started_at is a client clock and chunks are
+    // ingested after the events they carry.
+    expect(query).toContain("ingested_at >= toDateTime('2026-06-30 00:00:00')");
+    expect(query).toContain("ingested_at < toDateTime('2026-07-23 00:00:00')");
+  });
+
+  it("falls back to a default lookback window when no dates are given", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(context, {}, FROZEN_NOW);
+
+    const query = runQuery.mock.calls[0][0] as string;
+    // 30 days back, plus the same 24h margin.
+    expect(query).toContain("ingested_at >= toDateTime('2026-10-20 12:00:00')");
+    expect(query).toContain("ingested_at < toDateTime('2026-11-21 12:00:00')");
+  });
+
+  it("does not aggregate columns the list neither shows nor filters on", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(context, {}, FROZEN_NOW);
+
+    const query = runQuery.mock.calls[0][0] as string;
+    // The dedup subquery legitimately selects *; the outer projection is what
+    // must stay narrow, so check only the part before it.
+    const projection = query.slice(0, query.indexOf("FROM ("));
+    expect(projection).not.toContain("*");
+    expect(query).not.toContain("session_replay_sessions");
+    expect(query).not.toContain("attributes");
+    expect(query).not.toContain("user_agent");
+    expect(query).not.toContain("urls_visited");
+    expect(query).not.toContain("feature_evals");
+    expect(query).not.toContain("session_events");
+    // The old union-of-arrays form; replaced by an incremental dedup.
+    expect(query).not.toContain("groupArray(");
+    expect(query).not.toContain("arrayFlatten");
+  });
+
+  // Both feed SessionReplayModel's permission check. Dropping either returns
+  // an empty list to every user with no error at all.
+  it("always projects the columns the permission check reads", async () => {
+    const runQuery = runQueryMock();
+
+    await listSessionReplays(context, {}, FROZEN_NOW);
+
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("any(m.organization) AS organization");
+    expect(query).toContain("any(m.client_key) AS client_key");
+  });
+
+  // The list endpoint over-fetches one row to detect a next page, so the clamp
+  // has to allow page size + 1 rather than the page size itself
+  it("allows one row beyond the page size and clamps above it", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({
+      runQuery,
+      getSqlDialect: () => ({
+        escapeStringLiteral: (v: string) => v,
+      }),
+    } as never);
+
+    await listSessionReplays(context, { limit: MAX_SESSION_PAGE_SIZE + 1 });
+    expect(runQuery.mock.calls[0][0]).toContain(
+      `LIMIT ${MAX_SESSION_PAGE_SIZE + 1}`,
+    );
+
+    await listSessionReplays(context, { limit: 5000 });
+    expect(runQuery.mock.calls[1][0]).toContain(
+      `LIMIT ${MAX_SESSION_PAGE_SIZE + 1}`,
+    );
   });
 
   it("returns an empty list when there is no datasource", async () => {

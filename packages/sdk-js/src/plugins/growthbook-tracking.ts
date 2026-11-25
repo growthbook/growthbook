@@ -1,3 +1,15 @@
+/**
+ * Sends the SDK's events to a GrowthBook event ingestor. Registers as the
+ * instance's event logger, then queues, dedupes, and batches events before
+ * POSTing them.
+ *
+ * Handles `gb.logEvent()` calls, exposure events it synthesizes from the
+ * tracking/feature-usage callbacks, and the `window.gbEvents` queue.
+ * Well-known attributes (`user_id`, `session_id`, UTMs, ...) are promoted
+ * to top-level payload fields; the rest ship in `context_json`. Flushes on
+ * an interval and before unload (beacon/keepalive). Works in the browser
+ * and on the server.
+ */
 import { loadSDKVersion } from "../util";
 import type { Attributes, EventProperties } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
@@ -6,6 +18,9 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
+import { resolveSessionId } from "./utils/session";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
+import { DEFAULT_INGESTOR_HOST } from "./utils/ingestor";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -29,6 +44,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -74,6 +90,7 @@ function parseAttributes(attributes: Attributes): {
     id,
     page_id,
     session_id,
+    sessionId,
     utmCampaign,
     utmContent,
     utmMedium,
@@ -89,7 +106,9 @@ function parseAttributes(attributes: Attributes): {
       user_id: parseString(user_id),
       device_id: parseString(device_id || anonymous_id || id),
       page_id: parseString(page_id),
-      session_id: parseString(session_id),
+      // BYO session_id wins, else the projected/minted GB session — same
+      // precedence the replay payload uses, so the join key can't diverge
+      session_id: resolveSessionId({ session_id, sessionId }),
       utm_campaign: parseString(utmCampaign) || undefined,
       utm_content: parseString(utmContent) || undefined,
       utm_medium: parseString(utmMedium) || undefined,
@@ -105,6 +124,7 @@ export type TrackingEventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -112,6 +132,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: TrackingEventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -122,6 +143,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }
@@ -142,9 +164,13 @@ async function track({
   if (!events.length) return;
 
   const endpoint = `${
-    ingestorHost || "https://us-east-1.gb-ingest.com"
+    ingestorHost || DEFAULT_INGESTOR_HOST
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   // sendBeacon is queued by the browser and survives page unload even where
   // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
@@ -218,11 +244,13 @@ export function growthbookTrackingPlugin({
     // LRU cache for events to avoid duplicates
     const eventCache = new Set<string>();
 
-    const isMultiUser = "createScopedInstance" in gb;
+    const isMultiUser = isGrowthBookClient(gb);
 
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let isUnloading = false;
+      let immediateFlush: Promise<void> | null = null;
       let promise: Promise<void> | null = null;
       let flushDone: (() => void) | null = null;
       const flush = async (unloading?: boolean) => {
@@ -255,6 +283,7 @@ export function growthbookTrackingPlugin({
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         if (
@@ -317,6 +346,24 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
+        // Hidden or unloading pages may be frozen before a delayed flush
+        // fires (mobile app-switch). Flush on a microtask so events logged
+        // in the same tick — e.g. the CWV finals — share one beacon.
+        if (
+          isUnloading ||
+          (typeof document !== "undefined" &&
+            document.visibilityState === "hidden")
+        ) {
+          if (!immediateFlush) {
+            immediateFlush = Promise.resolve().then(() => {
+              immediateFlush = null;
+              return flush(true);
+            });
+          }
+          await immediateFlush;
+          return;
+        }
+
         // Only one in-progress promise at a time
         if (!promise) {
           promise = new Promise((resolve) => {
@@ -332,6 +379,8 @@ export function growthbookTrackingPlugin({
 
       // Flush the queue on page unload. Listeners are removed on destroy so
       // SPA re-inits don't accumulate handlers over dead instances.
+      // visibilitychange → hidden doesn't set isUnloading so a tab switch
+      // doesn't degrade batching for the rest of the page.
       if (typeof document !== "undefined" && document.visibilityState) {
         const onVisibilityChange = () => {
           if (document.visibilityState === "hidden") {
@@ -339,7 +388,7 @@ export function growthbookTrackingPlugin({
           }
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
-        "onDestroy" in gb &&
+        isFullGrowthBook(gb) &&
           gb.onDestroy(() =>
             document.removeEventListener(
               "visibilitychange",
@@ -347,20 +396,29 @@ export function growthbookTrackingPlugin({
             ),
           );
       }
-      // pagehide fires on navigations where visibilitychange may not
+      // pagehide fires on navigations where visibilitychange may not; it's the
+      // real unload signal, so later events skip the queue delay
       if (typeof window !== "undefined") {
         const onPageHide = () => {
+          isUnloading = true;
           flush(true).catch(console.error);
         };
+        // A bfcache restore is fully live again; don't leave the unload
+        // fast-path (per-event beacons) stuck on
+        const onPageShow = (event: PageTransitionEvent) => {
+          if (event.persisted) isUnloading = false;
+        };
         window.addEventListener("pagehide", onPageHide);
-        "onDestroy" in gb &&
-          gb.onDestroy(() =>
-            window.removeEventListener("pagehide", onPageHide),
-          );
+        window.addEventListener("pageshow", onPageShow);
+        isFullGrowthBook(gb) &&
+          gb.onDestroy(() => {
+            window.removeEventListener("pagehide", onPageHide);
+            window.removeEventListener("pageshow", onPageShow);
+          });
       }
 
       // Flush the queue when the growthbook instance is destroyed
-      "onDestroy" in gb &&
+      isFullGrowthBook(gb) &&
         gb.onDestroy(() => {
           flush().catch(console.error);
         });
@@ -368,7 +426,7 @@ export function growthbookTrackingPlugin({
 
     // Listen on window.gbEvents.push if in a browser
     // This makes it easier to integrate with Segment, GTM, etc.
-    if (typeof window !== "undefined" && !("createScopedInstance" in gb)) {
+    if (typeof window !== "undefined" && !isGrowthBookClient(gb)) {
       const prevEvents = Array.isArray(window.gbEvents) ? window.gbEvents : [];
       window.gbEvents = {
         push: (event: GlobalTrackedEvent | string) => {
