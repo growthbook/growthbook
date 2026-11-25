@@ -227,9 +227,12 @@ describe("updateVariationWeights", () => {
       const BANDIT_PRIOR_PRECISION = 1 / 1e4;
       const MIN_VARIATION_WEIGHT = 0.01;
 
-      // Distinct n AND variance per arm, so each arm's shrinkage and pool
-      // precision differ. A bug that reused one arm's shrinkage/pool precision
-      // for every arm would change the common mean and posteriors and fail here.
+      // Distinct n per arm, so each arm's shrinkage differs. Variances differ
+      // too, but each arm's variance is floored at the pooled across-arm
+      // variance (~2.82 here), so the two below-pool arms share an effective
+      // variance while the above-pool arm keeps its own. A bug that reused one
+      // arm's shrinkage for every arm would change the common mean and
+      // posteriors and fail here.
       const stats = [
         arm(300, 1.0, 2.0),
         arm(150, 2.0, 0.5),
@@ -239,9 +242,25 @@ describe("updateVariationWeights", () => {
       const initial = [1, 1, 1].map((x) => x / 3);
 
       // Per-arm quantities from the documented hierarchical-pooling model.
-      const dataPrecision = stats.map((s) => s.n / s.variance);
+      // Each arm's variance is floored at the degrees-of-freedom-weighted
+      // pooled variance across arms (see pooledVariance in
+      // src/banditWeights.ts), then backstopped by BANDIT_MIN_VARIANCE.
+      const pooled = (() => {
+        let numerator = 0;
+        let denominator = 0;
+        for (const s of stats) {
+          const df = s.n - 1;
+          if (df <= 0) continue;
+          numerator += df * s.variance;
+          denominator += df;
+        }
+        return denominator > 0 ? numerator / denominator : 0;
+      })();
+      const varianceFloor = Math.max(pooled, 1e-9);
+      const effVariance = stats.map((s) => Math.max(s.variance, varianceFloor));
+      const dataPrecision = stats.map((s, i) => s.n / effVariance[i]);
       const shrinkage = stats.map((s) => n0 / (s.n + n0));
-      const poolPrecision = stats.map((s) => n0 / s.variance);
+      const poolPrecision = stats.map((_, i) => n0 / effVariance[i]);
 
       // Guard: this scenario is only meaningful if shrinkage really differs.
       expect(shrinkage[0]).not.toBeCloseTo(shrinkage[1], 6);
@@ -292,6 +311,94 @@ describe("updateVariationWeights", () => {
       result.updatedWeights.forEach((w, i) => {
         expect(w).toBeCloseTo(expectedWeights[i], 6);
       });
+      expect(sum(result.updatedWeights)).toBeCloseTo(1, 6);
+    });
+  });
+
+  describe("pooled variance floor for sparse arms", () => {
+    // A sparse arm with zero observed dispersion (e.g. 200 users, all $0
+    // revenue, variance 0) must not be treated as near-certain. Its variance
+    // is floored at the pooled across-arm variance, giving an honest posterior
+    // instead of a degenerate spike at mean 0.
+    it("floors a zero-variance arm at the pooled variance (default path)", () => {
+      const BANDIT_PRIOR_MEAN = 0;
+      const BANDIT_PRIOR_PRECISION = 1 / 1e4;
+      const MIN_VARIATION_WEIGHT = 0.01;
+
+      // Revenue-like scenario: one arm with 200 users and $0 total spend
+      // (variance 0), one arm with real spread.
+      const stats = [arm(200, 0, 0), arm(200, 10, 2000)];
+      const initial = [0.5, 0.5];
+
+      // Degrees-of-freedom-weighted pooled variance, backstopped by the
+      // absolute minimum, mirrors pooledVariance in src/banditWeights.ts.
+      const pooled = (() => {
+        let numerator = 0;
+        let denominator = 0;
+        for (const s of stats) {
+          const df = s.n - 1;
+          if (df <= 0) continue;
+          numerator += df * s.variance;
+          denominator += df;
+        }
+        return denominator > 0 ? numerator / denominator : 0;
+      })();
+      const varianceFloor = Math.max(pooled, 1e-9);
+      // The zero-variance arm is floored up to the pooled scale; the healthy
+      // arm keeps its larger own variance.
+      const effVariance = stats.map((s) => Math.max(s.variance, varianceFloor));
+      expect(effVariance[0]).toBeCloseTo(pooled, 6);
+      expect(effVariance[0]).toBeGreaterThan(1e-9);
+
+      // Default (priorSampleSize = 0) conjugate-normal posterior.
+      const dataPrecision = stats.map((s, i) => s.n / effVariance[i]);
+      const posteriorVariance = dataPrecision.map(
+        (dp) => 1 / (BANDIT_PRIOR_PRECISION + dp),
+      );
+      const expectedMean = posteriorVariance.map(
+        (pv, i) =>
+          pv *
+          (BANDIT_PRIOR_PRECISION * BANDIT_PRIOR_MEAN +
+            dataPrecision[i] * stats[i].mean),
+      );
+      const expectedStd = posteriorVariance.map((pv) => Math.sqrt(pv));
+
+      // The degenerate arm's posterior std is the pooled scale (~2.2 here), not
+      // the ~2.2e-6 spike the old 1e-9 floor would have produced.
+      expect(expectedStd[0]).toBeGreaterThan(1);
+
+      const expectedProbs = bestArmProbabilitiesGaussHermite(
+        expectedMean,
+        expectedStd,
+        false,
+      );
+      const clamped = expectedProbs.map((p) =>
+        Math.max(p, MIN_VARIATION_WEIGHT),
+      );
+      const clampSum = clamped.reduce((a, b) => a + b, 0);
+      const expectedWeights = clamped.map((p) => p / clampSum);
+
+      const result = updateVariationWeights(stats, initial);
+
+      expect(result.updateMessage).toBe("successfully updated");
+      expect(result.bestArmProbabilities).not.toBeNull();
+      result.bestArmProbabilities!.forEach((p, i) => {
+        expect(p).toBeCloseTo(expectedProbs[i], 6);
+      });
+      result.updatedWeights.forEach((w, i) => {
+        expect(w).toBeCloseTo(expectedWeights[i], 6);
+      });
+      expect(sum(result.updatedWeights)).toBeCloseTo(1, 6);
+    });
+
+    it("falls back to BANDIT_MIN_VARIANCE when every arm is degenerate", () => {
+      // All arms zero-variance => pooled variance is 0 => backstop keeps the
+      // update well-defined and symmetric.
+      const stats = [arm(200, 0, 0), arm(200, 0, 0)];
+      const result = updateVariationWeights(stats, [0.5, 0.5]);
+
+      expect(result.updateMessage).toBe("successfully updated");
+      expect(result.updatedWeights[0]).toBeCloseTo(result.updatedWeights[1], 6);
       expect(sum(result.updatedWeights)).toBeCloseTo(1, 6);
     });
   });
