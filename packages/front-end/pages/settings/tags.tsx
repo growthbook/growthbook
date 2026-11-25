@@ -1,15 +1,17 @@
 import React, { useState, FC } from "react";
 import { TagInterface } from "shared/types/tag";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsModal from "@/components/Tags/TagsModal";
 import Tag from "@/components/Tags/Tag";
 import { useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
 import Table, {
@@ -89,14 +91,18 @@ const TagsPage: FC = () => {
       <Box mb="5">
         {tags && tags.length > 0 ? (
           <>
-            <Box className="relative" width="40%" mb="4">
-              <Field
-                size="legacy"
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </Box>
+            <Flex align="center" gap="3" mb="2">
+              <Text weight="medium">{`${tags.length} tag${tags.length === 1 ? "" : "s"}`}</Text>
+              <Box width="280px" flexShrink="0">
+                <TextField
+                  type="search"
+                  aria-label="Search tags"
+                  placeholder="Search tags"
+                  prepend={<PiMagnifyingGlass aria-hidden />}
+                  {...searchInputProps}
+                />
+              </Box>
+            </Flex>
             <Table
               variant="list"
               stickyHeader={false}
