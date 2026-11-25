@@ -120,11 +120,18 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               return (
                 <TableRow key={id} align="start">
                   <TableCell minWidth="200px">
-                    <Flex align="center" gap="2">
-                      <WebhookIcon
-                        type={payloadType}
-                        style={{ height: 16, width: 16, flexShrink: 0 }}
-                      />
+                    <Flex align="start" gap="2">
+                      {/* Centered on the name's first line. */}
+                      <Flex
+                        align="center"
+                        flexShrink="0"
+                        style={{ height: "1lh" }}
+                      >
+                        <WebhookIcon
+                          type={payloadType}
+                          style={{ height: 18, width: 18 }}
+                        />
+                      </Flex>
                       <Link href={href}>{name}</Link>
                     </Flex>
                     {managedInSlack ? (
@@ -139,7 +146,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
                   </TableCell>
                   <TableCell>
                     {SHOWS_ENDPOINT.has(payloadType) ? (
-                      <Text size="inherit" mono overflowWrap="anywhere">
+                      <Text size="sm" mono overflowWrap="anywhere">
                         {url}
                       </Text>
                     ) : (

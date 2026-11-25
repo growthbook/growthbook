@@ -281,7 +281,7 @@ export const displayedEvents = (
       {shown.map((event, i) => (
         <React.Fragment key={event}>
           {i > 0 && ", "}
-          <Text size="inherit" mono>
+          <Text size="sm" mono>
             {event}
           </Text>
         </React.Fragment>
@@ -293,7 +293,7 @@ export const displayedEvents = (
             content={
               <Flex direction="column" gap="1">
                 {hidden.map((event) => (
-                  <Text key={event} size="inherit" mono>
+                  <Text key={event} size="sm" mono>
                     {event}
                   </Text>
                 ))}
