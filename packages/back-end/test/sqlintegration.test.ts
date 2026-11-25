@@ -2015,6 +2015,23 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toMatch(/ORDER BY\s+`did` DESC,\s+`ts` DESC/);
   });
 
+  it("counts multiple exposures within the given window only", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      rowFilters: [
+        { operator: "saved_filter", values: ["multiple_exposures"] },
+      ],
+      multipleExposuresWindow: {
+        startDate: new Date("2025-03-02T12:30:00.000Z"),
+        endDate: new Date("2025-03-05T08:00:00.000Z"),
+      },
+    });
+    const subquery = sql.slice(sql.indexOf("IN ("));
+    expect(subquery).toContain("2025-03-02 12:30:00");
+    expect(subquery).toContain("2025-03-05 08:00:00");
+    expect(sql.slice(0, sql.indexOf("IN ("))).toContain("2025-03-01 00:00:00");
+  });
+
   it("applies the phase filter the analysis applies", () => {
     const phaseParams = {
       ...params,

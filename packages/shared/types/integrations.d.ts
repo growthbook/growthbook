@@ -1007,6 +1007,11 @@ export type ExperimentExposuresQueryParams = {
   customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
   rowFilters?: RowFilter[];
+  /**
+   * Where the multiple exposures filter counts a unit's variations, so it stays
+   * within one phase. Defaults to the requested window.
+   */
+  multipleExposuresWindow?: { startDate: Date; endDate: Date };
   limit: number;
 };
 

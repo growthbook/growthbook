@@ -178,9 +178,13 @@ export function getExperimentExposuresQuery(
       AND ${rowFilterWhere}`
     : "";
 
-  const experimentAndWindowWhere = `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
-      AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(params.startDate)}
-      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}`;
+  const experimentAndWindowWhere = (window: {
+    startDate: Date;
+    endDate: Date;
+  }) =>
+    `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(window.startDate)}
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(window.endDate)}`;
 
   // Other row filters are left out of the subquery: a unit is flagged on
   // everything it saw in the window, as in the units query, not only on the
@@ -191,13 +195,13 @@ export function getExperimentExposuresQuery(
       AND ${quotedUnitColumn} IN (
         SELECT ${quotedUnitColumn}
         FROM __exposureQuery
-        ${experimentAndWindowWhere}
+        ${experimentAndWindowWhere(params.multipleExposuresWindow ?? params)}
         GROUP BY ${quotedUnitColumn}
         HAVING COUNT(DISTINCT ${quoteColumnIdentifier(physicalColumns.variation_id, dialect)}) > 1
       )`
     : "";
 
-  const whereAndOrderBy = `${experimentAndWindowWhere}${multipleExposuresWhere}${extraWhere}
+  const whereAndOrderBy = `${experimentAndWindowWhere(params)}${multipleExposuresWhere}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}`;
 
   // SELECT * rather than an explicit column list: every column the exposure
