@@ -460,7 +460,7 @@ export default function ResultsTable({
   // The redesign's rows are shorter, and shorter still without the value's
   // two lines.
   const variationRowHeight = redesign
-    ? (compactResults ? 46 : 40) - (showValue ? 0 : 8)
+    ? (compactResults ? 51 : 43) - (showValue ? 0 : 4)
     : compactResults
       ? ROW_HEIGHT + 10
       : ROW_HEIGHT;
@@ -987,7 +987,7 @@ export default function ResultsTable({
                                     includedLabelColumns.length +
                                     (rowsLayout ? 1 : 0),
                                   rowHeight: redesign
-                                    ? 30
+                                    ? 33
                                     : LABEL_ONLY_ROW_HEIGHT,
                                 });
                               }
