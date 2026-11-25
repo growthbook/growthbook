@@ -32,9 +32,7 @@ import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
-
-const CREATE_POPULATION_DOCS =
-  "https://docs.growthbook.io/api/Populations/operation/createPopulation";
+import { docUrl } from "@/components/DocLink";
 
 export default function PopulationsPage() {
   const router = useRouter();
@@ -170,7 +168,7 @@ export default function PopulationsPage() {
           description="Define a group of users by the rows they have in your fact tables."
           leftButton={
             <LinkButton
-              href={CREATE_POPULATION_DOCS}
+              href={docUrl("apiCreatePopulation")}
               variant="outline"
               external
             >

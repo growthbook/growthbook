@@ -14,6 +14,7 @@ import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { GBInfo } from "@/components/Icons";
+import { docUrl } from "@/components/DocLink";
 import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 import { parseBranches } from "./settingsSections";
 
@@ -364,10 +365,7 @@ export default function FeatureSettings() {
                       <Text as="p" size="sm" color="text-mid">
                         Run the CLI to scan your codebase and send the results
                         to the{" "}
-                        <Link
-                          href="https://docs.growthbook.io/api#tag/code-references"
-                          external
-                        >
+                        <Link href={docUrl("apiPostCodeRefs")} external>
                           code references REST endpoint
                         </Link>
                         .

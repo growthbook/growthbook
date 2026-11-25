@@ -17,6 +17,7 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/ui/Callout";
+import { docUrl } from "@/components/DocLink";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] =
@@ -66,7 +67,7 @@ const PresentationPage = (): React.ReactElement => {
           description="Generate presentation to share with the team. Experiment review meetings are a great way to challenge assumptions and generate new ideas. Review meetings get everyone excited about experimentation."
           leftButton={
             <LinkButton
-              href="https://docs.growthbook.io/using/programs#sharing"
+              href={docUrl("programsSharing")}
               variant="outline"
               external
             >

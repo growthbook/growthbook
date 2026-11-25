@@ -11,6 +11,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { coveragePercentFormatter } from "@/services/utils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { DocLink } from "@/components/DocLink";
 import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
@@ -64,12 +65,12 @@ export function PowerCard({
   const renderUpsell = () => (
     <Callout status="info">
       Learn more about Power Analysis.{" "}
-      <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
+      <DocLink docSection="powerCalculator">
         View docs
         <Box display="inline-block" ml="1">
           <PiArrowSquareOut />
         </Box>
-      </Link>
+      </DocLink>
     </Callout>
   );
 
