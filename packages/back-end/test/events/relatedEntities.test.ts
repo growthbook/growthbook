@@ -6,7 +6,7 @@ import {
   getChangedExperimentEntities,
   getDependentEntities,
   getExperimentReach,
-  payloadKeysReach,
+  dependentsReach,
   refreshThenReport,
   scopeRelatedEntities,
 } from "back-end/src/events/relatedEntities";
@@ -180,6 +180,35 @@ describe("getExperimentReach", () => {
 });
 
 describe("getDependentEntities", () => {
+  it("lists a flag only where what uses the resource is served", () => {
+    const usesGroup = (f: FeatureInterface) =>
+      (f.prerequisites ?? []).length > 0 ||
+      (f.rules ?? []).some((r) => r.condition.includes("grp_beta"));
+    const devRule = forceRule({
+      condition: '{"id":{"$inGroup":"grp_beta"}}',
+      allEnvironments: false,
+      environments: ["dev"],
+    });
+    const listed = (rules: FeatureRule[], prerequisite = false) =>
+      getDependentEntities(
+        {
+          uses: usesGroup,
+          features: [
+            change((f) => {
+              f.rules = [forceRule({ id: "fr_other" }), ...rules];
+              if (prerequisite)
+                f.prerequisites = [{ id: "a", condition: "{}" }];
+            }),
+          ],
+        },
+        scope,
+      ).flatMap((e) => ("environments" in e ? e.environments : []));
+
+    expect(listed([devRule])).toEqual(["dev"]);
+    expect(listed([{ ...devRule, enabled: false }])).toEqual([]);
+    expect(listed([devRule], true)).toEqual(envs);
+  });
+
   it("lists dependents with their live environments, Projects and tags", () => {
     const devOnly = change((f) => {
       f.id = "banner";
@@ -190,6 +219,7 @@ describe("getDependentEntities", () => {
     expect(
       getDependentEntities(
         {
+          uses: () => true,
           features: [devOnly],
           experiments: [
             {
@@ -231,18 +261,20 @@ describe("getDependentEntities", () => {
   });
 });
 
-describe("payloadKeysReach", () => {
-  it("lists each environment the payload keys touch once, in org order", () => {
+describe("dependentsReach", () => {
+  it("lists where dependents use it and other payloads change, once, in org order", () => {
+    const banner = {
+      type: "feature" as const,
+      id: "banner",
+      environments: ["prod"],
+    };
     expect(
-      payloadKeysReach(
-        [
-          { environment: "prod", project: "" },
-          { environment: "prod", project: "prj_1" },
-        ],
-        [],
+      dependentsReach(
+        [banner],
+        [{ environment: "prod" }, { environment: "dev" }],
         envs,
       ),
-    ).toEqual({ environments: ["prod"], relatedEntities: [] });
+    ).toEqual({ environments: ["dev", "prod"], relatedEntities: [banner] });
   });
 });
 

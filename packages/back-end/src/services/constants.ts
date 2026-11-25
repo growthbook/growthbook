@@ -33,7 +33,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
   EventReach,
   getDependentEntities,
-  payloadKeysReach,
+  dependentsReach,
   refreshThenReport,
 } from "back-end/src/events/relatedEntities";
 import { getResolvableValues, ResolvableValue } from "./resolvableValues";
@@ -119,7 +119,7 @@ async function refreshResolvablePayloads(
   context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   if (changedKey) {
-    const features = await getFeaturesAffectedByResolvable(
+    const { features, uses } = await getFeaturesAffectedByResolvable(
       context,
       model,
       changedKey,
@@ -134,9 +134,9 @@ async function refreshResolvablePayloads(
       undefined,
       projectIds,
     );
-    const reach = payloadKeysReach(
-      payloadKeys,
-      getDependentEntities({ features }, { environments, projectIds }),
+    const reach = dependentsReach(
+      getDependentEntities({ features, uses }, { environments, projectIds }),
+      [],
       environments,
     );
     // No feature depends on this value — nothing to rebuild or notify.
@@ -233,27 +233,40 @@ export function featuresAffectedByResolvable(
   source: ConstantSource,
   key: string,
 ): FeatureInterface[] {
+  return features.filter(resolvableUser(resolvables, source, key));
+}
+
+// Whether a feature, or the part of one given, depends on the resolvable.
+function resolvableUser(
+  resolvables: ResolvableValue[],
+  source: ConstantSource,
+  key: string,
+): (feature: FeatureInterface) => boolean {
   const affected = resolvableDependencyClosure(resolvables, source, key);
-  return features.filter((f) => {
+  return (feature) => {
     // A feature usually holds only a handful of reference tokens, so probe those
     // against the (possibly large) affected set rather than the other way round.
-    for (const t of featureReferenceTokens(f)) {
+    for (const t of featureReferenceTokens(feature)) {
       if (affected.has(t)) return true;
     }
     return false;
-  });
+  };
 }
 
 async function getFeaturesAffectedByResolvable(
   context: ReqContext | ApiReqContext,
   source: ConstantSource,
   key: string,
-): Promise<FeatureInterface[]> {
+): Promise<{
+  features: FeatureInterface[];
+  uses: (feature: FeatureInterface) => boolean;
+}> {
   const [resolvables, features] = await Promise.all([
     getResolvableValues(context),
     getAllFeaturesWithoutEditorFields(context, {}),
   ]);
-  return featuresAffectedByResolvable(resolvables, features, source, key);
+  const uses = resolvableUser(resolvables, source, key);
+  return { features: features.filter(uses), uses };
 }
 
 // Reject cyclic values at write time — a stored cycle leaks raw reference

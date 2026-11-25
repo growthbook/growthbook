@@ -16,7 +16,6 @@ import type {
 import type {
   ContextualBanditInterface,
   InterleavingInterface,
-  EventRelatedEntity,
 } from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ReqContext } from "back-end/types/request";
@@ -52,7 +51,7 @@ import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
 import {
   EventReach,
   getDependentEntities,
-  payloadKeysReach,
+  dependentsReach,
   refreshThenReport,
 } from "back-end/src/events/relatedEntities";
 import { queueSDKPayloadRefresh } from "./features";
@@ -113,17 +112,17 @@ export function findSavedGroupDependents({
     names({ features: [], bandits: [bandit] }),
   );
   const banditIds = new Set(namedBandits.map((bandit) => bandit.id));
+  const uses = (feature: FeatureInterface) =>
+    names({ features: [feature] }) ||
+    (feature.rules ?? []).some(
+      (rule) =>
+        rule?.type === "contextual-bandit-ref" &&
+        banditIds.has(rule.contextualBanditId),
+    );
   return {
     bandits: namedBandits,
-    features: features.filter(
-      (feature) =>
-        names({ features: [feature] }) ||
-        (feature.rules ?? []).some(
-          (rule) =>
-            rule?.type === "contextual-bandit-ref" &&
-            banditIds.has(rule.contextualBanditId),
-        ),
-    ),
+    features: features.filter(uses),
+    uses,
     experiments: [...experiments].filter((experiment) =>
       names({ features: [], experiments: [experiment] }),
     ),
@@ -150,7 +149,7 @@ async function getSavedGroupReach(
   groupId: string,
 ): Promise<{
   payloadKeys: SDKPayloadKey[];
-  relatedEntities: EventRelatedEntity[];
+  reach: EventReach;
 } | null> {
   const [
     savedGroups,
@@ -181,19 +180,22 @@ async function getSavedGroupReach(
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const payloadKeys = [
+  const otherPayloadKeys = [
     ...getInterleavingPayloadKeys(dependents.interleavings, environments),
+    ...dependents.bandits
+      .filter((bandit) => bandit.hasVisualChangesets)
+      .flatMap((bandit) =>
+        getContextualBanditVisualPayloadKeys(bandit, environments),
+      ),
+  ];
+  const payloadKeys = [
+    ...otherPayloadKeys,
     ...getAffectedSDKPayloadKeys(
       dependents.features,
       environments,
       undefined,
       allProjectIds,
     ),
-    ...dependents.bandits
-      .filter((bandit) => bandit.hasVisualChangesets)
-      .flatMap((bandit) =>
-        getContextualBanditVisualPayloadKeys(bandit, environments),
-      ),
     ...dependents.experiments.flatMap((experiment) =>
       getPayloadKeys(
         context,
@@ -205,13 +207,14 @@ async function getSavedGroupReach(
       ),
     ),
   ];
+  const relatedEntities = getDependentEntities(
+    dependents,
+    { environments, projectIds: allProjectIds },
+    featuresById,
+  );
   return {
     payloadKeys,
-    relatedEntities: getDependentEntities(
-      dependents,
-      { environments, projectIds: allProjectIds },
-      featuresById,
-    ),
+    reach: dependentsReach(relatedEntities, otherPayloadKeys, environments),
   };
 }
 
@@ -269,15 +272,14 @@ async function refreshSavedGroupPayloads(
       context.logger.warn(e, "Scoping a saved group refresh failed");
     }
     if (scoped) {
-      const { payloadKeys, relatedEntities } = scoped;
-      if (payloadKeys.length) {
-        queueSDKPayloadRefresh({ context, payloadKeys, auditContext });
+      if (scoped.payloadKeys.length) {
+        queueSDKPayloadRefresh({
+          context,
+          payloadKeys: scoped.payloadKeys,
+          auditContext,
+        });
       }
-      return payloadKeysReach(
-        payloadKeys,
-        relatedEntities,
-        getEnvironmentIdsFromOrg(context.org),
-      );
+      return scoped.reach;
     }
   }
 

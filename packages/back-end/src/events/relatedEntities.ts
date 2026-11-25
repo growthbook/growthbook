@@ -186,11 +186,33 @@ type DependentExperiment = {
   hasURLRedirects?: boolean;
 };
 
+// Where a flag serves what uses a shared resource: everywhere it's on when a
+// flag-wide field uses it, otherwise where a rule using it is enabled.
+function environmentsUsing(
+  feature: FeatureInterface,
+  uses: (feature: FeatureInterface) => boolean,
+  allowedEnvs: string[],
+): Set<string> {
+  return getEnabledEnvironments(
+    feature,
+    allowedEnvs,
+    uses({ ...feature, rules: [] })
+      ? undefined
+      : (rule) => uses({ ...feature, rules: [rule] }),
+  );
+}
+
 export function getDependentEntities(
   {
     features,
     experiments = [],
-  }: { features: FeatureInterface[]; experiments?: DependentExperiment[] },
+    uses,
+  }: {
+    features: FeatureInterface[];
+    experiments?: DependentExperiment[];
+    // Whether a flag, or the part of one given, uses the changed resource.
+    uses: (feature: FeatureInterface) => boolean;
+  },
   scope: OrgScope,
   featuresById: Map<string, FeatureInterface> = new Map(),
 ): EventRelatedEntity[] {
@@ -200,7 +222,7 @@ export function getDependentEntities(
       features.map((f) => [
         f.id,
         {
-          environments: getEnabledEnvironments(f, scope.environments),
+          environments: environmentsUsing(f, uses, scope.environments),
           projects: resolveTargetingProjectIds(f, scope.projectIds),
           tags: f.tags ?? [],
         },
@@ -240,12 +262,19 @@ export type EventReach = {
 
 export const NO_REACH: EventReach = { environments: [], relatedEntities: [] };
 
-export function payloadKeysReach(
-  payloadKeys: { environment: string }[],
+// Where its dependents use the changed resource, and where the other payloads
+// it alters are served.
+export function dependentsReach(
   relatedEntities: EventRelatedEntity[],
+  otherPayloadKeys: { environment: string }[],
   allowedEnvs: string[],
 ): EventReach {
-  const envs = new Set(payloadKeys.map((k) => k.environment));
+  const envs = new Set([
+    ...otherPayloadKeys.map((k) => k.environment),
+    ...relatedEntities.flatMap((e) =>
+      "environments" in e ? e.environments : [],
+    ),
+  ]);
   return {
     environments: allowedEnvs.filter((e) => envs.has(e)),
     relatedEntities,
