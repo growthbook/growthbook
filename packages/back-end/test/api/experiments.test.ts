@@ -3413,6 +3413,103 @@ describe("experiments API", () => {
       ]);
       expect(updateCall.changes.phases[1].variationWeights).toHaveLength(3);
     });
+
+    describe("variations of an experiment with linked flags", () => {
+      const linkedExperiment = {
+        ...experiment,
+        status: "draft",
+        linkedFeatures: ["feat_1"],
+        variations: [
+          {
+            id: "v0",
+            key: "0",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "v1",
+            key: "1",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+      const features = () => mongoose.connection.collection("features");
+
+      beforeEach(async () => {
+        // Loading the linked feature from Mongo needs the read check.
+        updateReqContext({
+          permissions: { canReadTargetingScopedResource: () => true },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue(linkedExperiment);
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
+        );
+        await features().insertOne({
+          id: "feat_1",
+          organization: "org_1",
+          project: "proj_1",
+          valueType: "string",
+          defaultValue: "a",
+          version: 1,
+          rules: [
+            {
+              type: "experiment-ref",
+              id: "fr_1",
+              experimentId: "exp_123",
+              enabled: true,
+              allEnvironments: true,
+              variations: [
+                { variationId: "v0", value: "a" },
+                { variationId: "v1", value: "b" },
+              ],
+            },
+          ],
+          environmentSettings: { production: { enabled: true } },
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        });
+      });
+
+      afterEach(async () => {
+        await features().deleteMany({ organization: "org_1" });
+      });
+
+      it("refuses a new variation a linked flag has no value for", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            variations: [
+              { id: "v0", key: "0", name: "Control" },
+              { id: "v1", key: "1", name: "Treatment" },
+              { id: "v2", key: "2", name: "Variation 2" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "Linked Feature Flags have no value for the new variations: feat_1.",
+        );
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("allows editing existing variations", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            variations: [
+              { id: "v0", key: "control", name: "Control" },
+              { id: "v1", key: "treatment", name: "Treatment" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+    });
   });
 
   describe("GET /api/v1/experiments/:id/results", () => {
