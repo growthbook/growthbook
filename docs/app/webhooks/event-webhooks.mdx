@@ -61,7 +61,7 @@ An event's environments are the ones whose SDK payload the change alters:
 - `feature.updated`: environments where the Feature Flag is enabled and what it serves changed. Flag-wide changes, such as the default value, list every environment the flag is enabled in.
 - `feature.deleted`: every environment the Feature Flag was configured in.
 - `experiment.updated`: environments where a linked Feature Flag runs the experiment, or every environment for visual changes and URL redirects.
-- `savedGroup.updated`, `constant.updated` and `config.updated`: environments where a Feature Flag or experiment that uses it is served. These events are sent once GrowthBook has worked out what the change reaches, usually a few seconds later, and list those Feature Flags and experiments in `relatedEntities`.
+- `savedGroup.updated`, `constant.updated` and `config.updated`: environments where a Feature Flag or experiment that uses it is served. A Constant edit to only some environments' values lists just those. These events are sent once GrowthBook has worked out what the change reaches, usually a few seconds later, and list those Feature Flags and experiments in `relatedEntities`.
 
 A change that alters nothing SDKs serve, such as a description edit, lists no environments, so only webhooks without an environment filter receive it.
 
