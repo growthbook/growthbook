@@ -91,6 +91,8 @@ const gb = new GrowthBook({
 
 This change is optional only if you already track user attributes in your tracking callback. We strongly recommend passing the values from the `user.attributes` object to ensure the attributes being logged are the same as the ones being used to bucket users.
 
+Log `result.key` (the variation key), not `result.variationId` (the 0-based index). Your assignment query's `variation_id` column must return this key. See the [`variation_id` warning in step 4](#4-create-a-contextual-bandit-assignment-query).
+
 ## 4. Create a Contextual Bandit Assignment Query
 
 To take advantage of the above attributes and additional contextual bandit fields, you need to create a dedicated **Contextual Bandit Assignment Query**. This query holds the assignment SQL plus the list of context columns the bandit is allowed to split on. Manage these on your GrowthBook Datasource page under **Contextual Bandit Assignment Queries**, or via the [createContextualBanditQuery](/api/ContextualBanditQueries/operation/createContextualBanditQuery) REST endpoint.
@@ -112,6 +114,29 @@ SELECT
   variation_weights
 FROM contextual_bandit_events
 ```
+
+<Warning>
+**`variation_id` must match the variation key**
+
+`variation_id` must return each variation's key exactly as it is set on the bandit (for example `'control'` or `'treatment'`). The match is exact and case-sensitive. The GrowthBook variation id (`var_…`) is not matched.
+
+Rows with an unrecognized `variation_id` are dropped during snapshot processing. The symptom is a snapshot that succeeds with 0 users on the affected variations (every variation if none match), even though the same SQL returns rows in the warehouse.
+
+Bandits created in the UI default their keys to `0`, `1`, … unless you set them. Still log `result.key`, not the index: indexes shift when arms are removed, which would attribute rows to the wrong variation. Renaming a key on a running bandit orphans rows already logged under the old key.
+
+If the warehouse stores something else (a campaign id, SKU, etc.), map it to the variation keys in the query:
+
+```sql
+CASE campaign_id
+  WHEN 19782307 THEN 'control'
+  WHEN 19782308 THEN 'treatment'
+  -- one branch per variation
+END AS variation_id
+```
+
+Write the `WHEN` values in the column's own type: unquoted numbers for a numeric column, quoted strings (`'19782307'`) for a text column. This avoids a dialect-specific `CAST`.
+
+</Warning>
 
 Requirements:
 
