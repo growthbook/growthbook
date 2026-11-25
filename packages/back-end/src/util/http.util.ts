@@ -96,6 +96,22 @@ export function getAuthProxyForUrl(url: string) {
 export function getAuthHttpOptions() {
   return getHttpOptions(getAuthProxyForUrl);
 }
+
+// node-fetch's FetchError repeats the full request URL in its message and stack,
+// and a query string can carry a token, so log errors with queries stripped.
+const stripUrlQueries = (text: string): string =>
+  text.replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/g, "$1");
+
+export const redactFetchError = (e: unknown) =>
+  e instanceof Error
+    ? {
+        name: e.name,
+        code: (e as NodeJS.ErrnoException).code,
+        message: stripUrlQueries(e.message),
+        stack: e.stack && stripUrlQueries(e.stack),
+      }
+    : { message: "(non-Error thrown)" };
+
 export const cancellableFetch = async (
   url: string,
   fetchOptions: RequestInit,
@@ -153,7 +169,10 @@ export const cancellableFetch = async (
 
     // An unreachable endpoint comes back as a 502 from the proxy, so ECONNREFUSED means the proxy itself is down.
     if (WEBHOOK_PROXY && e.name === "FetchError" && e.code === "ECONNREFUSED") {
-      logger.error({ err: e }, "Webhook proxy connection refused");
+      logger.error(
+        { err: redactFetchError(e) },
+        "Webhook proxy connection refused",
+      );
     }
 
     throw e;

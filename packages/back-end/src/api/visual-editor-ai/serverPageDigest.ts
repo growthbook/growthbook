@@ -10,6 +10,7 @@ import {
   isHashedClass,
   isPreferredAttr,
 } from "back-end/src/api/visual-editor-ai/selectorHeuristics";
+import { redactFetchError } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
 // visual-editor/src/content_script/pageDigest.ts is the source of truth for
@@ -601,7 +602,7 @@ export const buildDigestFromEditorUrl = async (
     return digest;
   } catch (e) {
     logger.info(
-      { err: e, url: redactUrl(url.href) },
+      { err: redactFetchError(e), url: redactUrl(url.href) },
       "[visual-editor-ai] server digest build failed; continuing without a digest",
     );
     return null;
