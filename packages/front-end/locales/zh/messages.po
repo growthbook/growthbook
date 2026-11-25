@@ -10,515 +10,515 @@ msgstr ""
 #: components/Layout/Layout.tsx
 #: components/Layout/TopNav.tsx
 msgid "Activity Feed"
-msgstr ""
+msgstr "动态"
 
 #: components/Layout/TopNav.tsx
 msgid "Add organization"
-msgstr ""
+msgstr "添加组织"
 
 #: components/Layout/sidebarNav.ts
 msgid "Admin"
-msgstr ""
+msgstr "管理员"
 
 #: components/Layout/TopNav.tsx
 msgid "Allow celebration"
-msgstr ""
+msgstr "允许庆祝效果"
 
 #: components/Auth/Welcome.tsx
 msgid "Already have an account? <0>Log In</0>"
-msgstr ""
+msgstr "已有账号？<0>登录</0>"
 
 #: pages/reset-password.tsx
 msgid "An error occurred"
-msgstr ""
+msgstr "发生错误"
 
 #: components/Auth/Welcome.tsx
 msgid "An error occurred. Please try again."
-msgstr ""
+msgstr "发生错误，请重试。"
 
 #: components/Layout/sidebarNav.ts
 msgid "API Keys"
-msgstr ""
+msgstr "API 密钥"
 
 #: components/Layout/sidebarNav.ts
 msgid "Archetypes"
-msgstr ""
+msgstr "用户原型"
 
 #: components/Layout/TopNav.tsx
 msgid "Ask GrowthBook AI"
-msgstr ""
+msgstr "向 GrowthBook AI 提问"
 
 #: components/Layout/sidebarNav.ts
 msgid "Attributes"
-msgstr ""
+msgstr "属性"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr ""
+msgstr "多臂老虎机"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
-msgstr ""
+msgstr "账单"
 
 #: components/Layout/Layout.tsx
 msgid "Build:"
-msgstr ""
+msgstr "构建："
 
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
-msgstr ""
+msgstr "修改密码"
 
 #: components/Auth/Welcome.tsx
 msgid "Click the link in the email to reset your password."
-msgstr ""
+msgstr "点击邮件中的链接重置密码。"
 
 #: components/Layout/TopNav.tsx
 msgid "Close GrowthBook AI assistant"
-msgstr ""
+msgstr "关闭 GrowthBook AI 助手"
 
 #: components/Auth/Welcome.tsx
 msgid "Company name"
-msgstr ""
+msgstr "公司名称"
 
 #: components/Layout/sidebarNav.ts
 msgid "Configs"
-msgstr ""
+msgstr "配置"
 
 #: components/Layout/sidebarNav.ts
 msgid "Constants"
-msgstr ""
+msgstr "常量"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr ""
+msgstr "上下文多臂老虎机"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
-msgstr ""
+msgstr "创建账号"
 
 #: components/Layout/sidebarNav.ts
 msgid "Custom Fields"
-msgstr ""
+msgstr "自定义字段"
 
 #: components/Layout/sidebarNav.ts
 msgid "Custom Hooks"
-msgstr ""
+msgstr "自定义钩子"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "Dark"
-msgstr ""
+msgstr "深色"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Dashboard"
-msgstr ""
+msgstr "仪表盘"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dashboards"
-msgstr ""
+msgstr "仪表盘列表"
 
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
-msgstr ""
+msgstr "数据源"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dimensions"
-msgstr ""
+msgstr "维度"
 
 #: components/Auth/Welcome.tsx
 msgid "Don't have an account yet? <0>Start for free</0>"
-msgstr ""
+msgstr "还没有账号？<0>免费开始使用</0>"
 
 #: components/Layout/TopNav.tsx
 msgid "Edit profile"
-msgstr ""
+msgstr "编辑个人资料"
 
 #: components/Layout/TopNav.tsx
 msgid "Edit Profile"
-msgstr ""
+msgstr "编辑个人资料"
 
 #: components/Auth/Welcome.tsx
 msgid "Email Address"
-msgstr ""
+msgstr "邮箱地址"
 
 #: components/Layout/sidebarNav.ts
 msgid "Environments"
-msgstr ""
+msgstr "环境"
 
 #: components/Layout/sidebarNav.ts
 msgid "Events Log"
-msgstr ""
+msgstr "事件日志"
 
 #: components/Layout/sidebarNav.ts
 msgid "Experimentation"
-msgstr ""
+msgstr "实验管理"
 
 #: components/Layout/sidebarNav.ts
 msgid "Experiments"
-msgstr ""
+msgstr "实验"
 
 #: components/Layout/sidebarNav.ts
 msgid "Explore"
-msgstr ""
+msgstr "探索"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr ""
+msgstr "曝光调试器"
 
 #: components/Layout/sidebarNav.ts
 msgid "Fact Tables"
-msgstr ""
+msgstr "事实表"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr ""
+msgstr "功能开关"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
-msgstr ""
+msgstr "功能"
 
 #: components/Auth/Welcome.tsx
 msgid "Forgot Password"
-msgstr ""
+msgstr "忘记密码"
 
 #: components/Auth/Welcome.tsx
 msgid "Forgot Password?"
-msgstr ""
+msgstr "忘记密码？"
 
 #: components/Layout/sidebarNav.ts
 msgid "Funnels"
-msgstr ""
+msgstr "漏斗"
 
 #: components/Layout/sidebarNav.ts
 msgid "General"
-msgstr ""
+msgstr "常规"
 
 #: components/Layout/Layout.tsx
 msgid "Get Started"
-msgstr ""
+msgstr "快速开始"
 
 #: components/Auth/Welcome.tsx
 msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
-msgstr ""
+msgstr "只需几分钟即可开始使用 GrowthBook。<0/>首先，请提供一些基本信息。"
 
 #: components/Auth/Welcome.tsx
 msgid "Go back to Log In"
-msgstr ""
+msgstr "返回登录"
 
 #: components/Auth/Welcome.tsx
 msgid "Happens to the best of us"
-msgstr ""
+msgstr "这种事谁都会遇到"
 
 #: components/Auth/Welcome.tsx
 msgid "Hello there, Welcome!"
-msgstr ""
+msgstr "您好，欢迎！"
 
 #: components/Auth/Welcome.tsx
 msgid "Hello! Welcome to GrowthBook"
-msgstr ""
+msgstr "您好！欢迎使用 GrowthBook"
 
 #: components/Auth/Welcome.tsx
 msgid "Hey there!"
-msgstr ""
+msgstr "嗨！"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr ""
+msgstr "保留组"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Home"
-msgstr ""
+msgstr "首页"
 
 #: components/Layout/sidebarNav.ts
 msgid "Import Your Data"
-msgstr ""
+msgstr "导入数据"
 
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
-msgstr ""
+msgstr "洞察"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr ""
+msgstr "交错实验"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"
-msgstr ""
+msgstr "重置令牌无效"
 
 #: pages/reset-password.tsx
 msgid "Invalid URL. <0>Go Back</0>"
-msgstr ""
+msgstr "URL 无效。<0>返回</0>"
 
 #: components/Layout/LanguageMenu.tsx
 msgid "Language"
-msgstr ""
+msgstr "语言"
 
 #: components/Layout/sidebarNav.ts
 msgid "Learnings"
-msgstr ""
+msgstr "经验总结"
 
 #: components/Auth/Welcome.tsx
 msgid "Let's get started with some experimentation"
-msgstr ""
+msgstr "开始做实验吧"
 
 #: components/Auth/Welcome.tsx
 msgid "Let's run some experiments! Enter your information to get started."
-msgstr ""
+msgstr "来做实验吧！输入信息即可开始。"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "Light"
-msgstr ""
+msgstr "浅色"
 
 #: components/Auth/Welcome.tsx
 msgid "Log in"
-msgstr ""
+msgstr "登录"
 
 #: pages/reset-password.tsx
 msgid "Log In Now"
-msgstr ""
+msgstr "立即登录"
 
 #: components/Auth/Welcome.tsx
 msgid "Look up"
-msgstr ""
+msgstr "查找账号"
 
 #: components/Layout/sidebarNav.ts
 msgid "Manage PATs"
-msgstr ""
+msgstr "管理 PAT"
 
 #: components/Layout/sidebarNav.ts
 msgid "Members"
-msgstr ""
+msgstr "成员"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr ""
+msgstr "指标相关性"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
-msgstr ""
+msgstr "指标影响"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metrics"
-msgstr ""
+msgstr "指标"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metrics and Data"
-msgstr ""
+msgstr "指标与数据"
 
 #: pages/reset-password.tsx
 msgid "Missing reset token"
-msgstr ""
+msgstr "缺少重置令牌"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/TopNav.tsx
 msgid "My Reports"
-msgstr ""
+msgstr "我的报告"
 
 #: components/Layout/TopNav.tsx
 msgid "My Slack links"
-msgstr ""
+msgstr "我的 Slack 链接"
 
 #: components/Layout/Layout.tsx
 msgid "My Slack Links"
-msgstr ""
+msgstr "我的 Slack 链接"
 
 #: components/Auth/Welcome.tsx
 #: components/Layout/TopNav.tsx
 msgid "Name"
-msgstr ""
+msgstr "姓名"
 
 #: components/Layout/sidebarNav.ts
 msgid "Namespaces"
-msgstr ""
+msgstr "命名空间"
 
 #: pages/reset-password.tsx
 msgid "New Password"
-msgstr ""
+msgstr "新密码"
 
 #: components/Layout/TopNav.tsx
 msgid "Open GrowthBook AI assistant"
-msgstr ""
+msgstr "打开 GrowthBook AI 助手"
 
 #: components/Layout/TopNav.tsx
 msgid "Open main menu"
-msgstr ""
+msgstr "打开主菜单"
 
 #: components/Layout/TopNav.tsx
 msgid "Organization"
-msgstr ""
+msgstr "组织"
 
 #: components/Auth/Welcome.tsx
 msgid "Password"
-msgstr ""
+msgstr "密码"
 
 #: components/Auth/Welcome.tsx
 msgid "Password reset link sent to <0>{email}</0>."
-msgstr ""
+msgstr "密码重置链接已发送至 <0>{email}</0>。"
 
 #: components/Layout/TopNav.tsx
 msgid "Pending Reviews"
-msgstr ""
+msgstr "待审核"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/TopNav.tsx
 msgid "Personal Access Tokens"
-msgstr ""
+msgstr "个人访问令牌"
 
 #: components/Layout/sidebarNav.ts
 msgid "Populations"
-msgstr ""
+msgstr "人群"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Power Calculator"
-msgstr ""
+msgstr "功效计算器"
 
 #: components/Layout/sidebarNav.ts
 msgid "Presentations"
-msgstr ""
+msgstr "演示文稿"
 
 #: components/Layout/sidebarNav.ts
 msgid "Product Analytics"
-msgstr ""
+msgstr "产品分析"
 
 #: components/Layout/sidebarNav.ts
 msgid "Projects"
-msgstr ""
+msgstr "项目"
 
 #: components/Auth/Welcome.tsx
 msgid "Register"
-msgstr ""
+msgstr "注册"
 
 #: pages/reset-password.tsx
 msgid "Reset Password"
-msgstr ""
+msgstr "重置密码"
 
 #: pages/reset-password.tsx
 msgid "Reset password for <0>{email}</0>."
-msgstr ""
+msgstr "重置 <0>{email}</0> 的密码。"
 
 #: components/Layout/sidebarNav.ts
 msgid "Saved Groups"
-msgstr ""
+msgstr "已保存分组"
 
 #: components/Layout/sidebarNav.ts
 msgid "SDK Configuration"
-msgstr ""
+msgstr "SDK 配置"
 
 #: components/Layout/sidebarNav.ts
 msgid "SDK Connections"
-msgstr ""
+msgstr "SDK 连接"
 
 #: components/Layout/Layout.tsx
 msgid "Search"
-msgstr ""
+msgstr "搜索"
 
 #: components/Layout/sidebarNav.ts
 msgid "Segments"
-msgstr ""
+msgstr "分群"
 
 #: components/Auth/Welcome.tsx
 msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
-msgstr ""
+msgstr "邮箱填错了或需要重新发送？<0>返回</0>"
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr ""
+msgstr "会话回放"
 
 #: components/Auth/Welcome.tsx
 msgid "Set up your first account"
-msgstr ""
+msgstr "设置首个账号"
 
 #: components/Layout/sidebarNav.ts
 msgid "Settings"
-msgstr ""
+msgstr "设置"
 
 #: components/Layout/TopNav.tsx
 msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
-msgstr ""
+msgstr "完成某些操作（如启动实验）时，随机显示彩纸庆祝效果。"
 
 #: components/Auth/Welcome.tsx
 msgid "Sign in to your GrowthBook account"
-msgstr ""
+msgstr "登录 GrowthBook 账号"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "Sign Out"
-msgstr ""
+msgstr "退出登录"
 
 #: components/Auth/Welcome.tsx
 msgid "Sign up"
-msgstr ""
+msgstr "注册"
 
 #: components/Layout/sidebarNav.ts
 msgid "Slack"
-msgstr ""
+msgstr "Slack"
 
 #: components/Layout/sidebarNav.ts
 msgid "SQL Explorer"
-msgstr ""
+msgstr "SQL 查询"
 
 #: pages/reset-password.tsx
 msgid "Successfully reset password for <0>{email}</0>"
-msgstr ""
+msgstr "已成功重置 <0>{email}</0> 的密码"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "System Default"
-msgstr ""
+msgstr "跟随系统"
 
 #: components/Layout/sidebarNav.ts
 msgid "Tags"
-msgstr ""
+msgstr "标签"
 
 #: components/Layout/sidebarNav.ts
 msgid "Templates"
-msgstr ""
+msgstr "模板"
 
 #: components/Layout/TopNav.tsx
 #: components/Layout/TopNavLite.tsx
 msgid "Theme"
-msgstr ""
+msgstr "主题"
 
 #: components/Auth/Welcome.tsx
 msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
-msgstr ""
+msgstr "这些信息仅保存在您自己的服务器上，绝不会被共享。<0/>稍后可以邀请团队其他成员。"
 
 #: components/Layout/sidebarNav.ts
 msgid "Timeline"
-msgstr ""
+msgstr "时间线"
 
 #: components/Layout/Layout.tsx
 msgid "Upgrade"
-msgstr ""
+msgstr "升级"
 
 #: components/Layout/sidebarNav.ts
 msgid "Usage"
-msgstr ""
+msgstr "用量"
 
 #: components/Layout/sidebarNav.ts
 msgid "User Journeys"
-msgstr ""
+msgstr "用户路径"
 
 #: components/Layout/Layout.tsx
 msgid "View docs"
-msgstr ""
+msgstr "查看文档"
 
 #: components/Layout/sidebarNav.ts
 msgid "Webhooks"
-msgstr ""
+msgstr "Webhook"
 
 #: components/Auth/Welcome.tsx
 msgid "Welcome back"
-msgstr ""
+msgstr "欢迎回来"
 
 #: components/Auth/Welcome.tsx
 msgid "Welcome back, let's get started with some experiments"
-msgstr ""
+msgstr "欢迎回来，开始做实验吧"
 
 #: components/Auth/Welcome.tsx
 msgid "Welcome to GrowthBook!"
-msgstr ""
+msgstr "欢迎使用 GrowthBook！"
