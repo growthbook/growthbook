@@ -40,6 +40,16 @@ describe("parseDateCursor", () => {
       "Invalid cursor",
     );
   });
+
+  it("refuses a repeated or nested query param", () => {
+    expect(() =>
+      parseDateCursor(context, ["2026-10-01T00:00:00.000Z", "_"]),
+    ).toThrow("Invalid cursor");
+    expect(() =>
+      parseDateCursor(context, { before: "2026-10-01T00:00:00.000Z" }),
+    ).toThrow("Invalid cursor");
+    expect(() => parseDateCursor(context, null)).toThrow("Invalid cursor");
+  });
 });
 
 describe("dateCursorFilter", () => {

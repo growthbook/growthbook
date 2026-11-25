@@ -4,11 +4,13 @@ export type DateCursor = { date: Date; seen: string[] };
 
 // A date-time, or a cursor "<date-time>_<ids>" listing the entries already
 // returned at that time, so ties at a page boundary aren't lost.
+// Takes `unknown` because Express parses a repeated query param into an array.
 export function parseDateCursor(
   context: ReqContext,
-  value?: string,
+  value?: unknown,
 ): DateCursor | null {
-  if (!value) return null;
+  if (value === undefined || value === "") return null;
+  if (typeof value !== "string") context.throwBadRequestError("Invalid cursor");
   const sep = value.indexOf("_");
   const date = new Date(sep === -1 ? value : value.slice(0, sep));
   if (isNaN(date.getTime())) context.throwBadRequestError("Invalid cursor");
