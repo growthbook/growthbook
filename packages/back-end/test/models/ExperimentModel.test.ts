@@ -6,6 +6,7 @@ import {
   hasActualChanges,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { ReqContext } from "back-end/types/request";
 import {
   connectTestMongo,
@@ -16,6 +17,22 @@ jest.mock("back-end/src/services/experimentNotifications", () => ({
   notifyExperimentStatusTransition: jest.fn(async () => undefined),
   notifyExperimentBanditWeightsTransition: jest.fn(async () => undefined),
 }));
+
+// A lazy proxy, not a spread: the module's exports are getters that trip the
+// temporal dead zone while its import cycle is still resolving.
+jest.mock("back-end/src/services/features", () => {
+  const actual = jest.requireActual("back-end/src/services/features");
+  const queueSDKPayloadRefreshMock = jest.fn();
+  return new Proxy(actual, {
+    get: (target, key) =>
+      key === "queueSDKPayloadRefresh"
+        ? queueSDKPayloadRefreshMock
+        : Reflect.get(target, key),
+  });
+});
+
+const mockQueueSDKPayloadRefresh =
+  queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {
@@ -87,6 +104,101 @@ describe("ExperimentModel", () => {
         "proj_1",
         "proj_2",
       ]);
+    });
+  });
+
+  // Features link to a holdout through `feature.holdout`, never through the
+  // companion experiment's `linkedFeatures`, so the holdout's own footprint is
+  // what a targeting edit has to invalidate.
+  describe("updateExperiment on a holdout's companion experiment", () => {
+    const holdout = {
+      id: "hld_1",
+      experimentId: "exp_holdout",
+      projects: ["proj_1"],
+      environmentSettings: {
+        production: { enabled: true },
+        dev: { enabled: false },
+      },
+      linkedFeatures: { flag_a: { id: "flag_a", dateAdded: new Date() } },
+      linkedExperiments: {},
+    };
+    const holdoutExperiment: ExperimentInterface = {
+      ...experiment,
+      id: "exp_holdout",
+      type: "holdout",
+      project: "",
+      linkedFeatures: undefined,
+      excludeFromPayload: true,
+      phases: [
+        {
+          name: "Holdout",
+          reason: "",
+          dateStarted: new Date("2024-01-01T00:00:00Z"),
+          coverage: 0.1,
+          condition: `{"country":"US"}`,
+          savedGroups: [],
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+          ],
+        },
+      ],
+    };
+    const getByExperimentId = jest.fn();
+    const context = {
+      org: {
+        id: experiment.organization,
+        settings: {
+          environments: [{ id: "production" }, { id: "dev" }],
+        },
+      },
+      models: { holdout: { getByExperimentId } },
+      getAllProjectIds: async () => ["proj_1"],
+    } as unknown as ReqContext;
+    const retarget = (exp: ExperimentInterface) =>
+      updateExperiment({
+        context,
+        experiment: exp,
+        changes: {
+          phases: [{ ...exp.phases[0], condition: `{"country":"CA"}` }],
+        },
+      });
+
+    beforeEach(() => {
+      jest
+        .spyOn(ExperimentModel, "updateOne")
+        .mockResolvedValue({ matchedCount: 1 } as never);
+      getByExperimentId.mockReset().mockResolvedValue(holdout);
+      mockQueueSDKPayloadRefresh.mockReset();
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it("refreshes the payloads the running holdout is served in", async () => {
+      await retarget(holdoutExperiment);
+
+      expect(mockQueueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+      expect(getByExperimentId).toHaveBeenCalledWith("exp_holdout");
+      expect(mockQueueSDKPayloadRefresh.mock.calls[0][0].payloadKeys).toEqual([
+        { environment: "production", project: "proj_1" },
+      ]);
+    });
+
+    it("leaves the payload alone while the holdout is a draft", async () => {
+      await retarget({ ...holdoutExperiment, status: "draft" });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
+    });
+
+    it("skips the refresh when the caller refreshes the holdout itself", async () => {
+      await updateExperiment({
+        context,
+        experiment: holdoutExperiment,
+        changes: { status: "stopped" },
+        bypassWebhooks: true,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
     });
   });
 
