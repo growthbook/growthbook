@@ -4,6 +4,7 @@ import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
+  getEffectiveLookbackOverride,
   getComputableNewMetricIds,
 } from "shared/experiments";
 import React, { useState, useCallback, useMemo } from "react";
@@ -15,6 +16,7 @@ import { useRouter } from "next/router";
 
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -38,7 +40,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { getAnalysisSettingsDisplay } from "./analysisSettingsDisplay";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -247,14 +248,21 @@ export default function ResultsTab({
     honoredPrecomputedUnitDimensionIds,
   ]);
 
-  const { priorUsed, cupedUsed, postStratificationUsed, lookbackEnforced } =
-    getAnalysisSettingsDisplay({
-      experiment,
-      snapshot,
-      analysis,
-      disablePrecomputedDimensions:
-        !!organization?.settings?.disablePrecomputedDimensions,
-    });
+  const endDate =
+    experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
+
+  const engineIsBayesian =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) !== "frequentist";
+  const anyMetricUsesProperPrior =
+    snapshot?.settings?.metricSettings?.some(
+      (m) => m.computedSettings?.properPrior,
+    ) ?? false;
+  const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
+  const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
+  const postStratificationUsed =
+    hasData &&
+    !!analysis?.settings?.postStratificationEnabled &&
+    !organization?.settings?.disablePrecomputedDimensions;
 
   const toolbar = (
     <AnalysisSettingsSummary
@@ -399,8 +407,18 @@ export default function ResultsTab({
                   value={activationMetric.name}
                 />
               ) : null}
-              {lookbackEnforced ? (
-                <Metadata label="Lookback Enforced" value={lookbackEnforced} />
+              {getEffectiveLookbackOverride(
+                experiment.attributionModel,
+                experiment.lookbackOverride,
+              ) && experiment.lookbackOverride ? (
+                <Metadata
+                  label="Lookback Enforced"
+                  value={
+                    experiment.lookbackOverride.type === "date"
+                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
+                      : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
+                  }
+                />
               ) : null}
               {isBandit && snapshot ? (
                 <>

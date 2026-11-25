@@ -26,10 +26,7 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
-import {
-  ResultsRedesignContext,
-  useResultsRedesign,
-} from "@/components/Experiment/ResultsRedesign";
+import { ResultsRedesignContext } from "@/components/Experiment/ResultsRedesign";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import {
@@ -208,13 +205,12 @@ function TabbedPageContents({
   const [compareModal, setCompareModal] = useState(false);
   const tabName = tab.split("/")[0];
   const onSetup = tabName === "overview";
-  const resultsRedesign = useResultsRedesign();
   // Open state is remembered per experiment; width is a global preference.
   const details = useDetailsPanel({
     openKey: `experiment-details-panel-open__${experiment.id}`,
     widthKey: "experiment-details-panel-width",
     tab: tabName,
-    homeTab: resultsRedesign ? ["overview", "results"] : "overview",
+    homeTab: "overview",
   });
   // The pre-launch checklist and the details panel point at analysis fields.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -762,10 +758,6 @@ function TabbedPageContents({
               stagedHoldoutId={stagedHoldout}
               tab={details.panelTab}
               setTab={details.setPanelTab}
-              envs={envs}
-              editAnalysisOnSetup={
-                onSetup ? () => showAnalysisSettings(true) : null
-              }
             />
           ) : null
         }
