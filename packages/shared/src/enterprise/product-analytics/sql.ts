@@ -933,13 +933,15 @@ type Measure =
   | { kind: "hllSketch"; rowFilters: RowFilter[]; column: string }
   | { kind: "kllSketch"; rowFilters: RowFilter[]; column: string };
 
-/** Keeps units whose total passes `conditions`, such as revenue ">10". */
-type AggregateFilter = {
-  /** One or more comma-separated comparisons, such as ">=3,<10". */
-  conditions: string;
-  /** What each unit totals: its matching rows, or a column summed over them. */
-  total: { kind: "rowCount" } | { kind: "column"; column: string };
-};
+/**
+ * Keeps units whose total over the matching rows passes `conditions`: one or
+ * more comma-separated comparisons, such as ">=3,<10".
+ */
+type AggregateFilter =
+  // Totals each unit's rows, e.g. at least 3 purchases
+  | { kind: "rowCount"; conditions: string }
+  // Totals a column over each unit's rows, e.g. revenue over 10
+  | { kind: "columnSum"; column: string; conditions: string };
 
 // `aggregation` means nothing for the special columns, so it's dropped here.
 // Validation already rejects distinct-count and sketch aggregations on them.
@@ -957,13 +959,13 @@ function parseMeasure(columnRef: ColumnRef): Measure {
         rowFilters,
         aggregateFilter:
           aggregateFilter && aggregateFilterColumn
-            ? {
-                conditions: aggregateFilter,
-                total:
-                  aggregateFilterColumn === "$$count"
-                    ? { kind: "rowCount" }
-                    : { kind: "column", column: aggregateFilterColumn },
-              }
+            ? aggregateFilterColumn === "$$count"
+              ? { kind: "rowCount", conditions: aggregateFilter }
+              : {
+                  kind: "columnSum",
+                  column: aggregateFilterColumn,
+                  conditions: aggregateFilter,
+                }
             : null,
       };
     }
@@ -1056,8 +1058,8 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
         // With an aggregate filter, each row adds to the total the unit is
         // checked against
         rowValue: (factTable, dialect) =>
-          aggregateFilter?.total.kind === "column"
-            ? columnValue(aggregateFilter.total.column, factTable, dialect)
+          aggregateFilter?.kind === "columnSum"
+            ? columnValue(aggregateFilter.column, factTable, dialect)
             : "1",
         // 1 for a unit that counts and NULL, never 0, for one that doesn't:
         // rollups keep a Population's members with IS NOT NULL.
