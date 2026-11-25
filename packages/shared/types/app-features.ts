@@ -43,6 +43,7 @@ export type AppFeatures = {
   "fact-table-table-mode": boolean;
   "fact-tables": boolean;
   "feature-list-realtime-graphs": boolean;
+  "feature-page-redesign-v1": boolean;
   "feature-usage": boolean;
   "feature-usage-auto-refresh-interval": Record<string, unknown>;
   "feature-usage-code": boolean;
@@ -78,6 +79,7 @@ export type AppFeatures = {
   "interleave-exp": boolean;
   "kiosk-greeting": string;
   "login-page-content": Record<string, unknown>;
+  "managed-warehouse-cluster-experiments": boolean;
   "managed-warehouse-diagnostics": boolean;
   "managed-warehouse-json-ergonomics-sweep": boolean;
   "managed-warehouse-json-migration": boolean;
@@ -98,7 +100,6 @@ export type AppFeatures = {
   "new-test-values": boolean;
   "no-access-role-type": boolean;
   "nps-survey": Record<string, unknown>;
-  "october16-ff": boolean;
   "oe-general-agent-gate": boolean;
   "papercups-config": Record<string, unknown>;
   populations: boolean;
@@ -111,6 +112,7 @@ export type AppFeatures = {
   "proxy-cloud-sse": boolean;
   "pylon-config": Record<string, unknown>;
   "quantile-metrics": boolean;
+  "query-runner-fast-refresh": boolean;
   "remote-evaluation": boolean;
   "remote-saved-groups": boolean;
   "safe-rollout": boolean;
@@ -123,7 +125,6 @@ export type AppFeatures = {
   "self-serve-billing": boolean;
   "self-serve-billing-overage-warning-banner": boolean;
   "session-replays": boolean;
-  "show-experiment-groups": boolean;
   "show-experiment-targeting": boolean;
   "show-impact-near-top": boolean;
   "show-switch-to-old-exp-create": boolean;
@@ -166,6 +167,7 @@ export type AppAttributes = {
   devtoolsTestNumArr?: number[] | null;
   devtoolsTestStrArr?: string[] | null;
   discountCode?: string | null;
+  experiment_id_hashed?: string | null;
   freeSeats?: number | null;
   gaCookie?: string | null;
   hasLicenseKey?: boolean | null;
@@ -198,6 +200,7 @@ export type AppAttributes = {
   request_path?: string | null;
   role?: string | null;
   session_id?: string | null;
+  snapshot_id?: string | null;
   superAdmin?: boolean | null;
   ua?: string | null;
   url?: string | null;

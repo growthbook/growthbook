@@ -119,7 +119,9 @@ COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # GB_SKIP_PREPARE: sdk-js and remote-saved-groups-csv-parser build themselves in
 # "prepare" for Git dependency installs; here their sources aren't copied yet,
 # and `pnpm build` builds them below.
-RUN GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline
+# GROWTHBOOK_CLI_SKIP_DOWNLOAD: the growthbook CLI is only for `pnpm type-gen`,
+# so the image skips downloading its binary from GitHub releases.
+RUN GB_SKIP_PREPARE=1 GROWTHBOOK_CLI_SKIP_DOWNLOAD=1 pnpm install --frozen-lockfile --offline
 
 # Compile kerberos from source (its prebuilt binary crashes at require time on
 # the distroless runtime); before COPY packages so the layer caches per-lockfile.
