@@ -405,6 +405,12 @@ describe("getFunnelStepMetrics", () => {
       rowFilters: [signupRowFilter],
     });
   });
+
+  it("gives every step the funnel's metric goal", () => {
+    const steps = getFunnelStepMetrics({ ...funnelMetric, inverse: true });
+
+    steps.forEach((step) => expect(step.inverse).toBe(true));
+  });
 });
 
 describe("getFunnelStepMetric", () => {
