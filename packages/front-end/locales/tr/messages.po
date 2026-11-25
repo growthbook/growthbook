@@ -164,7 +164,7 @@ msgstr "Keşif"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Maruziyet hata ayıklayıcısı"
+msgstr "Maruziyet ayıklayıcı"
 
 #: components/Layout/sidebarNav.ts
 msgid "Fact Tables"

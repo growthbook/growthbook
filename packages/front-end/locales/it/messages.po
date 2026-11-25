@@ -164,7 +164,7 @@ msgstr "Esplorazione"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Debugger delle esposizioni"
+msgstr "Debug esposizioni"
 
 #: components/Layout/sidebarNav.ts
 msgid "Fact Tables"
@@ -172,7 +172,7 @@ msgstr "Tabelle dei fatti"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Indicatori di funzionalità"
+msgstr "Indicatori"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -294,7 +294,7 @@ msgstr "Membri"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Correlazioni tra metriche"
+msgstr "Correlazioni"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
@@ -426,7 +426,7 @@ msgstr "Hai sbagliato indirizzo email o devi reinviare il link? <0>Torna indietr
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr "Riproduzione delle sessioni"
+msgstr "Registrazioni sessioni"
 
 #: components/Auth/Welcome.tsx
 msgid "Set up your first account"

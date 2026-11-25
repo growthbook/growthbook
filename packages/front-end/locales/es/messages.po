@@ -82,7 +82,7 @@ msgstr "Nombre de la empresa"
 
 #: components/Layout/sidebarNav.ts
 msgid "Configs"
-msgstr "Configuraciones dinámicas"
+msgstr "Ajustes dinámicos"
 
 #: components/Layout/sidebarNav.ts
 msgid "Constants"
@@ -164,7 +164,7 @@ msgstr "Exploración"
 
 #: components/Layout/sidebarNav.ts
 msgid "Exposures Debugger"
-msgstr "Depurador de exposiciones"
+msgstr "Depurar exposiciones"
 
 #: components/Layout/sidebarNav.ts
 msgid "Fact Tables"
@@ -172,7 +172,7 @@ msgstr "Tablas de hechos"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Indicadores de funcionalidades"
+msgstr "Indicadores"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -294,7 +294,7 @@ msgstr "Miembros"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Correlaciones entre métricas"
+msgstr "Correlaciones"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
@@ -426,7 +426,7 @@ msgstr "¿Te equivocaste de correo o necesitas reenviar el enlace? <0>Volver</0>
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr "Reproducción de sesiones"
+msgstr "Grabaciones de sesión"
 
 #: components/Auth/Welcome.tsx
 msgid "Set up your first account"

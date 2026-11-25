@@ -90,7 +90,7 @@ msgstr "Constantes"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Bandits manchots contextuels"
+msgstr "Bandits contextuels"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -172,7 +172,7 @@ msgstr "Tables de faits"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Indicateurs de fonctionnalités"
+msgstr "Indicateurs"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -294,11 +294,11 @@ msgstr "Membres"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Correlations"
-msgstr "Corrélations de métriques"
+msgstr "Corrélations"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metric Effects"
-msgstr "Effets sur les métriques"
+msgstr "Effets des métriques"
 
 #: components/Layout/sidebarNav.ts
 msgid "Metrics"
@@ -374,7 +374,7 @@ msgstr "Populations"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Power Calculator"
-msgstr "Calculateur de puissance"
+msgstr "Calcul de puissance"
 
 #: components/Layout/sidebarNav.ts
 msgid "Presentations"
