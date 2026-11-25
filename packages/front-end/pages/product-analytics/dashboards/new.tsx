@@ -17,6 +17,8 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardsTab";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDashboards } from "@/hooks/useDashboards";
+import { useAISettings } from "@/hooks/useOrgSettings";
+import DashboardBuilderEmptyState from "@/enterprise/components/Dashboards/DashboardBuilderEmptyState";
 
 export function createTemporaryDashboard(
   userId: string | undefined,
@@ -44,7 +46,7 @@ export function createTemporaryDashboard(
   };
 }
 
-export default function NewDashboardPage() {
+function BlankDashboardPage() {
   const { project } = useDefinitions();
   const { userId, hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
@@ -176,4 +178,20 @@ export default function NewDashboardPage() {
       />
     </DashboardSnapshotProvider>
   );
+}
+
+export default function NewDashboardPage() {
+  const router = useRouter();
+  const { hasCommercialFeature } = useUser();
+  const { aiEnabled } = useAISettings();
+
+  if (!router.isReady) return null;
+  const canUseBuilder =
+    hasCommercialFeature("product-analytics-dashboards") &&
+    hasCommercialFeature("ai-suggestions") &&
+    aiEnabled;
+  if (!canUseBuilder || router.query.blank !== undefined) {
+    return <BlankDashboardPage />;
+  }
+  return <DashboardBuilderEmptyState />;
 }

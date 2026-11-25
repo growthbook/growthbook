@@ -170,6 +170,31 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
+// The design's labelled send button: full height, small type.
+.sendLabel {
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+// One row, so the toolbar and the send button share a vertical centre.
+.heroBar {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.heroBarGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .heroSendButton {
   position: absolute;
   right: 12px;

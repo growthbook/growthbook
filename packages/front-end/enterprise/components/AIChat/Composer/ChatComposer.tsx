@@ -94,6 +94,10 @@ export interface ChatComposerProps {
   suggestedReply?: { key: string; text: string };
   /** Canned prompts to complete against before asking the model. */
   quickSuggestions?: readonly string[];
+  /** Hero only: controls shown in the box's bottom-left corner. */
+  heroToolbar?: React.ReactNode;
+  /** Text on the send button, beside its arrow. */
+  sendLabel?: string;
 }
 
 type ActiveSuggestion =
@@ -156,6 +160,8 @@ function ChatComposer(
     conversationId,
     suggestedReply,
     quickSuggestions,
+    heroToolbar,
+    sendLabel,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -503,7 +509,14 @@ function ChatComposer(
       title={action.label}
       aria-label={action.label}
     >
-      <Icon size={16} />
+      {sendLabel && !isLocalStream ? (
+        <Flex align="center" gap="1" className={styles.sendLabel}>
+          {sendLabel}
+          <Icon size={12} />
+        </Flex>
+      ) : (
+        <Icon size={16} />
+      )}
     </Button>
   );
 
@@ -581,7 +594,14 @@ function ChatComposer(
         onBlur={handleBlur}
       />
       {isHero ? (
-        <div className={styles.heroSendButton}>{buttons}</div>
+        heroToolbar ? (
+          <div className={styles.heroBar}>
+            <div className={styles.heroBarGroup}>{heroToolbar}</div>
+            <div className={styles.heroBarGroup}>{buttons}</div>
+          </div>
+        ) : (
+          <div className={styles.heroSendButton}>{buttons}</div>
+        )
       ) : (
         buttons
       )}
