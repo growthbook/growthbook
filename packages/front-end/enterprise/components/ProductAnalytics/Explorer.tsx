@@ -47,19 +47,10 @@ import {
   previousTimeFrameQueryParser,
   comparisonModeQueryParser,
   stripExplorerDraftFields,
+  EXPLORER_TYPE_LABELS,
 } from "./util";
 import { EXPLORER_AUTO_RUN_QUERY } from "./journeyFunnel";
 import styles from "./Explorer.module.scss";
-
-const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
-  metric: "Metric",
-  fact_table: "Fact Table",
-  data_source: "Data Source",
-  sql: "SQL",
-  funnel: "Funnel",
-  journey: "User Journey",
-  population: "Population",
-};
 
 const explorationQueryParser = explorationConfigParser.withOptions({
   shallow: true,

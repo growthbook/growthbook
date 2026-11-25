@@ -1,6 +1,7 @@
 import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
 import { useState } from "react";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import type { DatasetType } from "shared/validators";
 import { ago } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
@@ -23,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { EXPLORER_TYPE_LABELS } from "@/enterprise/components/ProductAnalytics/util";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnModal from "./ColumnModal";
 
@@ -37,7 +39,12 @@ function DeleteVirtualColumnContent({
 }) {
   const { data, error } = useApi<{
     total: number;
-    explorations: { id: string; dateUpdated: string; url: string | null }[];
+    explorations: {
+      id: string;
+      datasetType: DatasetType;
+      dateUpdated: string;
+      url: string | null;
+    }[];
   }>(
     `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/cached-explorations`,
   );
@@ -51,9 +58,10 @@ function DeleteVirtualColumnContent({
           Couldn&apos;t check for cached explorations that use this column.
         </Callout>
       ) : !data ? (
-        <Box mb="3">
-          <LoadingSpinner /> Checking for cached explorations…
-        </Box>
+        <Flex align="center" gap="2" mb="3">
+          <LoadingSpinner />
+          <Text color="text-mid">Checking for cached explorations…</Text>
+        </Flex>
       ) : total > 0 ? (
         <Callout status="warning" mb="3">
           <Text as="p" mb="1">
@@ -67,11 +75,12 @@ function DeleteVirtualColumnContent({
               <li key={e.id}>
                 {e.url ? (
                   <Link href={e.url} external>
-                    Last run {ago(e.dateUpdated)}
+                    {EXPLORER_TYPE_LABELS[e.datasetType]} exploration
                   </Link>
                 ) : (
-                  `Last run ${ago(e.dateUpdated)}`
-                )}
+                  `${EXPLORER_TYPE_LABELS[e.datasetType]} exploration`
+                )}{" "}
+                · last run {ago(e.dateUpdated)}
               </li>
             ))}
             {total > explorations.length && (

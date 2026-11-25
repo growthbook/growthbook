@@ -26,7 +26,10 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import type { ProductAnalyticsExploration } from "shared/validators";
+import type {
+  DatasetType,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -1349,7 +1352,12 @@ export const getColumnCachedExplorations = async (
   res: Response<{
     status: 200;
     total: number;
-    explorations: { id: string; dateUpdated: Date; url: string | null }[];
+    explorations: {
+      id: string;
+      datasetType: DatasetType;
+      dateUpdated: Date;
+      url: string | null;
+    }[];
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -1371,6 +1379,7 @@ export const getColumnCachedExplorations = async (
     total: cached.length,
     explorations: cached.slice(0, CACHED_EXPLORATIONS_LIMIT).map((e) => ({
       id: e.id,
+      datasetType: e.config.dataset.type,
       dateUpdated: e.dateUpdated,
       url: getExplorerUrlOrNull(e.config),
     })),
