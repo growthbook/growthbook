@@ -6,9 +6,8 @@ import {
   PiCheck,
   PiWarningFill,
 } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
+import { abbreviateAgo, ago, datetime } from "shared/dates";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
-import { EventWebHookInterface } from "shared/types/event-webhook";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -71,32 +70,10 @@ function DeliveryStatusBadge({
   );
 }
 
-// Like an experiment's status: whether it's on, and whether its last delivery
-// failed.
-export function WebhookStatusBadge({
-  webhook,
-}: {
-  webhook: Pick<EventWebHookInterface, "enabled" | "lastState">;
-}) {
-  if (!webhook.enabled) {
-    return (
-      <Badge label="Disabled" color="gray" variant="solid" radius="full" />
-    );
-  }
-  if (webhook.lastState === "error") {
-    return (
-      <Tooltip content="The last delivery failed.">
-        <Badge
-          label="Enabled: Unhealthy"
-          color="amber"
-          variant="solid"
-          radius="full"
-          style={{ cursor: "default" }}
-        />
-      </Tooltip>
-    );
-  }
-  return <Badge label="Enabled" color="indigo" variant="solid" radius="full" />;
+// A disabled webhook shows this in place of its delivery status, as SDK
+// webhooks do.
+export function DisabledBadge() {
+  return <Badge label="Disabled" color="gray" variant="soft" />;
 }
 
 export function LastDelivery({
@@ -111,7 +88,7 @@ export function LastDelivery({
       <DeliveryStatusBadge log={log} />
       <Tooltip content={datetime(date)}>
         <Text size="inherit" color="text-mid" whiteSpace="nowrap">
-          {ago(date)}
+          {abbreviateAgo(date)}
         </Text>
       </Tooltip>
     </Flex>
@@ -248,7 +225,7 @@ export default function EventWebHookStatus({
                         </TableCell>
                         <TableCell>
                           <Tooltip content={datetime(log.dateCreated)}>
-                            <span>{ago(log.dateCreated)}</span>
+                            <span>{abbreviateAgo(log.dateCreated)}</span>
                           </Tooltip>
                         </TableCell>
                         <TableCell>

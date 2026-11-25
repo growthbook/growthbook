@@ -29,7 +29,7 @@ import {
 } from "@/components/EventWebHooks/utils";
 import {
   LastDelivery,
-  WebhookStatusBadge,
+  DisabledBadge,
 } from "@/components/EventWebHooks/EventWebHookStatus";
 
 const MAX_EVENTS_DISPLAY = 3;
@@ -102,7 +102,6 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               <TableColumnHeader>Events</TableColumnHeader>
               <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Last delivery</TableColumnHeader>
-              <TableColumnHeader>Status</TableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -170,19 +169,16 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
                     <WebhookFilters webhook={eventWebHook} />
                   </TableCell>
                   <TableCell>
-                    {eventWebHook.lastRunAt && lastState !== "none" ? (
+                    {!eventWebHook.enabled ? (
+                      <DisabledBadge />
+                    ) : eventWebHook.lastRunAt && lastState !== "none" ? (
                       <LastDelivery
                         log={{ result: lastState, responseCode: null }}
                         date={eventWebHook.lastRunAt}
                       />
                     ) : (
-                      <Text size="inherit" color="text-mid">
-                        None yet
-                      </Text>
+                      <Badge label="Never fired" color="gray" variant="soft" />
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <WebhookStatusBadge webhook={eventWebHook} />
                   </TableCell>
                 </TableRow>
               );

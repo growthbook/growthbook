@@ -43,7 +43,7 @@ import StatusDot from "@/components/Experiment/StatusDot";
 import DatadogWebhookFields from "@/components/EventWebHooks/DatadogWebhookFields";
 import DatadogWebhookChecks from "@/components/EventWebHooks/DatadogWebhookChecks";
 import EventWebHookStatus, {
-  WebhookStatusBadge,
+  DisabledBadge,
 } from "@/components/EventWebHooks/EventWebHookStatus";
 import { parseHeaders } from "@/components/EventWebHooks/datadog";
 import {
@@ -815,9 +815,7 @@ export default function EventWebHookPage({
               style={{ height: "1em", width: "1em", flexShrink: 0 }}
             />
             {eventWebHook?.name ?? "New Webhook"}
-            {eventWebHook ? (
-              <WebhookStatusBadge webhook={eventWebHook} />
-            ) : null}
+            {eventWebHook && !eventWebHook.enabled ? <DisabledBadge /> : null}
           </Flex>
         }
         actions={actions}
