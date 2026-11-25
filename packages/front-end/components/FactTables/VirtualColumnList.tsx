@@ -55,7 +55,8 @@ function DeleteVirtualColumnContent({
     <Box>
       {error ? (
         <Callout status="warning" mb="3">
-          Couldn&apos;t check for cached explorations that use this column.
+          Couldn&apos;t check for cached explorations that use this column. You
+          can still delete the column.
         </Callout>
       ) : !data ? (
         <Flex align="center" gap="2" mb="3">
@@ -84,7 +85,7 @@ function DeleteVirtualColumnContent({
               </Text>
             ))}
             {total > explorations.length && (
-              <Text>{total - explorations.length} more</Text>
+              <Text>{total - explorations.length} more not shown</Text>
             )}
           </Flex>
         </Callout>

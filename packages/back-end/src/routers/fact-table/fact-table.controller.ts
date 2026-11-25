@@ -1346,7 +1346,7 @@ function getExplorerUrlOrNull(
 
 // Shown in the delete modal so the user can check the cached explorations that
 // use a column before deleting it. Lists the newest few, with Explorer links.
-const CACHED_EXPLORATIONS_LIMIT = 5;
+const CACHED_EXPLORATIONS_LIMIT = 10;
 export const getColumnCachedExplorations = async (
   req: AuthRequest<null, { id: string; column: string }>,
   res: Response<{
@@ -1374,15 +1374,27 @@ export const getColumnCachedExplorations = async (
     await getDatasourceIdentifierQuote(context, factTable.datasource),
   );
 
-  res.status(200).json({
-    status: 200,
-    total: cached.length,
-    explorations: cached.slice(0, CACHED_EXPLORATIONS_LIMIT).map((e) => ({
+  // Every run writes a cache row, so collapse re-runs that open the same
+  // Explorer page. `cached` is newest first, so each kept row is the latest run.
+  const seenUrls = new Set<string>();
+  const explorations = cached
+    .map((e) => ({
       id: e.id,
       datasetType: e.config.dataset.type,
       dateUpdated: e.dateUpdated,
       url: getExplorerUrlOrNull(e.config),
-    })),
+    }))
+    .filter((e) => {
+      if (e.url === null) return true;
+      if (seenUrls.has(e.url)) return false;
+      seenUrls.add(e.url);
+      return true;
+    });
+
+  res.status(200).json({
+    status: 200,
+    total: explorations.length,
+    explorations: explorations.slice(0, CACHED_EXPLORATIONS_LIMIT),
   });
 };
 
