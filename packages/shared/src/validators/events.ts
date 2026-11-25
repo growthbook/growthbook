@@ -188,6 +188,13 @@ const relatedEntityProjects = z
     "Its Projects, as webhook Project filters match them. Absent for experiments the changed Feature Flag's own rules reference.",
   );
 
+const relatedEntityTags = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Its tags, as webhook tag filters match them. Absent for experiments the changed Feature Flag's own rules reference.",
+  );
+
 export const eventRelatedEntity = z.discriminatedUnion("type", [
   z
     .object({
@@ -195,6 +202,7 @@ export const eventRelatedEntity = z.discriminatedUnion("type", [
       id: z.string(),
       environments: z.array(z.string()),
       projects: relatedEntityProjects,
+      tags: relatedEntityTags,
     })
     .strict(),
   z
@@ -203,6 +211,7 @@ export const eventRelatedEntity = z.discriminatedUnion("type", [
       id: z.string(),
       environments: z.array(z.string()),
       projects: relatedEntityProjects,
+      tags: relatedEntityTags,
     })
     .strict(),
   z

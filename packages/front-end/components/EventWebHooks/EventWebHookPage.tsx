@@ -24,6 +24,10 @@ import SettingsPage, {
 } from "@/components/Layout/SettingsPage";
 import SectionFrame from "@/components/SectionFrame";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import {
+  StagedChange,
+  StagedChangesPopover,
+} from "@/components/StagedEdits/StagedChanges";
 import StagedEditsBar, {
   EDITS_BLOCKED_REASON,
 } from "@/components/StagedEdits/StagedEditsBar";
@@ -173,8 +177,7 @@ function toRequestBody(values: EventWebHookEditParams) {
     ...(v.payloadType === "datadog"
       ? {
           datadog: {
-            serviceField: v.datadog?.serviceField ?? "",
-            includeApprovers: !!v.datadog?.includeApprovers,
+            service: v.datadog?.service?.trim() || undefined,
           },
         }
       : {}),
@@ -278,6 +281,7 @@ export default function EventWebHookPage({
   const logs = loadedLogs ?? [];
 
   const [saving, setSaving] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{
     status: "success" | "error";
@@ -350,9 +354,37 @@ export default function EventWebHookPage({
   });
   const savedNormal = normalize(saved);
   const shownNormal = normalize(values);
-  const changed = (field: keyof ReturnType<typeof normalize>) =>
-    !isNew && !isEqual(shownNormal[field], savedNormal[field]);
-  const edited = !isEqual(shownNormal, savedNormal);
+  // The form's rows, as the save bar lists them once they're edited.
+  const field = (key: keyof ReturnType<typeof normalize>, label: string) => ({
+    id: key,
+    label,
+    before: { [key]: savedNormal[key] },
+    after: { [key]: shownNormal[key] },
+    discard: () => form.setValue(key, saved[key]),
+  });
+  const unsaved = isNew
+    ? []
+    : [
+        field("name", "Name"),
+        field("payloadType", "Payload type"),
+        field("url", isDatadog ? "Datadog site" : "Endpoint URL"),
+        ...(isDatadog
+          ? [field("headers", "API key"), field("datadog", "Datadog service")]
+          : []),
+        ...(isDetailed
+          ? [
+              field("method", "Method"),
+              field("headers", "Headers"),
+              field("timeoutSeconds", "Timeout (seconds)"),
+            ]
+          : []),
+        field("events", "Events"),
+        field("environments", "Environments"),
+        field("projects", "Projects"),
+        field("tags", "Tags"),
+      ].filter((row) => !isEqual(row.before, row.after));
+  const changed = (id: string) => unsaved.some((row) => row.id === id);
+  const edited = unsaved.length > 0;
   const dirty = isNew || edited;
   const navigationGuard = useUnsavedChangesGuard(canEdit && edited);
   const blockedReason = !isNew && dirty ? EDITS_BLOCKED_REASON : null;
@@ -586,7 +618,12 @@ export default function EventWebHookPage({
         </SetupFieldRow>
 
         {isDatadog ? (
-          <DatadogWebhookFields form={form} disabled={disabled} isNew={isNew} />
+          <DatadogWebhookFields
+            form={form}
+            disabled={disabled}
+            isNew={isNew}
+            changed={changed}
+          />
         ) : (
           <SetupFieldRow
             label="Endpoint URL"
@@ -714,11 +751,6 @@ export default function EventWebHookPage({
                   ? [ALL_EVENTS_WILDCARD]
                   : value,
               )
-            }
-            helpText={
-              isDatadog
-                ? "Picks up newly supported events automatically."
-                : undefined
             }
           />
         </SetupFieldRow>
@@ -858,40 +890,47 @@ export default function EventWebHookPage({
       )}
 
       {canEdit && dirty && (
-        // Pinned to the window's bottom, from the navs to its right edge.
-        <Box
-          style={{
-            position: "fixed",
-            left: "var(--page-nav-width)",
-            right: 0,
-            bottom: 0,
-            // As General's bar: over the sub nav, under the slide-out sidebar.
-            zIndex: 999,
+        <StagedEditsBar
+          pinned
+          changes={
+            isNew ? (
+              <Text weight="medium">New webhook</Text>
+            ) : (
+              <StagedChangesPopover
+                open={changesOpen}
+                onOpenChange={setChangesOpen}
+                count={unsaved.length}
+              >
+                {unsaved.map((row) => (
+                  <StagedChange
+                    key={row.id}
+                    label={row.label}
+                    review={row}
+                    discard={row.discard}
+                    keepMine={null}
+                    incompatible={null}
+                    saving={saving}
+                  />
+                ))}
+              </StagedChangesPopover>
+            )
+          }
+          notes={
+            saveError ? (
+              <HelperText status="error">{saveError}</HelperText>
+            ) : problem ? (
+              <Text color="text-mid">{problem}</Text>
+            ) : null
+          }
+          saving={saving}
+          saveDisabled={shownOnRows(values) || !!problem}
+          onDiscard={() => {
+            if (!isNew) return form.reset(saved);
+            navigationGuard.allowUnload();
+            router.push("/settings/webhooks");
           }}
-        >
-          <StagedEditsBar
-            changes={
-              <Text weight="medium">
-                {isNew ? "New webhook" : "Unsaved changes"}
-              </Text>
-            }
-            notes={
-              saveError ? (
-                <HelperText status="error">{saveError}</HelperText>
-              ) : problem ? (
-                <Text color="text-mid">{problem}</Text>
-              ) : null
-            }
-            saving={saving}
-            saveDisabled={shownOnRows(values) || !!problem}
-            onDiscard={() => {
-              if (!isNew) return form.reset(saved);
-              navigationGuard.allowUnload();
-              router.push("/settings/webhooks");
-            }}
-            onSave={onSave}
-          />
-        </Box>
+          onSave={onSave}
+        />
       )}
       {navigationGuard.pendingHref ? (
         <ConfirmDialog
@@ -904,8 +943,6 @@ export default function EventWebHookPage({
           onDismiss={navigationGuard.cancelNavigation}
         />
       ) : null}
-      {/* Room for the bar under the last section. */}
-      <Box style={{ height: "var(--bottom-bar-clearance, 0px)" }} />
     </SettingsPage>
   );
 }

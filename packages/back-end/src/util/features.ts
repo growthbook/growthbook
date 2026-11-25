@@ -2007,32 +2007,12 @@ export function expandRuleEnvsForInheritance(
   return { ...rule, environments: expanded } as FeatureRule;
 }
 
-// Extras a caller can add to a flag's meta info. Each is loaded only when
-// asked for, so the default list stays lean; add new ones here and in the
-// projection below.
-export type FeatureMetaInfoInclude = {
-  defaultValue?: boolean;
-  // Custom field keys; only these fields' values are sent.
-  customFields?: string[];
-};
-
-export function featureMetaInfoIncludeProjection(
-  include: FeatureMetaInfoInclude,
-): Record<string, 1> {
-  return {
-    ...(include.defaultValue ? { defaultValue: 1 } : {}),
-    ...Object.fromEntries(
-      (include.customFields ?? []).map((key) => [`customFields.${key}`, 1]),
-    ),
-  };
-}
-
 // The feature list's summary of a stored flag, from the fields
 // getFeatureMetaInfoById loads. Lean documents leave out the empty lists that
 // Mongoose hydration would add, so those default here.
 export function toFeatureMetaInfo(
   f: LegacyFeatureInterface,
-  include: FeatureMetaInfoInclude = {},
+  includeDefaultValue: boolean,
 ): FeatureMetaInfo {
   const rules = f.rules as
     | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
@@ -2066,10 +2046,7 @@ export function toFeatureMetaInfo(
     // `baseConfig` (authoritative), not by parsing the default value.
     configBackingKey: f.baseConfig ?? null,
     revision: f.revision as FeatureMetaInfo["revision"],
-    ...(include.defaultValue && { defaultValue: f.defaultValue ?? "" }),
-    ...(include.customFields?.length && {
-      customFields: pick(f.customFields ?? {}, include.customFields),
-    }),
+    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   };
 }
 

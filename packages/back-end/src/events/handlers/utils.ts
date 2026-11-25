@@ -1,10 +1,14 @@
 import intersection from "lodash/intersection";
-import { isDatadogEventWebHookEvent } from "shared/validators";
+import {
+  EventRelatedEntity,
+  isDatadogEventWebHookEvent,
+} from "shared/validators";
 import type { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
+import { scopeRelatedEntities } from "back-end/src/events/relatedEntities";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];
@@ -44,21 +48,77 @@ export const filterEventForEnvironments = ({
   return intersection(event.environments || [], environments).length > 0;
 };
 
-// Whether a webhook is sent an event that passed its Project and tag filters.
-// Datadog takes only events its formatter converts, once they reach an
-// environment.
+type WebhookFilters = Pick<
+  EventWebHookInterface,
+  "projects" | "tags" | "environments"
+>;
+
+type RoutedEvent = {
+  event: string;
+  projects?: string[];
+  tags?: string[];
+  environments?: string[];
+  relatedEntities?: EventRelatedEntity[];
+};
+
+const passes = (filter: string[], values: string[] = []) =>
+  !filter.length || values.some((v) => filter.includes(v));
+
+// Saved Groups, Constants and Configs are shared, so a change to one also
+// reaches a filtered webhook through the Feature Flags and experiments that
+// depend on it.
+const SHARED_RESOURCES = ["savedGroup", "constant", "config"];
+
+// The environments of an event within a webhook's filters, or null when the
+// event doesn't pass them.
+export function webhookEventEnvironments(
+  webhook: WebhookFilters,
+  event: RoutedEvent,
+): string[] | null {
+  const environments = event.environments ?? [];
+  const envFilter = webhook.environments ?? [];
+  const inFilter = envFilter.length
+    ? environments.filter((e) => envFilter.includes(e))
+    : environments;
+
+  if (
+    passes(webhook.projects ?? [], event.projects) &&
+    passes(webhook.tags ?? [], event.tags)
+  ) {
+    return filterEventForEnvironments({
+      event: { environments },
+      environments: envFilter,
+    })
+      ? inFilter
+      : null;
+  }
+
+  if (!SHARED_RESOURCES.includes(event.event.split(".")[0])) return null;
+  // A dependent that doesn't list its Projects and tags can't pass them.
+  const reached = new Set(
+    scopeRelatedEntities(event.relatedEntities ?? [], webhook).flatMap((e) =>
+      e.type !== "rampSchedule" && e.projects && e.tags ? e.environments : [],
+    ),
+  );
+  const dependentEnvs = inFilter.filter((e) => reached.has(e));
+  return dependentEnvs.length ? dependentEnvs : null;
+}
+
+// Whether a webhook is sent an event. Datadog takes only events its formatter
+// converts, once they reach an environment.
 export const webhookTakesEvent = (
-  webhook: Pick<EventWebHookInterface, "payloadType" | "environments">,
-  event: { event: string; environments?: string[] },
+  webhook: WebhookFilters & Pick<EventWebHookInterface, "payloadType">,
+  event: RoutedEvent,
 ): boolean => {
   if (
     webhook.payloadType === "datadog" &&
-    (!isDatadogEventWebHookEvent(event.event) || !event.environments?.length)
+    !isDatadogEventWebHookEvent(event.event)
   ) {
     return false;
   }
-  return filterEventForEnvironments({
-    event: { environments: event.environments ?? [] },
-    environments: webhook.environments ?? [],
-  });
+  const environments = webhookEventEnvironments(webhook, event);
+  return (
+    environments !== null &&
+    (webhook.payloadType !== "datadog" || environments.length > 0)
+  );
 };

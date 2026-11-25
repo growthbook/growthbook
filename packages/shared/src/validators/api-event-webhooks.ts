@@ -141,7 +141,7 @@ export const postEventWebhookValidator = {
       payloadType: "datadog" as const,
       headers: { "DD-API-KEY": "{{ DATADOG_API_KEY }}" },
       environments: ["production"],
-      datadog: { serviceField: "datadog-service" },
+      datadog: { service: "checkout-api" },
     },
   },
 };

@@ -64,26 +64,3 @@ export function datadogWebhookProblem({
   }
   return null;
 }
-
-function serviceNamesFrom(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(serviceNamesFrom);
-  if (typeof value !== "string") return [];
-  const trimmed = value.trim();
-  if (trimmed.startsWith("[")) {
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) return parsed.flatMap(serviceNamesFrom);
-    } catch {
-      // Not a JSON list: read it as comma-separated names.
-    }
-  }
-  return trimmed
-    .split(",")
-    .map((name) => name.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-// Custom field values (multiselect lists, or text) as Datadog service names.
-export function getDatadogServiceNames(values: unknown[]): string[] {
-  return [...new Set(values.flatMap(serviceNamesFrom))];
-}

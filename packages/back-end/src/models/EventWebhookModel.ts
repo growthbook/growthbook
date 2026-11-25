@@ -3,7 +3,6 @@ import { z } from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
-import intersection from "lodash/intersection";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
@@ -50,8 +49,7 @@ const eventWebHookSchema = new mongoose.Schema({
     configurationUrl: String,
   },
   datadog: {
-    serviceField: String,
-    includeApprovers: Boolean,
+    service: String,
   },
   notificationSettings: {
     type: Object,
@@ -504,44 +502,22 @@ export const reconnectSlackEventWebhook = async ({
   );
 };
 
-const filterOptional = <T>(want: T[] = [], has: T[]) => {
-  if (!want.length) return true;
-  return !!intersection(want, has).length;
-};
-
-/**
- * Retrieve all event web hooks for an organization for a given event
- * @param organizationId
- * @param eventName
- * @param enabled
- */
-
+// The org's web hooks subscribed to an event; `webhookTakesEvent` applies
+// their Project, tag and environment filters.
 export const getAllEventWebHooksForEvent = async ({
   organizationId,
   eventName,
   enabled,
-  tags,
-  projects,
 }: {
   organizationId: string;
   eventName: NotificationEventName;
   enabled: boolean;
-  tags: string[];
-  projects: string[];
 }): Promise<EventWebHookInterface[]> => {
-  const allDocs = await EventWebHookModel.find({
+  const docs = await EventWebHookModel.find({
     organizationId,
     events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
     enabled,
   });
-
-  const docs = allDocs.filter((doc) => {
-    if (!filterOptional(doc.tags, tags)) return false;
-    if (!filterOptional(doc.projects, projects)) return false;
-
-    return true;
-  });
-
   return docs.map(toInterface);
 };
 

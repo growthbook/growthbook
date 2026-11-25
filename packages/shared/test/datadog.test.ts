@@ -2,7 +2,6 @@ import {
   datadogEventsUrl,
   datadogSiteForUrl,
   datadogWebhookProblem,
-  getDatadogServiceNames,
 } from "../src/util/datadog";
 
 describe("datadogWebhookProblem", () => {
@@ -37,19 +36,5 @@ describe("datadogSiteForUrl", () => {
       "datadoghq.eu",
     );
     expect(datadogSiteForUrl("https://proxy.example.com/events")).toBeNull();
-  });
-});
-
-describe("getDatadogServiceNames", () => {
-  it("reads lists, JSON lists and comma-separated text, trimmed, lowercased and deduplicated", () => {
-    expect(
-      getDatadogServiceNames([
-        ["Checkout-API", " checkout-web "],
-        '["checkout-api","billing"]',
-        "search, ,ads",
-        null,
-        42,
-      ]),
-    ).toEqual(["checkout-api", "checkout-web", "billing", "search", "ads"]);
   });
 });

@@ -1,6 +1,7 @@
 import type { NotificationEvent } from "back-end/src/events/notification-events";
 import {
   filterEventForEnvironments,
+  webhookEventEnvironments,
   webhookTakesEvent,
 } from "back-end/src/events/handlers/utils";
 
@@ -59,8 +60,18 @@ describe("filterEventForEnvironments", () => {
   });
 });
 
+const filters = (
+  overrides: Partial<Parameters<typeof webhookTakesEvent>[0]> = {},
+): Parameters<typeof webhookTakesEvent>[0] => ({
+  payloadType: "json",
+  projects: [],
+  tags: [],
+  environments: [],
+  ...overrides,
+});
+
 describe("webhookTakesEvent", () => {
-  const datadog = { payloadType: "datadog" as const, environments: [] };
+  const datadog = filters({ payloadType: "datadog" });
 
   it("sends Datadog only the events it converts, once they reach an environment", () => {
     expect(
@@ -85,10 +96,79 @@ describe("webhookTakesEvent", () => {
 
   it("leaves other webhooks to their environment filter", () => {
     expect(
-      webhookTakesEvent(
-        { payloadType: "json", environments: [] },
-        { event: "user.login", environments: [] },
-      ),
+      webhookTakesEvent(filters(), { event: "user.login", environments: [] }),
     ).toBe(true);
+  });
+});
+
+describe("webhookEventEnvironments", () => {
+  it("matches the event's own Projects and tags", () => {
+    const event = {
+      event: "feature.updated",
+      projects: ["checkout"],
+      tags: ["payments"],
+      environments: ["dev", "production"],
+    };
+    expect(webhookEventEnvironments(filters(), event)).toEqual([
+      "dev",
+      "production",
+    ]);
+    expect(
+      webhookEventEnvironments(
+        filters({
+          projects: ["checkout"],
+          tags: ["payments"],
+          environments: ["production"],
+        }),
+        event,
+      ),
+    ).toEqual(["production"]);
+    expect(
+      webhookEventEnvironments(filters({ projects: ["search"] }), event),
+    ).toBeNull();
+    expect(
+      webhookEventEnvironments(filters({ tags: ["beta"] }), event),
+    ).toBeNull();
+  });
+
+  it("reaches Project and tag filters through a shared change's dependents", () => {
+    const savedGroupUpdated = {
+      event: "savedGroup.updated",
+      projects: [],
+      tags: [],
+      environments: ["dev", "production"],
+      relatedEntities: [
+        {
+          type: "feature" as const,
+          id: "checkout-flow",
+          environments: ["production"],
+          projects: ["checkout"],
+          tags: ["payments"],
+        },
+        {
+          type: "experiment" as const,
+          id: "exp_search",
+          environments: ["dev", "production"],
+          projects: ["search"],
+          tags: ["ranking"],
+        },
+      ],
+    };
+    const reach = (overrides: Parameters<typeof filters>[0]) =>
+      webhookEventEnvironments(filters(overrides), savedGroupUpdated);
+
+    expect(reach({ projects: ["checkout"] })).toEqual(["production"]);
+    expect(reach({ tags: ["payments"] })).toEqual(["production"]);
+    expect(reach({ projects: ["checkout"], environments: ["dev"] })).toBeNull();
+    expect(reach({ projects: ["billing"] })).toBeNull();
+    // One dependent has to pass both filters.
+    expect(reach({ projects: ["checkout"], tags: ["ranking"] })).toBeNull();
+    // Only shared resources route through what they touch.
+    expect(
+      webhookEventEnvironments(filters({ projects: ["checkout"] }), {
+        ...savedGroupUpdated,
+        event: "experiment.updated",
+      }),
+    ).toBeNull();
   });
 });

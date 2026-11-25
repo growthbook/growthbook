@@ -159,6 +159,7 @@ describe("getExperimentReach", () => {
           id: "checkout",
           environments: ["prod"],
           projects: [],
+          tags: [],
         },
       ],
     });
@@ -179,10 +180,11 @@ describe("getExperimentReach", () => {
 });
 
 describe("getDependentEntities", () => {
-  it("lists dependents with their live environments and Projects", () => {
+  it("lists dependents with their live environments, Projects and tags", () => {
     const devOnly = change((f) => {
       f.id = "banner";
       f.project = "prj_a";
+      f.tags = ["marketing"];
       f.environmentSettings.prod.enabled = false;
     });
     expect(
@@ -190,7 +192,12 @@ describe("getDependentEntities", () => {
         {
           features: [devOnly],
           experiments: [
-            { id: "exp_1", project: "prj_b", linkedFeatures: ["checkout"] },
+            {
+              id: "exp_1",
+              project: "prj_b",
+              tags: ["checkout"],
+              linkedFeatures: ["checkout"],
+            },
             { id: "exp_visual", hasVisualChangesets: true },
             { id: "exp_unserved" },
           ],
@@ -204,18 +211,21 @@ describe("getDependentEntities", () => {
         id: "banner",
         environments: ["dev"],
         projects: ["prj_a"],
+        tags: ["marketing"],
       },
       {
         type: "experiment",
         id: "exp_1",
         environments: envs,
         projects: ["prj_b"],
+        tags: ["checkout"],
       },
       {
         type: "experiment",
         id: "exp_visual",
         environments: envs,
         projects: [],
+        tags: [],
       },
     ]);
   });
@@ -274,24 +284,40 @@ describe("scopeRelatedEntities", () => {
       id: "a",
       environments: envs,
       projects: ["prj_a"],
+      tags: ["payments"],
     },
     {
       type: "feature" as const,
       id: "b",
       environments: ["dev"],
       projects: ["prj_b"],
+      tags: ["payments"],
+    },
+    {
+      type: "feature" as const,
+      id: "d",
+      environments: envs,
+      projects: ["prj_a"],
+      tags: ["search"],
     },
     { type: "experiment" as const, id: "c", environments: envs },
   ];
 
-  it("keeps entities in the webhook's Projects, narrowed to its environments", () => {
+  it("keeps entities in the webhook's Projects and tags, narrowed to its environments", () => {
     expect(
       scopeRelatedEntities(entities, {
         projects: ["prj_a"],
+        tags: ["payments"],
         environments: ["prod"],
       }),
     ).toEqual([
-      { type: "feature", id: "a", environments: ["prod"], projects: ["prj_a"] },
+      {
+        type: "feature",
+        id: "a",
+        environments: ["prod"],
+        projects: ["prj_a"],
+        tags: ["payments"],
+      },
       { type: "experiment", id: "c", environments: ["prod"] },
     ]);
   });

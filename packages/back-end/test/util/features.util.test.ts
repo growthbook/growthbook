@@ -319,7 +319,7 @@ describe("toFeatureMetaInfo", () => {
     }) as unknown as LegacyFeatureInterface;
 
   it("summarizes a bare flag, defaulting the lists a lean read leaves out", () => {
-    expect(toFeatureMetaInfo(stored({}))).toEqual({
+    expect(toFeatureMetaInfo(stored({}), false)).toEqual({
       id: "f",
       project: "",
       targetingProjects: [],
@@ -349,7 +349,7 @@ describe("toFeatureMetaInfo", () => {
       { environmentSettings: { dev: { prerequisites: [prerequisite] } } },
     ],
   ])("finds prerequisites on the %s", (level, doc) => {
-    expect(toFeatureMetaInfo(stored(doc)).hasPrerequisites).toBe(true);
+    expect(toFeatureMetaInfo(stored(doc), false).hasPrerequisites).toBe(true);
   });
 
   it("flags saved groups and config backing, and adds the default value when asked", () => {
@@ -358,7 +358,7 @@ describe("toFeatureMetaInfo", () => {
         baseConfig: "cfg_1",
         rules: [{ id: "r", savedGroups: [{ ids: ["g"] }] }],
       }),
-      { defaultValue: true },
+      true,
     );
     expect(meta).toMatchObject({
       hasSavedGroups: true,
@@ -366,17 +366,6 @@ describe("toFeatureMetaInfo", () => {
       configBackingKey: "cfg_1",
       defaultValue: "true",
     });
-  });
-
-  it("adds only the custom fields asked for", () => {
-    const doc = stored({
-      customFields: { "datadog-service": ["checkout-api"], team: "payments" },
-    });
-    expect(toFeatureMetaInfo(doc)).not.toHaveProperty("customFields");
-    expect(
-      toFeatureMetaInfo(doc, { customFields: ["datadog-service"] })
-        .customFields,
-    ).toEqual({ "datadog-service": ["checkout-api"] });
   });
 });
 

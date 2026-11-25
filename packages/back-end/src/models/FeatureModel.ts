@@ -135,8 +135,6 @@ import {
   getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
   toFeatureMetaInfo,
-  featureMetaInfoIncludeProjection,
-  FeatureMetaInfoInclude,
   EmbeddedFeatureMetadata,
   NO_EMBEDDED_FEATURE_METADATA,
   getChangedFeatureEnvironments,
@@ -5095,12 +5093,12 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
 export async function getFeatureMetaInfoById(
   context: ReqContext | ApiReqContext,
   opts: {
-    include?: FeatureMetaInfoInclude;
+    includeDefaultValue?: boolean;
     project?: string;
     ids?: string[];
   } = {},
 ): Promise<FeatureMetaInfo[]> {
-  const { include = {}, project, ids } = opts;
+  const { includeDefaultValue = false, project, ids } = opts;
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
@@ -5143,7 +5141,7 @@ export async function getFeatureMetaInfoById(
     // it — the list itself never parses it.
     baseConfig: 1,
     "holdout.id": 1,
-    ...featureMetaInfoIncludeProjection(include),
+    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
   const features = await FeatureModel.find(query, projection).lean<
@@ -5157,7 +5155,7 @@ export async function getFeatureMetaInfoById(
     if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
     metaInfo.push({
-      ...toFeatureMetaInfo(f, include),
+      ...toFeatureMetaInfo(f, includeDefaultValue),
       holdoutId: f.holdout?.id ?? null,
     });
   }

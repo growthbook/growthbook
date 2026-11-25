@@ -41813,16 +41813,12 @@ paths:
                 datadog:
                   type: object
                   properties:
-                    serviceField:
-                      type: string
+                    service:
                       description: >-
-                        Key of the custom field whose values name the Datadog
-                        services a change affects.
-                    includeApprovers:
-                      description: Send who approved a published revision.
-                      type: boolean
-                  required:
-                    - serviceField
+                        The Datadog service the changes are sent to. The
+                        webhook's projects, tags and environments choose which
+                        changes those are.
+                      type: string
                   additionalProperties: false
               required:
                 - url
@@ -41851,7 +41847,7 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/event-webhooks' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"name":"Datadog change tracking","url":"https://event-management-intake.datadoghq.com/api/v2/events","enabled":true,"payloadType":"datadog","headers":{"DD-API-KEY":"{{ DATADOG_API_KEY }}"},"environments":["production"],"datadog":{"serviceField":"datadog-service"}}'
+              -d '{"name":"Datadog change tracking","url":"https://event-management-intake.datadoghq.com/api/v2/events","enabled":true,"payloadType":"datadog","headers":{"DD-API-KEY":"{{ DATADOG_API_KEY }}"},"environments":["production"],"datadog":{"service":"checkout-api"}}'
   /v1/event-webhooks/{id}:
     get:
       operationId: getEventWebhook
@@ -41972,16 +41968,12 @@ paths:
                 datadog:
                   type: object
                   properties:
-                    serviceField:
-                      type: string
+                    service:
                       description: >-
-                        Key of the custom field whose values name the Datadog
-                        services a change affects.
-                    includeApprovers:
-                      description: Send who approved a published revision.
-                      type: boolean
-                  required:
-                    - serviceField
+                        The Datadog service the changes are sent to. The
+                        webhook's projects, tags and environments choose which
+                        changes those are.
+                      type: string
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -84915,16 +84907,11 @@ components:
           description: Settings for the `datadog` payload type.
           type: object
           properties:
-            serviceField:
-              type: string
+            service:
               description: >-
-                Key of the custom field whose values name the Datadog services a
-                change affects.
-            includeApprovers:
-              description: Send who approved a published revision.
-              type: boolean
-          required:
-            - serviceField
+                The Datadog service the changes are sent to. The webhook's
+                projects, tags and environments choose which changes those are.
+              type: string
           additionalProperties: false
         signingKey:
           description: >-

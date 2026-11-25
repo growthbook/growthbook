@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useState } from "react";
 import {
   DATADOG_API_KEY_HEADER,
   datadogEventsUrl,
@@ -11,15 +10,11 @@ import { UseFormReturn } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useCustomFields } from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
-import Checkbox from "@/ui/Checkbox";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
-import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
-import { useUser } from "@/services/UserContext";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import {
   headerSecretKey,
@@ -28,12 +23,11 @@ import {
 } from "@/components/EventWebHooks/datadog";
 
 const CUSTOM_SITE = "custom";
-// The last items in the pickers' menus; each opens its create modal.
+// The last item in the secret picker's menu; it opens the create modal.
 const CREATE_SECRET = "__create_secret__";
-const CREATE_FIELD = "__create_custom_field__";
 
 function actionOrLabel({ label, value }: { label: string; value: string }) {
-  return value === CREATE_SECRET || value === CREATE_FIELD ? (
+  return value === CREATE_SECRET ? (
     <Flex align="center" gap="1" style={{ color: "var(--violet-11)" }}>
       <PiPlus /> {label}
     </Flex>
@@ -122,13 +116,15 @@ export default function DatadogWebhookFields({
   form,
   disabled,
   isNew,
+  changed,
 }: {
   form: UseFormReturn<EventWebHookEditParams>;
   disabled: boolean;
   // Required rows are marked when creating, or once emptied.
   isNew: boolean;
+  // Whether a row's setting is unsaved, by its field.
+  changed: (field: string) => boolean;
 }) {
-  const customFields = useCustomFields();
   const url = form.watch("url");
   // "Custom" clears the URL; any URL that isn't a site's is custom.
   const [customChosen, setCustomChosen] = useState(false);
@@ -141,37 +137,7 @@ export default function DatadogWebhookFields({
     // Not a URL yet.
   }
 
-  const { hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
-  const canCreateField =
-    hasCommercialFeature("custom-metadata") &&
-    permissionsUtil.canManageCustomFields();
-  const serviceFieldOptions = customFields
-    .filter(
-      (f) =>
-        f.active !== false &&
-        (f.sections.includes("feature") || f.sections.includes("experiment")),
-    )
-    .map((f) => ({ label: f.name, value: f.id }))
-    .sort((a, b) => a.label.localeCompare(b.label));
   const datadog = form.watch("datadog");
-
-  // The fields there were when "Create custom field" opened, while its modal
-  // is open; once it saves, the new field is picked when it shows up.
-  const { mutateDefinitions } = useDefinitions();
-  const [creatingFrom, setCreatingFrom] = useState<string[] | null>(null);
-  const [awaitingFrom, setAwaitingFrom] = useState<string[] | null>(null);
-  const setServiceField = (serviceField: string) =>
-    form.setValue("datadog", { ...form.watch("datadog"), serviceField });
-  useEffect(() => {
-    const created =
-      awaitingFrom && customFields.find((f) => !awaitingFrom.includes(f.id));
-    if (!created) return;
-    setServiceField(created.id);
-    setAwaitingFrom(null);
-    // Only when the field list or the pending pick changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customFields, awaitingFrom]);
   const hasApiKey = !datadogWebhookProblem({
     headers: parseHeaders(form.watch("headers")),
   });
@@ -182,6 +148,7 @@ export default function DatadogWebhookFields({
         label="Datadog site"
         htmlFor="webhook-datadog-site"
         required={isNew || !origin}
+        changed={changed("url")}
       >
         <SelectField
           id="webhook-datadog-site"
@@ -210,6 +177,7 @@ export default function DatadogWebhookFields({
           label="Endpoint URL"
           htmlFor="webhook-url"
           required={isNew || !origin}
+          changed={changed("url")}
         >
           <Field
             id="webhook-url"
@@ -226,67 +194,26 @@ export default function DatadogWebhookFields({
         label="API key"
         htmlFor="webhook-api-key"
         required={isNew || !hasApiKey}
+        changed={changed("headers")}
       >
         <ApiKeySelect form={form} allowedOrigin={origin} disabled={disabled} />
       </SetupFieldRow>
 
-      <SetupFieldRow label="Datadog services" htmlFor="webhook-services">
-        <SelectField
-          id="webhook-services"
-          value={datadog?.serviceField ?? ""}
-          placeholder="Choose a custom field"
-          isClearable
-          sort={false}
+      <SetupFieldRow
+        label="Datadog service"
+        htmlFor="webhook-service"
+        changed={changed("datadog")}
+      >
+        <Field
+          id="webhook-service"
+          placeholder="checkout-api"
           disabled={disabled}
           containerStyle={fieldStyle}
-          options={[
-            ...serviceFieldOptions,
-            ...(canCreateField
-              ? [{ label: "Create custom field", value: CREATE_FIELD }]
-              : []),
-          ]}
-          formatOptionLabel={actionOrLabel}
-          onChange={(value) => {
-            if (value !== CREATE_FIELD) return setServiceField(value);
-            setCreatingFrom(customFields.map((f) => f.id));
-          }}
-          helpText={
-            <>
-              A <Link href="/settings/customfields">custom field</Link> whose
-              values on each flag and experiment are its services, such as
-              checkout-api.
-            </>
+          value={datadog?.service ?? ""}
+          onChange={(e) =>
+            form.setValue("datadog", { service: e.target.value })
           }
-        />
-        {creatingFrom && (
-          <CustomFieldModal
-            existing={{
-              name: "Datadog service",
-              type: "multiselect",
-              creatable: true,
-              sections: ["feature", "experiment"],
-            }}
-            close={() => setCreatingFrom(null)}
-            onSuccess={() => {
-              setAwaitingFrom(creatingFrom);
-              mutateDefinitions();
-            }}
-          />
-        )}
-      </SetupFieldRow>
-
-      <SetupFieldRow label="Approvers" content="text">
-        <Checkbox
-          label="Include approvers"
-          description="Send who approved each published revision."
-          value={!!datadog?.includeApprovers}
-          disabled={disabled}
-          setValue={(includeApprovers) =>
-            form.setValue("datadog", {
-              serviceField: datadog?.serviceField ?? "",
-              includeApprovers,
-            })
-          }
+          helpText="Changes show on this service in Datadog. Use the environment, Project and tag filters below to send only its changes."
         />
       </SetupFieldRow>
     </>

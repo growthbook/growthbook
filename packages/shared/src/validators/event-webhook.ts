@@ -46,15 +46,12 @@ export const isDatadogEventWebHookEvent = (event: string): boolean =>
 
 export const datadogEventWebHookSettings = z
   .object({
-    serviceField: z
+    service: z
       .string()
-      .describe(
-        "Key of the custom field whose values name the Datadog services a change affects.",
-      ),
-    includeApprovers: z
-      .boolean()
       .optional()
-      .describe("Send who approved a published revision."),
+      .describe(
+        "The Datadog service the changes are sent to. The webhook's projects, tags and environments choose which changes those are.",
+      ),
   })
   .strict();
 

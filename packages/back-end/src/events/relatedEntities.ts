@@ -44,7 +44,11 @@ function ruleIsLive(
 // The org's environments and Projects, which related entities are listed in.
 export type OrgScope = { environments: string[]; projectIds: string[] };
 
-type Reach = { environments: Iterable<string>; projects?: string[] };
+type Reach = {
+  environments: Iterable<string>;
+  projects?: string[];
+  tags?: string[];
+};
 
 function toEntities(
   type: "feature" | "experiment",
@@ -59,6 +63,7 @@ function toEntities(
         id,
         environments: allowedEnvs.filter((e) => envs.has(e)),
         ...(reach.projects ? { projects: reach.projects } : {}),
+        ...(reach.tags ? { tags: reach.tags } : {}),
       };
     })
     .filter((entity) => entity.environments.length > 0);
@@ -142,6 +147,7 @@ function flagReach(
       scope.environments,
     ),
     projects: resolveTargetingProjectIds(feature, scope.projectIds),
+    tags: feature.tags ?? [],
   };
 }
 
@@ -174,6 +180,7 @@ export function getExperimentReach(
 type DependentExperiment = {
   id: string;
   project?: string;
+  tags?: string[];
   linkedFeatures?: string[];
   hasVisualChangesets?: boolean;
   hasURLRedirects?: boolean;
@@ -195,6 +202,7 @@ export function getDependentEntities(
         {
           environments: getEnabledEnvironments(f, scope.environments),
           projects: resolveTargetingProjectIds(f, scope.projectIds),
+          tags: f.tags ?? [],
         },
       ]),
     ),
@@ -215,6 +223,7 @@ export function getDependentEntities(
             scope,
           ).environments,
           projects: experiment.project ? [experiment.project] : [],
+          tags: experiment.tags ?? [],
         },
       ]),
     ),
@@ -264,19 +273,19 @@ export async function refreshThenReport(
 }
 
 // What a webhook may be sent of an event's related entities: those in its
-// Projects, narrowed to its environments.
+// Projects and tags, narrowed to its environments.
 export function scopeRelatedEntities(
   entities: EventRelatedEntity[],
-  webhook: { projects?: string[]; environments?: string[] },
+  webhook: { projects?: string[]; tags?: string[]; environments?: string[] },
 ): EventRelatedEntity[] {
-  const projects = webhook.projects ?? [];
   const environments = webhook.environments ?? [];
+  const misses = (filter: string[] = [], values?: string[]) =>
+    filter.length > 0 && !!values && !values.some((v) => filter.includes(v));
   return entities.flatMap((entity): EventRelatedEntity[] => {
     if (entity.type === "rampSchedule") return [entity];
     if (
-      projects.length &&
-      entity.projects &&
-      !entity.projects.some((p) => projects.includes(p))
+      misses(webhook.projects, entity.projects) ||
+      misses(webhook.tags, entity.tags)
     ) {
       return [];
     }

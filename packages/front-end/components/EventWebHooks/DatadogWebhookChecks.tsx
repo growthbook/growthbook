@@ -1,15 +1,9 @@
 import React from "react";
-import {
-  DATADOG_API_KEY_HEADER,
-  datadogSiteForUrl,
-  getDatadogServiceNames,
-} from "shared/util";
+import { DATADOG_API_KEY_HEADER, datadogSiteForUrl } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
-import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useCustomFields } from "@/hooks/useCustomFields";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -82,85 +76,21 @@ function useSecretsCheck(eventWebHook: EventWebHookInterface): Check {
   };
 }
 
-function useServiceFieldCheck(serviceField: string | undefined): Check {
-  const field = useCustomFields().find((f) => f.id === serviceField);
-  if (!serviceField) {
-    return {
-      ok: false,
-      message:
-        "No custom field names Datadog services. Changes reach Event Explorer but no service page.",
-    };
-  }
-  if (!field) {
-    return {
-      ok: false,
-      message: (
-        <>
-          The custom field <code>{serviceField}</code> for Datadog services no
-          longer exists.
-        </>
-      ),
-    };
-  }
-  const missing = [
-    !field.sections.includes("feature") && "Feature Flags",
-    !field.sections.includes("experiment") && "experiments",
-  ].filter(Boolean);
-  return missing.length
+function serviceCheck(service: string | undefined): Check {
+  return service
     ? {
-        ok: false,
-        message: `"${field.name}" doesn't apply to ${missing.join(" or ")}, so their changes have no service.`,
+        ok: true,
+        message: (
+          <>
+            Changes show on the <code>{service}</code> service.
+          </>
+        ),
       }
     : {
-        ok: true,
-        message: `"${field.name}" applies to Feature Flags and experiments.`,
+        ok: false,
+        message:
+          "No Datadog service is set. Changes reach Event Explorer but no service page.",
       };
-}
-
-// "In scope" is what the webhook's Project and tag filters cover, not archived.
-function ServiceCoverageCheck({
-  eventWebHook,
-  serviceField,
-}: {
-  eventWebHook: EventWebHookInterface;
-  serviceField: string;
-}) {
-  const { features, loading, error } = useFeatureMetaInfo({
-    customFields: [serviceField],
-  });
-  if (error) {
-    return (
-      <CheckRow
-        ok={false}
-        message="Feature Flags couldn't be loaded to check their services."
-      />
-    );
-  }
-  if (loading) return null;
-
-  const { projects, tags } = eventWebHook;
-  const inScope = features.filter(
-    (f) =>
-      !f.archived &&
-      (!projects.length ||
-        f.targetingAllProjects ||
-        [f.project, ...(f.targetingProjects ?? [])].some(
-          (p) => !!p && projects.includes(p),
-        )) &&
-      (!tags.length || (f.tags ?? []).some((t) => tags.includes(t))),
-  );
-  const withoutService = inScope.filter(
-    (f) => !getDatadogServiceNames([f.customFields?.[serviceField]]).length,
-  ).length;
-
-  return withoutService ? (
-    <CheckRow
-      ok={false}
-      message={`${withoutService} of ${inScope.length} Feature Flags in scope have no Datadog service. Their changes reach Event Explorer but no service page.`}
-    />
-  ) : (
-    <CheckRow ok message="Every Feature Flag in scope has a Datadog service." />
-  );
 }
 
 export default function DatadogWebhookChecks({
@@ -171,9 +101,6 @@ export default function DatadogWebhookChecks({
   logs: EventWebHookLogInterface[];
 }) {
   const secretsCheck = useSecretsCheck(eventWebHook);
-  const serviceFieldCheck = useServiceFieldCheck(
-    eventWebHook.datadog?.serviceField,
-  );
 
   const site = datadogSiteForUrl(eventWebHook.url);
   const lastDelivery = logs[0];
@@ -181,19 +108,11 @@ export default function DatadogWebhookChecks({
     lastDelivery?.result === "error" &&
     (lastDelivery.responseCode === 401 || lastDelivery.responseCode === 403);
 
-  const serviceField = eventWebHook.datadog?.serviceField;
-
   return (
     <Box mt="3">
       <Flex direction="column" gap="2">
         <CheckRow {...secretsCheck} />
-        <CheckRow {...serviceFieldCheck} />
-        {serviceField && (
-          <ServiceCoverageCheck
-            eventWebHook={eventWebHook}
-            serviceField={serviceField}
-          />
-        )}
+        <CheckRow {...serviceCheck(eventWebHook.datadog?.service)} />
       </Flex>
       {authFailed && (
         <Callout status="error" mt="3">

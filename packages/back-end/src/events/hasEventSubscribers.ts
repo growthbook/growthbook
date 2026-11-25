@@ -9,12 +9,16 @@ import {
 export async function hasEventSubscribers({
   environments,
   ...filters
-}: Omit<Parameters<typeof getAllEventWebHooksForEvent>[0], "enabled"> & {
+}: Parameters<typeof getSlackIntegrationsForFilters>[0] & {
   environments: string[];
 }): Promise<boolean> {
   try {
     const [webhooks, slackIntegrations] = await Promise.all([
-      getAllEventWebHooksForEvent({ ...filters, enabled: true }),
+      getAllEventWebHooksForEvent({
+        organizationId: filters.organizationId,
+        eventName: filters.eventName,
+        enabled: true,
+      }),
       getSlackIntegrationsForFilters(filters),
     ]);
 
@@ -23,7 +27,12 @@ export async function hasEventSubscribers({
 
     return (
       webhooks.some((webhook) =>
-        webhookTakesEvent(webhook, { event: filters.eventName, environments }),
+        webhookTakesEvent(webhook, {
+          event: filters.eventName,
+          projects: filters.projects,
+          tags: filters.tags,
+          environments,
+        }),
       ) ||
       slackIntegrations.some((integration) =>
         filterEventForEnvironments({

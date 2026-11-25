@@ -7,17 +7,16 @@ import {
   EventUser,
   eventUserLabel,
 } from "shared/validators";
-import { getDatadogServiceNames } from "shared/util";
-import type { Context } from "back-end/src/models/BaseModel";
-import { getFeatureMetaInfoById } from "back-end/src/models/FeatureModel";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { webhookEventEnvironments } from "back-end/src/events/handlers/utils";
 
 // The parts of a versioned event envelope the formatter reads.
 export type DatadogEnvelope = {
   event: string;
   created: number;
   data: unknown;
+  projects: string[];
+  tags: string[];
   environments: string[];
   user: EventUser;
   requestSource?: string;
@@ -27,7 +26,6 @@ export type DatadogEnvelope = {
 
 type JsonRecord = Record<string, unknown>;
 
-const MAX_SERVICES = 100;
 const MAX_RELATED = 100;
 const MAX_TAGS = 100;
 const MAX_TITLE = 500;
@@ -276,14 +274,12 @@ function configurationChange(
 export function buildDatadogChangeEvent({
   envelope,
   environments,
-  services,
-  includeApprovers,
+  service,
   appOrigin,
 }: {
   envelope: DatadogEnvelope;
   environments: string[];
-  services: string[];
-  includeApprovers: boolean;
+  service: string | null;
   appOrigin: string;
 }): JsonRecord {
   const change = envelope.event.startsWith("feature.")
@@ -292,10 +288,9 @@ export function buildDatadogChangeEvent({
       ? experimentChange(envelope, appOrigin)
       : configurationChange(envelope, appOrigin);
 
-  const approvers =
-    includeApprovers && envelope.approvers?.length
-      ? envelope.approvers.map((a) => a.name || a.email).filter(Boolean)
-      : [];
+  const approvers = (envelope.approvers ?? [])
+    .map((a) => a.name || a.email)
+    .filter(Boolean);
 
   return changeEvent({
     title: truncate(
@@ -306,17 +301,12 @@ export function buildDatadogChangeEvent({
     aggregation_key: `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`,
     tags: [
       ...environments.map((env) => `env:${env}`),
-      ...services.map((service) => `service:${service}`),
+      ...(service ? [`service:${service}`] : []),
     ].slice(0, MAX_TAGS),
     attributes: {
       changed_resource: { type: change.resourceType, name: change.name },
-      ...(services.length
-        ? {
-            impacted_resources: services.map((name) => ({
-              type: "service",
-              name,
-            })),
-          }
+      ...(service
+        ? { impacted_resources: [{ type: "service", name: service }] }
         : {}),
       author: datadogAuthor(envelope.user),
       ...(change.prevValue ? { prev_value: change.prevValue } : {}),
@@ -354,69 +344,32 @@ export function buildDatadogTestEvent(
   });
 }
 
-async function getServiceFieldValues(
-  context: Context,
-  envelope: DatadogEnvelope,
-  serviceField: string,
-): Promise<unknown[]> {
-  const own = asRecord(eventObject(envelope).customFields)[serviceField];
-  if (envelope.event.startsWith("feature.")) return [own];
-
-  const related = envelope.relatedEntities ?? [];
-  const idsOf = (type: "feature" | "experiment") =>
-    related.filter((e) => e.type === type).map((e) => e.id);
-  const featureIds = idsOf("feature");
-  const [features, experiments] = await Promise.all([
-    featureIds.length
-      ? getFeatureMetaInfoById(context, {
-          ids: featureIds,
-          include: { customFields: [serviceField] },
-        })
-      : [],
-    envelope.event === "experiment.updated"
-      ? []
-      : getExperimentsByIds(context, idsOf("experiment")),
-  ]);
-  return [
-    ...(envelope.event === "experiment.updated" ? [own] : []),
-    ...[...features, ...experiments].map((e) => e.customFields?.[serviceField]),
-  ];
-}
-
-export async function getDatadogNotificationPayload({
-  context,
+export function getDatadogNotificationPayload({
   event,
   eventWebHook,
 }: {
-  context: Context;
   event: EventInterface;
-  eventWebHook: Pick<EventWebHookInterface, "environments" | "datadog">;
-}): Promise<JsonRecord | null> {
+  eventWebHook: Pick<
+    EventWebHookInterface,
+    "projects" | "tags" | "environments" | "datadog"
+  >;
+}): JsonRecord | null {
   if (!event.version) return null;
   const envelope: DatadogEnvelope = event.data;
   if (envelope.event === "webhook.test") return buildDatadogTestEvent(envelope);
   if (!isDatadogEventWebHookEvent(envelope.event)) return null;
 
   // Nothing SDKs serve changed in the environments this webhook covers.
-  const environments = servedEnvironments(envelope).filter(
-    (e) =>
-      !eventWebHook.environments.length ||
-      eventWebHook.environments.includes(e),
+  const covered = webhookEventEnvironments(eventWebHook, envelope) ?? [];
+  const environments = servedEnvironments(envelope).filter((e) =>
+    covered.includes(e),
   );
   if (!environments.length) return null;
-
-  const serviceField = eventWebHook.datadog?.serviceField;
-  const services = serviceField
-    ? getDatadogServiceNames(
-        await getServiceFieldValues(context, envelope, serviceField),
-      ).slice(0, MAX_SERVICES)
-    : [];
 
   return buildDatadogChangeEvent({
     envelope,
     environments,
-    services,
-    includeApprovers: !!eventWebHook.datadog?.includeApprovers,
+    service: eventWebHook.datadog?.service?.trim().toLowerCase() || null,
     appOrigin: APP_ORIGIN,
   });
 }

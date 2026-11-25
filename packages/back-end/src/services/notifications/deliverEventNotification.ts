@@ -73,10 +73,9 @@ export async function deliverEventNotification({
     return deliverSlackNotification({ context, event, eventWebHook });
   }
 
-  // Datadog reads the webhook's settings and related entities' services.
   const payload =
     payloadType === "datadog"
-      ? await getDatadogNotificationPayload({ context, event, eventWebHook })
+      ? getDatadogNotificationPayload({ event, eventWebHook })
       : await getEventWebhookPayload({ event, payloadType });
   if (!payload) return null;
 
