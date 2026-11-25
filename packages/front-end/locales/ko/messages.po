@@ -1,0 +1,524 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ko\n"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "활동 피드"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "조직 추가"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "관리자"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "축하 효과 허용"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "이미 계정이 있으신가요? <0>로그인</0>"
+
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "오류가 발생했습니다"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "오류가 발생했습니다. 다시 시도해 주세요."
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "API 키"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "아키타입"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "GrowthBook AI에게 질문하기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "속성"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "밴딧"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "결제"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "빌드:"
+
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "비밀번호 변경"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "이메일의 링크를 클릭하여 비밀번호를 재설정하세요."
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "GrowthBook AI 어시스턴트 닫기"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "회사명"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "구성"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "상수"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "컨텍스추얼 밴딧"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "계정 만들기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "사용자 정의 필드"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "사용자 정의 훅"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "다크"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "대시보드"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "대시보드 목록"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "데이터 소스"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "디멘션"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "아직 계정이 없으신가요? <0>무료로 시작하기</0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "프로필 수정"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "프로필 수정"
+
+#: components/Auth/Welcome.tsx
+msgid "Email Address"
+msgstr "이메일 주소"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "환경"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "이벤트 로그"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "실험 관리"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "실험"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "탐색"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "노출 디버거"
+
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "팩트 테이블"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "피처 플래그"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "기능"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "비밀번호 찾기"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "비밀번호를 잊으셨나요?"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "퍼널"
+
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "일반"
+
+#: components/Layout/Layout.tsx
+msgid "Get Started"
+msgstr "시작하기"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "GrowthBook은 몇 분이면 시작할 수 있습니다. <0/>먼저 몇 가지 정보를 입력해 주세요."
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "로그인으로 돌아가기"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "누구에게나 있는 일입니다"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "안녕하세요, 환영합니다!"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "안녕하세요! GrowthBook에 오신 것을 환영합니다"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "반갑습니다!"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "홀드아웃"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "홈"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "데이터 가져오기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "인사이트"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "인터리빙"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "유효하지 않은 재설정 토큰입니다"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "유효하지 않은 URL입니다. <0>돌아가기</0>"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "언어"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "배운 점"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "실험을 시작해 보세요"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "실험을 진행해 보세요! 시작하려면 정보를 입력하세요."
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "라이트"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "로그인"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "지금 로그인"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "계정 찾기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "PAT 관리"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "멤버"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "지표 상관관계"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "지표 효과"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "지표"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "지표 및 데이터"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "재설정 토큰이 없습니다"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "내 보고서"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "내 Slack 링크"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "내 Slack 링크"
+
+#: components/Auth/Welcome.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "이름"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "네임스페이스"
+
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "새 비밀번호"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "GrowthBook AI 어시스턴트 열기"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "메인 메뉴 열기"
+
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "조직"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "비밀번호"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "<0>{email}</0> 주소로 비밀번호 재설정 링크를 보냈습니다."
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "검토 대기"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "개인 액세스 토큰"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "모집단"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "검정력 계산기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "프레젠테이션"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "프로덕트 분석"
+
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "프로젝트"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "회원가입"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "비밀번호 재설정"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "<0>{email}</0>의 비밀번호를 재설정합니다."
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "저장된 그룹"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "SDK 구성"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "SDK 연결"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "검색"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "세그먼트"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "이메일을 잘못 입력했거나 다시 보내야 하나요? <0>돌아가기</0>"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "세션 리플레이"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "첫 계정 설정하기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "설정"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "실험 시작 등 특정 작업을 완료하면 무작위로 색종이 축하 효과를 표시합니다."
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "GrowthBook 계정에 로그인하세요"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "로그아웃"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "가입하기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "SQL 탐색기"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "<0>{email}</0>의 비밀번호를 재설정했습니다"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "시스템 기본값"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "태그"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "템플릿"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "테마"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "이 정보는 사용자의 서버에만 저장되며 절대 공유되지 않습니다. <0/>나머지 팀원은 나중에 초대할 수 있습니다."
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "타임라인"
+
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "업그레이드"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "사용량"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "사용자 여정"
+
+#: components/Layout/Layout.tsx
+msgid "View docs"
+msgstr "문서 보기"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "웹훅"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "다시 오신 것을 환영합니다"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "다시 오신 것을 환영합니다. 실험을 시작해 보세요"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "GrowthBook에 오신 것을 환영합니다!"

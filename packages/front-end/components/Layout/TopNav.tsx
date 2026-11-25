@@ -14,6 +14,7 @@ import {
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import router from "next/router";
 import Breadcrumbs from "@/ui/Breadcrumbs";
 import {
@@ -50,6 +51,7 @@ import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
+import LanguageMenu from "./LanguageMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -64,6 +66,7 @@ const TopNav: FC<{
   showLogo = true,
   mutedBreadcrumb = false,
 }) => {
+  const { t } = useLingui();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -132,7 +135,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -140,7 +143,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -148,7 +151,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
     }
@@ -170,7 +173,7 @@ const TopNav: FC<{
           logout();
         }}
       >
-        Sign Out
+        <Trans>Sign Out</Trans>
       </DropdownMenuItem>
     );
   };
@@ -183,7 +186,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit profile
+        <Trans>Edit profile</Trans>
       </DropdownMenuItem>
     );
   };
@@ -213,7 +216,7 @@ const TopNav: FC<{
           router.push("/account/personal-access-tokens");
         }}
       >
-        Personal Access Tokens
+        <Trans>Personal Access Tokens</Trans>
       </DropdownMenuItem>
     );
   };
@@ -225,7 +228,7 @@ const TopNav: FC<{
           router.push("/reports");
         }}
       >
-        My Reports
+        <Trans>My Reports</Trans>
       </DropdownMenuItem>
     );
   };
@@ -240,7 +243,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
-          Activity Feed
+          <Trans>Activity Feed</Trans>
         </div>
       </DropdownMenuItem>
     );
@@ -257,7 +260,7 @@ const TopNav: FC<{
       >
         <div className="align-middle d-flex align-items-center">
           <PiHourglassHigh size="16" className="mr-1" />
-          Pending Reviews
+          <Trans>Pending Reviews</Trans>
           {pendingReviewCount > 0 && (
             <span
               style={{
@@ -299,7 +302,7 @@ const TopNav: FC<{
         >
           <span>
             <PiCircleHalf size="16" className="mr-1" />
-            System Default
+            <Trans>System Default</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -312,7 +315,7 @@ const TopNav: FC<{
         >
           <span>
             <PiSunDim size="16" className="mr-1" />
-            Light
+            <Trans>Light</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -325,7 +328,7 @@ const TopNav: FC<{
         >
           <span>
             <PiMoon size="16" className="mr-1" />
-            Dark
+            <Trans>Dark</Trans>
           </span>
         </DropdownMenuItem>
       </DropdownSubMenu>
@@ -368,7 +371,9 @@ const TopNav: FC<{
           </Flex>
         }
       >
-        <DropdownMenuLabel>Organization</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Organization</Trans>
+        </DropdownMenuLabel>
         {organizations.map((o) => (
           <DropdownMenuItem
             key={o.id}
@@ -400,7 +405,7 @@ const TopNav: FC<{
             >
               <Flex align="center" gap="1">
                 <PiPlusBold />
-                Add organization
+                <Trans>Add organization</Trans>
               </Flex>
             </DropdownMenuItem>
           </>
@@ -428,7 +433,7 @@ const TopNav: FC<{
             setChangePasswordOpen(true);
           }}
         >
-          Change Password
+          <Trans>Change Password</Trans>
         </DropdownMenuItem>
       );
     }
@@ -444,14 +449,14 @@ const TopNav: FC<{
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
-          header="Edit Profile"
+          header={t`Edit Profile`}
           open={true}
         >
-          <Field size="legacy" label="Name" {...form.register("name")} />
+          <Field size="legacy" label={t`Name`} {...form.register("name")} />
           <Checkbox
             id="allowCelebration"
-            label="Allow celebration"
-            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+            label={t`Allow celebration`}
+            description={t`Show confetti celebrations randomly when you complete certain actions like launching an experiment.`}
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -472,13 +477,15 @@ const TopNav: FC<{
               href="#main-menu"
               id="main-menu-toggle"
               className={styles.mobilemenu}
-              aria-label="Open main menu"
+              aria-label={t`Open main menu`}
               onClick={(e) => {
                 e.preventDefault();
                 toggleLeftMenu();
               }}
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">
+                <Trans>Open main menu</Trans>
+              </span>
               <FaBars />
             </a>
           ) : showLogo ? (
@@ -508,11 +515,11 @@ const TopNav: FC<{
               onClick={toggleAgentPanel}
               aria-label={
                 agentOpen
-                  ? "Close GrowthBook AI assistant"
-                  : "Open GrowthBook AI assistant"
+                  ? t`Close GrowthBook AI assistant`
+                  : t`Open GrowthBook AI assistant`
               }
               aria-pressed={agentOpen}
-              title="Ask GrowthBook AI"
+              title={t`Ask GrowthBook AI`}
               className={`nav-link ${styles.agentTrigger} ${
                 agentOpen ? styles.agentTriggerActive : ""
               }`}
@@ -553,6 +560,7 @@ const TopNav: FC<{
             {renderPendingReviewsDropDown()}
             {renderMyActivityFeedsDropDown()}
             {renderThemeSubDropDown()}
+            <LanguageMenu onSelect={() => setDropdownOpen(false)} />
             <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
@@ -562,7 +570,7 @@ const TopNav: FC<{
                 router.push("/account/slack");
               }}
             >
-              My Slack links
+              <Trans>My Slack links</Trans>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {renderChangePassword()}

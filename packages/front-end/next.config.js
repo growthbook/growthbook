@@ -27,11 +27,20 @@ const nextConfig = {
         loaders: ["raw-loader"],
         as: "*.js",
       },
+      // Translation catalogs compile on import, so no compiled output is committed.
+      "*.po": {
+        loaders: ["@lingui/loader"],
+        as: "*.js",
+      },
     },
   },
   experimental: {
     turbopackFileSystemCacheForDev: true,
     turbopackFileSystemCacheForBuild: true,
+    // @lingui/swc-plugin must match the swc_core inside Next; check
+    // plugins.swc.rs before upgrading either one. Its options helper is not
+    // used because it loads the Lingui CLI, which the production image prunes.
+    swcPlugins: [["@lingui/swc-plugin", {}]],
   },
   sassOptions: {
     silenceDeprecations: [
@@ -77,6 +86,11 @@ const nextConfig = {
     config.module.rules.push({
       test: /ace-builds.*\/worker-.*\.js$/,
       use: "raw-loader",
+    });
+
+    config.module.rules.push({
+      test: /\.po$/,
+      use: "@lingui/loader",
     });
 
     // Suppress OpenTelemetry dynamic require warnings from Sentry

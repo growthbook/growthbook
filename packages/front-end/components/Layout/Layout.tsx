@@ -4,6 +4,9 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react";
+import { msg } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { inferDocUrl } from "@/components/DocLink";
@@ -23,7 +26,7 @@ import { useSettingsNav } from "./SettingsNavContext";
 const breadcrumbLinks = [
   ...navlinks,
   {
-    name: "Power Calculator",
+    name: msg`Power Calculator`,
     path: /^power-calculator/,
     subLinks: [] as SidebarLinkProps[],
   },
@@ -32,35 +35,36 @@ const breadcrumbLinks = [
 const otherPageTitles = [
   {
     path: /^$/,
-    title: "Home",
+    title: msg`Home`,
   },
   {
     path: /^activity/,
-    title: "Activity Feed",
+    title: msg`Activity Feed`,
   },
   {
     path: /^reports/,
-    title: "My Reports",
+    title: msg`My Reports`,
   },
   {
     path: /^account\/personal-access-tokens/,
-    title: "Personal Access Tokens",
+    title: msg`Personal Access Tokens`,
   },
   {
     path: /^account\/slack/,
-    title: "My Slack Links",
+    title: msg`My Slack Links`,
   },
   {
     path: /^getstarted/,
-    title: "Get Started",
+    title: msg`Get Started`,
   },
   {
     path: /^dashboard/,
-    title: "Dashboard",
+    title: msg`Dashboard`,
   },
 ];
 
 const Layout = (): React.ReactElement => {
+  const { i18n } = useLingui();
   const { open, setOpen } = useSidebarOpen();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
@@ -90,19 +94,19 @@ const Layout = (): React.ReactElement => {
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
     if (!pageTitle && o.path.test(path)) {
-      pageTitle = o.title;
+      pageTitle = i18n._(o.title);
     }
   });
   breadcrumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
-          pageTitle = s.name;
+          pageTitle = i18n._(s.name);
         }
       });
     }
     if (!pageTitle && o.path.test(path)) {
-      pageTitle = o.name;
+      pageTitle = i18n._(o.name);
     }
   });
 
@@ -190,7 +194,9 @@ const Layout = (): React.ReactElement => {
                     }}
                   >
                     <BsSearch size={13} />
-                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerLabel}>
+                      <Trans>Search</Trans>
+                    </span>
                     <span className={styles.searchTriggerKbd}>
                       {typeof navigator !== "undefined" &&
                       /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -211,17 +217,21 @@ const Layout = (): React.ReactElement => {
         <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
             <WhiteButton onClick={() => setUpgradeModal(true)}>
-              <>Upgrade</>
+              <Trans>Upgrade</Trans>
             </WhiteButton>
           )}
           <a href={inferDocUrl()} target="_blank" rel="noreferrer">
-            <WhiteButton variant="outline">View docs</WhiteButton>
+            <WhiteButton variant="outline">
+              <Trans>View docs</Trans>
+            </WhiteButton>
           </a>
         </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
-              <span className="text-muted">Build:</span>{" "}
+              <span className="text-muted">
+                <Trans>Build:</Trans>
+              </span>{" "}
               <a
                 href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
                 target="_blank"

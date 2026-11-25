@@ -132,6 +132,7 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - Custom hooks on an entity (contract, checklist for a new entity): `.agents/guides/custom-hooks.md`
 - Front-end React/UI: `.agents/guides/frontend/react-patterns.md`
 - Front-end data fetching: `.agents/guides/frontend/data-fetching.md`
+- Front-end translations (Lingui): `.agents/guides/frontend/i18n.md`
 - Back-end APIs: `.agents/guides/backend/api-patterns.md`
 - Back-end models: `.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `.agents/guides/backend/legacy-model-migration-patterns.md`

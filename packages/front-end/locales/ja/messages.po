@@ -1,0 +1,524 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ja\n"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "アクティビティフィード"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "組織を追加"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "管理者"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "お祝い演出を許可"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "すでにアカウントをお持ちですか？<0>ログイン</0>"
+
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "エラーが発生しました"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "エラーが発生しました。もう一度お試しください。"
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "APIキー"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "アーキタイプ"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "GrowthBook AIに質問"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "属性"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "バンディット"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "請求"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "ビルド："
+
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "パスワードを変更"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "メールに記載されたリンクをクリックして、パスワードをリセットしてください。"
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "GrowthBook AIアシスタントを閉じる"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "会社名"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "コンフィグ"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "定数"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "文脈付きバンディット"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "アカウントを作成"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "カスタムフィールド"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "カスタムフック"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "ダーク"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "ダッシュボード"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "ダッシュボード一覧"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "データソース"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "ディメンション"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "アカウントをお持ちでないですか？<0>無料で始める</0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "プロフィールを編集"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "プロフィールの編集"
+
+#: components/Auth/Welcome.tsx
+msgid "Email Address"
+msgstr "メールアドレス"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "環境"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "イベントログ"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "実験管理"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "実験"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "探索"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "露出デバッガー"
+
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "ファクトテーブル"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "フィーチャーフラグ"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "機能"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "パスワードをお忘れの場合"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "パスワードをお忘れですか？"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "ファネル"
+
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "一般"
+
+#: components/Layout/Layout.tsx
+msgid "Get Started"
+msgstr "はじめに"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "GrowthBookは数分で使い始められます。<0/>まずは、基本的な情報を入力してください。"
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "ログインに戻る"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "誰にでもあることです"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "こんにちは、ようこそ！"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "こんにちは！GrowthBookへようこそ"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "ようこそ！"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "ホールドアウト"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "ホーム"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "データのインポート"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "インサイト"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "インターリービング"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "無効なリセットトークンです"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "無効なURLです。<0>戻る</0>"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "言語"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "知見"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "さっそく実験を始めましょう"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "実験を始めましょう！まずは情報を入力してください。"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "ライト"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "ログイン"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "今すぐログイン"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "アカウントを検索"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "PATの管理"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "メンバー"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "メトリクス相関"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "メトリクス効果"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "メトリクス"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "メトリクスとデータ"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "リセットトークンがありません"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "マイレポート"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "マイSlackリンク"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "マイSlackリンク"
+
+#: components/Auth/Welcome.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "名前"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "ネームスペース"
+
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "新しいパスワード"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "GrowthBook AIアシスタントを開く"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "メインメニューを開く"
+
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "組織"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "パスワード"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "<0>{email}</0>にパスワードリセット用のリンクを送信しました。"
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "レビュー待ち"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "個人用アクセストークン"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "母集団"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "検出力計算"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "プレゼンテーション"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "プロダクト分析"
+
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "プロジェクト"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "新規登録"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "パスワードのリセット"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "<0>{email}</0>のパスワードをリセットします。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "保存済みグループ"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "SDK設定"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "SDK接続"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "検索"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "セグメント"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "メールアドレスが間違っている、または再送信が必要ですか？<0>戻る</0>"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "セッションリプレイ"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "最初のアカウントを設定"
+
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "設定"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "実験の開始など特定の操作を完了したときに、ランダムで紙吹雪のお祝い演出を表示します。"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "GrowthBookアカウントにログインしてください"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "ログアウト"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "登録"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "SQLエクスプローラー"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "<0>{email}</0>のパスワードをリセットしました"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "システムのデフォルト"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "タグ"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "テンプレート"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "テーマ"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "この情報はお使いのサーバー内に保存され、外部と共有されることはありません。<0/>チームの他のメンバーは後から招待できます。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "タイムライン"
+
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "アップグレード"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "使用状況"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "ユーザージャーニー"
+
+#: components/Layout/Layout.tsx
+msgid "View docs"
+msgstr "ドキュメントを見る"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhook"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "おかえりなさい"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "おかえりなさい。さっそく実験を始めましょう"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "GrowthBookへようこそ！"

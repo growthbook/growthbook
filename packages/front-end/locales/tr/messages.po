@@ -1,0 +1,524 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: tr\n"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "Etkinlik akışı"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "Kuruluş ekle"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "Yönetim"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "Kutlamalara izin ver"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "Zaten hesabınız var mı? <0>Giriş yapın</0>"
+
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "Bir hata oluştu"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "Bir hata oluştu. Lütfen tekrar deneyin."
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "API anahtarları"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "Arketipler"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "GrowthBook AI'a sor"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "Öznitelikler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "Banditler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "Faturalandırma"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "Derleme:"
+
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "Şifreyi değiştir"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "Şifrenizi sıfırlamak için e-postadaki bağlantıya tıklayın."
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "GrowthBook AI asistanını kapat"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "Şirket adı"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "Yapılandırmalar"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "Sabitler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "Bağlamsal banditler"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "Hesap oluştur"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "Özel alanlar"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "Özel hook'lar"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "Koyu"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "Pano"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "Panolar"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "Veri kaynakları"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "Boyutlar"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "Henüz hesabınız yok mu? <0>Ücretsiz başlayın</0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "Profili düzenle"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "Profili düzenle"
+
+#: components/Auth/Welcome.tsx
+msgid "Email Address"
+msgstr "E-posta adresi"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "Ortamlar"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "Olay günlüğü"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "Deney yönetimi"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "Deneyler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "Keşif"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "Maruziyet ayıklayıcı"
+
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "Olgu tabloları"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "Özellik bayrakları"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "Özellikler"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "Şifremi unuttum"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "Şifrenizi mi unuttunuz?"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "Huniler"
+
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "Genel"
+
+#: components/Layout/Layout.tsx
+msgid "Get Started"
+msgstr "Başlarken"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "GrowthBook'u kullanmaya başlamak yalnızca birkaç dakika sürer. <0/>Başlamak için sizinle ilgili birkaç bilgiye ihtiyacımız var."
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "Girişe geri dön"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "Herkesin başına gelebilir"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "Merhaba, hoş geldiniz!"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "Merhaba! GrowthBook'a hoş geldiniz"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "Selam!"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "Hariç tutulan gruplar"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "Ana sayfa"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "Veri içe aktarma"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "İçgörüler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "Serpiştirme"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "Geçersiz sıfırlama belirteci"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "Geçersiz URL. <0>Geri dön</0>"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "Dil"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "Öğrenimler"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "Hadi deneylere başlayalım"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "Hadi biraz deney yapalım! Başlamak için bilgilerinizi girin."
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "Açık"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "Giriş yap"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "Şimdi giriş yap"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "Hesabı bul"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "PAT yönetimi"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "Üyeler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "Metrik korelasyonları"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "Metrik etkileri"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "Metrikler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "Metrikler ve veriler"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "Sıfırlama belirteci eksik"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "Raporlarım"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "Slack bağlantılarım"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "Slack bağlantılarım"
+
+#: components/Auth/Welcome.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "Ad"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "Ad alanları"
+
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "Yeni şifre"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "GrowthBook AI asistanını aç"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "Ana menüyü aç"
+
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "Kuruluş"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "Şifre"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "Şifre sıfırlama bağlantısı <0>{email}</0> adresine gönderildi."
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "Bekleyen incelemeler"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "Kişisel erişim belirteçleri"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "Popülasyonlar"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "Güç hesaplayıcı"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "Sunumlar"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "Ürün analitiği"
+
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "Projeler"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "Kayıt ol"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "Şifre sıfırlama"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "<0>{email}</0> için şifreyi sıfırlayın."
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "Kayıtlı gruplar"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "SDK yapılandırması"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "SDK bağlantıları"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "Ara"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "Segmentler"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "Yanlış adrese mi gönderildi ya da yeniden mi göndermeniz gerekiyor? <0>Geri dön</0>"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "Oturum kayıtları"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "İlk hesabınızı oluşturun"
+
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "Ayarlar"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "Deney başlatmak gibi belirli işlemleri tamamladığınızda rastgele konfeti kutlamaları göster."
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "GrowthBook hesabınıza giriş yapın"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "Çıkış yap"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "Kaydol"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "SQL gezgini"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "<0>{email}</0> için şifre başarıyla sıfırlandı"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "Sistem varsayılanı"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "Etiketler"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "Şablonlar"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "Tema"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "Bu bilgiler sunucularınızda kalır ve asla paylaşılmaz. <0/>Ekibinizin geri kalanını daha sonra davet edebilirsiniz."
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "Zaman çizelgesi"
+
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "Planı yükselt"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "Kullanım"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "Kullanıcı yolculukları"
+
+#: components/Layout/Layout.tsx
+msgid "View docs"
+msgstr "Belgeleri görüntüle"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhook'lar"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "Tekrar hoş geldiniz"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "Tekrar hoş geldiniz, hadi deneylere başlayalım"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "GrowthBook'a hoş geldiniz!"

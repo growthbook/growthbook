@@ -1,0 +1,524 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "Fil d'activité"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "Ajouter une organisation"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "Administration"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "Autoriser les célébrations"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "Vous avez déjà un compte ? <0>Connectez-vous</0>"
+
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "Une erreur s'est produite"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "Une erreur s'est produite. Veuillez réessayer."
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "Clés API"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "Archétypes"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "Demander à GrowthBook AI"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "Attributs"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "Bandits manchots"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "Facturation"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "Build :"
+
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "Modifier le mot de passe"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "Cliquez sur le lien dans l'e-mail pour réinitialiser votre mot de passe."
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "Fermer l'assistant GrowthBook AI"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "Nom de l'entreprise"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "Configurations"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "Constantes"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "Bandits contextuels"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "Créer un compte"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "Champs personnalisés"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "Hooks personnalisés"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "Sombre"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "Tableaux de bord"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "Sources de données"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "Dimensions"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "Pas encore de compte ? <0>Commencez gratuitement</0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "Modifier le profil"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "Modifier le profil"
+
+#: components/Auth/Welcome.tsx
+msgid "Email Address"
+msgstr "Adresse e-mail"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "Environnements"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "Journal des événements"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "Expérimentation"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "Expériences"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "Exploration"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "Débogueur d'expositions"
+
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "Tables de faits"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "Indicateurs"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "Fonctionnalités"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "Mot de passe oublié"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "Mot de passe oublié ?"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "Entonnoirs"
+
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "Général"
+
+#: components/Layout/Layout.tsx
+msgid "Get Started"
+msgstr "Premiers pas"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "Démarrer avec GrowthBook ne prend que quelques minutes. <0/>Pour commencer, nous avons besoin de quelques informations vous concernant."
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "Retour à la connexion"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "Ça arrive aux meilleurs"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "Bonjour et bienvenue !"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "Bonjour ! Bienvenue sur GrowthBook"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "Bonjour !"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "Groupes d'exclusion"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "Accueil"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "Import de données"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "Perspectives"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "Entrelacement"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "Jeton de réinitialisation invalide"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "URL invalide. <0>Retour</0>"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "Langue"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "Enseignements"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "Lançons-nous dans l'expérimentation"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "Lançons quelques expériences ! Saisissez vos informations pour commencer."
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "Clair"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "Se connecter"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "Se connecter maintenant"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "Rechercher le compte"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "Gérer les PATs"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "Membres"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "Corrélations"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "Effets des métriques"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "Métriques"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "Métriques et données"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "Jeton de réinitialisation manquant"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "Mes rapports"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "Mes liens Slack"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "Mes liens Slack"
+
+#: components/Auth/Welcome.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "Nom"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "Espaces de noms"
+
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "Nouveau mot de passe"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "Ouvrir l'assistant GrowthBook AI"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "Ouvrir le menu principal"
+
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "Organisation"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "Mot de passe"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "Lien de réinitialisation du mot de passe envoyé à <0>{email}</0>."
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "Revues en attente"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "Jetons d'accès personnels"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "Populations"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "Calcul de puissance"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "Présentations"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "Analyse produit"
+
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "Projets"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "Inscription"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "Réinitialisation du mot de passe"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "Réinitialisation du mot de passe pour <0>{email}</0>."
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "Groupes enregistrés"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "Configuration SDK"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "Connexions SDK"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "Rechercher"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "Segments"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "Mauvaise adresse e-mail ou besoin d'un nouvel envoi ? <0>Retour</0>"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "Replay de session"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "Configurez votre premier compte"
+
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "Paramètres"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "Affiche aléatoirement des confettis lorsque vous effectuez certaines actions, comme lancer une expérience."
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "Connectez-vous à votre compte GrowthBook"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "Se déconnecter"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "S'inscrire"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "Explorateur SQL"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "Mot de passe réinitialisé pour <0>{email}</0>"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "Par défaut du système"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "Étiquettes"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "Modèles"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "Thème"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "Ces informations restent sur vos serveurs et ne sont jamais partagées. <0/>Vous pourrez inviter le reste de votre équipe plus tard."
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "Chronologie"
+
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "Mettre à niveau"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "Utilisation"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "Parcours utilisateur"
+
+#: components/Layout/Layout.tsx
+msgid "View docs"
+msgstr "Voir la documentation"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhooks"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "Bon retour parmi nous"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "Bon retour parmi nous, lançons quelques expériences"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "Bienvenue sur GrowthBook !"

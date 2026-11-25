@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useLingui } from "@lingui/react";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
@@ -80,6 +81,7 @@ export function useSettingsSearchShortcut(onShortcut: () => void) {
 }
 
 export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
+  const { i18n } = useLingui();
   const router = useRouter();
   const { query, setQuery, counts, searchRef, pinSection } = useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
@@ -97,7 +99,7 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
     (l) =>
       !hasQuery ||
       matchesSettingsQuery(
-        `${l.name} ${ORG_PAGE_KEYWORDS[l.href] ?? ""}`,
+        `${i18n._(l.name)} ${ORG_PAGE_KEYWORDS[l.href] ?? ""}`,
         tokens,
       ),
   );
@@ -238,7 +240,7 @@ export function SettingsNavBody({ onNavigate }: { onNavigate?: () => void }) {
                   aria-current={active ? "page" : undefined}
                   onClick={onNavigate}
                 >
-                  <span className={styles.itemLabel}>{l.name}</span>
+                  <span className={styles.itemLabel}>{i18n._(l.name)}</span>
                 </Link>
               );
             })}

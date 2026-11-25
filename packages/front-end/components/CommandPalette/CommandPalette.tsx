@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useLingui } from "@lingui/react";
 import {
   BsSearch,
   BsToggleOn,
@@ -183,6 +184,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { i18n } = useLingui();
 
   const { permissions, superAdmin } = useUser();
   const { project, segments, metrics, factMetrics, metricGroups, savedGroups } =
@@ -210,16 +212,20 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         segments,
       }),
     );
-    const result: CommandPaletteItem[] = flatNav.map((row) => ({
-      id: `nav::${row.href}::${row.name}`,
-      type: "navigation",
-      name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
-      description: row.parentName ? row.name : "",
-      url: row.href,
-      tags: [row.parentName, row.name, ORG_PAGE_KEYWORDS[row.href]]
-        .filter(Boolean)
-        .join(" "),
-    }));
+    const result: CommandPaletteItem[] = flatNav.map((row) => {
+      const name = i18n._(row.name);
+      const parentName = row.parentName ? i18n._(row.parentName) : "";
+      return {
+        id: `nav::${row.href}::${name}`,
+        type: "navigation",
+        name: parentName ? `${parentName} → ${name}` : name,
+        description: parentName ? name : "",
+        url: row.href,
+        tags: [parentName, name, ORG_PAGE_KEYWORDS[row.href]]
+          .filter(Boolean)
+          .join(" "),
+      };
+    });
     if (flatNav.some((row) => row.href === "/settings")) {
       for (const s of SETTINGS_SECTIONS) {
         result.push({
@@ -341,6 +347,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
     return result;
   }, [
+    i18n,
     permissionsUtils,
     permissions,
     superAdmin,

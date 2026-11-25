@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, Box } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import track from "@/services/track";
 import Text from "@/ui/Text";
 import { getApiHost } from "@/services/env";
@@ -30,16 +33,16 @@ type WelcomeState =
   | "firsttime";
 
 // Returns null for states that have no submit button.
-function getSubmitLabel(state: WelcomeState): string | null {
+function getSubmitLabel(state: WelcomeState): MessageDescriptor | null {
   switch (state) {
     case "login":
-      return "Log in";
+      return msg`Log in`;
     case "register":
-      return "Create Account";
+      return msg`Create Account`;
     case "forgot":
-      return "Look up";
+      return msg`Look up`;
     case "firsttime":
-      return "Sign up";
+      return msg`Sign up`;
     case "forgotSuccess":
       return null;
     default: {
@@ -56,6 +59,7 @@ export default function Welcome({
   onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
 }): ReactElement {
+  const { t, i18n } = useLingui();
   const [state, setState] = useState<WelcomeState>(
     firstTime ? "firsttime" : "login",
   );
@@ -83,10 +87,10 @@ export default function Welcome({
   }, [pathname]);
 
   const welcomeMsg = [
-    "Welcome to GrowthBook!",
-    "Hello! Welcome to GrowthBook",
-    "Hello there, Welcome!",
-    "Hey there!",
+    t`Welcome to GrowthBook!`,
+    t`Hello! Welcome to GrowthBook`,
+    t`Hello there, Welcome!`,
+    t`Hey there!`,
   ];
   const cta = getSubmitLabel(state);
 
@@ -110,7 +114,7 @@ export default function Welcome({
           } = await res.json();
           if (json.status > 200) {
             throw new Error(
-              json.message || "An error occurred. Please try again.",
+              json.message || t`An error occurred. Please try again.`,
             );
           }
 
@@ -129,22 +133,35 @@ export default function Welcome({
 
   const welcomeContent =
     state === "login" ? (
-      <p>Welcome back, let&apos;s get started with some experiments</p>
+      <p>
+        <Trans>
+          Welcome back, let&apos;s get started with some experiments
+        </Trans>
+      </p>
     ) : state === "register" ? (
       <p>
-        Let&apos;s run some experiments! Enter your information to get started.
+        <Trans>
+          Let&apos;s run some experiments! Enter your information to get
+          started.
+        </Trans>
       </p>
     ) : state === "forgot" ? (
-      <p>Happens to the best of us</p>
+      <p>
+        <Trans>Happens to the best of us</Trans>
+      </p>
     ) : state === "firsttime" ? (
       <>
         <p>
-          Getting started with GrowthBook only takes a few minutes. <br />
-          To start, we&apos;ll need a bit of information about you.
+          <Trans>
+            Getting started with GrowthBook only takes a few minutes. <br />
+            To start, we&apos;ll need a bit of information about you.
+          </Trans>
         </p>
       </>
     ) : (
-      <p>Let&apos;s get started with some experimentation</p>
+      <p>
+        <Trans>Let&apos;s get started with some experimentation</Trans>
+      </p>
     );
 
   const ctaText = hero?.cta?.trim();
@@ -243,44 +260,54 @@ export default function Welcome({
         >
           {state === "register" && (
             <div>
-              <h3 className="h2">Register</h3>
+              <h3 className="h2">
+                <Trans>Register</Trans>
+              </h3>
               <p>
-                Already have an account?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("login");
-                  }}
-                >
-                  Log In
-                </a>
+                <Trans>
+                  Already have an account?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("login");
+                    }}
+                  >
+                    Log In
+                  </a>
+                </Trans>
               </p>
             </div>
           )}
           {state === "firsttime" && (
             <div>
-              <h3 className="h2">Set up your first account</h3>
+              <h3 className="h2">
+                <Trans>Set up your first account</Trans>
+              </h3>
               <p>
-                This information stays on your servers and is never shared.{" "}
-                <br />
-                You can invite the rest of your team later.
+                <Trans>
+                  This information stays on your servers and is never shared.{" "}
+                  <br />
+                  You can invite the rest of your team later.
+                </Trans>
               </p>
             </div>
           )}
           {state === "login" && (
             <Flex direction="column" mb="5" gap="2">
               <Heading size="xl" weight="medium" as="h1">
-                Welcome back
+                <Trans>Welcome back</Trans>
               </Heading>
               <Text as="span" size="md" weight="regular">
-                Sign in to your GrowthBook account
+                <Trans>Sign in to your GrowthBook account</Trans>
               </Text>
             </Flex>
           )}
           {state === "forgot" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">
+                <Trans>Forgot Password</Trans>
+              </h3>
               <p>
                 <a
                   href="#"
@@ -289,36 +316,46 @@ export default function Welcome({
                     setState("login");
                   }}
                 >
-                  Go back to Log In
+                  <Trans>Go back to Log In</Trans>
                 </a>
               </p>
             </div>
           )}
           {state === "forgotSuccess" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">
+                <Trans>Forgot Password</Trans>
+              </h3>
               <Callout status="success" mb="3">
-                Password reset link sent to <strong>{email}</strong>.
+                <Trans>
+                  Password reset link sent to <strong>{email}</strong>.
+                </Trans>
               </Callout>
-              <p>Click the link in the email to reset your password.</p>
               <p>
-                Sent to the wrong email or need to resend?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("forgot");
-                  }}
-                >
-                  Go Back
-                </a>
+                <Trans>
+                  Click the link in the email to reset your password.
+                </Trans>
+              </p>
+              <p>
+                <Trans>
+                  Sent to the wrong email or need to resend?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("forgot");
+                    }}
+                  >
+                    Go Back
+                  </a>
+                </Trans>
               </p>
             </div>
           )}
           {state === "firsttime" && (
             <Field
               size="legacy"
-              label="Company name"
+              label={t`Company name`}
               required
               autoFocus
               minLength={2}
@@ -328,7 +365,7 @@ export default function Welcome({
           {(state === "register" || state === "firsttime") && (
             <Field
               size="legacy"
-              label="Name"
+              label={t`Name`}
               required
               {...form.register("name")}
               autoFocus={state === "register"}
@@ -342,7 +379,7 @@ export default function Welcome({
             state === "firsttime") && (
             <Field
               size="legacy"
-              label="Email Address"
+              label={t`Email Address`}
               required
               type="email"
               {...form.register("email")}
@@ -355,7 +392,7 @@ export default function Welcome({
             state === "firsttime") && (
             <Field
               size="legacy"
-              label="Password"
+              label={t`Password`}
               required
               type="password"
               {...form.register("password")}
@@ -372,7 +409,7 @@ export default function Welcome({
                       setState("forgot");
                     }}
                   >
-                    Forgot Password?
+                    <Trans>Forgot Password?</Trans>
                   </a>
                 ) : null
               }
@@ -392,22 +429,24 @@ export default function Welcome({
               mt="5"
               mb="5"
             >
-              {cta}
+              {i18n._(cta)}
             </Button>
           )}
           {state === "login" && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
-                Don&apos;t have an account yet?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("register");
-                  }}
-                >
-                  Start for free
-                </a>
+                <Trans>
+                  Don&apos;t have an account yet?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("register");
+                    }}
+                  >
+                    Start for free
+                  </a>
+                </Trans>
               </Text>
             </Flex>
           )}

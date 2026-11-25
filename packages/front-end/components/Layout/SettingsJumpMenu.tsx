@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { PiCaretDown } from "react-icons/pi";
+import { useLingui } from "@lingui/react";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import { Popover } from "@/ui/Popover";
@@ -14,11 +15,12 @@ import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsJumpMenu.module.scss";
 
 function useSettingsLocation(): string {
+  const { i18n } = useLingui();
   const { page, section } = useCurrentSettingsItem();
   const { query } = useSettingsNav();
   const onGeneral = useRouter().route === "/settings";
   const location = page
-    ? `Organization · ${page.name}`
+    ? `Organization · ${i18n._(page.name)}`
     : section
       ? `General · ${section.title}`
       : "Settings";

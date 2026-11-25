@@ -1,0 +1,524 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh\n"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "动态"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "添加组织"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "管理员"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "允许庆祝效果"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "已有账号？<0>登录</0>"
+
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "发生错误"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "发生错误，请重试。"
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "API 密钥"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "用户原型"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "向 GrowthBook AI 提问"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "属性"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "多臂老虎机"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "账单"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "构建："
+
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "修改密码"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "点击邮件中的链接重置密码。"
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "关闭 GrowthBook AI 助手"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "公司名称"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "配置"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "常量"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "上下文多臂老虎机"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "创建账号"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "自定义字段"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "自定义钩子"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "深色"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "仪表盘"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "仪表盘列表"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "数据源"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "维度"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "还没有账号？<0>免费开始使用</0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "编辑个人资料"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "编辑个人资料"
+
+#: components/Auth/Welcome.tsx
+msgid "Email Address"
+msgstr "邮箱地址"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "环境"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "事件日志"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "实验管理"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "实验"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "探索"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "曝光调试器"
+
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "事实表"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "功能开关"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "功能"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "忘记密码"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "忘记密码？"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "漏斗"
+
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "常规"
+
+#: components/Layout/Layout.tsx
+msgid "Get Started"
+msgstr "快速开始"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "只需几分钟即可开始使用 GrowthBook。<0/>首先，请提供一些基本信息。"
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "返回登录"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "这种事谁都会遇到"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "您好，欢迎！"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "您好！欢迎使用 GrowthBook"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "嗨！"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "保留组"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "首页"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "导入数据"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "洞察"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "交错实验"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "重置令牌无效"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "URL 无效。<0>返回</0>"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "语言"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "经验总结"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "开始做实验吧"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "来做实验吧！输入信息即可开始。"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "浅色"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "登录"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "立即登录"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "查找账号"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "管理 PAT"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "成员"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "指标相关性"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "指标影响"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "指标"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "指标与数据"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "缺少重置令牌"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "我的报告"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "我的 Slack 链接"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "我的 Slack 链接"
+
+#: components/Auth/Welcome.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "姓名"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "命名空间"
+
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "新密码"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "打开 GrowthBook AI 助手"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "打开主菜单"
+
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "组织"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "密码"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "密码重置链接已发送至 <0>{email}</0>。"
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "待审核"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "个人访问令牌"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "人群"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "功效计算器"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "演示文稿"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "产品分析"
+
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "项目"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "注册"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "重置密码"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "重置 <0>{email}</0> 的密码。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "已保存分组"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "SDK 配置"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "SDK 连接"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "搜索"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "分群"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "邮箱填错了或需要重新发送？<0>返回</0>"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "会话回放"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "设置首个账号"
+
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "设置"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "完成某些操作（如启动实验）时，随机显示彩纸庆祝效果。"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "登录 GrowthBook 账号"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "退出登录"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "注册"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "SQL 查询"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "已成功重置 <0>{email}</0> 的密码"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "跟随系统"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "标签"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "模板"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "主题"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "这些信息仅保存在您自己的服务器上，绝不会被共享。<0/>稍后可以邀请团队其他成员。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "时间线"
+
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "升级"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "用量"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "用户路径"
+
+#: components/Layout/Layout.tsx
+msgid "View docs"
+msgstr "查看文档"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhook"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "欢迎回来"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "欢迎回来，开始做实验吧"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "欢迎使用 GrowthBook！"
