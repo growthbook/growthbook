@@ -676,7 +676,7 @@ const MetricDrilldownModal = ({
                   )}
                 </Flex>
               </TabsTrigger>
-              <TabsTrigger value="debug">Debug</TabsTrigger>
+              <TabsTrigger value="debug">Stats Adjustments</TabsTrigger>
             </TabsList>
           </Box>
         }
