@@ -191,7 +191,7 @@ Datadog places a change on a service page only when the change names that servic
 - **Datadog service**: the service the changes show on, such as `checkout-api`. Left blank, changes reach Datadog's Event Explorer but no service page.
 - **Events**: **All supported events** by default. It's saved as `*`, and a Datadog webhook sends only the events it supports, so it picks up new ones as they're added. You can pick individual events instead.
 - **Environment** filter: usually your production environments. Each change is tagged `env:<environment>` with only the environments that pass it.
-- **Project** and **tag** filters: the Feature Flags and experiments that belong to the service, such as its Project or a `checkout` tag. When both are set, a change has to match both. A Saved Group, Constant or Config change reaches these filters through the Feature Flags and experiments that depend on it, and is tagged only with the environments where those changed.
+- **Project** and **tag** filters: the Feature Flags and experiments that belong to the service, such as its Project or a `checkout` tag. When both are set, a change has to match both. A Saved Group, Constant or Config change reaches these filters through the Feature Flags and experiments that depend on it, and is tagged only with the environments where those changed. One limited to other Projects isn't sent.
 
 Use **Send test** on the webhook's page to send a `growthbook-test` change. It names no service or environment, so look for it in Event Explorer. The webhook's **Diagnostics** tab checks that the API key secret exists and allows the Datadog site, and that a service is set. If Datadog rejects a delivery for its API key, the tab says so.
 

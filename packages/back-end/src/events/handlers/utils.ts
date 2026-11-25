@@ -66,7 +66,7 @@ const passes = (filter: string[], values: string[] = []) =>
 
 // Saved Groups, Constants and Configs are shared, so a change to one also
 // reaches a filtered webhook through the Feature Flags and experiments that
-// depend on it.
+// depend on it, unless it's limited to other Projects.
 const SHARED_RESOURCES = ["savedGroup", "constant", "config"];
 
 // The environments of an event within a webhook's filters, or null when the
@@ -81,10 +81,8 @@ export function webhookEventEnvironments(
     ? environments.filter((e) => envFilter.includes(e))
     : environments;
 
-  if (
-    passes(webhook.projects ?? [], event.projects) &&
-    passes(webhook.tags ?? [], event.tags)
-  ) {
+  const projectsPass = passes(webhook.projects ?? [], event.projects);
+  if (projectsPass && passes(webhook.tags ?? [], event.tags)) {
     return filterEventForEnvironments({
       event: { environments },
       environments: envFilter,
@@ -94,6 +92,8 @@ export function webhookEventEnvironments(
   }
 
   if (!SHARED_RESOURCES.includes(event.event.split(".")[0])) return null;
+  // Its contents stay out of webhooks for Projects it isn't in.
+  if (!projectsPass && event.projects?.length) return null;
   // A dependent that doesn't list its Projects and tags can't pass them.
   const reached = new Set(
     scopeRelatedEntities(event.relatedEntities ?? [], webhook).flatMap((e) =>

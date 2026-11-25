@@ -54,7 +54,7 @@ You can select which notifications should be sent to your webhook according to p
 
 For instance, if your webhook is configured to fire on `feature.created` events with `Project Apollo` as a project filter, only `feature.created` events related to `Project Apollo` (and any other selected project) will trigger your webhook. If the projects filter is empty, your webhook will fire for all `feature.created` events on any project.
 
-Saved Groups, Constants and Configs are shared across Projects. A change to one also reaches a filtered webhook when a Feature Flag or experiment that depends on it passes the webhook's Project and tag filters and is affected in its environments. An event's `relatedEntities` lists only the Feature Flags and experiments in the webhook's Projects, tags and environments.
+Saved Groups, Constants and Configs are shared across Projects. A change to one also reaches a filtered webhook when a Feature Flag or experiment that depends on it passes the webhook's Project and tag filters and is affected in its environments, unless the change is limited to other Projects. An event's `relatedEntities` lists only the Feature Flags and experiments in the webhook's Projects, tags and environments.
 
 An event's environments are the ones whose SDK payload the change alters:
 

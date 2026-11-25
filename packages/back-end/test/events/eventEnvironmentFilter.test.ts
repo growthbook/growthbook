@@ -163,6 +163,19 @@ describe("webhookEventEnvironments", () => {
     expect(reach({ projects: ["billing"] })).toBeNull();
     // One dependent has to pass both filters.
     expect(reach({ projects: ["checkout"], tags: ["ranking"] })).toBeNull();
+    // Limited to other Projects, its contents stay out whatever uses it.
+    expect(
+      webhookEventEnvironments(filters({ projects: ["checkout"] }), {
+        ...savedGroupUpdated,
+        projects: ["billing"],
+      }),
+    ).toBeNull();
+    expect(
+      webhookEventEnvironments(
+        filters({ projects: ["checkout"], tags: ["payments"] }),
+        { ...savedGroupUpdated, projects: ["checkout"] },
+      ),
+    ).toEqual(["production"]);
     // Only shared resources route through what they touch.
     expect(
       webhookEventEnvironments(filters({ projects: ["checkout"] }), {
