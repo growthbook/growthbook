@@ -639,7 +639,9 @@ export const experimentInterface = z
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
-    dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    dismissedWarnings: z
+      .array(z.enum(["low-power", "srm", "multiple-exposures"]))
+      .optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
