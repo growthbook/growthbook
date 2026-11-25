@@ -1,14 +1,16 @@
+import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
 import BaselineChooserColumnLabel from "@/components/Experiment/BaselineChooserColumnLabel";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 
-// What View Options holds beyond the filters: which variations are compared,
-// and which columns show.
+// What View Options holds beyond the filters: the baseline, which variations
+// are compared to it, and which columns show.
 export default function ResultsViewOptions({
   variations,
   baselineRow,
@@ -27,6 +29,7 @@ export default function ResultsViewOptions({
   setShowValue?: (show: boolean) => void;
 }) {
   const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
+  const [baselineEl, setBaselineEl] = useState<HTMLDivElement | null>(null);
   const compared = variations
     .map((variation, index) => ({ ...variation, index }))
     .filter((v) => v.index !== baselineRow);
@@ -34,56 +37,56 @@ export default function ResultsViewOptions({
 
   return (
     <>
-      {setBaselineRow || setVariationFilter ? (
+      {setBaselineRow ? (
+        <Box mt="4" ref={setBaselineEl}>
+          <Heading as="h4" size="sm" mb="2">
+            <LabelWithHelp
+              label="Baseline"
+              help="The baseline that all variations are compared against."
+            />
+          </Heading>
+          <BaselineChooserColumnLabel
+            variations={variations}
+            baselineRow={baselineRow}
+            setBaselineRow={setBaselineRow}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={() => mutate({ inPlace: true })}
+            dropdownEnabled={snapshot?.dimension !== "pre:date"}
+            asSelect
+            selectContainer={baselineEl}
+          />
+        </Box>
+      ) : null}
+      {setVariationFilter && compared.length > 1 ? (
         <Box mt="4">
           <Heading as="h4" size="sm" mb="2">
             Variations
           </Heading>
-          <Flex direction="column" gap="3">
-            {setBaselineRow ? (
-              <Flex align="center" gap="3">
-                <Text size="sm" color="text-low">
-                  Baseline
-                </Text>
-                <BaselineChooserColumnLabel
-                  variations={variations}
-                  baselineRow={baselineRow}
-                  setBaselineRow={setBaselineRow}
-                  snapshot={snapshot}
-                  analysis={analysis}
-                  setAnalysisSettings={setAnalysisSettings}
-                  mutate={() => mutate({ inPlace: true })}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
-                  labelMaxWidth={200}
+          <Flex direction="column" gap="2">
+            <Text size="sm" color="text-low">
+              Compared to the baseline
+            </Text>
+            {compared.map((v) => {
+              const isShown = !variationFilter.includes(v.index);
+              return (
+                <Checkbox
+                  key={v.index}
+                  label={<VariationLabel number={v.index} name={v.name} />}
+                  value={isShown}
+                  // The last one shown stays: a table needs a comparison.
+                  disabled={isShown && shown.length === 1}
+                  setValue={(show) =>
+                    setVariationFilter(
+                      show
+                        ? variationFilter.filter((i) => i !== v.index)
+                        : [...variationFilter, v.index].sort(),
+                    )
+                  }
                 />
-              </Flex>
-            ) : null}
-            {setVariationFilter && compared.length > 1 ? (
-              <Flex direction="column" gap="2">
-                <Text size="sm" color="text-low">
-                  Compared to the baseline
-                </Text>
-                {compared.map((v) => {
-                  const isShown = !variationFilter.includes(v.index);
-                  return (
-                    <Checkbox
-                      key={v.index}
-                      label={<VariationLabel number={v.index} name={v.name} />}
-                      value={isShown}
-                      // The last one shown stays: a table needs a comparison.
-                      disabled={isShown && shown.length === 1}
-                      setValue={(show) =>
-                        setVariationFilter(
-                          show
-                            ? variationFilter.filter((i) => i !== v.index)
-                            : [...variationFilter, v.index].sort(),
-                        )
-                      }
-                    />
-                  );
-                })}
-              </Flex>
-            ) : null}
+              );
+            })}
           </Flex>
         </Box>
       ) : null}

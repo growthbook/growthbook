@@ -21,6 +21,7 @@ import {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import VariationLabel from "@/ui/VariationLabel";
+import { Select, SelectItem } from "@/ui/Select";
 import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
@@ -36,6 +37,10 @@ export interface BaselineChooserColumnLabelProps {
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
   labelMaxWidth?: number;
+  // A full-width select instead of a column label. Inside a popover it needs
+  // that popover's element, or picking an option dismisses the popover.
+  asSelect?: boolean;
+  selectContainer?: HTMLElement | null;
 }
 
 export default function BaselineChooserColumnLabel({
@@ -49,6 +54,8 @@ export default function BaselineChooserColumnLabel({
   dropdownEnabled,
   isHoldout = false,
   labelMaxWidth = 75,
+  asSelect = false,
+  selectContainer,
 }: BaselineChooserColumnLabelProps) {
   const { apiCall } = useAuth();
 
@@ -126,6 +133,33 @@ export default function BaselineChooserColumnLabel({
       baselineRow,
     ],
   );
+
+  if (asSelect) {
+    return (
+      <Select
+        aria-label={isHoldout ? "Holdout" : "Baseline"}
+        value={String(baselineVariation.index)}
+        setValue={(v) => handleBaselineChange(Number(v))}
+        disabled={!dropdownEnabled || !setBaselineRow || postLoading}
+        container={selectContainer}
+      >
+        {indexedVariations.map((variation) => (
+          <SelectItem key={variation.id} value={String(variation.index)}>
+            <VariationLabel
+              number={variation.index}
+              name={
+                variation.index === 0
+                  ? `${variation.name} (Default)`
+                  : variation.name
+              }
+              maxWidth="400px"
+              disableTooltip
+            />
+          </SelectItem>
+        ))}
+      </Select>
+    );
+  }
 
   const renderMenuItems = () => {
     return indexedVariations.map((variation) => {

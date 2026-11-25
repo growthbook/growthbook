@@ -757,7 +757,10 @@ export default function AnalysisSettingsSummary({
   // Render if filters are active OR at least one filter type is available
   const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
 
-  const hiddenVariations = variationFilter?.length ?? 0;
+  // Hidden variations and a baseline other than the default count as changes,
+  // like filters do.
+  const otherViewChanges =
+    (variationFilter?.length ?? 0) + (baselineRow ? 1 : 0);
   const unitCount = (label: string, count: number) =>
     resultsRedesign ? (
       <Text size="sm" color="text-low">
@@ -1023,13 +1026,13 @@ export default function AnalysisSettingsSummary({
                             title="View options"
                           >
                             <PiSlidersHorizontal size={16} />
-                            {activeFilterCount + hiddenVariations > 0 ? (
+                            {activeFilterCount + otherViewChanges > 0 ? (
                               <Badge
                                 color="indigo"
                                 variant="solid"
                                 radius="full"
                                 label={String(
-                                  activeFilterCount + hiddenVariations,
+                                  activeFilterCount + otherViewChanges,
                                 )}
                               />
                             ) : null}
