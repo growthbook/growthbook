@@ -68,9 +68,9 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 }
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
-  // The handle and the menu mirror each other at the row's two ends.
   dragHandle: 32,
-  menu: 32,
+  // The menu inside the cell's padding, as in the webhook secrets table.
+  menu: 46,
   name: "10%",
   key: "14%",
   description: "20%",
@@ -243,7 +243,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
           props.canManage ? () => props.setEditModal(customField) : undefined
         }
       />
-      <TableCell justify="center" px="0">
+      <TableCell justify="end">
         <CustomFieldRowMenu
           name={customField.name}
           canEdit={props.canManage}
@@ -285,7 +285,7 @@ export function StaticCustomFieldRow({
         </Flex>
       </TableCell>
       <RowCells customField={customField} showRequired={showRequired} />
-      <TableCell px="0" />
+      <TableCell />
     </TableRow>
   );
 }

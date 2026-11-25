@@ -12,6 +12,13 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SettingsPage, {
   SettingsNoAccess,
 } from "@/components/Layout/SettingsPage";
@@ -28,16 +35,21 @@ const TagsPage: FC = () => {
   const canDelete = permissionsUtil.canDeleteTag();
   const canManageTags = canCreateAndUpdate || canDelete;
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: tags || [],
-      localStorageKey: "tags",
-      defaultSortField: "id",
-      defaultSortDir: 1,
-      searchFields: ["id^2", "description"],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: tags || [],
+    localStorageKey: "tags",
+    defaultSortField: "id",
+    defaultSortDir: 1,
+    searchFields: ["id^2", "description"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
 
   if (!canManageTags) {
     return <SettingsNoAccess title="Tags" />;
@@ -85,23 +97,31 @@ const TagsPage: FC = () => {
                 {...searchInputProps}
               />
             </Box>
-            <table
-              className="table appbox gbtable table-valign-top"
-              style={{ tableLayout: "fixed", width: "100%" }}
+            <Table
+              variant="list"
+              stickyHeader={false}
+              roundedCorners
+              layout="fixed"
+              mb="4"
             >
-              <thead>
-                <tr>
-                  <SortableTH field="id" style={{ width: "35%" }}>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader
+                    field="id"
+                    style={{ width: "35%" }}
+                  >
                     Tag name
-                  </SortableTH>
-                  <SortableTH field="description">Description</SortableTH>
-                  <th style={{ width: 40, minWidth: 40 }} />
-                </tr>
-              </thead>
-              <tbody>
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="description">
+                    Description
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader style={{ width: 46 }} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items?.map((t) => (
-                  <tr key={t.id}>
-                    <td>
+                  <TableRow key={t.id} align="start">
+                    <TableCell>
                       {canCreateAndUpdate ? (
                         <Link
                           aria-label={`Edit tag ${t.id}`}
@@ -112,14 +132,15 @@ const TagsPage: FC = () => {
                       ) : (
                         <Tag tag={t.id} skipMargin />
                       )}
-                    </td>
-                    <td className="text-gray">
+                    </TableCell>
+                    <TableCell>
                       {t.description && t.description.length > 80
                         ? t.description.substring(0, 80).trim() + "..."
                         : (t.description ?? "")}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell justify="end">
                       <TagRowMenu
+                        name={t.id}
                         canEdit={canCreateAndUpdate}
                         canDelete={canDelete}
                         onEdit={() => setModalOpen(t)}
@@ -131,18 +152,18 @@ const TagsPage: FC = () => {
                           mutateDefinitions();
                         }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={3} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={3} justify="center">
                       No matching tags found.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {pagination}
           </>
         ) : (
