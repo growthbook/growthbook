@@ -1,8 +1,5 @@
 import isEqual from "lodash/isEqual";
-import {
-  reorderQaOverridesInEnvironment,
-  validateFeatureValue,
-} from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { conflictingFields } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -590,7 +587,6 @@ export async function applyExperimentChanges({
     experimentPlan,
     body,
   );
-  await assertQaOverrideOrder(context, experiment, body);
   if (body.dryRun) return { dryRun: true, experiment, flags: [] };
 
   const compensations: Compensation[] = [];
@@ -692,36 +688,6 @@ export async function applyExperimentChanges({
     throw e instanceof ConflictError
       ? new ConflictError(message)
       : new InternalServerError(message);
-  }
-}
-
-// Each environment's order names every override in it, so one added or
-// removed since the page loaded refuses the save.
-async function assertQaOverrideOrder(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-  body: ExperimentChangesBody,
-) {
-  const entries = body.qaOverrideOrder ?? [];
-  if (!entries.length) return;
-  const environments = entries.map((entry) => entry.environment);
-  if (new Set(environments).size !== environments.length) {
-    throw new BadRequestError(
-      "Order each environment's QA overrides once per save.",
-    );
-  }
-  const overrides = await context.models.experimentQaOverrides.findByExperiment(
-    experiment.id,
-  );
-  for (const { environment, overrideIds } of entries) {
-    if (!context.permissions.canRunExperiment(experiment, [environment])) {
-      context.permissions.throwPermissionError();
-    }
-    if (!reorderQaOverridesInEnvironment(overrides, environment, overrideIds)) {
-      throw new ConflictError(
-        `The QA overrides in ${environment} changed since you loaded them. Reload to see the latest, then order them again.`,
-      );
-    }
   }
 }
 
@@ -832,8 +798,7 @@ function linkCheck(
 }
 
 // Once the values and experiment have landed: flags created, linked again,
-// unlinked or kept, then Visual Editor changes, URL Redirects and the order
-// of QA overrides.
+// unlinked or kept, then Visual Editor changes and URL Redirects.
 async function finishFlags({
   context,
   experiment,
@@ -894,13 +859,6 @@ async function finishFlags({
       plan: linkedPlan,
       audit,
     });
-  }
-  for (const { environment, overrideIds } of body.qaOverrideOrder ?? []) {
-    await context.models.experimentQaOverrides.reorder(
-      experiment.id,
-      environment,
-      overrideIds,
-    );
   }
   return creates.length ||
     body.linkFeatures?.length ||

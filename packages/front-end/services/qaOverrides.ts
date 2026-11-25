@@ -45,44 +45,6 @@ export function groupQaOverrides<
   }));
 }
 
-// Environment to its override ids, first match first.
-export type QaOverrideOrder = Record<string, string[]>;
-
-type Ordered = Pick<
-  ExperimentQaOverrideInterface,
-  "id" | "environment" | "order" | "dateCreated"
->;
-
-// A staged order against the overrides as they are now: one removed since
-// drops out, one added since goes last, and an environment left in its stored
-// order is no longer staged.
-export function reconcileQaOverrideOrder(
-  staged: QaOverrideOrder,
-  overrides: Ordered[],
-): QaOverrideOrder {
-  const stored = groupBy(sortQaOverrides(overrides), "environment");
-  const order: QaOverrideOrder = {};
-  for (const [environment, ids] of Object.entries(staged)) {
-    const current = (stored[environment] ?? []).map((o) => o.id);
-    const next = [
-      ...ids.filter((id) => current.includes(id)),
-      ...current.filter((id) => !ids.includes(id)),
-    ];
-    if (next.some((id, i) => id !== current[i])) order[environment] = next;
-  }
-  return order;
-}
-
-export function applyQaOverrideOrder<T extends Ordered>(
-  overrides: T[],
-  order: QaOverrideOrder,
-): T[] {
-  return overrides.map((o) => {
-    const position = order[o.environment]?.indexOf(o.id) ?? -1;
-    return position < 0 ? o : { ...o, order: position };
-  });
-}
-
 export function qaOverridesNeedGrouping<T>(
   groups: QaOverrideGroup<T>[],
 ): boolean {
