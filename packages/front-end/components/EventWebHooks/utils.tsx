@@ -284,7 +284,7 @@ export const displayedEvents = (
               </Flex>
             }
           >
-            <span style={{ textDecoration: "underline dotted" }}>
+            <span tabIndex={0} style={{ textDecoration: "underline dotted" }}>
               {hidden.length} more
             </span>
           </Tooltip>

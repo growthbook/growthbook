@@ -10,6 +10,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import Table, {
@@ -140,9 +141,11 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
                         {url}
                       </Text>
                     ) : (
-                      <Text color="text-mid" fontStyle="italic">
-                        hidden
-                      </Text>
+                      <Tooltip content="Slack and Discord webhook URLs carry their own credentials, so they aren't shown.">
+                        <Text color="text-mid" fontStyle="italic">
+                          hidden
+                        </Text>
+                      </Tooltip>
                     )}
                   </TableCell>
                   <TableCell>

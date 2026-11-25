@@ -238,7 +238,7 @@ export default function EventWebHookStatus({
                             variant="ghost"
                             color="gray"
                             size="sm"
-                            aria-label="Delivery details"
+                            aria-label={`Details for ${log.event ?? "delivery"}, ${ago(log.dateCreated)}`}
                             aria-expanded={open}
                             stopPropagation
                             onClick={() => setOpenId(open ? null : log.id)}

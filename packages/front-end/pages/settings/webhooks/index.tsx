@@ -127,8 +127,8 @@ const WebhooksPage: FC = () => {
                       variant="soft"
                       trigger={
                         <MoreMenuTrigger
-                          label="Webhook secret actions"
-                          style={{ marginBlock: -4 }}
+                          label={`Actions for ${secret.key}`}
+                          size="sm"
                         />
                       }
                       menuPlacement="end"
