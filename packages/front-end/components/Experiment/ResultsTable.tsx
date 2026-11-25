@@ -457,6 +457,13 @@ export default function ResultsTable({
   const showVariationColumn =
     columnsToDisplay.includes("Variation Averages") &&
     (showValue || compactResults);
+  // The redesign's rows are shorter, and shorter still without the value's
+  // two lines.
+  const variationRowHeight = redesign
+    ? (compactResults ? 46 : 40) - (showValue ? 0 : 8)
+    : compactResults
+      ? ROW_HEIGHT + 10
+      : ROW_HEIGHT;
   // With fewer columns, the name takes the room the graph otherwise would.
   const labelColumnWidth =
     260 + (redesign && compactResults ? 55 : 0) + (showValue ? 0 : 40);
@@ -979,7 +986,9 @@ export default function ResultsTable({
                                   labelColSpan:
                                     includedLabelColumns.length +
                                     (rowsLayout ? 1 : 0),
-                                  rowHeight: LABEL_ONLY_ROW_HEIGHT,
+                                  rowHeight: redesign
+                                    ? 30
+                                    : LABEL_ONLY_ROW_HEIGHT,
                                 });
                               }
 
@@ -991,7 +1000,7 @@ export default function ResultsTable({
                                   ) ? (
                                   <tr
                                     className="results-variation-row align-items-center"
-                                    style={{ height: ROW_HEIGHT }}
+                                    style={{ height: variationRowHeight }}
                                   >
                                     {leadingCell()}
                                     <td className="variation">
@@ -1029,7 +1038,7 @@ export default function ResultsTable({
                                           showAxis={false}
                                           axisOnly={true}
                                           graphWidth={graphCellWidth}
-                                          height={ROW_HEIGHT}
+                                          height={variationRowHeight}
                                           ssrPolyfills={ssrPolyfills}
                                         />
                                       </td>
@@ -1109,9 +1118,7 @@ export default function ResultsTable({
                                     )
                                       ? graphCellWidth
                                       : 0,
-                                    rowHeight: compactResults
-                                      ? ROW_HEIGHT + 10
-                                      : ROW_HEIGHT,
+                                    rowHeight: variationRowHeight,
                                     id,
                                     domain,
                                     ssrPolyfills,
@@ -1189,9 +1196,7 @@ export default function ResultsTable({
                                       )
                                         ? graphCellWidth
                                         : 0,
-                                      rowHeight: compactResults
-                                        ? ROW_HEIGHT + 10
-                                        : ROW_HEIGHT,
+                                      rowHeight: variationRowHeight,
                                       id,
                                       domain,
                                       ssrPolyfills,
@@ -1262,9 +1267,7 @@ export default function ResultsTable({
                                     )
                                       ? graphCellWidth
                                       : 0,
-                                    rowHeight: compactResults
-                                      ? ROW_HEIGHT + 10
-                                      : ROW_HEIGHT,
+                                    rowHeight: variationRowHeight,
                                     id,
                                     domain,
                                     ssrPolyfills,
@@ -1319,9 +1322,7 @@ export default function ResultsTable({
                                     )}
                                     key={j}
                                     style={{
-                                      height: compactResults
-                                        ? ROW_HEIGHT + 10
-                                        : ROW_HEIGHT,
+                                      height: variationRowHeight,
                                     }}
                                   >
                                     {leadingCell()}
@@ -1518,11 +1519,7 @@ export default function ResultsTable({
                                               row.resultGroup
                                             }_${encodeURIComponent(dimension ?? "d-none")}`}
                                             graphWidth={graphCellWidth}
-                                            height={
-                                              compactResults
-                                                ? ROW_HEIGHT + 10
-                                                : ROW_HEIGHT
-                                            }
+                                            height={variationRowHeight}
                                             percent={
                                               differenceType === "relative"
                                             }
