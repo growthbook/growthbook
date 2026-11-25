@@ -29,6 +29,16 @@ export const eventForwarderStatusResponseSchema = z.object({
   message: z.string().optional(),
   confluentState: z.string().optional(),
   taskErrors: z.array(eventForwarderConnectorTaskErrorSchema).optional(),
+  // Events the consumer could not write, parked until the next restart.
+  backlogCount: z.number().optional(),
+  // A restart is writing the parked events; live events wait until it is done.
+  replaying: z.boolean().optional(),
+  // Parked events that restart has written so far.
+  replayedCount: z.number().optional(),
+  // When the destination stopped forwarding (ISO), while errored.
+  erroredAt: z.string().optional(),
+  // When backlogCount was last counted (ISO).
+  backlogCountedAt: z.string().optional(),
 });
 
 export type EventForwarderStatusResponse = z.infer<

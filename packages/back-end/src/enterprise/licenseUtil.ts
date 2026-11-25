@@ -1279,6 +1279,12 @@ export type EventForwarderLicenseConnectorStatus = {
   phase: EventForwarderLicenseConnectorPhase;
   message?: string;
   taskErrors?: { id: number; state: string; trace?: string }[];
+  /** In-house consumer only. */
+  backlogCount?: number;
+  replaying?: boolean;
+  replayedCount?: number;
+  erroredAt?: string;
+  backlogCountedAt?: string;
 };
 
 export async function postRestartEventForwarderToLicenseServer(params: {
