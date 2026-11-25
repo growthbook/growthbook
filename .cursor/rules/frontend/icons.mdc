@@ -1,0 +1,8 @@
+---
+description: "Icon set conventions for the front-end: Pi and GB icons for new code, legacy react-icons sets"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts
+alwaysApply: false
+---
+# Front-end Icons
+
+Before adding or changing an icon in front-end code, read and follow `.agents/guides/frontend/icons.md`.

@@ -191,10 +191,12 @@ When using the `Modal` component, errors thrown in `submit` are automatically di
 ### Pattern 3: Check Error in useApi
 
 ```typescript
+import Callout from "@/ui/Callout";
+
 const { data, error } = useApi<DataResponse>("/endpoint");
 
 if (error) {
-  return <div className="alert alert-danger">{error.message}</div>;
+  return <Callout status="error">{error.message}</Callout>;
 }
 
 if (!data) {
@@ -203,6 +205,8 @@ if (!data) {
 
 return <MyContent data={data} />;
 ```
+
+Bootstrap `alert alert-*` classes are lint-blocked (`local/no-alert-classname`). Use `@/ui/Callout` — see [ui-states.md](ui-states.md) for which surface carries which message.
 
 ## Common Patterns
 
