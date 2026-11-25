@@ -8,6 +8,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import HealthCard from "./HealthCard";
 import { IssueValue } from "./IssueTags";
+import { MuteAlert, MuteAlertButton, MutedAlertNote } from "./MuteAlert";
 
 interface Props {
   totalUsers: number;
@@ -20,6 +21,7 @@ interface Props {
   isBandit?: boolean;
   isClusterExperiment?: boolean;
   error?: string;
+  mute?: MuteAlert;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -36,6 +38,7 @@ export default function MultipleExposuresCard({
   isBandit = false,
   isClusterExperiment = false,
   error,
+  mute,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -61,7 +64,7 @@ export default function MultipleExposuresCard({
   );
 
   useEffect(() => {
-    if (!error && health.status === "unhealthy" && onNotify) {
+    if (!error && health.status === "unhealthy" && onNotify && !mute?.isMuted) {
       onNotify({
         label: isClusterExperiment
           ? "Subunit Multiple Exposures"
@@ -71,7 +74,7 @@ export default function MultipleExposuresCard({
     }
     // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
     // the parent even when `health` and `onNotify` are unchanged.
-  }, [error, health, onNotify, snapshotId, isClusterExperiment]);
+  }, [error, health, onNotify, snapshotId, isClusterExperiment, mute?.isMuted]);
 
   if (error) {
     return (
@@ -86,7 +89,17 @@ export default function MultipleExposuresCard({
   }
 
   return (
-    <HealthCard title={title} description={description} status={health.status}>
+    <HealthCard
+      title={title}
+      description={description}
+      status={health.status}
+      action={
+        mute && !mute.isMuted && health.status === "unhealthy" ? (
+          <MuteAlertButton onClick={mute.toggle} />
+        ) : null
+      }
+    >
+      {mute?.isMuted ? <MutedAlertNote onUnmute={mute.toggle} /> : null}
       {health.status === "healthy" ? (
         <Callout status="success">
           {multipleExposures === 0

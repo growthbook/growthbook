@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { StatusBadge, StatusBadgeHealth } from "./StatusBadge";
 
@@ -10,6 +10,7 @@ export interface Props {
   description?: ReactNode;
   children: ReactNode;
   status: StatusBadgeHealth;
+  action?: ReactNode;
 }
 
 export default function HealthCard({
@@ -19,13 +20,21 @@ export default function HealthCard({
   description,
   children,
   status,
+  action,
 }: Props) {
   return (
     <div className="appbox my-3 p-3" id={id}>
       <div className="mb-2">
-        <h2 className="d-inline">{title}</h2>{" "}
-        {status !== "healthy" && <StatusBadge status={status} />}
-        <span className="text-muted float-right">{helpText}</span>
+        <Flex justify="between" align="start" gap="2">
+          <Box>
+            <h2 className="d-inline">{title}</h2>{" "}
+            {status !== "healthy" && <StatusBadge status={status} />}
+          </Box>
+          <Flex align="center" gap="2">
+            <span className="text-muted">{helpText}</span>
+            {action}
+          </Flex>
+        </Flex>
         {description ? (
           <Text as="p" mt="1">
             {description}
