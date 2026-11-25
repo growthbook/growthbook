@@ -12,6 +12,8 @@
     "type-check": "tsgo --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
     "test": "vitest run",
+    "lingui:extract": "lingui extract --clean",
+    "lingui:check": "lingui extract --clean && lingui compile --strict",
     "type-gen": "pnpm --filter shared type-gen"
   },
   "dependencies": {
@@ -33,6 +35,8 @@
     "@lexical/selection": "^0.51.0",
     "@lexical/table": "^0.51.0",
     "@lexical/utils": "^0.51.0",
+    "@lingui/core": "^6.12.0",
+    "@lingui/react": "^6.12.0",
     "@next/bundle-analyzer": "^16.1.6",
     "@nozbe/microfuzz": "^1.0.0",
     "@popperjs/core": "^2.11.5",
@@ -134,6 +138,11 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@lingui/cli": "^6.12.0",
+    "@lingui/format-po": "^6.12.0",
+    "@lingui/loader": "^6.12.0",
+    "@lingui/swc-plugin": "6.7.1",
+    "@lingui/vite-plugin": "^6.12.0",
     "@rrweb/types": "2.0.0-alpha.18",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

@@ -82,3 +82,6 @@ packages/stats/notebooks
 .claude/launch.json
 .context/
 .agents/plans
+
+# Lingui compiles catalogs on import; `lingui compile` output is only a check
+packages/front-end/locales/**/*.js
