@@ -128,7 +128,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   showProjectFilter = true,
   extraFilters = [],
 }) => {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { searchTerm, syntaxFilters } = useMemo(
     () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS),
     [searchValue],
@@ -500,7 +500,10 @@ const SidebarExperimentFilters: FC<Props> = ({
   // Clear.
   const renderCategoryPanel = (category: FilterCategory) => {
     const heading = category.heading;
-    const headingLower = heading.toLowerCase();
+    // Mid-sentence the label is lowercase, except in German, where nouns stay
+    // capitalized. The locale-aware form handles Turkish İ/I.
+    const headingLower =
+      i18n.locale === "de" ? heading : heading.toLocaleLowerCase(i18n.locale);
     const selected = selectedValuesFor(category.key);
     const optionsOpen = optionsOpenField === category.key;
     const options = visibleOptionsFor(category);
