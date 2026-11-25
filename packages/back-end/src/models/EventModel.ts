@@ -16,6 +16,8 @@ import {
   zodNotificationEventNamesEnum,
   zodNotificationEventResources,
   eventData,
+  EventApprover,
+  EventRelatedEntity,
 } from "shared/validators";
 import { EventInterface, BaseEventInterface } from "shared/types/events/event";
 import { DiffResult } from "shared/types/events/diff";
@@ -24,6 +26,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import { trackRevisionActivity } from "back-end/src/events/revisionActivityTracking";
+import { currentRequestSource } from "back-end/src/services/growthbook";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -243,6 +246,8 @@ export type CreateEventParams<
   projects: string[];
   tags: string[];
   environments: string[];
+  relatedEntities?: EventRelatedEntity[];
+  approvers?: EventApprover[];
   notify?: boolean;
 };
 
@@ -259,6 +264,8 @@ export const createEvent = async <
   projects,
   tags,
   environments,
+  relatedEntities,
+  approvers,
   notify = true,
 }: CreateEventParams<Resource, Event>) => {
   trackRevisionActivity(context, object, event, objectId ?? null, data);
@@ -272,6 +279,9 @@ export const createEvent = async <
       environments,
       containsSecrets,
       user: context.auditUser ?? { type: "system" },
+      requestSource: currentRequestSource(),
+      ...(relatedEntities?.length ? { relatedEntities } : {}),
+      ...(approvers?.length ? { approvers } : {}),
     },
     organizationId: context.org.id,
     notify,

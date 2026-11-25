@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { datadogEventsUrl, datadogSites } from "../util/datadog";
 import { namedSchema } from "./openapi-helpers";
 import { apiWebhookTimeoutSeconds } from "./webhooks";
 import {
+  datadogEventWebHookSettings,
   eventWebHookInterface,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
@@ -18,7 +20,9 @@ export const apiEventWebhookValidator = namedSchema(
       enabled: z.boolean(),
       events: z
         .array(z.string())
-        .describe('Event names or wildcards such as "feature.*"'),
+        .describe(
+          'Event names or wildcards such as "feature.*", or "*" for every event. A `datadog` webhook sends only the events it supports.',
+        ),
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       environments: z.array(z.string()),
@@ -29,6 +33,9 @@ export const apiEventWebhookValidator = namedSchema(
         .optional()
         .describe("Only returned by GET"),
       timeoutSeconds: apiWebhookTimeoutSeconds,
+      datadog: datadogEventWebHookSettings
+        .optional()
+        .describe("Settings for the `datadog` payload type."),
       signingKey: z
         .string()
         .optional()
@@ -61,7 +68,19 @@ export const apiEventWebhookLogValidator = namedSchema(
     .strict(),
 );
 
+const datadogUrls = datadogSites
+  .map((site) => `\`${datadogEventsUrl(site.id)}\``)
+  .join(", ");
+
 const createBody = eventWebHookRequestBodySchema.extend({
+  url: eventWebHookRequestBodySchema.shape.url.describe(
+    `Where events are sent. For a \`datadog\` webhook, Datadog's event intake for your site: ${datadogUrls}.`,
+  ),
+  events: eventWebHookRequestBodySchema.shape.events
+    .optional()
+    .describe(
+      'Event names or wildcards such as "feature.*", or "*" for every event. Required, except a `datadog` webhook defaults to "*" and sends only the events it supports.',
+    ),
   projects: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   environments: z.array(z.string()).optional(),
@@ -108,7 +127,7 @@ export const postEventWebhookValidator = {
   responseSchema: webhookResponse,
   summary: "Create an event webhook",
   description:
-    "The URL and header values can reference webhook secrets as `{{ KEY }}`, which are filled in at send time.",
+    "The URL and header values can reference webhook secrets as `{{ KEY }}`, which are filled in at send time. A `datadog` webhook must use `POST` and send its API key in a `DD-API-KEY` header; see [Send changes to Datadog](https://docs.growthbook.io/integrations/datadog#send-changes-to-datadog).",
   confirmation: ["settings.webhooks"] as const,
   operationId: "postEventWebhook",
   tags: ["event-webhooks"],
@@ -116,11 +135,13 @@ export const postEventWebhookValidator = {
   path: "/event-webhooks",
   exampleRequest: {
     body: {
-      name: "Feature changes to Datadog",
-      url: "https://example.com/growthbook-events",
+      name: "Datadog change tracking",
+      url: "https://event-management-intake.datadoghq.com/api/v2/events",
       enabled: true,
-      events: ["feature.*"],
-      payloadType: "json" as const,
+      payloadType: "datadog" as const,
+      headers: { "DD-API-KEY": "{{ DATADOG_API_KEY }}" },
+      environments: ["production"],
+      datadog: { service: "checkout-api" },
     },
   },
 };

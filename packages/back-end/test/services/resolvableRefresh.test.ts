@@ -1,6 +1,7 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
 import {
+  changedConstantEnvironments,
   featureReferenceTokens,
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
@@ -876,5 +877,29 @@ describe("isEmptyConfigPatch", () => {
 
   it("treats unparseable JSON as non-empty (can't prove it's a no-op)", () => {
     expect(isEmptyConfigPatch("{not json")).toBe(false);
+  });
+});
+
+describe("changedConstantEnvironments", () => {
+  const constant = {
+    value: "1",
+    environmentValues: { staging: "2", production: "3" },
+    project: "",
+    archived: false,
+  };
+
+  it("lists only the environments whose own value changed", () => {
+    expect(
+      changedConstantEnvironments(constant, {
+        ...constant,
+        environmentValues: { staging: "5", dev: "4" },
+      }),
+    ).toEqual(["staging", "production", "dev"]);
+  });
+
+  it("covers every environment when the base value changes", () => {
+    expect(
+      changedConstantEnvironments(constant, { ...constant, value: "9" }),
+    ).toBeNull();
   });
 });

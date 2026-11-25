@@ -539,13 +539,49 @@ export function getContextualBanditVisualPayloadKeys(
   );
 }
 
-export function getSDKPayloadKeysByDiff(
+// Feature metadata SDK connections embed in their environment's payload, so
+// changing it changes that payload.
+export type EmbeddedFeatureMetadata = {
+  environment: string;
+  tags: boolean;
+  customFields: string[];
+}[];
+
+export const NO_EMBEDDED_FEATURE_METADATA: EmbeddedFeatureMetadata = [];
+
+// The environments whose connections embed metadata the change edits.
+function embeddedFeatureMetadataEnvironments(
+  originalFeature: Pick<FeatureInterface, "tags" | "customFields">,
+  updatedFeature: Pick<FeatureInterface, "tags" | "customFields">,
+  embedded: EmbeddedFeatureMetadata,
+): string[] {
+  const tagsChanged = !isEqual(
+    originalFeature.tags ?? [],
+    updatedFeature.tags ?? [],
+  );
+  return embedded
+    .filter(
+      (connection) =>
+        (connection.tags && tagsChanged) ||
+        connection.customFields.some(
+          (fieldId) =>
+            !isEqual(
+              originalFeature.customFields?.[fieldId] ?? null,
+              updatedFeature.customFields?.[fieldId] ?? null,
+            ),
+        ),
+    )
+    .map((connection) => connection.environment);
+}
+
+// The environments whose SDK payload a feature change alters. Feature events
+// and the SDK cache refresh both use it.
+export function getChangedFeatureEnvironments(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
   allowedEnvs: string[],
-  // Every org project id — only consulted when the feature targets all projects.
-  allProjectIds: string[] = [],
-): SDKPayloadKey[] {
+  embedded: EmbeddedFeatureMetadata = NO_EMBEDDED_FEATURE_METADATA,
+): string[] {
   const environments = new Set<string>();
 
   // If the feature is archived both before and after the change, no payloads need to update
@@ -568,27 +604,30 @@ export function getSDKPayloadKeysByDiff(
     "prerequisites",
   ];
 
-  if (
+  const metadataEnvs = embeddedFeatureMetadataEnvironments(
+    originalFeature,
+    updatedFeature,
+    embedded,
+  );
+  getEnabledEnvironments(
+    [originalFeature, updatedFeature],
     allEnvKeys.some(
       (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null),
     )
-  ) {
-    getEnabledEnvironments(
-      [originalFeature, updatedFeature],
-      allowedEnvs,
-    ).forEach((e) => environments.add(e));
-  }
+      ? allowedEnvs
+      : allowedEnvs.filter((e) => metadataEnvs.includes(e)),
+  ).forEach((e) => environments.add(e));
 
   // Diff rules by id; each changed rule invalidates only the envs in its
-  // footprint (union of old and new). Skip envs disabled both before and
-  // after — no payload exists to refresh.
+  // footprint (union of old and new). Skip disabled rules and envs disabled
+  // both before and after — neither is in a payload.
   const envIsRelevant = (e: string): boolean => {
     const oldEnabled = !!originalFeature.environmentSettings?.[e]?.enabled;
     const newEnabled = !!updatedFeature.environmentSettings?.[e]?.enabled;
     return oldEnabled || newEnabled;
   };
   const addRuleEnvs = (rule: FeatureRule | undefined) => {
-    if (!rule) return;
+    if (!rule || rule.enabled === false) return;
     ruleFootprint(rule, allowedEnvs).forEach((e) => {
       if (envIsRelevant(e)) environments.add(e);
     });
@@ -617,12 +656,10 @@ export function getSDKPayloadKeysByDiff(
     (updatedFeature.rules ?? []).forEach(addRuleEnvs);
   }
 
-  const allEnvs = new Set(allowedEnvs);
-
   // Add in environments if their specific settings changed
-  allEnvs.forEach((e) => {
-    const oldSettings = originalFeature.environmentSettings[e];
-    const newSettings = updatedFeature.environmentSettings[e];
+  allowedEnvs.forEach((e) => {
+    const oldSettings = originalFeature.environmentSettings?.[e];
+    const newSettings = updatedFeature.environmentSettings?.[e];
 
     // If the environment is disabled both before and after the change, ignore changes
     if (!oldSettings?.enabled && !newSettings?.enabled) {
@@ -634,6 +671,26 @@ export function getSDKPayloadKeysByDiff(
       environments.add(e);
     }
   });
+
+  return allowedEnvs.filter((e) => environments.has(e));
+}
+
+export function getSDKPayloadKeysByDiff(
+  originalFeature: FeatureInterface,
+  updatedFeature: FeatureInterface,
+  allowedEnvs: string[],
+  // Every org project id — only consulted when the feature targets all projects.
+  allProjectIds: string[] = [],
+  embedded: EmbeddedFeatureMetadata = NO_EMBEDDED_FEATURE_METADATA,
+): SDKPayloadKey[] {
+  const environments = new Set(
+    getChangedFeatureEnvironments(
+      originalFeature,
+      updatedFeature,
+      allowedEnvs,
+      embedded,
+    ),
+  );
 
   const projects = new Set([
     "",

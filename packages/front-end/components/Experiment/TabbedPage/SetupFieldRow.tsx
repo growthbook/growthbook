@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -27,6 +27,8 @@ export default function SetupFieldRow({
   labelAlign = "top",
   stacked = false,
   changed = false,
+  required = false,
+  htmlFor,
   children,
 }: {
   /** For pointing at the field from elsewhere on the page. */
@@ -48,6 +50,10 @@ export default function SetupFieldRow({
   stacked?: boolean;
   /** Marks the label for an unsaved change. */
   changed?: boolean;
+  /** Marks the label as needing a value before saving. */
+  required?: boolean;
+  /** The control the label names, by its id. */
+  htmlFor?: string;
   children: ReactNode;
 }) {
   return (
@@ -86,8 +92,18 @@ export default function SetupFieldRow({
             weight={labelSize === "lg" ? "semibold" : "medium"}
             color="text-high"
             mb="0"
+            htmlFor={htmlFor}
           >
             {label}
+            {required ? (
+              <>
+                <span aria-hidden="true" style={{ color: "var(--red-11)" }}>
+                  {" "}
+                  *
+                </span>
+                <VisuallyHidden> (required)</VisuallyHidden>
+              </>
+            ) : null}
           </Text>
           {tooltip ? (
             <InfoTip content={<Text align="left">{tooltip}</Text>} />

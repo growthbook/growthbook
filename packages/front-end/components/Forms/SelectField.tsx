@@ -474,7 +474,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 <CreatableSelect
                   {...ReactSelectProps}
                   styles={mergedStyles}
-                  id={id}
+                  inputId={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
                   menuPortalTarget={menuPortalTarget}
@@ -553,7 +553,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 <ReactSelect
                   {...ReactSelectProps}
                   styles={mergedStyles}
-                  id={id}
+                  inputId={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
                   menuPortalTarget={menuPortalTarget}

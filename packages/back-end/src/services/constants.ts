@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import { ConstantInterface } from "shared/types/constant";
 import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
@@ -29,9 +30,41 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import {
+  EventReach,
+  getDependentEntities,
+  dependentsReach,
+  refreshThenReport,
+} from "back-end/src/events/relatedEntities";
 import { getResolvableValues, ResolvableValue } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
+
+// Where an edit changes the resolved value, or null for every environment:
+// an edit to only some environments' values leaves the rest as they were.
+export function changedConstantEnvironments(
+  existing: Pick<
+    ConstantInterface,
+    "value" | "environmentValues" | "project" | "archived"
+  >,
+  updated: Pick<
+    ConstantInterface,
+    "value" | "environmentValues" | "project" | "archived"
+  >,
+): string[] | null {
+  if (
+    !isEqual(existing.value, updated.value) ||
+    existing.project !== updated.project ||
+    !!existing.archived !== !!updated.archived
+  ) {
+    return null;
+  }
+  const before = existing.environmentValues ?? {};
+  const after = updated.environmentValues ?? {};
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+    (env) => !isEqual(before[env], after[env]),
+  );
+}
 
 // A constant/config change alters the SDK payload, so refresh it (and fire SDK
 // webhooks). When we know which resolvable changed (`changedKey`), we scope the
@@ -44,31 +77,70 @@ import { getContextForAgendaJobByOrgObject } from "./organizations";
 // Saved groups deliberately keep the org-wide refresh (`savedGroupUpdated`):
 // their reference graph is condition-string based, recursively nested, and spans
 // experiments as well as features, so it doesn't share this token machinery.
+// `onReach` gets what the change reaches once the scan is done, and
+// `environments` limits it to where the value changed, when that's known.
 export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,
   event: "updated" | "deleted" = "updated",
   model: "constant" | "config" = "constant",
   changedKey?: string,
+  {
+    onReach,
+    environments = null,
+  }: {
+    onReach?: (reach: EventReach) => Promise<unknown>;
+    environments?: string[] | null;
+  } = {},
 ) {
+  await refreshThenReport(
+    baseContext.org,
+    () =>
+      refreshResolvablePayloads(
+        baseContext,
+        event,
+        model,
+        changedKey,
+        environments,
+      ),
+    onReach,
+  );
+}
+
+async function refreshResolvablePayloads(
+  baseContext: ReqContext | ApiReqContext,
+  event: "updated" | "deleted",
+  model: "constant" | "config",
+  changedKey: string | undefined,
+  changedEnvironments: string[] | null,
+): Promise<EventReach | null> {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
   // buffered commit's constant/config side effects don't escape it.
   context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   if (changedKey) {
-    const features = await getFeaturesAffectedByResolvable(
+    const { features, uses } = await getFeaturesAffectedByResolvable(
       context,
       model,
       changedKey,
     );
+    const environments = getEnvironmentIdsFromOrg(context.org).filter(
+      (e) => !changedEnvironments || changedEnvironments.includes(e),
+    );
+    const projectIds = await context.getAllProjectIds();
     const payloadKeys = getAffectedSDKPayloadKeys(
       features,
-      getEnvironmentIdsFromOrg(context.org),
+      environments,
       undefined,
-      await context.getAllProjectIds(),
+      projectIds,
+    );
+    const reach = dependentsReach(
+      getDependentEntities({ features, uses }, { environments, projectIds }),
+      [],
+      environments,
     );
     // No feature depends on this value — nothing to rebuild or notify.
-    if (!payloadKeys.length) return;
+    if (!payloadKeys.length) return reach;
     queueSDKPayloadRefresh({
       context,
       payloadKeys,
@@ -77,7 +149,7 @@ export async function resolvableValueChanged(
         model,
       },
     });
-    return;
+    return reach;
   }
 
   queueSDKPayloadRefresh({
@@ -89,6 +161,7 @@ export async function resolvableValueChanged(
       model,
     },
   });
+  return null;
 }
 
 type ResolvableRef = { source: ConstantSource; key: string };
@@ -160,27 +233,40 @@ export function featuresAffectedByResolvable(
   source: ConstantSource,
   key: string,
 ): FeatureInterface[] {
+  return features.filter(resolvableUser(resolvables, source, key));
+}
+
+// Whether a feature, or the part of one given, depends on the resolvable.
+function resolvableUser(
+  resolvables: ResolvableValue[],
+  source: ConstantSource,
+  key: string,
+): (feature: FeatureInterface) => boolean {
   const affected = resolvableDependencyClosure(resolvables, source, key);
-  return features.filter((f) => {
+  return (feature) => {
     // A feature usually holds only a handful of reference tokens, so probe those
     // against the (possibly large) affected set rather than the other way round.
-    for (const t of featureReferenceTokens(f)) {
+    for (const t of featureReferenceTokens(feature)) {
       if (affected.has(t)) return true;
     }
     return false;
-  });
+  };
 }
 
 async function getFeaturesAffectedByResolvable(
   context: ReqContext | ApiReqContext,
   source: ConstantSource,
   key: string,
-): Promise<FeatureInterface[]> {
+): Promise<{
+  features: FeatureInterface[];
+  uses: (feature: FeatureInterface) => boolean;
+}> {
   const [resolvables, features] = await Promise.all([
     getResolvableValues(context),
     getAllFeaturesWithoutEditorFields(context, {}),
   ]);
-  return featuresAffectedByResolvable(resolvables, features, source, key);
+  const uses = resolvableUser(resolvables, source, key);
+  return { features: features.filter(uses), uses };
 }
 
 // Reject cyclic values at write time — a stored cycle leaks raw reference

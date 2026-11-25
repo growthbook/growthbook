@@ -1,3 +1,19 @@
+// Framed like the form's inputs, so it sits among them in either theme.
+.frame {
+  position: relative;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+
+  &:focus-within {
+    box-shadow: 0 0 0 1px var(--violet-8);
+  }
+
+  // Inside the border, so its corners don't show past the frame's.
+  :global(.ace_editor) {
+    border-radius: calc(var(--radius-2) - 1px);
+  }
+}
+
 // Ace shades the text's left edge once it's scrolled sideways by even a pixel,
 // which a trackpad's page scroll nudges it into. Its scrollbar says as much.
 .editor :global(.ace_scroller.ace_scroll-left) {

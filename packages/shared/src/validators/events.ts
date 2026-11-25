@@ -172,6 +172,92 @@ export type {
 
 import { eventUser, eventUserLoggedIn } from "./event-user";
 
+export const eventRequestSources = [
+  "app",
+  "api",
+  "mcp",
+  "assistant",
+  "system",
+  "unknown",
+] as const;
+
+const relatedEntityProjects = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Its Projects, as webhook Project filters match them. Absent for experiments the changed Feature Flag's own rules reference.",
+  );
+
+const relatedEntityTags = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Its tags, as webhook tag filters match them. Absent for experiments the changed Feature Flag's own rules reference.",
+  );
+
+export const eventRelatedEntity = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("feature"),
+      id: z.string(),
+      environments: z.array(z.string()),
+      projects: relatedEntityProjects,
+      tags: relatedEntityTags,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("experiment"),
+      id: z.string(),
+      environments: z.array(z.string()),
+      projects: relatedEntityProjects,
+      tags: relatedEntityTags,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("rampSchedule"),
+      id: z.string(),
+      name: z.string(),
+      action: z.enum(["start", "step", "complete", "rollback"]),
+      step: z
+        .number()
+        .nullable()
+        .describe(
+          "The step the ramp is now on, counting from 1. Null at the start, before the first step.",
+        ),
+      steps: z.number(),
+    })
+    .strict(),
+]);
+
+export type EventRelatedEntity = z.infer<typeof eventRelatedEntity>;
+
+export const eventApprover = z
+  .object({ id: z.string(), name: z.string(), email: z.string() })
+  .strict();
+
+export type EventApprover = z.infer<typeof eventApprover>;
+
+const eventEnvelopeExtras = {
+  requestSource: z
+    .enum(eventRequestSources)
+    .optional()
+    .describe(
+      "Where the change came from: the app, the REST API, the MCP server, the AI assistant, a background job (`system`), or `unknown`.",
+    ),
+  relatedEntities: z
+    .array(eventRelatedEntity)
+    .optional()
+    .describe(
+      "Other entities the change touched: the ramp schedule step that published it, experiments whose rules changed or switched on or off, the Feature Flags that run an experiment, or the Feature Flags and experiments that depend on a Saved Group, Constant or Config. Each lists the environments where it was affected.",
+    ),
+  approvers: z
+    .array(eventApprover)
+    .optional()
+    .describe("Who approved the published revision, when it was reviewed."),
+};
+
 export const eventData = <T extends z.ZodTypeAny>(data: T) =>
   z
     .object({
@@ -185,6 +271,7 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
       tags: z.array(z.string()),
       containsSecrets: z.boolean(),
       user: z.union([eventUserLoggedIn, eventUser]),
+      ...eventEnvelopeExtras,
     })
     .strict();
 
@@ -716,4 +803,5 @@ export const notificationEventPayload = <
         "The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter).",
       ),
     containsSecrets: z.boolean(),
+    ...eventEnvelopeExtras,
   });

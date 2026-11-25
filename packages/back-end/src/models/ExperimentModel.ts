@@ -64,7 +64,10 @@ import {
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
@@ -91,6 +94,10 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
+import {
+  getExperimentReach,
+  NO_REACH,
+} from "back-end/src/events/relatedEntities";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1719,13 +1726,26 @@ export const logExperimentUpdated = async ({
     toExperimentEventPayload(context, previous),
     toExperimentEventPayload(context, current),
   ]);
-  // If experiment is part of the SDK payload, it affects all environments
-  // Otherwise, it doesn't affect any
-  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
-
-  const changedEnvs = hasPayloadChanges
-    ? getEnvironmentIdsFromOrg(context.org)
-    : [];
+  // Results refreshes change nothing SDKs serve, so they skip the lookup.
+  // Flags the actor can't read still count toward where it's served.
+  const reach = hasChangesForSDKPayloadRefresh(previous, current)
+    ? getExperimentReach(
+        current.id,
+        [previous, current].some(
+          (e) => e.hasVisualChangesets || e.hasURLRedirects,
+        ),
+        await getFeaturesByIds(getContextForAgendaJobByOrgObject(context.org), [
+          ...new Set([
+            ...(previous.linkedFeatures ?? []),
+            ...(current.linkedFeatures ?? []),
+          ]),
+        ]),
+        {
+          environments: getEnvironmentIdsFromOrg(context.org),
+          projectIds: await context.getAllProjectIds(),
+        },
+      )
+    : NO_REACH;
 
   let changes: DiffResult | undefined;
   try {
@@ -1773,7 +1793,8 @@ export const logExperimentUpdated = async ({
     tags: Array.from(
       new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
     ),
-    environments: changedEnvs,
+    environments: reach.environments,
+    relatedEntities: reach.relatedEntities,
     containsSecrets: false,
   });
 };

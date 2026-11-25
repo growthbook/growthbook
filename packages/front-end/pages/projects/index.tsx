@@ -217,7 +217,7 @@ const ProjectsPage: FC = () => {
                 {items.map((p) => {
                   const canEdit = permissionsUtil.canUpdateProject(p.id);
                   return (
-                    <TableRow key={p.id} style={{ verticalAlign: "middle" }}>
+                    <TableRow key={p.id} align="start">
                       <TableCell>
                         {canEdit ? (
                           <Link href={`/project/${p.id}`}>{p.name}</Link>

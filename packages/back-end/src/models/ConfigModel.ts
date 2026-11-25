@@ -20,7 +20,6 @@ import {
   getCyclicConstantRefs,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
-import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import {
@@ -32,10 +31,10 @@ import {
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
@@ -395,6 +394,17 @@ export class ConfigModel extends BaseClass {
     newDoc: ConfigInterface,
   ) {
     this.invalidateReconcileSnapshot();
+
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("config", newDoc.id),
+      previous,
+      current,
+      (reach) => logConfigUpdatedEvent(this.context, previous, current, reach),
+    );
+
     if (
       updates.parent !== undefined ||
       updates.extends !== undefined ||
@@ -403,31 +413,16 @@ export class ConfigModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      resolvableValueChanged(
-        this.context,
-        "updated",
-        "config",
-        newDoc.key,
-      ).catch((e) => {
+      resolvableValueChanged(this.context, "updated", "config", newDoc.key, {
+        onReach: emit,
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on config update",
         );
       });
-    }
-
-    // Skip the webhook event when only `dateUpdated` changed. During a
-    // bulk-publish commit the emission defers to the post-commit flush.
-    const previous = this.toApiInterface(existing);
-    const current = this.toApiInterface(newDoc);
-    if (
-      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
-    ) {
-      await emitOrDeferBulkPublishEvent(
-        () => logConfigUpdatedEvent(this.context, previous, current),
-        entityKey("config", newDoc.id),
-        captureEventBuffer(this.context),
-      );
+    } else {
+      await emit?.(NO_REACH);
     }
   }
 
@@ -448,15 +443,15 @@ export class ConfigModel extends BaseClass {
         [],
       );
     }
-    resolvableValueChanged(this.context, "deleted", "config", doc.key).catch(
-      (e) => {
-        this.context.logger.error(
-          e,
-          "Error refreshing SDK Payload on config delete",
-        );
-      },
-    );
-    await logConfigDeletedEvent(this.context, this.toApiInterface(doc));
+    const deleted = this.toApiInterface(doc);
+    resolvableValueChanged(this.context, "deleted", "config", doc.key, {
+      onReach: (reach) => logConfigDeletedEvent(this.context, deleted, reach),
+    }).catch((e) => {
+      this.context.logger.error(
+        e,
+        "Error refreshing SDK Payload on config delete",
+      );
+    });
   }
 
   public getByKey(key: string) {

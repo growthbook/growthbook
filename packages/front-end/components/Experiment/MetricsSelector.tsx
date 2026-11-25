@@ -894,8 +894,8 @@ const MetricsSelector: FC<{
       }
       // The analysis-level groups are already ordered, subunit first.
       sortOptions={!(groupOptions && clusterIdType && userIdType)}
-      // The card names the chip, so a native title would only cover it.
-      valueTitles={!metricOverrides}
+      // The card describes the chip, so its tooltip would only cover it.
+      valueTooltips={!metricOverrides}
       customStyles={
         overriddenChips.size
           ? {

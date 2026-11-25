@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { displayedEvents } from "@/components/EventWebHooks/utils";
 
 const text = (events: string[], max?: number) =>
   renderToStaticMarkup(
-    <>{displayedEvents(events, { maxEventsDisplay: max })}</>,
+    <TooltipProvider>
+      {displayedEvents(events, { maxEventsDisplay: max })}
+    </TooltipProvider>,
   ).replace(/<[^>]+>/g, "");
 
 describe("displayedEvents", () => {

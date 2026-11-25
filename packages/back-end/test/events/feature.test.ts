@@ -460,7 +460,7 @@ describe("features events", () => {
     expect(rawPayload.environments.length).toBe(2);
   });
 
-  it("includes all environments when archiving a feature (global event)", async () => {
+  it("includes every enabled environment when archiving a feature", async () => {
     let rawPayload;
 
     jest
@@ -472,8 +472,20 @@ describe("features events", () => {
         return result;
       });
 
-    const unarchivedFeature = { ...featureSnapshot, archived: false };
-    const archivedFeature = { ...featureSnapshot, archived: true };
+    const environmentSettings = {
+      production: { enabled: true, rules: [] },
+      dev: { enabled: true, rules: [] },
+    };
+    const unarchivedFeature = {
+      ...featureSnapshot,
+      environmentSettings,
+      archived: false,
+    };
+    const archivedFeature = {
+      ...featureSnapshot,
+      environmentSettings,
+      archived: true,
+    };
 
     await logFeatureUpdatedEvent(context, unarchivedFeature, archivedFeature);
 

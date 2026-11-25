@@ -1,7 +1,7 @@
 import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { isEqual, omit } from "lodash";
+import { omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
@@ -20,10 +20,10 @@ import {
 } from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { loadSavedGroupsWithNested } from "back-end/src/util/featureDefinitionReferences.util";
@@ -203,35 +203,35 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     // archived (ignoreWarnings) — `getUsedSavedGroupIds` then drops it from
     // every referencing feature's payload, and unarchiving restores it, both
     // of which change served values.
-    if (
-      updates.values ||
-      updates.condition ||
-      updates.projects ||
-      updates.archived !== undefined
-    ) {
+    const refreshesPayloads =
+      !!updates.values ||
+      !!updates.condition ||
+      !!updates.projects ||
+      updates.archived !== undefined;
+
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("saved-group", newDoc.id),
+      previous,
+      current,
+      (reach) =>
+        logSavedGroupUpdatedEvent(this.context, previous, current, reach),
+    );
+
+    if (refreshesPayloads) {
       savedGroupUpdated(this.context, newDoc.id, {
         projectsChanged: !!updates.projects,
+        onReach: emit,
       }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on saved group update",
         );
       });
-    }
-
-    // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the feature webhook behavior. During
-    // a bulk-publish commit the emission defers to the post-commit flush.
-    const previous = this.toApiInterface(existing);
-    const current = this.toApiInterface(newDoc);
-    if (
-      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
-    ) {
-      await emitOrDeferBulkPublishEvent(
-        () => logSavedGroupUpdatedEvent(this.context, previous, current),
-        entityKey("saved-group", newDoc.id),
-        captureEventBuffer(this.context),
-      );
+    } else {
+      await emit?.(NO_REACH);
     }
   }
 

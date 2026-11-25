@@ -73,6 +73,8 @@
   --settings-section-top: var(--page-top-offset);
   // General's column of cards.
   --settings-general-width: 920px;
+  // Settings pages' content, left-aligned on the page's padding.
+  --settings-content-max-width: 1240px;
 }
 // The side nav is a drawer from here down.
 @media (max-width: 1180px) {
@@ -3278,7 +3280,7 @@ html {
   // The page frame pads Settings pages, so their container only caps them.
   .container-fluid.pagecontents {
     margin-left: 0;
-    max-width: 1240px;
+    max-width: var(--settings-content-max-width);
     padding: 0;
   }
   .appbox {

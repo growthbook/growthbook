@@ -1,5 +1,4 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
   ApiConstant,
@@ -9,14 +8,17 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
-import { resolvableValueChanged } from "back-end/src/services/constants";
+import {
+  changedConstantEnvironments,
+  resolvableValueChanged,
+} from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
@@ -240,52 +242,50 @@ export class ConstantModel extends BaseClass {
     newDoc: ConstantInterface,
   ) {
     this.invalidateAllSnapshot();
+
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("constant", newDoc.id),
+      previous,
+      current,
+      (reach) =>
+        logConstantUpdatedEvent(this.context, previous, current, reach),
+    );
+
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      resolvableValueChanged(
-        this.context,
-        "updated",
-        "constant",
-        newDoc.key,
-      ).catch((e) => {
+      resolvableValueChanged(this.context, "updated", "constant", newDoc.key, {
+        onReach: emit,
+        environments: changedConstantEnvironments(existing, newDoc),
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
         );
       });
-    }
-
-    // Skip the webhook event when only `dateUpdated` changed. During a
-    // bulk-publish commit the emission defers to the post-commit flush.
-    const previous = this.toApiInterface(existing);
-    const current = this.toApiInterface(newDoc);
-    if (
-      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
-    ) {
-      await emitOrDeferBulkPublishEvent(
-        () => logConstantUpdatedEvent(this.context, previous, current),
-        entityKey("constant", newDoc.id),
-        captureEventBuffer(this.context),
-      );
+    } else {
+      await emit?.(NO_REACH);
     }
   }
 
   // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
-    resolvableValueChanged(this.context, "deleted", "constant", doc.key).catch(
-      (e) => {
-        this.context.logger.error(
-          e,
-          "Error refreshing SDK Payload on constant delete",
-        );
-      },
-    );
-    await logConstantDeletedEvent(this.context, this.toApiInterface(doc));
+    const deleted = this.toApiInterface(doc);
+    resolvableValueChanged(this.context, "deleted", "constant", doc.key, {
+      onReach: (reach) => logConstantDeletedEvent(this.context, deleted, reach),
+    }).catch((e) => {
+      this.context.logger.error(
+        e,
+        "Error refreshing SDK Payload on constant delete",
+      );
+    });
   }
 
   public getByKey(key: string) {

@@ -1,13 +1,17 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
-import { Box, IconButton } from "@radix-ui/themes";
-import { PiArrowUpRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import CopyableCode from "@/components/Settings/CopyableCode";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  RowMenuTrigger,
+} from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import SettingsPage, {
@@ -53,7 +57,7 @@ const WebhooksPage: FC = () => {
         <>
           Monitor specific events globally across features and experiments.{" "}
           <DocLink docSection="eventWebhooks">
-            View documentation <PiArrowUpRight />
+            View documentation <PiArrowSquareOut />
           </DocLink>
         </>
       }
@@ -103,9 +107,9 @@ const WebhooksPage: FC = () => {
           </TableHeader>
           <TableBody>
             {webhookSecrets.map((secret) => (
-              <TableRow key={secret.id}>
+              <TableRow key={secret.id} align="start">
                 <TableCell>
-                  <ClickToCopy>{secret.key}</ClickToCopy>
+                  <CopyableCode value={secret.key} />
                 </TableCell>
                 <TableCell>{secret.description}</TableCell>
                 <TableCell>
@@ -117,18 +121,12 @@ const WebhooksPage: FC = () => {
                 </TableCell>
                 <TableCell>{datetime(secret.dateCreated)}</TableCell>
                 <TableCell>{datetime(secret.dateUpdated)}</TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   {canManageSecrets && (
                     <DropdownMenu
+                      variant="soft"
                       trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          aria-label="Webhook secret actions"
-                        >
-                          <PiDotsThreeVertical size={18} />
-                        </IconButton>
+                        <RowMenuTrigger label={`Actions for ${secret.key}`} />
                       }
                       menuPlacement="end"
                     >

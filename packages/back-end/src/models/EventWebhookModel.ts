@@ -3,7 +3,6 @@ import { z } from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
-import intersection from "lodash/intersection";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
@@ -16,9 +15,10 @@ import {
   NotificationDelivery,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { datadogWebhookProblem } from "shared/util";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
@@ -47,6 +47,9 @@ const eventWebHookSchema = new mongoose.Schema({
     channelName: String,
     channelId: String,
     configurationUrl: String,
+  },
+  datadog: {
+    service: String,
   },
   notificationSettings: {
     type: Object,
@@ -241,6 +244,14 @@ type CreateEventWebHookOptions = EditableEventWebHook &
   Pick<EventWebHookInterface, "organizationId" | "excludeBookkeepingUpdates"> &
   Partial<Pick<EventWebHookInterface, "id">>;
 
+function assertValidDatadogWebhook(
+  webhook: Pick<NotificationDelivery, "payloadType" | "method" | "headers">,
+) {
+  if (webhook.payloadType !== "datadog") return;
+  const problem = datadogWebhookProblem(webhook);
+  if (problem) throw new BadRequestError(problem);
+}
+
 /**
  * Create an event web hook for an organization for the given events
  * @param options CreateEventWebHookOptions
@@ -261,10 +272,12 @@ export const createEventWebHook = async ({
   headers,
   timeoutSeconds,
   slack,
+  datadog,
   notificationSettings,
   excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   validateWebhookTimeoutSeconds(timeoutSeconds);
+  assertValidDatadogWebhook({ payloadType, method, headers });
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
@@ -286,6 +299,7 @@ export const createEventWebHook = async ({
     headers,
     timeoutSeconds,
     slack,
+    datadog,
     notificationSettings,
     excludeBookkeepingUpdates,
     lastRunAt: null,
@@ -367,6 +381,10 @@ export const updateEventWebHook = async (
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
   validateWebhookTimeoutSeconds(updates.timeoutSeconds);
+  if (updates.payloadType || updates.method || updates.headers) {
+    const existing = await getEventWebHookById(eventWebHookId, organizationId);
+    if (existing) assertValidDatadogWebhook({ ...existing, ...updates });
+  }
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
@@ -484,44 +502,22 @@ export const reconnectSlackEventWebhook = async ({
   );
 };
 
-const filterOptional = <T>(want: T[] = [], has: T[]) => {
-  if (!want.length) return true;
-  return !!intersection(want, has).length;
-};
-
-/**
- * Retrieve all event web hooks for an organization for a given event
- * @param organizationId
- * @param eventName
- * @param enabled
- */
-
+// The org's web hooks subscribed to an event; `webhookTakesEvent` applies
+// their Project, tag and environment filters.
 export const getAllEventWebHooksForEvent = async ({
   organizationId,
   eventName,
   enabled,
-  tags,
-  projects,
 }: {
   organizationId: string;
   eventName: NotificationEventName;
   enabled: boolean;
-  tags: string[];
-  projects: string[];
 }): Promise<EventWebHookInterface[]> => {
-  const allDocs = await EventWebHookModel.find({
+  const docs = await EventWebHookModel.find({
     organizationId,
     events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
     enabled,
   });
-
-  const docs = allDocs.filter((doc) => {
-    if (!filterOptional(doc.tags, tags)) return false;
-    if (!filterOptional(doc.projects, projects)) return false;
-
-    return true;
-  });
-
   return docs.map(toInterface);
 };
 

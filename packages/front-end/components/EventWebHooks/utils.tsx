@@ -1,20 +1,23 @@
 import { publicNotificationEventNames } from "shared/notifications";
-import { NotificationEventNameOrWildcard } from "shared/validators";
+import {
+  DatadogEventWebHookSettings,
+  NotificationEventNameOrWildcard,
+} from "shared/validators";
 import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
-import React, { ReactNode, useMemo } from "react";
+import React from "react";
 import clsx from "clsx";
+import { PiBracketsCurly } from "react-icons/pi";
 import {
-  PiQuestionLight,
-  PiXSquareLight,
-  PiCheckCircleLight,
-} from "react-icons/pi";
-import {
+  EventWebHookInterface,
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
-import { VscJson } from "react-icons/vsc";
+import { SiDatadog } from "react-icons/si";
 import { FormatOptionLabelMeta } from "react-select";
+import { Flex } from "@radix-ui/themes";
 import { SingleValue } from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { isCloud } from "@/services/env";
 
 export type {
@@ -22,7 +25,13 @@ export type {
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
+// In display order.
+export const eventWebHookPayloadTypes = [
+  "json",
+  "slack",
+  "discord",
+  "datadog",
+] as const;
 
 export const legacyEventWebHookPayloadTypes = [
   ...eventWebHookPayloadTypes,
@@ -34,7 +43,6 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 export type EventWebHookEditParams = {
   name: string;
   url: string;
-  enabled: boolean;
   events: NotificationEventNameOrWildcard[];
   tags: string[];
   environments: string[];
@@ -43,6 +51,7 @@ export type EventWebHookEditParams = {
   method: EventWebHookMethod;
   headers: string;
   timeoutSeconds?: number | null;
+  datadog?: DatadogEventWebHookSettings;
 };
 
 // Blank is null rather than undefined so an edit clears the stored value.
@@ -66,11 +75,13 @@ export const notificationEventNames = publicNotificationEventNames;
 
 // Build grouped options with wildcards for "select all in group"
 // Only supports two levels: "{1}.*" and "{1}.{2}.*"
-const buildGroupedEventOptions = () => {
+export const buildGroupedEventOptions = (
+  eventNames: readonly string[] = notificationEventNames,
+) => {
   // Organize: { "feature": { "revision": [...events], "rampSchedule": [...events] } }
   const groups: Record<string, Record<string, string[]>> = {};
 
-  for (const eventName of notificationEventNames) {
+  for (const eventName of eventNames) {
     const parts = eventName.split(".");
     const level1 = parts[0]; // "feature", "experiment", etc.
     const level2 = parts[1]; // "revision", "rampSchedule", "created", etc.
@@ -202,70 +213,6 @@ export const formatWebhookEventOptionLabel = (
   return <span className={clsx(shouldIndent && "pl-3")}>{option.label}</span>;
 };
 
-export type EventWebHookModalMode =
-  | {
-      mode: "edit";
-      data: EventWebHookEditParams;
-    }
-  | { mode: "create" };
-
-/**
- * Get the icon for the event web hook state
- * @param state
- */
-export const useIconForState = (
-  state: "none" | "success" | "error",
-  { text }: { text: boolean } = { text: false },
-): ReactNode =>
-  useMemo(() => {
-    let invalidState: never;
-
-    switch (state) {
-      case "none": {
-        const icon = <PiQuestionLight className="d-block text-muted" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-muted font-weight-normal">
-                Not ran
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      case "success": {
-        const icon = <PiCheckCircleLight className="d-block text-success" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-success-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-success font-weight-normal">
-                Successful
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      case "error": {
-        const icon = <PiXSquareLight className="d-block text-danger" />;
-        if (text)
-          return (
-            <span className="p-1 px-2 rounded-pill badge badge-danger-light d-flex align-items-center">
-              {icon}{" "}
-              <span className="ml-1 mb-0 text-danger font-weight-normal">
-                Failed
-              </span>
-            </span>
-          );
-        else return icon;
-      }
-      default:
-        invalidState = state;
-        throw new Error(`Invalid state: ${invalidState}`);
-    }
-  }, [state, text]);
-
 const ImageIcon = ({
   src,
   style,
@@ -299,28 +246,65 @@ export const WebhookIcon = ({
         />
       );
     case "json":
-      return <VscJson style={style} className={className} />;
+      return <PiBracketsCurly style={style} className={className} />;
+    case "datadog":
+      return (
+        <SiDatadog
+          style={{ color: "#632ca6", ...style }}
+          className={className}
+        />
+      );
     default:
       invalidType = type;
       throw new Error(`Invalid type: ${invalidType}`);
   }
 };
 
+export function slackSettingsHref(
+  webhook: Pick<EventWebHookInterface, "id" | "payloadType" | "slack">,
+): string | null {
+  if (webhook.payloadType !== "slack" || !webhook.slack?.teamId) return null;
+  return webhook.slack.channelId
+    ? `/integrations/slack?channel=${encodeURIComponent(webhook.id)}`
+    : `/integrations/slack?workspace=${encodeURIComponent(webhook.slack.teamId)}`;
+}
+
 export const displayedEvents = (
   events: string[],
   { maxEventsDisplay }: { maxEventsDisplay?: number } = {},
 ) => {
   const shown = events.slice(0, maxEventsDisplay);
-  const more = events.length - shown.length;
+  const hidden = events.slice(shown.length);
   return (
     <>
       {shown.map((event, i) => (
         <React.Fragment key={event}>
           {i > 0 && ", "}
-          <code style={{ color: "var(--violet-11)" }}>{event}</code>
+          <Text size="sm" mono>
+            {event}
+          </Text>
         </React.Fragment>
       ))}
-      {more > 0 && ` and ${more} more`}
+      {hidden.length > 0 && (
+        <>
+          {" and "}
+          <Tooltip
+            content={
+              <Flex direction="column" gap="1">
+                {hidden.map((event) => (
+                  <Text key={event} size="sm" mono>
+                    {event}
+                  </Text>
+                ))}
+              </Flex>
+            }
+          >
+            <span tabIndex={0} style={{ textDecoration: "underline dotted" }}>
+              {hidden.length} more
+            </span>
+          </Tooltip>
+        </>
+      )}
     </>
   );
 };

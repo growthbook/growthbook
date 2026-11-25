@@ -9,13 +9,11 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
@@ -23,6 +21,7 @@ import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HistoryTable from "@/components/HistoryTable";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import Table, {
   TableBody,
   TableCell,
@@ -144,15 +143,12 @@ const MemberPersonalAccessTokens: FC = () => {
   };
 
   return (
-    <Frame mb="4" py="5" px="5">
-      <Heading as="h3" size="md" mb="1">
-        Member Tokens
-      </Heading>
-      <Text as="p" color="text-mid" mb="3">
-        Disable a member&apos;s token without removing them from your
-        organization. Token values stay visible only to the member who created
-        them.
-      </Text>
+    <Box mt="6" mb="4">
+      <SettingsPageHeader
+        as="h2"
+        title="Member Tokens"
+        description="Disable a member's token without removing them from your organization. Token values stay visible only to the member who created them."
+      />
 
       {loadError ? (
         <Callout status="error">{loadError.message}</Callout>
@@ -346,7 +342,7 @@ const MemberPersonalAccessTokens: FC = () => {
           <HistoryTable type="apiKey" id={auditLogToken.id} />
         </ModalStandard>
       )}
-    </Frame>
+    </Box>
   );
 };
 

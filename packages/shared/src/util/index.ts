@@ -44,6 +44,7 @@ export * from "./event-forwarder-destination";
 export * from "./event-forwarder-warehouse-region";
 export * from "./event-forwarder-region-inference";
 export * from "./features";
+export * from "./datadog";
 export * from "./featureHealth";
 export * from "./threeWayMerge";
 export * from "./tracking";

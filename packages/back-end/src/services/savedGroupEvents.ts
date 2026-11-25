@@ -2,6 +2,7 @@ import { ApiSavedGroup } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent } from "back-end/src/models/EventModel";
+import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
 import { logger } from "back-end/src/util/logger";
 
 // Saved-group lifecycle webhook events. Emitted from SavedGroupModel's
@@ -35,6 +36,7 @@ export async function logSavedGroupUpdatedEvent(
   context: ReqContext | ApiReqContext,
   previous: ApiSavedGroup,
   current: ApiSavedGroup,
+  reach: EventReach = NO_REACH,
 ): Promise<void> {
   try {
     await createEvent({
@@ -47,7 +49,8 @@ export async function logSavedGroupUpdatedEvent(
         new Set([...(previous.projects ?? []), ...(current.projects ?? [])]),
       ),
       tags: [],
-      environments: [],
+      environments: reach.environments,
+      relatedEntities: reach.relatedEntities,
       containsSecrets: false,
     });
   } catch (e) {

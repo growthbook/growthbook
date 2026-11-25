@@ -37,6 +37,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 const TeamPage: FC = () => {
@@ -351,7 +352,7 @@ const TeamPage: FC = () => {
           </TableHeader>
           <TableBody>
             {team.members?.map((member) => (
-              <TableRow key={member.id}>
+              <TableRow key={member.id} align="start">
                 <TableCell>{member.name}</TableCell>
                 <TableCell>{member.email}</TableCell>
                 <TableCell
@@ -363,20 +364,13 @@ const TeamPage: FC = () => {
                 >
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   {canManageMembers && isEditable && (
                     <DropdownMenu
                       trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                          aria-label="Member actions"
-                        >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
+                        <RowMenuTrigger
+                          label={`Actions for ${member.name || member.email}`}
+                        />
                       }
                       menuPlacement="end"
                       variant="soft"

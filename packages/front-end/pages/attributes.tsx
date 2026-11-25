@@ -57,6 +57,7 @@ import {
   customFieldValueToText,
   renderCustomFieldValue,
 } from "@/components/CustomFields/renderCustomFieldValue";
+import { ROW_MENU_COLUMN_WIDTH } from "@/ui/DropdownMenu";
 
 // Built-in `key:value` filters. A custom field with one of these ids keeps its
 // column and free-text search but can't shadow the built-in filter.
@@ -355,12 +356,10 @@ function buildAttributeColumns<T extends SDKAttribute>({
       locked: true,
       resizable: false,
       // Fixed, so the pinned column can't grow over the data it covers.
-      defaultWidth: 40,
-      minWidth: 40,
-      headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
-      cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
+      defaultWidth: ROW_MENU_COLUMN_WIDTH,
+      minWidth: ROW_MENU_COLUMN_WIDTH,
       render: (v) => (
-        <Flex justify="center">
+        <Flex justify="end">
           <AttributeRowMenu
             attribute={v}
             onEdit={() => onEdit(v)}
@@ -505,7 +504,7 @@ function AttributeColumnsTable<T extends SDKAttribute>({
       </TableHeader>
       <TableBody>
         {rows.map((v) => (
-          <TableRow key={v.property}>
+          <TableRow key={v.property} align="start">
             {visibleColumns.map((col) => {
               const { className, style } = col.cellProps?.(v) ?? {};
               return (

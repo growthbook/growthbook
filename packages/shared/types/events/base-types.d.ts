@@ -1,7 +1,14 @@
 import { z, ZodType } from "zod";
-import { notificationEvents } from "shared/validators";
+import {
+  EventApprover,
+  EventRelatedEntity,
+  eventRequestSources,
+  notificationEvents,
+} from "shared/validators";
 import { DiffResult } from "./diff";
 import { EventUser } from "./event-types";
+
+export type EventRequestSource = (typeof eventRequestSources)[number];
 
 export type WebhookEntry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,6 +116,9 @@ export type NotificationEventPayload<
   tags: string[];
   environments: string[];
   containsSecrets: boolean;
+  requestSource?: EventRequestSource;
+  relatedEntities?: EventRelatedEntity[];
+  approvers?: EventApprover[];
 };
 
 type NotificationEventForResourceAndEvent<Resource, Event> =

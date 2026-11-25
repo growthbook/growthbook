@@ -43,6 +43,8 @@ export const docSections = {
   productAnalytics: "/app/product-analytics",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
+  datadogChangeEvents: "/integrations/datadog#send-changes-to-datadog",
+  datadogRollbacks: "/integrations/datadog#roll-back-ramp-ups",
   bandits: "/bandits/overview",
   contextualBandits: "/bandits/contextual",
   targeting: "/features/targeting",

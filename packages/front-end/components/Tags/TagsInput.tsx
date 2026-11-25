@@ -30,6 +30,8 @@ const TagsInput: FC<{
   customClassName?: string;
   size?: MultiSelectFieldSize;
   legacyLabelFormatting?: boolean;
+  disabled?: boolean;
+  id?: string;
 }> = ({
   onChange,
   value,
@@ -42,6 +44,8 @@ const TagsInput: FC<{
   customClassName,
   size,
   legacyLabelFormatting,
+  disabled,
+  id,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -150,6 +154,8 @@ const TagsInput: FC<{
       placeholder={prompt}
       creatable={creatable}
       customClassName={customClassName}
+      disabled={disabled}
+      id={id}
     />
   );
 };

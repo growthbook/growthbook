@@ -12,10 +12,12 @@ export default function WebhookSecretModal({
   existingId,
   close,
   onSuccess,
+  defaultAllowedOrigins = [],
 }: {
   existingId?: string;
   close: () => void;
   onSuccess?: (webhookSecretKey: string) => void;
+  defaultAllowedOrigins?: string[];
 }) {
   const { webhookSecrets, mutateDefinitions } = useDefinitions();
 
@@ -29,7 +31,7 @@ export default function WebhookSecretModal({
     defaultValues: {
       key: existing?.key || "",
       description: existing?.description || "",
-      allowedOrigins: existing?.allowedOrigins || [],
+      allowedOrigins: existing?.allowedOrigins || defaultAllowedOrigins,
       value: "",
     },
   });

@@ -1,12 +1,14 @@
 ---
 title: Datadog Integration
-description: "Let a Datadog monitor roll back GrowthBook ramp-ups or turn a feature flag off, through a Datadog webhook that calls the GrowthBook REST API."
+description: "Send GrowthBook changes to Datadog Change Tracking, and let a Datadog monitor roll back GrowthBook ramp-ups or turn a feature flag off."
 ---
 
 When a Datadog monitor alerts, a Datadog webhook can call the GrowthBook REST API to undo a release. There are two ways to set it up, depending on how the feature is released:
 
 - **[Roll back ramp-ups](#roll-back-ramp-ups)**: for features released with [ramp-ups](/features/ramp-schedules). Any monitor you already have works, and Datadog needs no flag data.
 - **[Turn a flag off](#turn-a-flag-off)**: for a flag without a ramp-up. Connect an existing service monitor to a specific flag, or send flag evaluations to Datadog to monitor only users who receive that feature.
+
+In the other direction, GrowthBook can [send its changes to Datadog](#send-changes-to-datadog), so a monitor or service page shows which release just went out.
 
 Both need a GrowthBook [API key](/app/api) whose role can publish the features in the affected environments. A key with **Require confirmation** turned on holds each request until someone confirms it, so use one without it ([API Keys for Agents](/integrations/ai-agents/api-keys)). The examples use `https://api.growthbook.io`. If you self-host, use your API host.
 
@@ -171,3 +173,48 @@ A delivered webhook is not proof that a release stopped. The bulk ramp endpoint 
 Check the filters and schedule status for zero matches, and the API key's project/environment publish permissions for skipped operations. For flag toggles, also check approval bypass permissions. If you need automated detection of skipped actions, add a webhook receiver that inspects the response and notifies your team; the direct webhook setup does not do this.
 
 Datadog's [webhook retry policy](https://docs.datadoghq.com/integrations/webhooks/#usage) covers certain delivery failures, including server errors, but does not retry individual `skipped` entries inside a successful response. Arrange a human notification alongside the webhook so delivery failures or an unsuccessful rollback can be investigated. After fixing the incident, deliberately re-enable the flag or restart/resume the appropriate schedule; these examples do not restore a release automatically.
+
+## Send changes to Datadog
+
+An event webhook with the **Datadog** payload type sends each Feature Flag, experiment, Saved Group, Constant and Config change to Datadog as a [change event](https://docs.datadoghq.com/change_tracking/). Datadog shows it in [Change Tracking](https://docs.datadoghq.com/change_tracking/): beside the graphs on the service page, on monitor status pages, and on dashboards, tagged with the webhook's service and the environments the change affects.
+
+<Note>
+The Datadog payload type is rolling out. If it isn't in the payload type list yet, create the webhook with the [REST API](/api/event-webhooks/operation/postEventWebhook) using `"payloadType": "datadog"`. Create the API key's webhook secret in the app first, since the REST API can't set secret values. Leave out `events` to get all supported events.
+</Note>
+
+### Create a webhook for each service
+
+Datadog places a change on a service page only when the change names that service, so create one Datadog webhook per service and use its filters to choose that service's changes. Datadog's event intake needs an [API key](https://docs.datadoghq.com/account_management/api-app-keys/); an application key isn't needed. In GrowthBook, go to **Settings → Webhooks**, add an event webhook, and choose the **Datadog** payload type:
+
+- **Datadog site**: the site you sign in on, such as US1 or EU1. It sets the endpoint URL.
+- **API key**: a [webhook secret](/app/webhooks#webhook-secrets) holding the key, sent as `DD-API-KEY`. **Create secret** restricts a new secret to the Datadog endpoint. Every service's webhook can use the same secret.
+- **Datadog service**: the service the changes show on, such as `checkout-api`. Left blank, changes reach Datadog's Event Explorer but no service page.
+- **Events**: **All supported events** by default. It's saved as `*`, and a Datadog webhook sends only the events it supports, so it picks up new ones as they're added. You can pick individual events instead.
+- **Environment** filter: usually your production environments. Each change is tagged `env:<environment>` with only the environments that pass it.
+- **Project** and **tag** filters: the Feature Flags and experiments that belong to the service, such as its Project or a `checkout` tag. When both are set, a change has to match both. A Saved Group, Constant or Config change reaches these filters through the Feature Flags and experiments that depend on it, and is tagged only with the environments where those changed. One limited to other Projects isn't sent.
+
+Use **Send test** on the webhook's page to send a `growthbook-test` change to the webhook's service. It has no environment, so look for it in Event Explorer. The webhook's **Diagnostics** tab checks that the API key secret exists and allows the Datadog site, and that a service is set. If Datadog rejects a delivery for its API key, the tab says so.
+
+### What Datadog receives
+
+| Datadog field             | From GrowthBook                                                                                                                                                                                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`                   | What happened to which Feature Flag, experiment, Saved Group, Constant or Config, where, and the revision comment, such as `Published Feature Flag checkout-flow revision 8 in production: Ramp step 2 of 5`                                                                                 |
+| `changed_resource`        | `feature_flag` for Feature Flags and experiments; `configuration` for Saved Groups, Constants and Configs                                                                                                                                                                                    |
+| `impacted_resources`      | The webhook's Datadog service                                                                                                                                                                                                                                                                |
+| `author`                  | The user, the API key, or the automation (a ramp schedule)                                                                                                                                                                                                                                   |
+| `prev_value`, `new_value` | Feature Flags send the default value, each environment's enabled state and a short summary of each rule. Experiments send their status, coverage and traffic split. Saved Groups send their condition or attribute and member count, never their members. Constants and Configs send neither |
+| `change_metadata`         | A link to what changed, the revision number and comment, the Project and tags, where the change was made (`request_source`, such as `app` or `api`), up to 100 related entities with their total, and who approved the revision                                                              |
+
+Each change is tagged with the environments whose SDK payload it changes, as listed in [event webhook filtering](/app/webhooks/event-webhooks#projects-tags-and-environments-filtering); a deleted Feature Flag is tagged only where it was served. Changes to the same Feature Flag, experiment, Saved Group, Constant or Config share a grouping key, so a ramp-up's steps appear together. An event with no environment left after the webhook's filter is skipped, as are experiment results refreshes, which change nothing SDKs serve.
+
+### Pair it with rollbacks
+
+Scope a [rollback webhook](#roll-back-ramp-ups) with the same Project or tag filters, such as `tag=checkout`. A ramp step then shows on the `checkout-api` monitor, and if the monitor alerts, its rollback shows there too, titled like `Published Feature Flag checkout-flow revision 9 in production: Rolled back to "Ramp step 2 of 5"`, with the alert in its revision comment.
+
+### Known gaps
+
+- Legacy rule-level schedules send nothing when a rule turns on or off. Use [ramp schedules](/features/ramp-schedules) with a start or end date instead.
+- A scheduled experiment start sends one change for the experiment and one for each linked Feature Flag draft it publishes.
+- A change shows when it was published. SDKs pick it up seconds to minutes later.
+- Titles are cut to Datadog's 500-character limit. If Datadog rejects an event, the error shows in the webhook's log.

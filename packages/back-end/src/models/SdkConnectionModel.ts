@@ -39,6 +39,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
+import type { EmbeddedFeatureMetadata } from "back-end/src/util/features";
 import { purgeCDNCache } from "back-end/src/util/cdn.util";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -220,6 +221,35 @@ function readableConnections(
     .filter((conn) =>
       context.permissions.canReadMultiProjectResource(conn.projects),
     );
+}
+
+// Not filtered by read access: decides which payloads a feature change alters.
+export async function getEmbeddedFeatureMetadata(
+  context: ReqContext | ApiReqContext,
+): Promise<EmbeddedFeatureMetadata> {
+  const docs = await SDKConnectionModel.find(
+    {
+      organization: context.org.id,
+      archived: { $ne: true },
+      $or: [
+        { includeTagsInMetadata: true },
+        { includeCustomFieldsInMetadata: true },
+      ],
+    },
+    {
+      environment: 1,
+      includeTagsInMetadata: 1,
+      includeCustomFieldsInMetadata: 1,
+      allowedCustomFieldsInMetadata: 1,
+    },
+  ).lean();
+  return docs.map((d) => ({
+    environment: d.environment,
+    tags: !!d.includeTagsInMetadata,
+    customFields: d.includeCustomFieldsInMetadata
+      ? (d.allowedCustomFieldsInMetadata ?? [])
+      : [],
+  }));
 }
 
 // For super admin views of another org, which have no ReqContext for it

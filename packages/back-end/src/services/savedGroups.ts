@@ -48,6 +48,12 @@ import {
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
+import {
+  EventReach,
+  getDependentEntities,
+  dependentsReach,
+  refreshThenReport,
+} from "back-end/src/events/relatedEntities";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -106,17 +112,17 @@ export function findSavedGroupDependents({
     names({ features: [], bandits: [bandit] }),
   );
   const banditIds = new Set(namedBandits.map((bandit) => bandit.id));
+  const uses = (feature: FeatureInterface) =>
+    names({ features: [feature] }) ||
+    (feature.rules ?? []).some(
+      (rule) =>
+        rule?.type === "contextual-bandit-ref" &&
+        banditIds.has(rule.contextualBanditId),
+    );
   return {
     bandits: namedBandits,
-    features: features.filter(
-      (feature) =>
-        names({ features: [feature] }) ||
-        (feature.rules ?? []).some(
-          (rule) =>
-            rule?.type === "contextual-bandit-ref" &&
-            banditIds.has(rule.contextualBanditId),
-        ),
-    ),
+    features: features.filter(uses),
+    uses,
     experiments: [...experiments].filter((experiment) =>
       names({ features: [], experiments: [experiment] }),
     ),
@@ -135,6 +141,16 @@ export async function getSavedGroupPayloadKeys(
   context: ReqContext,
   groupId: string,
 ): Promise<SDKPayloadKey[] | null> {
+  return (await getSavedGroupReach(context, groupId))?.payloadKeys ?? null;
+}
+
+async function getSavedGroupReach(
+  context: ReqContext,
+  groupId: string,
+): Promise<{
+  payloadKeys: SDKPayloadKey[];
+  reach: EventReach;
+} | null> {
   const [
     savedGroups,
     features,
@@ -164,19 +180,22 @@ export async function getSavedGroupPayloadKeys(
   const allProjectIds = await context.getAllProjectIds();
   const featuresById = new Map(features.map((f) => [f.id, f]));
   const environments = getEnvironmentIdsFromOrg(context.org);
-  return [
+  const otherPayloadKeys = [
     ...getInterleavingPayloadKeys(dependents.interleavings, environments),
+    ...dependents.bandits
+      .filter((bandit) => bandit.hasVisualChangesets)
+      .flatMap((bandit) =>
+        getContextualBanditVisualPayloadKeys(bandit, environments),
+      ),
+  ];
+  const payloadKeys = [
+    ...otherPayloadKeys,
     ...getAffectedSDKPayloadKeys(
       dependents.features,
       environments,
       undefined,
       allProjectIds,
     ),
-    ...dependents.bandits
-      .filter((bandit) => bandit.hasVisualChangesets)
-      .flatMap((bandit) =>
-        getContextualBanditVisualPayloadKeys(bandit, environments),
-      ),
     ...dependents.experiments.flatMap((experiment) =>
       getPayloadKeys(
         context,
@@ -188,6 +207,15 @@ export async function getSavedGroupPayloadKeys(
       ),
     ),
   ];
+  const relatedEntities = getDependentEntities(
+    dependents,
+    { environments, projectIds: allProjectIds },
+    featuresById,
+  );
+  return {
+    payloadKeys,
+    reach: dependentsReach(relatedEntities, otherPayloadKeys, environments),
+  };
 }
 
 // Reference checks read ids and conditions, never the ID lists, and only for
@@ -203,11 +231,30 @@ export async function getSavedGroupsForValidation(
   return new Map(groups.map((group) => [group.id, group]));
 }
 
+// `onReach` gets what the change reaches once the scan is done.
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
   groupId?: string,
-  { projectsChanged = false }: { projectsChanged?: boolean } = {},
+  {
+    projectsChanged = false,
+    onReach,
+  }: {
+    projectsChanged?: boolean;
+    onReach?: (reach: EventReach) => Promise<unknown>;
+  } = {},
 ) {
+  await refreshThenReport(
+    baseContext.org,
+    () => refreshSavedGroupPayloads(baseContext, groupId, projectsChanged),
+    onReach,
+  );
+}
+
+async function refreshSavedGroupPayloads(
+  baseContext: ReqContext | ApiReqContext,
+  groupId: string | undefined,
+  projectsChanged: boolean,
+): Promise<EventReach | null> {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
   // Carry the bulk publisher's refresh buffer across the context boundary so a
@@ -218,17 +265,21 @@ export async function savedGroupUpdated(
   // A project change, a holdout reference or a failed scan refreshes every
   // payload.
   if (groupId && !projectsChanged) {
-    let payloadKeys: SDKPayloadKey[] | null = null;
+    let scoped: Awaited<ReturnType<typeof getSavedGroupReach>> = null;
     try {
-      payloadKeys = await getSavedGroupPayloadKeys(context, groupId);
+      scoped = await getSavedGroupReach(context, groupId);
     } catch (e) {
       context.logger.warn(e, "Scoping a saved group refresh failed");
     }
-    if (payloadKeys) {
-      if (payloadKeys.length) {
-        queueSDKPayloadRefresh({ context, payloadKeys, auditContext });
+    if (scoped) {
+      if (scoped.payloadKeys.length) {
+        queueSDKPayloadRefresh({
+          context,
+          payloadKeys: scoped.payloadKeys,
+          auditContext,
+        });
       }
-      return;
+      return scoped.reach;
     }
   }
 
@@ -238,6 +289,7 @@ export async function savedGroupUpdated(
     treatEmptyProjectAsGlobal: true,
     auditContext,
   });
+  return null;
 }
 
 export type SavedGroupReferences = {

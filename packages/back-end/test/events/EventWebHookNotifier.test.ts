@@ -78,7 +78,7 @@ describe("EventWebHookNotifier", () => {
     });
 
     expect(result).toEqual({
-      error: "this is not good",
+      error: "the failed response body",
       result: "error",
       statusCode: "sorry dude",
     });

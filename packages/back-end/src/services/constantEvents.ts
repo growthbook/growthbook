@@ -2,6 +2,7 @@ import { ApiConstant } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent } from "back-end/src/models/EventModel";
+import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
 import { logger } from "back-end/src/util/logger";
 
 // Constant lifecycle webhook events. Emitted from ConstantModel's
@@ -35,6 +36,7 @@ export async function logConstantUpdatedEvent(
   context: ReqContext | ApiReqContext,
   previous: ApiConstant,
   current: ApiConstant,
+  reach: EventReach = NO_REACH,
 ): Promise<void> {
   try {
     await createEvent({
@@ -49,7 +51,8 @@ export async function logConstantUpdatedEvent(
         ),
       ),
       tags: [],
-      environments: [],
+      environments: reach.environments,
+      relatedEntities: reach.relatedEntities,
       containsSecrets: false,
     });
   } catch (e) {
@@ -60,6 +63,7 @@ export async function logConstantUpdatedEvent(
 export async function logConstantDeletedEvent(
   context: ReqContext | ApiReqContext,
   constant: ApiConstant,
+  reach: EventReach = NO_REACH,
 ): Promise<void> {
   try {
     await createEvent({
@@ -70,7 +74,8 @@ export async function logConstantDeletedEvent(
       data: { object: constant },
       projects: constant.project ? [constant.project] : [],
       tags: [],
-      environments: [],
+      environments: reach.environments,
+      relatedEntities: reach.relatedEntities,
       containsSecrets: false,
     });
   } catch (e) {

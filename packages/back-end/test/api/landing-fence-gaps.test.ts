@@ -155,13 +155,15 @@ describe("generic landing fences", () => {
       .collection("revisions")
       .findOne({ organization: ORG, id: revision.id });
     expect(stored?.status).toBe("merged");
-    const events = await mongoose.connection
-      .collection("events")
-      .find({ organizationId: ORG })
-      .toArray();
-    expect(events.filter((e) => e.event === "constant.updated")).toHaveLength(
-      1,
-    );
+    // The event follows the refresh scan, which runs after the landing.
+    const constantUpdates = () =>
+      mongoose.connection
+        .collection("events")
+        .countDocuments({ organizationId: ORG, event: "constant.updated" });
+    for (let i = 0; i < 100 && !(await constantUpdates()); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(await constantUpdates()).toBe(1);
   });
 
   // Recovery re-applies older state by definition, so a rival merge claimed during

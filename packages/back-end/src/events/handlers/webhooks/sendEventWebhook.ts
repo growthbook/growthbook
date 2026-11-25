@@ -60,7 +60,8 @@ export async function sendEventWebhook<DataType>({
       return {
         result: "error",
         statusCode: responseWithoutBody.status,
-        error: responseWithoutBody.statusText,
+        // The body says why the endpoint refused it, such as Datadog's errors.
+        error: stringBody || responseWithoutBody.statusText,
       };
     }
 

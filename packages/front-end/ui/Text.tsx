@@ -83,6 +83,8 @@ export default forwardRef<
     mr,
     mb,
     ml,
+    // What a Radix `asChild` trigger, such as a Tooltip's, adds at runtime.
+    ...triggerProps
   },
   ref,
 ) {
@@ -108,6 +110,7 @@ export default forwardRef<
 
   return (
     <RadixText
+      {...triggerProps}
       ref={ref}
       size={size === "inherit" ? undefined : radixSize(size)}
       weight={radixWeightMap[weight]}

@@ -23,6 +23,7 @@ export type AppFeatures = {
   "cdn-usage-data": boolean;
   chatwoot: Record<string, unknown>;
   "contextual-bandits": boolean;
+  "datadog-change-events": boolean;
   "datasource-first": boolean;
   "datasource-pipeline-mode": boolean;
   "decision-framework-criteria": boolean;

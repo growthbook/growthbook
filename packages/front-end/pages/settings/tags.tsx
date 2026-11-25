@@ -1,20 +1,30 @@
 import React, { useState, FC } from "react";
 import { TagInterface } from "shared/types/tag";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsModal from "@/components/Tags/TagsModal";
 import Tag from "@/components/Tags/Tag";
 import { useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SettingsPage, {
   SettingsNoAccess,
 } from "@/components/Layout/SettingsPage";
+import { ROW_MENU_COLUMN_WIDTH } from "@/ui/DropdownMenu";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -28,16 +38,21 @@ const TagsPage: FC = () => {
   const canDelete = permissionsUtil.canDeleteTag();
   const canManageTags = canCreateAndUpdate || canDelete;
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: tags || [],
-      localStorageKey: "tags",
-      defaultSortField: "id",
-      defaultSortDir: 1,
-      searchFields: ["id^2", "description"],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: tags || [],
+    localStorageKey: "tags",
+    defaultSortField: "id",
+    defaultSortDir: 1,
+    searchFields: ["id^2", "description"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
 
   if (!canManageTags) {
     return <SettingsNoAccess title="Tags" />;
@@ -77,31 +92,43 @@ const TagsPage: FC = () => {
       <Box mb="5">
         {tags && tags.length > 0 ? (
           <>
-            <Box className="relative" width="40%" mb="4">
-              <Field
-                size="legacy"
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </Box>
-            <table
-              className="table appbox gbtable table-valign-top"
-              style={{ tableLayout: "fixed", width: "100%" }}
+            <Flex align="center" gap="3" mb="2">
+              <Text weight="medium">{`${tags.length} tag${tags.length === 1 ? "" : "s"}`}</Text>
+              <Box width="280px" flexShrink="0">
+                <TextField
+                  type="search"
+                  aria-label="Search tags"
+                  placeholder="Search tags"
+                  prepend={<PiMagnifyingGlass aria-hidden />}
+                  {...searchInputProps}
+                />
+              </Box>
+            </Flex>
+            <Table
+              variant="list"
+              stickyHeader={false}
+              roundedCorners
+              layout="fixed"
+              mb="4"
             >
-              <thead>
-                <tr>
-                  <SortableTH field="id" style={{ width: "35%" }}>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader
+                    field="id"
+                    style={{ width: "35%" }}
+                  >
                     Tag name
-                  </SortableTH>
-                  <SortableTH field="description">Description</SortableTH>
-                  <th style={{ width: 40, minWidth: 40 }} />
-                </tr>
-              </thead>
-              <tbody>
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="description">
+                    Description
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader style={{ width: ROW_MENU_COLUMN_WIDTH }} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items?.map((t) => (
-                  <tr key={t.id}>
-                    <td>
+                  <TableRow key={t.id} align="start">
+                    <TableCell>
                       {canCreateAndUpdate ? (
                         <Link
                           aria-label={`Edit tag ${t.id}`}
@@ -112,14 +139,15 @@ const TagsPage: FC = () => {
                       ) : (
                         <Tag tag={t.id} skipMargin />
                       )}
-                    </td>
-                    <td className="text-gray">
+                    </TableCell>
+                    <TableCell>
                       {t.description && t.description.length > 80
                         ? t.description.substring(0, 80).trim() + "..."
                         : (t.description ?? "")}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell justify="end">
                       <TagRowMenu
+                        name={t.id}
                         canEdit={canCreateAndUpdate}
                         canDelete={canDelete}
                         onEdit={() => setModalOpen(t)}
@@ -131,18 +159,18 @@ const TagsPage: FC = () => {
                           mutateDefinitions();
                         }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={3} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={3} justify="center">
                       No matching tags found.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {pagination}
           </>
         ) : (

@@ -9,6 +9,7 @@ export const eventWebHookPayloadTypes = [
   "json",
   "slack",
   "discord",
+  "datadog",
 ] as const;
 
 export type EventWebHookPayloadType = (typeof eventWebHookPayloadTypes)[number];
@@ -27,22 +28,56 @@ export const slackEventWebHookMetadata = z
   })
   .strict();
 
+// The events the Datadog formatter turns into change events.
+export const datadogEventWebHookEvents = [
+  "feature.created",
+  "feature.updated",
+  "feature.deleted",
+  "experiment.updated",
+  "savedGroup.updated",
+  "constant.updated",
+  "constant.deleted",
+  "config.updated",
+  "config.deleted",
+] as const satisfies readonly NotificationEventName[];
+
+export const isDatadogEventWebHookEvent = (event: string): boolean =>
+  (datadogEventWebHookEvents as readonly string[]).includes(event);
+
+export const datadogEventWebHookSettings = z
+  .object({
+    service: z
+      .string()
+      .optional()
+      .describe(
+        "The Datadog service the changes are sent to. The webhook's Projects, tags and environments choose which changes those are.",
+      ),
+  })
+  .strict();
+
+export type DatadogEventWebHookSettings = z.infer<
+  typeof datadogEventWebHookSettings
+>;
+
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
 export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-zA-Z]+(\.[a-zA-Z]+)*\.\*$/;
 
+// "*" subscribes to every event.
+export const ALL_EVENTS_WILDCARD = "*";
+
 export const isEventWebhookWildcard = (val: string) =>
-  EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);
+  val === ALL_EVENTS_WILDCARD || EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);
 
 // A concrete event name or a wildcard subscription pattern (e.g. "feature.*").
 // Widens to string; runtime validation is enforced by the Zod schema.
 export type NotificationEventNameOrWildcard = NotificationEventName | string;
 
 // Returns all wildcard patterns that could match an event name.
-// e.g. "feature.revision.discarded" → ["feature.*", "feature.revision.*"]
+// e.g. "feature.revision.discarded" → ["*", "feature.*", "feature.revision.*"]
 export const getWildcardPatternsForEvent = (eventName: string): string[] => {
   const parts = eventName.split(".");
-  const wildcards: string[] = [];
+  const wildcards: string[] = [ALL_EVENTS_WILDCARD];
   for (let i = 1; i < parts.length; i++) {
     wildcards.push(`${parts.slice(0, i).join(".")}.*`);
   }
@@ -56,7 +91,7 @@ const eventNameOrWildcard = z
       zodNotificationEventNamesEnum.includes(val as never) ||
       isEventWebhookWildcard(val),
     {
-      message: `Must be a valid event name or wildcard pattern (e.g., "feature.*", "feature.revision.*")`,
+      message: `Must be a valid event name or wildcard pattern (e.g., "*", "feature.*", "feature.revision.*")`,
     },
   );
 
@@ -79,6 +114,7 @@ export const notificationDeliverySchema = z
     headers: z.record(z.string(), z.string()),
     timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
     slack: slackEventWebHookMetadata.optional(),
+    datadog: datadogEventWebHookSettings.optional(),
     notificationSettings: notificationSettingsSchema.optional(),
   })
   .strict();
@@ -112,6 +148,7 @@ export const eventWebHookRequestBodySchema = notificationFiltersSchema.extend(
     method: true,
     headers: true,
     timeoutSeconds: true,
+    datadog: true,
   }).shape,
 );
 

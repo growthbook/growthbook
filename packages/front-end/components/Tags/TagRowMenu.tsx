@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface TagRowMenuProps {
+  name: string;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: () => void;
@@ -15,6 +15,7 @@ interface TagRowMenuProps {
 }
 
 export default function TagRowMenu({
+  name,
   canEdit,
   canDelete,
   onEdit,
@@ -27,17 +28,7 @@ export default function TagRowMenu({
   return (
     <>
       <DropdownMenu
-        trigger={
-          <IconButton
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            highContrast
-          >
-            <BsThreeDotsVertical size={18} />
-          </IconButton>
-        }
+        trigger={<RowMenuTrigger label={`Actions for ${name}`} />}
         open={open}
         onOpenChange={setOpen}
         menuPlacement="end"

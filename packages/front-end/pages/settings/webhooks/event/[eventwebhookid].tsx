@@ -2,54 +2,56 @@ import React from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { EventWebHookInterface } from "shared/types/event-webhook";
-import { Box } from "@radix-ui/themes";
-import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
-import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
 import useApi from "@/hooks/useApi";
-import SettingsPage from "@/components/Layout/SettingsPage";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import EventWebHookPage from "@/components/EventWebHooks/EventWebHookPage";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
+  const isNew = eventWebHookId === "new";
+  const permissionsUtil = usePermissionsUtil();
 
-  const {
-    data,
-    mutate: mutateEventWebHook,
-    error,
-  } = useApi<{
+  const { data, mutate, error } = useApi<{
     eventWebHook: EventWebHookInterface;
-  }>(`/event-webhooks/${eventWebHookId}`);
+  }>(`/event-webhooks/${eventWebHookId}`, {
+    shouldRun: () => !!eventWebHookId && !isNew,
+  });
 
-  const eventWebHook = data?.eventWebHook;
-  const title = eventWebHook?.name ?? "Webhook";
-
-  return (
-    <SettingsPage
-      title={title}
-      hideHeader={!error}
-      parent={{ display: "Webhooks", href: "/settings/webhooks" }}
-    >
-      {error ? (
-        <Callout status="error">
-          Unable to fetch event web hook {eventWebHookId}
-        </Callout>
-      ) : eventWebHook ? (
-        <>
-          <EventWebHookDetailContainer
-            eventWebHook={eventWebHook}
-            mutateEventWebHook={mutateEventWebHook}
-          />
-          <Box mt="4">
-            <EventWebHookLogsContainer />
-          </Box>
-        </>
-      ) : (
+  if (isNew) {
+    return permissionsUtil.canManageSomeEventWebhooks() ? (
+      <EventWebHookPage eventWebHook={null} mutate={mutate} />
+    ) : (
+      <SettingsNoAccess title="New Webhook" />
+    );
+  }
+  if (error) {
+    return (
+      <SettingsPage
+        title="Webhook"
+        parent={{ display: "Webhooks", href: "/settings/webhooks" }}
+      >
+        <Callout status="error">This webhook could not be loaded.</Callout>
+      </SettingsPage>
+    );
+  }
+  if (!data) {
+    return (
+      <SettingsPage
+        title="Webhook"
+        hideHeader
+        parent={{ display: "Webhooks", href: "/settings/webhooks" }}
+      >
         <LoadingSpinner />
-      )}
-    </SettingsPage>
-  );
+      </SettingsPage>
+    );
+  }
+  return <EventWebHookPage eventWebHook={data.eventWebHook} mutate={mutate} />;
 };
 
 export default EventWebHookDetailPage;

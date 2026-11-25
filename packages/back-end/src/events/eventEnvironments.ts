@@ -1,4 +1,3 @@
-import isEqual from "lodash/isEqual";
 import { ApiFeature } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -16,7 +15,8 @@ import {
 //
 // - Live-state events (`feature.updated`, …): the environments whose
 //   effective configuration actually changed in the before/after transition.
-//   Feature-wide keys (defaultValue, prerequisites, …) affect every env.
+//   Feature-wide keys (defaultValue, prerequisites, …) affect every env the
+//   feature is enabled in.
 // - Draft lifecycle events (`feature.revision.*`): the environments the
 //   revision's proposed changes would affect — the union of its rule scopes,
 //   resolved at dispatch time (`allEnvironments: true` expanded against the
@@ -31,83 +31,25 @@ import {
 //   must not try (see handlers/utils.ts).
 //
 // All producers must derive the routing field through the helpers in this
-// module so the semantics can't fork per event family again.
+// module, or `getChangedFeatureEnvironments` for feature updates, so the
+// semantics can't fork per event family again.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Some of the feature keys that change affect all enabled environments
-export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
-  "archived",
-  "defaultValue",
-  "prerequisites",
-  "project",
-  "valueType",
-];
-
 /**
- * Environments whose effective configuration differs between the previous
- * and current snapshots. Feature-wide keys expand to every env.
- */
-export function getChangedApiFeatureEnvironments(
-  previous: ApiFeature,
-  current: ApiFeature,
-): string[] {
-  const allEnvs = Array.from(
-    new Set([
-      ...Object.keys(previous.environments),
-      ...Object.keys(current.environments),
-    ]),
-  );
-
-  if (
-    RELEVANT_KEYS_FOR_ALL_ENVS.some((k) => !isEqual(previous[k], current[k]))
-  ) {
-    // Some of the relevant keys for all environments has changed.
-    return allEnvs;
-  }
-
-  // Manual environment filtering
-  const changedEnvironments = new Set<string>();
-
-  // Add in environments if their specific settings changed
-  allEnvs.forEach((env) => {
-    const previousEnvSettings = previous.environments[env];
-    const currentEnvSettings = current.environments[env];
-
-    // If the environment is disabled both before and after the change, ignore changes
-    if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
-      return;
-    }
-
-    // the environment has changed
-    if (!isEqual(previousEnvSettings, currentEnvSettings)) {
-      changedEnvironments.add(env);
-    }
-  });
-
-  return Array.from(changedEnvironments);
-}
-
-/**
- * Affected environments for live-state feature events.
+ * Affected environments for created and deleted feature events; updates use
+ * `getChangedFeatureEnvironments`, as the SDK cache refresh does.
  *
- * - `updated` (previous snapshot exists): the envs whose effective config
- *   actually changed in the transition.
  * - `created`: every env the feature is live in (enabled envs).
  * - `deleted`: every configured env — the deletion is relevant wherever the
  *   feature existed, enabled or not.
  */
 export function deriveLiveFeatureEventEnvironments({
-  previous,
   current,
   deleted,
 }: {
-  previous?: ApiFeature;
   current: ApiFeature;
   deleted?: boolean;
 }): string[] {
-  if (previous !== undefined) {
-    return getChangedApiFeatureEnvironments(previous, current);
-  }
   return deleted
     ? getApiFeatureAllEnvs(current)
     : getApiFeatureEnabledEnvs(current);

@@ -23,6 +23,7 @@ import {
   getRampRetry,
   isAwaitingStartApproval,
   startApprovalPending,
+  EventRelatedEntity,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
@@ -46,6 +47,7 @@ import {
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import uniqid from "uniqid";
+import { runWithRelatedEntities } from "back-end/src/events/relatedEntities";
 import {
   getEnvironmentIdsFromOrg,
   getEnvironments,
@@ -449,6 +451,7 @@ interface EntityHandler {
     actions: RampStepAction[],
     opts: {
       stepLabel: string;
+      comment: string;
       user: EventUser;
       environment?: string | null;
       judgeTargeting?: boolean;
@@ -1297,7 +1300,8 @@ export async function restoreRampBaseStates(
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment, judgeTargeting, notes } = opts;
+    const { stepLabel, comment, user, environment, judgeTargeting, notes } =
+      opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -1396,7 +1400,7 @@ export const featureEntityHandler: EntityHandler = {
       environments: ctx.environments,
       changes: { rules: updatedRules },
       publish: false,
-      comment: stepLabel,
+      comment,
       title: stepLabel,
       org: ctx.org,
       // Start/rollback replay a persisted anchor or earlier step. As with the
@@ -1412,7 +1416,7 @@ export const featureEntityHandler: EntityHandler = {
       feature,
       revision,
       result: forceResult,
-      comment: stepLabel,
+      comment,
       bypassLockdown: true,
       rampEnginePublish: true,
     });
@@ -1699,7 +1703,12 @@ async function executeStepActions(
   // revision's label shows the folded range instead of a normal single advance.
   // judgeTargeting: stored step or end patches are checked before they land.
   // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
-  opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
+  // rollback: titles the revision as a return to `stepIndex`, the reason in its comment.
+  opts: {
+    fromStepIndex?: number;
+    judgeTargeting?: boolean;
+    rollback?: { reason?: string };
+  } = {},
 ): Promise<string[]> {
   const notes: string[] = [];
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
@@ -1764,17 +1773,45 @@ async function executeStepActions(
   } else {
     stepLabel = `Ramp step ${stepIndex + 1} of ${schedule.steps.length}`;
   }
+  let comment = stepLabel;
+  if (opts.rollback) {
+    stepLabel = `Rolled back to "${stepLabel}"`;
+    comment = opts.rollback.reason
+      ? `${stepLabel}. ${opts.rollback.reason}`
+      : stepLabel;
+  }
+
+  const rampEntity: EventRelatedEntity = {
+    type: "rampSchedule",
+    id: schedule.id,
+    name: schedule.name,
+    action: opts.rollback
+      ? "rollback"
+      : isStartAction
+        ? "start"
+        : isCompleteAction
+          ? "complete"
+          : "step",
+    step:
+      isStartAction || isSimpleSchedule
+        ? null
+        : Math.min(stepIndex, schedule.steps.length - 1) + 1,
+    steps: schedule.steps.length,
+  };
 
   for (const [, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
     try {
-      await handler.applyActions(ctx, group.entityId, group.actions, {
-        stepLabel,
-        user,
-        environment: group.environment,
-        judgeTargeting: opts.judgeTargeting,
-        notes,
-      });
+      await runWithRelatedEntities([rampEntity], () =>
+        handler.applyActions(ctx, group.entityId, group.actions, {
+          stepLabel,
+          comment,
+          user,
+          environment: group.environment,
+          judgeTargeting: opts.judgeTargeting,
+          notes,
+        }),
+      );
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
         // The linked feature was deleted while the ramp was running. Skip this
@@ -2206,7 +2243,9 @@ export async function rollbackToStep(
 
   const now = new Date();
   if (rollbackActions.length > 0) {
-    await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions);
+    await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions, {
+      rollback: { reason },
+    });
   }
 
   const emitEvent = options.emitEvent ?? true;

@@ -5,9 +5,8 @@ import {
 } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   EffectiveRoleSource,
   getEffectiveRolesForProject,
@@ -55,6 +54,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  RowMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 // Keyed by the rule, not just the role: the same role can apply with different
@@ -485,7 +485,7 @@ const MemberList: FC<{
                 ? shadowed
                 : shadowed.filter((r) => !r.project);
               return (
-                <TableRow key={member.id}>
+                <TableRow key={member.id} align="start">
                   <TableCell>{member.name}</TableCell>
                   <TableCell style={{ overflowWrap: "anywhere" }}>
                     <Flex align="center" gap="2">
@@ -589,19 +589,13 @@ const MemberList: FC<{
                     })}
                   </TableCell>
 
-                  <TableCell justify="center" px="0">
+                  <TableCell justify="end" pl="0">
                     {member.id !== userId && hasRowActions && (
                       <DropdownMenu
                         trigger={
-                          <IconButton
-                            variant="ghost"
-                            color="gray"
-                            radius="full"
-                            size="2"
-                            highContrast
-                          >
-                            <BsThreeDotsVertical size={18} />
-                          </IconButton>
+                          <RowMenuTrigger
+                            label={`Actions for ${member.name || member.email}`}
+                          />
                         }
                         menuPlacement="end"
                         variant="soft"

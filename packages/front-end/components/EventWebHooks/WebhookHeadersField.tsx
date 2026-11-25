@@ -3,6 +3,7 @@ import type { Ace } from "ace-builds";
 import { PiKey } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  webhookSecretAllowsOrigin,
   referencedWebhookSecrets,
   WebhookSecretFrontEndInterface,
 } from "shared/validators";
@@ -22,7 +23,7 @@ import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 
-function isJson(value: string): boolean {
+export function isJson(value: string): boolean {
   try {
     JSON.parse(value);
     return true;
@@ -101,9 +102,7 @@ function InsertSecretMenu({
         .sort((a, b) => a.key.localeCompare(b.key))
         .map((secret) => {
           const blocked =
-            !!origin &&
-            !!secret.allowedOrigins?.length &&
-            !secret.allowedOrigins.includes(origin);
+            !!origin && !webhookSecretAllowsOrigin(secret, origin);
           return (
             <DropdownMenuItem
               key={secret.id}
@@ -145,6 +144,7 @@ export default function WebhookHeadersField({
   disabled,
   minLines = 3,
   containerStyle,
+  hideLabel = false,
 }: {
   value: string;
   setValue: (value: string) => void;
@@ -152,6 +152,8 @@ export default function WebhookHeadersField({
   disabled?: boolean;
   minLines?: number;
   containerStyle?: CSSProperties;
+  // When a row beside it names the field.
+  hideLabel?: boolean;
 }) {
   const { webhookSecrets } = useDefinitions();
   const canManageSecrets = usePermissionsUtil().canManageWebhookSecrets();
@@ -163,12 +165,16 @@ export default function WebhookHeadersField({
   return (
     <Box>
       <Flex align="center" justify="between" gap="3" mb="1">
-        <Text as="label" weight="semibold" mb="0">
-          Headers{" "}
-          <Text color="text-mid" weight="regular">
-            (JSON)
+        {hideLabel ? (
+          <Text color="text-mid">JSON</Text>
+        ) : (
+          <Text as="label" weight="semibold" mb="0">
+            Headers{" "}
+            <Text color="text-mid" weight="regular">
+              (JSON)
+            </Text>
           </Text>
-        </Text>
+        )}
         <Flex align="center" gap="1">
           {webhookSecrets.length > 0 ? (
             <InsertSecretMenu

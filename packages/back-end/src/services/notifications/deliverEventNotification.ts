@@ -5,14 +5,19 @@ import type { EventWebHookResult } from "back-end/src/events/handlers/webhooks/e
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import { getDiscordNotificationPayload } from "back-end/src/services/discord/getDiscordNotificationPayload";
+import { getDatadogNotificationPayload } from "back-end/src/services/datadog/getDatadogNotificationPayload";
 import { deliverSlackNotification } from "back-end/src/services/slack/deliverSlackNotification";
+import { scopeRelatedEntities } from "back-end/src/events/relatedEntities";
 
 export async function getEventWebhookPayload({
   event,
   payloadType,
 }: {
   event: EventInterface;
-  payloadType: Exclude<EventWebHookInterface["payloadType"], "slack">;
+  payloadType: Exclude<
+    EventWebHookInterface["payloadType"],
+    "slack" | "datadog"
+  >;
 }): Promise<Record<string, unknown> | null> {
   switch (payloadType) {
     case "json":
@@ -31,9 +36,27 @@ export async function getEventWebhookPayload({
   }
 }
 
+// Related entities outside the webhook's Projects and environments are left out.
+function scopeEventToWebhook(
+  event: EventInterface,
+  eventWebHook: EventWebHookInterface,
+): EventInterface {
+  if (!event.version || !event.data.relatedEntities?.length) return event;
+  return {
+    ...event,
+    data: {
+      ...event.data,
+      relatedEntities: scopeRelatedEntities(
+        event.data.relatedEntities,
+        eventWebHook,
+      ),
+    },
+  };
+}
+
 export async function deliverEventNotification({
   context,
-  event,
+  event: unscopedEvent,
   eventWebHook,
 }: {
   context: Context;
@@ -43,13 +66,17 @@ export async function deliverEventNotification({
   result: EventWebHookResult;
   payload: Record<string, unknown>;
 } | null> {
+  const event = scopeEventToWebhook(unscopedEvent, eventWebHook);
   // Older webhook definitions may not have a payload type.
   const payloadType = eventWebHook.payloadType || "raw";
   if (payloadType === "slack") {
     return deliverSlackNotification({ context, event, eventWebHook });
   }
 
-  const payload = await getEventWebhookPayload({ event, payloadType });
+  const payload =
+    payloadType === "datadog"
+      ? getDatadogNotificationPayload({ event, eventWebHook })
+      : await getEventWebhookPayload({ event, payloadType });
   if (!payload) return null;
 
   const applySecrets =
