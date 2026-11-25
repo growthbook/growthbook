@@ -91,6 +91,9 @@ export const MoreMenuTrigger = forwardRef<
   );
 });
 
+// A column holding a RowMenuTrigger: the button plus the cell's padding.
+export const ROW_MENU_COLUMN_WIDTH = 46;
+
 /** A table row's ⋮ menu: small, inside the cell's padding rather than the ghost
  * button's outset. */
 export const RowMenuTrigger = forwardRef<

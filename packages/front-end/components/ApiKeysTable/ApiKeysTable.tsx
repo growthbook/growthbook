@@ -40,6 +40,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import { ROW_MENU_COLUMN_WIDTH } from "@/ui/DropdownMenu";
 
 const ADMIN_LOCKED_REASON =
   "An administrator disabled this token. Ask them to re-enable it, or delete it and create a new one.";
@@ -182,7 +183,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             >
               Expires
             </SortableTableColumnHeader>
-            {hasActions && <TableColumnHeader width="46px" />}
+            {hasActions && (
+              <TableColumnHeader width={`${ROW_MENU_COLUMN_WIDTH}px`} />
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -70,8 +70,6 @@ function DeliveryStatusBadge({
   );
 }
 
-// A disabled webhook shows this in place of its delivery status, as SDK
-// webhooks do.
 export function DisabledBadge() {
   return <Badge label="Disabled" color="gray" variant="soft" />;
 }

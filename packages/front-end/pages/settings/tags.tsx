@@ -24,6 +24,7 @@ import Table, {
 import SettingsPage, {
   SettingsNoAccess,
 } from "@/components/Layout/SettingsPage";
+import { ROW_MENU_COLUMN_WIDTH } from "@/ui/DropdownMenu";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -121,7 +122,7 @@ const TagsPage: FC = () => {
                   <SortableTableColumnHeader field="description">
                     Description
                   </SortableTableColumnHeader>
-                  <TableColumnHeader style={{ width: 46 }} />
+                  <TableColumnHeader style={{ width: ROW_MENU_COLUMN_WIDTH }} />
                 </TableRow>
               </TableHeader>
               <TableBody>

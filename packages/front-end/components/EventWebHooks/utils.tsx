@@ -260,7 +260,6 @@ export const WebhookIcon = ({
   }
 };
 
-// The Slack settings page for a webhook the Slack app manages, or null.
 export function slackSettingsHref(
   webhook: Pick<EventWebHookInterface, "id" | "payloadType" | "slack">,
 ): string | null {

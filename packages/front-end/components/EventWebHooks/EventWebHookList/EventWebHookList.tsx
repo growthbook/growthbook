@@ -190,7 +190,6 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   );
 };
 
-// The environments, Projects and tags a webhook is limited to.
 function WebhookFilters({ webhook }: { webhook: EventWebHookInterface }) {
   const { getProjectById } = useDefinitions();
   const filters = [

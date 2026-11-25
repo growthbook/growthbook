@@ -22,6 +22,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import {
+  ROW_MENU_COLUMN_WIDTH,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -98,7 +99,7 @@ export const ArchetypeList: FC<{
                 <TableColumnHeader>Environments</TableColumnHeader>
                 <TableColumnHeader>Owner</TableColumnHeader>
                 <TableColumnHeader>Public</TableColumnHeader>
-                <TableColumnHeader style={{ width: 46 }} />
+                <TableColumnHeader style={{ width: ROW_MENU_COLUMN_WIDTH }} />
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -24,6 +24,7 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import {
+  ROW_MENU_COLUMN_WIDTH,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -148,7 +149,7 @@ const EnvironmentsPage: FC = () => {
               <TableColumnHeader>Default state</TableColumnHeader>
               <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Show on features page</TableColumnHeader>
-              <TableColumnHeader style={{ width: 46 }} />
+              <TableColumnHeader style={{ width: ROW_MENU_COLUMN_WIDTH }} />
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -15,8 +15,6 @@ import Tooltip from "@/ui/Tooltip";
 
 export type StagedReview = { before: unknown; after: unknown };
 
-// A save bar's list of unsaved changes, opened from their count, to review
-// and discard each one.
 export function StagedChangesPopover({
   open,
   onOpenChange,

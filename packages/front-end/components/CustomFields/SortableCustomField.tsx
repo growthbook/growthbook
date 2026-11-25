@@ -15,6 +15,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
+import { ROW_MENU_COLUMN_WIDTH } from "@/ui/DropdownMenu";
 
 const MULTI_VALUE_LIMIT = 3;
 
@@ -69,8 +70,7 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 32,
-  // The menu plus the cell's padding.
-  menu: 46,
+  menu: ROW_MENU_COLUMN_WIDTH,
   name: "10%",
   key: "14%",
   description: "20%",
