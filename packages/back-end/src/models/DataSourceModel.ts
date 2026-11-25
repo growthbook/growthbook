@@ -10,7 +10,6 @@ import {
   getExposureQueryProjectScopeViolations,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
-  isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
   findColumnsNeedingQuotes,
@@ -702,7 +701,7 @@ export async function validateExposureQueriesAndAddMissingIds(
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
         // stamp a spurious error that self-heals only on the next validation.
-        if (isManagedWarehouseUnavailable(datasource)) {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
           exposure.error = undefined;
           return;
         }
@@ -749,7 +748,7 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
-        if (isManagedWarehouseUnavailable(datasource)) {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
           featureUsage.error = undefined;
           return;
         }

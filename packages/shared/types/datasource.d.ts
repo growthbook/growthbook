@@ -354,19 +354,12 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   sessionReplayProvisioned?: boolean;
   /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
   region?: "us-east-1" | "eu-west-1";
-  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
-  materializedColumns?: MaterializedColumn[];
   /**
-   * When true, per-org tables store `attributes`/`properties` as native JSON columns
-   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
+   * Per-org tables store `attributes`/`properties` as native JSON columns, with
+   * identifiers aliased in the fact-table SQL. Always true; the app no longer
+   * branches on it, but the license server still reads it.
    */
   useJsonColumns?: boolean;
-  /**
-   * Transient: set while a provisioned warehouse's per-org tables are being recreated
-   * for the JSON-columns migration. Queries are blocked and the UI shows an "upgrading"
-   * state during this window. Distinct from `hasBeenProvisioned: false` (never set up).
-   */
-  migrating?: boolean;
   /**
    * Custom identifiers preserved from a legacy materialized-column warehouse during the
    * JSON migration that aren't current `hashAttribute`s. They're aliased out of the
@@ -394,13 +387,6 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * time) reads the desired state from this doc.
    */
   typedAttributeColumns?: TypedAttributeColumn[];
-  /**
-   * Version of the JSON-ergonomics setup (user settings + typed attribute
-   * columns) last applied to this warehouse. The backfill sweep enqueues
-   * provisioned JSON warehouses whose version is behind
-   * MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION; bump that constant to re-sweep.
-   */
-  jsonErgonomicsVersion?: number;
   /**
    * Which built-in identifier the `id` attribute folds into in generated SQL.
    * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send

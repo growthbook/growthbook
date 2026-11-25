@@ -277,17 +277,4 @@ describe("syncManagedWarehouseIdentifiers", () => {
 
     expect(mockSyncFactTable).not.toHaveBeenCalled();
   });
-
-  it("no-ops for legacy (materialized-column) warehouses", async () => {
-    mockGetDatasource.mockResolvedValue({
-      ...datasource,
-      settings: { queries: {} },
-    } as unknown as GrowthbookClickhouseDataSource);
-
-    await syncManagedWarehouseIdentifiers(context, []);
-
-    expect(mockUpdateDataSource).not.toHaveBeenCalled();
-    expect(mockGetFactTableById).not.toHaveBeenCalled();
-    expect(mockSyncFactTable).not.toHaveBeenCalled();
-  });
 });

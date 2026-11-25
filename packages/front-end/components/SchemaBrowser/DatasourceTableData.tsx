@@ -1,6 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  isManagedWarehouseUnavailable,
+  isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_EVENTS_TABLE,
 } from "shared/util";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
@@ -46,7 +46,8 @@ export default function DatasourceSchema({
   sql = "",
   updateSqlInput,
 }: Props) {
-  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const managedWarehousePending =
+    isManagedWarehouseAwaitingProvisioning(datasource);
 
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
