@@ -200,13 +200,7 @@ function WebhookFilters({ webhook }: { webhook: EventWebHookInterface }) {
     },
     { label: "Tags", values: webhook.tags ?? [] },
   ].filter((filter) => filter.values.length > 0);
-  if (!filters.length) {
-    return (
-      <Text size="inherit" color="text-mid">
-        None
-      </Text>
-    );
-  }
+  if (!filters.length) return null;
   return (
     <Flex direction="column" gap="1">
       {filters.map(({ label, values }) => (
