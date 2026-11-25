@@ -31,11 +31,8 @@ import {
   validateJourneyStepColumns,
 } from "shared/journeys";
 import {
-  FactMetricInterface,
-  FactTableInterface,
-} from "shared/types/fact-table";
-import type {
   ColumnCachedExplorations,
+  FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
 import {
