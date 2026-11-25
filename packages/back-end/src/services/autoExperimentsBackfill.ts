@@ -13,15 +13,18 @@ type Owner = {
   releasedVariationId?: string;
 };
 
-// Not archived, and not stopped unless a temporary rollout keeps a variation
-// live. A contextual bandit has no temporary rollout, so a stopped one is out.
-const canStillServe = (owner: Owner) =>
+// Running, or stopped with a temporary rollout that keeps a variation live. A
+// draft is out: starting it asks to enable the feature, and many were added
+// once and never launched. A contextual bandit has no temporary rollout.
+const isServing = (owner: Owner) =>
   !owner.archived &&
-  (owner.status !== "stopped" ||
-    (!owner.excludeFromPayload && !!owner.releasedVariationId));
+  (owner.status === "running" ||
+    (owner.status === "stopped" &&
+      !owner.excludeFromPayload &&
+      !!owner.releasedVariationId));
 
 // The `ids` that belong to an experiment or contextual bandit that exists and
-// can still serve.
+// is serving.
 async function getServingIds(
   collection: "experiments" | "contextualbandits",
   organization: string,
@@ -43,11 +46,11 @@ async function getServingIds(
       },
     )
     .toArray();
-  return new Set(owners.filter(canStillServe).map((o) => o.id));
+  return new Set(owners.filter(isServing).map((o) => o.id));
 }
 
 // A changeset or redirect left behind by a deleted experiment, or held by one
-// that can no longer serve it, is not use.
+// that isn't serving it, is not use.
 async function getUsage(organization: string): Promise<Settings> {
   const [changesets, redirects] = await Promise.all([
     getCollection<{
