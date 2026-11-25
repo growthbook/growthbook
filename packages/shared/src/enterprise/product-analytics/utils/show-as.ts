@@ -148,14 +148,6 @@ export type ShowAsChoice = {
   showAs: ShowAs | null;
 };
 
-/**
- * Whether the user picks between modes. A value with a single mode renders in
- * it without a picker. The one place that decides whether a picker shows.
- */
-export function hasShowAsChoice(options: readonly ShowAs[]): boolean {
-  return options.length > 1;
-}
-
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
   showAs: null,

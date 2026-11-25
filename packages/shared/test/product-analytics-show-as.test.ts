@@ -8,7 +8,6 @@ import {
   dividesByPopulationCount,
   getShowAsChoice,
   getShowAsOptions,
-  hasShowAsChoice,
   isRatioValue,
   normalizeShowAs,
   withRequestedDisplayConfig,
@@ -257,16 +256,6 @@ describe("getShowAsChoice", () => {
     expect(
       getShowAsChoice(factTableValue, undefined, getFactMetricById, false),
     ).toEqual(none);
-  });
-});
-
-describe("hasShowAsChoice", () => {
-  it("shows a picker only when there is more than one mode", () => {
-    expect(hasShowAsChoice(getShowAsOptions("mean", false))).toBe(true);
-    expect(hasShowAsChoice(getShowAsOptions("proportion", false))).toBe(false);
-    expect(hasShowAsChoice(getShowAsOptions("proportion", true))).toBe(true);
-    expect(hasShowAsChoice(getShowAsOptions("ratio", true))).toBe(false);
-    expect(hasShowAsChoice(["per_unit"])).toBe(false);
   });
 });
 
