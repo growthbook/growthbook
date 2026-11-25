@@ -115,16 +115,12 @@ export default function AdvancedSettings({
       ? form.watch("regressionAdjustmentDays")
       : orgSettings.regressionAdjustmentDays;
     const items: DataListItem[] = [
-      ...(formType !== "funnel"
-        ? [
-            {
-              label: "Metric goal",
-              value: form.watch("inverse")
-                ? "Decrease the metric value"
-                : "Increase the metric value",
-            },
-          ]
-        : []),
+      {
+        label: "Metric goal",
+        value: form.watch("inverse")
+          ? "Decrease the metric value"
+          : "Increase the metric value",
+      },
       {
         label: "Target MDE",
         value: `${form.watch("targetMDE") ?? metricDefaults.targetMDE * 100}%`,
@@ -230,22 +226,20 @@ export default function AdvancedSettings({
               <Flex direction="column" gap="3">
                 {
                   <>
-                    {formType !== "funnel" && (
-                      <div className={styles.setting}>
-                        <Select
-                          label="Metric goal"
-                          value={form.watch("inverse") ? "1" : "0"}
-                          setValue={(v) => form.setValue("inverse", v === "1")}
-                        >
-                          <SelectItem value="0">
-                            Increase the metric value
-                          </SelectItem>
-                          <SelectItem value="1">
-                            Decrease the metric value
-                          </SelectItem>
-                        </Select>
-                      </div>
-                    )}
+                    <div className={styles.setting}>
+                      <Select
+                        label="Metric goal"
+                        value={form.watch("inverse") ? "1" : "0"}
+                        setValue={(v) => form.setValue("inverse", v === "1")}
+                      >
+                        <SelectItem value="0">
+                          Increase the metric value
+                        </SelectItem>
+                        <SelectItem value="1">
+                          Decrease the metric value
+                        </SelectItem>
+                      </Select>
+                    </div>
                     {windowOk(formType) && (
                       <div className={styles.setting}>
                         <MetricDelaySettings form={form} />
