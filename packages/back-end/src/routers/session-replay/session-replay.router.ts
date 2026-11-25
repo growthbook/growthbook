@@ -1,5 +1,10 @@
 import express from "express";
 import { z } from "zod";
+import {
+  SESSION_REPLAY_MAX_FILTER_LENGTH,
+  SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
+  SESSION_REPLAY_MAX_URL_FILTER_LENGTH,
+} from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as sessionReplayControllerRaw from "./session-replay.controller";
@@ -7,14 +12,13 @@ import * as sessionReplayControllerRaw from "./session-replay.controller";
 const router = express.Router();
 
 const sessionReplayController = wrapController(sessionReplayControllerRaw);
-const MAX_FILTER_STRING_LENGTH = 255;
-const MAX_URL_FILTER_LENGTH = 2048;
-const MAX_MULTI_FILTER_LENGTH = 2048;
 const MAX_DURATION_SECS = 30 * 24 * 60 * 60;
 const MAX_EVENT_COUNT = 1_000_000;
 
-const filterString = z.string().max(MAX_FILTER_STRING_LENGTH);
-const multiFilterString = z.string().max(MAX_MULTI_FILTER_LENGTH);
+const filterString = z.string().max(SESSION_REPLAY_MAX_FILTER_LENGTH);
+const multiFilterString = z
+  .string()
+  .max(SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH);
 const nonNegativeNumberString = z
   .string()
   .regex(/^\d+(\.\d+)?$/)
@@ -40,7 +44,7 @@ router.get(
       .object({
         userId: filterString.optional(),
         clientKey: filterString.optional(),
-        url: z.string().max(MAX_URL_FILTER_LENGTH).optional(),
+        url: z.string().max(SESSION_REPLAY_MAX_URL_FILTER_LENGTH).optional(),
         country: multiFilterString.optional(),
         device: multiFilterString.optional(),
         durationMinSecs: nonNegativeNumberString.optional(),

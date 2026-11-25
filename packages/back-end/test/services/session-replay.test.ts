@@ -1,5 +1,6 @@
 import zlib from "zlib";
 import {
+  dedupeNewestChunkRows,
   extractSortedChunkKeys,
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
@@ -103,6 +104,48 @@ describe("sortReplayChunkKeysByChunkIndex", () => {
     expect(sorted.indexOf("s/2.json.gz")).toBe(2);
     expect(sorted.indexOf("s/meta.json.gz")).toBeLessThan(2);
     expect(sorted.indexOf("s/0.json.gz")).toBeLessThan(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dedupeNewestChunkRows
+// ---------------------------------------------------------------------------
+
+describe("dedupeNewestChunkRows", () => {
+  const row = (chunk_index: number, ingested_at: string, event_count = 0) => ({
+    chunk_index,
+    ingested_at,
+    event_count,
+  });
+
+  // The recorder can reuse a session id and restart its chunk counter, so the
+  // same index arrives twice. Summing both inflates every merged count.
+  it("keeps only the newest row per chunk index", () => {
+    const rows = dedupeNewestChunkRows([
+      row(0, "2026-05-21 20:46:23", 19),
+      row(0, "2026-05-21 22:36:46", 347),
+      row(1, "2026-05-21 20:47:26", 423),
+    ]);
+
+    expect(rows.map((r) => r.event_count)).toEqual([347, 423]);
+  });
+
+  it("keeps the newest row regardless of input order", () => {
+    const rows = dedupeNewestChunkRows([
+      row(0, "2026-05-21 22:36:46", 347),
+      row(0, "2026-05-21 20:46:23", 19),
+    ]);
+
+    expect(rows.map((r) => r.event_count)).toEqual([347]);
+  });
+
+  it("returns every row unchanged when no index repeats", () => {
+    const rows = [row(0, "2026-05-21 20:46:23"), row(1, "2026-05-21 20:47:26")];
+    expect(dedupeNewestChunkRows(rows)).toEqual(rows);
+  });
+
+  it("returns an empty array for no rows", () => {
+    expect(dedupeNewestChunkRows([])).toEqual([]);
   });
 });
 

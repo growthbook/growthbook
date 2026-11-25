@@ -57,19 +57,25 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
   }
 
   function read(): StoredIdState | null {
+    let stored: StoredIdState | null = null;
     try {
       const storage = getStorage();
       const raw = storage
         ? (storage.getItem(config.key) as string | null | undefined)
         : undefined;
       if (raw) {
-        const stored = normalize(JSON.parse(raw));
-        if (stored) return stored;
+        stored = normalize(JSON.parse(raw));
       }
     } catch {
       // fall through to the in-memory copy
     }
-    return inMemoryFallback;
+    if (
+      inMemoryFallback &&
+      (!stored || inMemoryFallback.lastActiveAt > stored.lastActiveAt)
+    ) {
+      return inMemoryFallback;
+    }
+    return stored;
   }
 
   // Write through to memory so degraded storage (quota errors, async-only

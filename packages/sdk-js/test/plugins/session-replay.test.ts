@@ -5,6 +5,7 @@ import {
   sessionReplayPlugin,
 } from "../../src/plugins/session-replay";
 import { _resetSampleDecisionsForTests } from "../../src/plugins/utils/sampling";
+import { _resetSessionReplayIdForTests } from "../../src/plugins/session-replay/id";
 
 jest.mock("rrweb", () => ({ record: jest.fn() }));
 
@@ -67,6 +68,7 @@ function buildGrowthBook(ready = true) {
 }
 
 function seedSessionReplayId(sessionReplayId: string) {
+  _resetSessionReplayIdForTests();
   sessionStorage.setItem(
     "gb_session_replay_id",
     JSON.stringify({

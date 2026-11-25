@@ -1,3 +1,4 @@
+import { SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH } from "shared/validators";
 import {
   emptyDroppedFilters,
   syntaxFiltersToQueryParams,
@@ -64,16 +65,33 @@ describe("syntaxFiltersToQueryParams", () => {
   });
 
   it("stops at the server's length cap and reports what it left out", () => {
-    // 9 x 30 chars + commas exceeds the 255 cap the router enforces
     const keys = Array.from(
-      { length: 9 },
-      (_, i) => `feature-key-${String(i).repeat(17)}`,
+      { length: 100 },
+      (_, i) => `feature-key-${String(i).padStart(4, "0").repeat(8)}`,
     );
     const dropped = emptyDroppedFilters();
     const params = syntaxFiltersToQueryParams([filter("flag", keys)], dropped);
 
-    expect(params.featureKey.length).toBeLessThanOrEqual(255);
+    expect(params.featureKey.length).toBeLessThanOrEqual(
+      SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
+    );
     expect(dropped.truncated.has("featureKey")).toBe(true);
+  });
+
+  // The router widened every multi-value param to the same cap; the UI must
+  // not keep dropping selections the server would have accepted.
+  it("keeps a country selection that fits the server's cap", () => {
+    const dropped = emptyDroppedFilters();
+    const countries = Array.from({ length: 30 }, (_, i) =>
+      String.fromCharCode(65 + (i % 26), 65 + i),
+    );
+    const params = syntaxFiltersToQueryParams(
+      [filter("country", countries)],
+      dropped,
+    );
+
+    expect(params.country.split(",")).toHaveLength(countries.length);
+    expect(dropped.truncated.size).toBe(0);
   });
 
   it("reports nothing dropped when the selection fits", () => {

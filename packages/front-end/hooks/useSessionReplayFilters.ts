@@ -8,6 +8,7 @@ import {
 } from "react";
 import { NextRouter } from "next/router";
 import { safeDecodeURIComponent } from "shared/util";
+import { SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH } from "shared/validators";
 import { transformQuery, SyntaxFilter } from "@/services/search";
 
 const FILTER_KEYS = [
@@ -47,14 +48,11 @@ const MULTI_VALUE_PARAMS = new Set([
   "experimentKey",
 ]);
 
-// Mirrors the caps in session-replay.router.ts. The server limits the whole
-// joined value, so enough selections build a request it rejects with a 400
-// that the UI can only report as "Failed to load sessions".
 const PARAM_MAX_LENGTH: Record<string, number> = {
-  country: 64,
-  device: 64,
-  featureKey: 255,
-  experimentKey: 255,
+  country: SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
+  device: SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
+  featureKey: SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
+  experimentKey: SESSION_REPLAY_MAX_MULTI_FILTER_LENGTH,
 };
 
 /** Needs quoting if the value contains spaces or commas (parser delimiters). */

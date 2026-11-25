@@ -15,6 +15,7 @@ import {
   filterClientKeysByProject,
   getSessionReplayEventsByChunkKeys,
   extractSortedChunkKeys,
+  dedupeNewestChunkRows,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -176,24 +177,18 @@ export class SessionReplayModel {
    * union-deduped; JSON eval items are concatenated across chunks.
    */
   private dedupeChunks(chunks: SessionReplayRow[]): SessionReplayRow[] {
-    const newestByChunk = new Map<number, SessionReplayRow>();
-    for (const row of chunks) {
-      const existing = newestByChunk.get(row.chunk_index);
-      if (!existing || row.ingested_at > existing.ingested_at) {
-        newestByChunk.set(row.chunk_index, row);
-      }
-    }
-    if (newestByChunk.size < chunks.length) {
+    const deduped = dedupeNewestChunkRows(chunks);
+    if (deduped.length < chunks.length) {
       logger.warn(
         {
           sessionReplayId: chunks[0]?.session_replay_id,
           rows: chunks.length,
-          chunks: newestByChunk.size,
+          chunks: deduped.length,
         },
         "session-replay: duplicate chunk indexes; earlier uploads were overwritten",
       );
     }
-    return Array.from(newestByChunk.values());
+    return deduped;
   }
 
   private mergeChunks(allRows: SessionReplayRow[]): SessionReplayInterface {

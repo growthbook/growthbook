@@ -56,16 +56,22 @@ function resolveChunkKey(row: ChunkKeyRow): string {
     : `${row.s3_key}/${row.chunk_index}.json.gz`;
 }
 
-export function extractSortedChunkKeys(rows: ChunkKeyRow[]): string[] {
-  const newestByChunk = new Map<number, ChunkKeyRow>();
+export function dedupeNewestChunkRows<
+  T extends { chunk_index: number; ingested_at: string },
+>(rows: T[]): T[] {
+  const newestByChunk = new Map<number, T>();
   for (const row of rows) {
     const existing = newestByChunk.get(row.chunk_index);
     if (!existing || row.ingested_at > existing.ingested_at) {
       newestByChunk.set(row.chunk_index, row);
     }
   }
+  return Array.from(newestByChunk.values());
+}
+
+export function extractSortedChunkKeys(rows: ChunkKeyRow[]): string[] {
   return sortReplayChunkKeysByChunkIndex(
-    Array.from(newestByChunk.values()).map(resolveChunkKey).filter(Boolean),
+    dedupeNewestChunkRows(rows).map(resolveChunkKey).filter(Boolean),
   );
 }
 

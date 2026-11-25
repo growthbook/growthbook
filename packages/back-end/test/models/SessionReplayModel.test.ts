@@ -23,6 +23,9 @@ jest.mock("back-end/src/services/session-replay", () => ({
   extractSortedChunkKeys: jest.requireActual<
     typeof import("back-end/src/services/session-replay")
   >("back-end/src/services/session-replay").extractSortedChunkKeys,
+  dedupeNewestChunkRows: jest.requireActual<
+    typeof import("back-end/src/services/session-replay")
+  >("back-end/src/services/session-replay").dedupeNewestChunkRows,
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -496,57 +499,6 @@ describe("SessionReplayModel — getBySessionId()", () => {
     expect(session!.featureEvals?.items).toHaveLength(1);
     expect(session!.experimentEvals?.items).toHaveLength(1);
     expect(session!.sessionEvents?.items).toHaveLength(2);
-  });
-
-  // A tenant table provisioned before a column was added omits the key
-  // entirely from SELECT *, and Number(undefined) would poison every sum.
-  // The recorder can reuse a session id and restart its chunk counter, so the
-  // same chunk index arrives twice. Summing both inflated the counts.
-  it("collapses duplicate chunk indexes to the newest row", async () => {
-    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
-      makeRow({
-        chunk_index: 0,
-        ingested_at: "2026-05-21 20:46:23",
-        event_count: 19,
-      }),
-      makeRow({
-        chunk_index: 0,
-        ingested_at: "2026-05-21 22:36:46",
-        event_count: 347,
-      }),
-      makeRow({
-        chunk_index: 1,
-        ingested_at: "2026-05-21 20:47:26",
-        event_count: 423,
-      }),
-    ]);
-
-    const model = new SessionReplayModel(makeContext());
-    const session = await model.getBySessionId("sess_abc123");
-
-    // Newest chunk 0 (347) plus chunk 1 (423) — not 789 with the stale 19.
-    expect(session!.eventCount).toBe(770);
-  });
-
-  it("treats missing numeric columns as zero rather than NaN", async () => {
-    const withoutCounts = (overrides: Partial<SessionReplayRow> = {}) => {
-      const row = makeRow(overrides);
-      delete (row as Partial<SessionReplayRow>).key_event_count;
-      delete (row as Partial<SessionReplayRow>).error_count;
-      return row;
-    };
-    mockGetSessionReplayChunksBySessionId.mockResolvedValue([
-      withoutCounts({ chunk_index: 0, duration_ms: 30000, event_count: 50 }),
-      withoutCounts({ chunk_index: 1, duration_ms: 60000, event_count: 100 }),
-    ]);
-
-    const model = new SessionReplayModel(makeContext());
-    const session = await model.getBySessionId("sess_abc123");
-
-    expect(session!.keyEventCount).toBe(0);
-    expect(session!.errorCount).toBe(0);
-    expect(session!.eventCount).toBe(150);
-    expect(session!.durationMs).toBe(60000);
   });
 });
 

@@ -241,4 +241,33 @@ describe("session manager", () => {
 
     setPolyfills({ localStorage: globalThis.localStorage });
   });
+
+  it("keeps a stable id when writes fail and storage holds an expired session", () => {
+    const store: Record<string, string> = {
+      [STORAGE_KEY]: JSON.stringify({
+        gb_session_id: "expired-id",
+        createdAt: 1000,
+        lastActiveAt: 1000,
+      }),
+    };
+    setPolyfills({
+      localStorage: {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: () => {
+          throw new Error("QuotaExceededError");
+        },
+      },
+    });
+    jest.spyOn(Date, "now").mockReturnValue(1000 + DEFAULT_IDLE_TIMEOUT_MS + 1);
+
+    // The expired value never gets overwritten, so without the in-memory copy
+    // winning, every read would rotate to another new session.
+    const id = getOrCreateSessionId();
+    const id2 = getOrCreateSessionId();
+
+    expect(id).not.toBe("expired-id");
+    expect(id2).toBe(id);
+
+    setPolyfills({ localStorage: globalThis.localStorage });
+  });
 });
