@@ -11,29 +11,39 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 
 export const AUTO_EXPERIMENT_COPY: Record<
   AutoExperimentFeature,
-  { name: string; title: string; risk: string; blocked: string }
+  {
+    name: string;
+    title: string;
+    disableTitle: string;
+    risk: string;
+    blocked: string;
+  }
 > = {
   visualEditor: {
     name: "AI Visual Editor experiments",
     title: "Enable AI Visual Editor experiments?",
+    disableTitle: "Disable AI Visual Editor experiments?",
     risk: "AI Visual Editor experiments change the content of your pages for visitors, without a code deploy. Anyone who can run experiments, or who gains access to such an account or API key, can change what your visitors see, including links and forms.",
     blocked: "AI Visual Editor changes",
   },
   urlRedirects: {
     name: "URL redirect experiments",
     title: "Enable URL redirect experiments?",
+    disableTitle: "Disable URL redirect experiments?",
     risk: "URL redirect experiments send visitors from one of your pages to another, without a code deploy. Anyone who can run experiments, or who gains access to such an account or API key, can redirect your visitors.",
     blocked: "URL redirects",
   },
   customJs: {
     name: "Custom JavaScript",
     title: "Enable custom JavaScript?",
+    disableTitle: "Disable custom JavaScript?",
     risk: "Custom JavaScript in an AI Visual Editor experiment runs in your visitors' browsers with full access to the page. Anyone who can run experiments, or who gains access to such an account or API key, can run any code on your site.",
     blocked: "custom JavaScript",
   },
   crossOriginRedirects: {
     name: "Redirects to a different origin",
     title: "Enable redirects to a different origin?",
+    disableTitle: "Disable redirects to a different origin?",
     risk: "A URL redirect experiment can then send visitors to another domain. Anyone who can run experiments, or who gains access to such an account or API key, can send your visitors to any website.",
     blocked: "redirects to a different origin",
   },

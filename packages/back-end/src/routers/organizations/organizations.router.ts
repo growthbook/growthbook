@@ -26,6 +26,10 @@ router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
 router.put("/organization", organizationsController.putOrganization);
+router.get(
+  "/organization/auto-experiments/usage",
+  organizationsController.getAutoExperimentUsage,
+);
 router.post(
   "/organization/config/import",
   organizationsController.postImportConfig,

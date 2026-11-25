@@ -1,11 +1,22 @@
 import type { OrganizationSettings } from "shared/types/organization";
-import type { VisualChange } from "shared/types/visual-changeset";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
+import type {
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "back-end/src/services/features";
 import type { ReqContext } from "back-end/types/request";
 import {
   assertConnectionAutoExperimentsAllowed,
   assertUrlRedirectAllowed,
   assertVisualChangesAllowed,
   getAutoExperimentAccess,
+  getLiveAutoExperimentUsage,
 } from "back-end/src/services/autoExperiments";
 
 const allOff = {
@@ -212,5 +223,143 @@ describe("assertConnectionAutoExperimentsAllowed", () => {
         { includeVisualExperiments: true, includeRedirectExperiments: true },
       ),
     ).not.toThrow();
+  });
+});
+
+describe("getLiveAutoExperimentUsage", () => {
+  const experiment = (
+    id: string,
+    overrides: Partial<ExperimentInterface> = {},
+  ) =>
+    ({
+      id,
+      name: `Name of ${id}`,
+      status: "running",
+      project: "p1",
+      ...overrides,
+    }) as ExperimentInterface;
+  const visual = (
+    exp: ExperimentInterface,
+    changes: Partial<VisualChange>[] = [{ css: "a{}" }],
+  ): VisualExperiment => ({
+    type: "visual",
+    experiment: exp,
+    visualChangeset: {
+      visualChanges: changes.map(change),
+    } as VisualChangesetInterface,
+  });
+  const redirect = (
+    exp: ExperimentInterface,
+    url: string,
+  ): URLRedirectExperiment => ({
+    type: "redirect",
+    experiment: exp,
+    urlRedirect: {
+      urlPattern: "https://example.com/a",
+      destinationURLs: [{ variation: "v1", url }],
+    } as URLRedirectInterface,
+  });
+  const usage = (
+    input: Partial<Parameters<typeof getLiveAutoExperimentUsage>[0]>,
+  ) =>
+    getLiveAutoExperimentUsage({
+      visualExperiments: [],
+      redirectExperiments: [],
+      cbVisualExperiments: [],
+      canReadProject: () => true,
+      ...input,
+    });
+  const item = (id: string, extra: object = {}) => ({
+    kind: "experiment",
+    id,
+    name: `Name of ${id}`,
+    ...extra,
+  });
+  const none = { total: 0, items: [] };
+
+  it("lists an experiment once, however many changesets it has", () => {
+    const exp = experiment("exp_1");
+    expect(usage({ visualExperiments: [visual(exp), visual(exp)] })).toEqual({
+      visualEditor: { total: 1, items: [item("exp_1")] },
+      customJs: none,
+      urlRedirects: none,
+      crossOriginRedirects: none,
+    });
+  });
+
+  it("lists custom JavaScript only for a changeset that has some", () => {
+    const { visualEditor, customJs } = usage({
+      visualExperiments: [
+        visual(experiment("exp_css")),
+        visual(experiment("exp_js"), [{ js: "alert(1)" }]),
+      ],
+    });
+    expect(visualEditor.items.map((i) => i.id)).toEqual(["exp_css", "exp_js"]);
+    expect(customJs).toEqual({ total: 1, items: [item("exp_js")] });
+  });
+
+  it("marks a stopped experiment as a temporary rollout", () => {
+    const stopped = experiment("exp_1", { status: "stopped" });
+    expect(
+      usage({ visualExperiments: [visual(stopped)] }).visualEditor,
+    ).toEqual({ total: 1, items: [item("exp_1", { rollout: true })] });
+  });
+
+  it("leaves out a draft and a changeset with nothing in it", () => {
+    const draft = experiment("exp_draft", { status: "draft" });
+    expect(
+      usage({
+        visualExperiments: [
+          visual(draft),
+          visual(experiment("exp_empty"), [{}]),
+        ],
+        redirectExperiments: [redirect(draft, "https://example.com/b")],
+      }),
+    ).toEqual({
+      visualEditor: none,
+      customJs: none,
+      urlRedirects: none,
+      crossOriginRedirects: none,
+    });
+  });
+
+  it("lists a cross-origin redirect under both redirect settings", () => {
+    const { urlRedirects, crossOriginRedirects } = usage({
+      redirectExperiments: [
+        redirect(experiment("exp_same"), "https://example.com/b"),
+        redirect(experiment("exp_cross"), "https://other.example.com/b"),
+      ],
+    });
+    expect(urlRedirects.items.map((i) => i.id)).toEqual([
+      "exp_same",
+      "exp_cross",
+    ]);
+    expect(crossOriginRedirects).toEqual({
+      total: 1,
+      items: [item("exp_cross")],
+    });
+  });
+
+  it("lists a contextual bandit under the AI Visual Editor", () => {
+    const bandit = {
+      contextualBandit: { id: "cb_1", name: "Bandit", project: "p1" },
+      visualChangeset: { visualChanges: [change({ css: "a{}" })] },
+    } as CbVisualExperiment;
+    expect(usage({ cbVisualExperiments: [bandit] }).visualEditor).toEqual({
+      total: 1,
+      items: [{ kind: "contextual-bandit", id: "cb_1", name: "Bandit" }],
+    });
+  });
+
+  it("counts but doesn't name what the caller can't read", () => {
+    expect(
+      usage({
+        visualExperiments: [
+          visual(experiment("exp_1")),
+          visual(experiment("exp_2", { project: "hidden" })),
+        ],
+        canReadProject: (project) => project !== "hidden",
+      }).visualEditor,
+    ).toEqual({ total: 2, items: [item("exp_1")] });
   });
 });

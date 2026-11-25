@@ -5,9 +5,13 @@ import {
   getAutoExperimentParentFeature,
   isAutoExperimentFeatureEnabled,
 } from "shared/util";
+import type { AutoExperimentUsage } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { Box } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import Link from "@/ui/Link";
+import { useAuth } from "@/services/auth";
 import useAutoExperiments, {
   AUTO_EXPERIMENTS_ENV_HINT,
 } from "@/hooks/useAutoExperiments";
@@ -27,20 +31,89 @@ const ORDERED_FEATURES = AUTO_EXPERIMENT_FEATURES.filter(
   ),
 ]);
 
-// Saved with the rest of the settings form. Turning one on asks first.
+const MAX_LISTED = 10;
+
+type Serving = AutoExperimentUsage[AutoExperimentFeature];
+
+function DisableAutoExperimentDialog({
+  feature,
+  serving,
+  onConfirm,
+  close,
+}: {
+  feature: AutoExperimentFeature;
+  serving: Serving;
+  onConfirm: () => void;
+  close: () => void;
+}) {
+  const copy = AUTO_EXPERIMENT_COPY[feature];
+  // `total` also counts what this admin can't read, which has no name here.
+  const listed = serving.items.slice(0, MAX_LISTED);
+  const more = serving.total - listed.length;
+  return (
+    <ConfirmDialog
+      title={copy.disableTitle}
+      content={
+        <>
+          {`${serving.total} live experiment${serving.total === 1 ? "" : "s"} will stop serving ${copy.blocked} when you save.`}
+          {/* Spans: the dialog renders its content inside a paragraph. */}
+          {listed.length ? (
+            <Box as="span" display="block" mt="3">
+              {listed.map((item) => (
+                <Box as="span" display="block" key={`${item.kind}:${item.id}`}>
+                  {/* A new tab: the dialog opens over a form with unsaved changes. */}
+                  <Link
+                    href={
+                      item.kind === "experiment"
+                        ? `/experiment/${item.id}`
+                        : `/contextual-bandit/${item.id}`
+                    }
+                    external
+                  >
+                    {item.name}
+                  </Link>
+                  {item.rollout ? " (temporary rollout)" : ""}
+                </Box>
+              ))}
+              {more > 0 ? (
+                <Box as="span" display="block">
+                  and {more} more
+                </Box>
+              ) : null}
+            </Box>
+          ) : null}
+        </>
+      }
+      yesText="Disable"
+      onConfirm={() => {
+        onConfirm();
+        close();
+      }}
+      onCancel={close}
+    />
+  );
+}
+
+// Saved with the rest of the settings form. Changing a saved one asks first.
 export default function AutoExperimentSettings() {
   const { mode, canManage, isEnabled: isSaved } = useAutoExperiments();
-  const { watch, setValue } =
+  const { apiCall } = useAuth();
+  const { watch, getValues, setValue } =
     useFormContext<OrganizationSettingsWithMetricDefaults>();
   const autoExperiments = watch("autoExperiments");
   const isEnabled = (feature: AutoExperimentFeature) =>
     isAutoExperimentFeatureEnabled({ autoExperiments }, feature, mode);
   const [enabling, setEnabling] = useState<AutoExperimentFeature | null>(null);
+  const [disabling, setDisabling] = useState<{
+    feature: AutoExperimentFeature;
+    serving: Serving;
+  } | null>(null);
 
   const set = (feature: AutoExperimentFeature, enabled: boolean) => {
     const parent = getAutoExperimentParentFeature(feature);
     setValue("autoExperiments", {
-      ...autoExperiments,
+      // Read now: `disable` calls this after waiting on a request.
+      ...getValues("autoExperiments"),
       [feature]: enabled,
       ...(enabled && parent ? { [parent]: true } : {}),
       // What depends on it goes off with it, as the server would do.
@@ -52,6 +125,34 @@ export default function AutoExperimentSettings() {
           )
         : {}),
     });
+  };
+
+  // Says what the setting is serving before it goes off. Only a courtesy:
+  // turning one off has to work even when that can't be read.
+  const disable = async (feature: AutoExperimentFeature) => {
+    try {
+      const { usage } = await apiCall<{ usage: AutoExperimentUsage }>(
+        "/organization/auto-experiments/usage",
+      );
+      if (usage[feature].total) {
+        setDisabling({ feature, serving: usage[feature] });
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    set(feature, false);
+  };
+
+  const toggle = (
+    feature: AutoExperimentFeature,
+    saved: boolean,
+    enabled: boolean,
+  ) => {
+    // Going back to the saved value only undoes a queued change.
+    if (enabled === saved) set(feature, enabled);
+    else if (enabled) setEnabling(feature);
+    else void disable(feature);
   };
 
   return (
@@ -75,10 +176,7 @@ export default function AutoExperimentSettings() {
                     : "Only admins can change this setting"
                 }
                 value={isEnabled(feature)}
-                setValue={(v) =>
-                  // Undoing a queued uncheck turns nothing on, so don't ask.
-                  v && !saved ? setEnabling(feature) : set(feature, v)
-                }
+                setValue={(v) => toggle(feature, saved, v)}
               />
             </UnsavedMark>
           </Box>
@@ -89,6 +187,14 @@ export default function AutoExperimentSettings() {
           feature={enabling}
           onConfirm={() => set(enabling, true)}
           close={() => setEnabling(null)}
+        />
+      ) : null}
+      {disabling ? (
+        <DisableAutoExperimentDialog
+          feature={disabling.feature}
+          serving={disabling.serving}
+          onConfirm={() => set(disabling.feature, false)}
+          close={() => setDisabling(null)}
         />
       ) : null}
     </>
