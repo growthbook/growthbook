@@ -1,6 +1,11 @@
 import { FC, Fragment, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
+import {
+  PiCaretCircleRight,
+  PiCaretCircleDown,
+  PiCaretDown,
+  PiCaretRight,
+} from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -395,12 +400,19 @@ const BreakDownResults: FC<{
               differenceType={differenceType}
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
+                // What expands under a dimension value sits a step in from it.
+                const childIndent = redesign ? 30 : undefined;
                 if (row?.childRowType === "funnelStep") {
                   const rawValue =
                     row.dimensionValue ??
                     (typeof row.label === "string" ? row.label : "");
                   return (
-                    <Flex justify="between" align="start" width="100%">
+                    <Flex
+                      justify="between"
+                      align="start"
+                      width="100%"
+                      style={{ paddingLeft: childIndent }}
+                    >
                       <FunnelStepLabel label={label} row={row} />
                       {hasFunnelSlices(row.metric) && (
                         <FunnelStepSliceLink
@@ -417,11 +429,19 @@ const BreakDownResults: FC<{
                   );
                 }
                 if (row?.isSliceRow || row?.labelOnly) {
-                  return getRenderLabelColumn({})({
-                    label,
-                    metric: row.metric,
-                    row,
-                  });
+                  return (
+                    <div
+                      style={{
+                        paddingLeft: row.isSliceRow ? childIndent : undefined,
+                      }}
+                    >
+                      {getRenderLabelColumn({})({
+                        label,
+                        metric: row.metric,
+                        row,
+                      })}
+                    </div>
+                  );
                 }
 
                 const hasSteps = !!row?.numChildren;
@@ -449,14 +469,14 @@ const BreakDownResults: FC<{
                       overflow: "hidden",
                       color: "var(--color-text-mid)",
                       // Under its metric's name.
-                      paddingLeft: redesign ? 36 : undefined,
+                      paddingLeft: redesign ? 46 : undefined,
                     }}
                   >
                     {hasSteps ? (
                       <span
                         style={{
                           position: "absolute",
-                          left: redesign ? 27 : 7,
+                          left: redesign ? 24 : 7,
                           top: 0,
                           bottom: 0,
                           display: "flex",
@@ -482,7 +502,13 @@ const BreakDownResults: FC<{
                             }
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >
-                            {isExpanded ? (
+                            {redesign ? (
+                              isExpanded ? (
+                                <PiCaretDown size={15} />
+                              ) : (
+                                <PiCaretRight size={15} />
+                              )
+                            ) : isExpanded ? (
                               <PiCaretCircleDown size={16} />
                             ) : (
                               <PiCaretCircleRight size={16} />
@@ -491,7 +517,9 @@ const BreakDownResults: FC<{
                         </RadixTooltip>
                       </span>
                     ) : null}
-                    <span className={hasSteps ? "ml-2" : undefined}>
+                    <span
+                      className={hasSteps && !redesign ? "ml-2" : undefined}
+                    >
                       {redesign ? (
                         <span style={{ fontWeight: 400 }}>{dimension}: </span>
                       ) : null}

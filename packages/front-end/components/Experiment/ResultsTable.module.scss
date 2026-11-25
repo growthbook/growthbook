@@ -14,6 +14,22 @@
   }
 }
 
+// The redesign's dimension breakdown: values shade under their metric's
+// unshaded name, and what expands under a value shades further.
+.dimensionBreakdown {
+  :global(tbody.results-group-row) {
+    background-color: var(--slate-a2);
+  }
+
+  :global(tbody.results-group-row.child-row) {
+    background-color: var(--slate-a3);
+  }
+
+  tbody.labelGroup {
+    background-color: transparent;
+  }
+}
+
 .timeSeriesCell {
   padding: 0;
   padding-bottom: 0.75rem;

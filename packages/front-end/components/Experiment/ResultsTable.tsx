@@ -626,7 +626,13 @@ export default function ResultsTable({
             className={clsx("experiment-results-wrapper", { overflowing })}
           >
             <div className="w-100" style={{ minWidth: 700 }}>
-              <table id="main-results" className="experiment-results table-sm">
+              <table
+                id="main-results"
+                className={clsx("experiment-results table-sm", {
+                  [styles.dimensionBreakdown]:
+                    !!redesign && tableRowAxis === "dimension",
+                })}
+              >
                 <thead>
                   <tr className="results-top-row" style={{ height: 45 }}>
                     {columnsToDisplay.includes("Metric & Variation Names") && (
@@ -916,6 +922,7 @@ export default function ResultsTable({
                           <tbody
                             className={clsx("results-group-row", {
                               "child-row": row.isChildRow,
+                              [styles.labelGroup]: row.labelOnly,
                               [styles.clickableRow]: !!rowOnClick,
                             })}
                             key={`${rowId}-tbody`}
