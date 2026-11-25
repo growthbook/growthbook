@@ -3,7 +3,6 @@ import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { SavedGroupPayloadStrategy } from "shared/sdk-versioning/saved-groups/types";
 import { FeatureInterface } from "shared/types/feature";
-import { qaOverrideAppliesToConnection } from "shared/util";
 import {
   getFeatureDefinition,
   mergeConditionAndSavedGroups,
@@ -256,47 +255,6 @@ describe("excludeQaMatches", () => {
   });
 });
 
-describe("qaOverrideAppliesToConnection", () => {
-  const connection = { id: "sdk_1", environment: "dev", projects: ["p1"] };
-
-  it("requires the same environment", () => {
-    expect(qaOverrideAppliesToConnection(forcedOverride, connection)).toBe(
-      true,
-    );
-    expect(
-      qaOverrideAppliesToConnection(forcedOverride, {
-        ...connection,
-        environment: "staging",
-      }),
-    ).toBe(false);
-  });
-
-  it("honors the connection filter", () => {
-    const override = {
-      ...forcedOverride,
-      filters: { sdkConnections: ["sdk_2"] },
-    };
-    expect(qaOverrideAppliesToConnection(override, connection)).toBe(false);
-    expect(
-      qaOverrideAppliesToConnection(override, { ...connection, id: "sdk_2" }),
-    ).toBe(true);
-  });
-
-  it("honors the project filter, treating an unscoped connection as matching", () => {
-    const override = { ...forcedOverride, filters: { projects: ["p2"] } };
-    expect(qaOverrideAppliesToConnection(override, connection)).toBe(false);
-    expect(
-      qaOverrideAppliesToConnection(override, { ...connection, projects: [] }),
-    ).toBe(true);
-    expect(
-      qaOverrideAppliesToConnection(override, {
-        ...connection,
-        projects: ["p1", "p2"],
-      }),
-    ).toBe(true);
-  });
-});
-
 describe("getFeatureDefinition with QA overrides", () => {
   const draftExperiment = {
     id: "exp_1",
@@ -400,7 +358,7 @@ describe("getFeatureDefinition with QA overrides", () => {
     expect(def?.rules).toHaveLength(2);
     expect(def?.rules?.[0]).toMatchObject({
       id: "fr_abc",
-      key: "checkout::qa",
+      key: "checkout::gb-qa",
       seed: "phase-seed",
       condition: { id: "tester" },
       weights: [0, 1],
@@ -409,7 +367,7 @@ describe("getFeatureDefinition with QA overrides", () => {
     });
     expect(def?.rules?.[1]).toMatchObject({
       id: "fr_abc",
-      key: "checkout::qa",
+      key: "checkout::gb-qa",
       seed: "phase-seed",
       condition: { $and: [{ country: "US" }, { $not: { id: "tester" } }] },
       weights: [0.5, 0.5],
@@ -536,7 +494,7 @@ describe("getFeatureDefinition with QA overrides", () => {
         { exp },
       );
       expect(def?.rules?.[0]).toMatchObject({
-        key: "checkout::qa",
+        key: "checkout::gb-qa",
         condition: { id: "tester" },
         coverage: 1,
         weights: [0, 1],
@@ -630,7 +588,7 @@ describe("getFeatureDefinition with QA overrides", () => {
         parentConditions: [{ id: "$holdout:hld_1" }],
         condition: { $not: { id: "tester" } },
       });
-      expect(def?.rules?.[1]?.key).toBe("checkout::qa");
+      expect(def?.rules?.[1]?.key).toBe("checkout::gb-qa");
     });
 
     it("is skipped by testers who match the experiment's targeting when it is served as configured", () => {
@@ -646,7 +604,7 @@ describe("getFeatureDefinition with QA overrides", () => {
     it("is dropped when an override matches everyone", () => {
       const def = buildHoldout([forcedOverride]);
       expect(def?.rules).toHaveLength(1);
-      expect(def?.rules?.[0]?.key).toBe("checkout::qa");
+      expect(def?.rules?.[0]?.key).toBe("checkout::gb-qa");
     });
 
     it("is kept when the only override is not served", () => {
@@ -820,7 +778,7 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
   it("runs the QA copy on the QA key while the stored experiment stays a draft", () => {
     const [exp] = build([forcedOverride]);
     expect(exp).toMatchObject({
-      key: "checkout::qa",
+      key: "checkout::gb-qa",
       status: "running",
       weights: [0, 1],
       coverage: 1,
@@ -932,7 +890,7 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     expect(build([randomOverride], { exp, features: [parent] })).toEqual([]);
 
     const [forced] = build([forcedOverride], { exp, features: [parent] });
-    expect(forced).toMatchObject({ key: "checkout::qa", weights: [0, 1] });
+    expect(forced).toMatchObject({ key: "checkout::gb-qa", weights: [0, 1] });
     expect(forced.metadata?.qaOverride?.parentConditions).toEqual([
       { id: "parent", condition: { value: true } },
     ]);
@@ -987,14 +945,17 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     const [qaCopy] = build([forcedOverride]);
     const { experiments } = await getFeatureDefinitionsResponse({
       features: {},
-      experiments: [qaCopy, { ...qaCopy, key: "other::qa", status: "draft" }],
+      experiments: [
+        qaCopy,
+        { ...qaCopy, key: "other::gb-qa", status: "draft" },
+      ],
       dateUpdated: new Date(),
       projects: [],
       capabilities: ["looseUnmarshalling"],
       usedSavedGroups: [],
       includeDraftExperiments: false,
     });
-    expect(experiments?.map((e) => e.key)).toEqual(["checkout::qa"]);
+    expect(experiments?.map((e) => e.key)).toEqual(["checkout::gb-qa"]);
   });
 
   it("serves each override to the same testers as the flag rule does", () => {

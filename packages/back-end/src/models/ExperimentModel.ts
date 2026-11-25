@@ -958,13 +958,7 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
-// Dashboard only: the REST API keeps accepting any key, so existing
-// integrations aren't broken.
-function assertNotQaTrackingKey(
-  context: ReqContext | ApiReqContext,
-  trackingKey: string,
-) {
-  if (context.auditUser?.type === "api_key") return;
+function assertNotQaTrackingKey(trackingKey: string) {
   if (isQaTrackingKey(trackingKey)) {
     throw new Error(
       `Tracking key cannot end with "${QA_TRACKING_KEY_SUFFIX}" (reserved for QA overrides)`,
@@ -989,7 +983,7 @@ export async function createExperiment({
       async (key: string) => await getExperimentByTrackingKey(context, key),
     );
   }
-  assertNotQaTrackingKey(context, data.trackingKey);
+  assertNotQaTrackingKey(data.trackingKey);
 
   const nextUpdate = determineNextDate(
     context.org.settings?.updateSchedule || null,
@@ -1125,7 +1119,7 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
   if (allChanges.trackingKey) {
-    assertNotQaTrackingKey(context, allChanges.trackingKey);
+    assertNotQaTrackingKey(allChanges.trackingKey);
   }
 
   validateMetricOverrides(allChanges.metricOverrides);
