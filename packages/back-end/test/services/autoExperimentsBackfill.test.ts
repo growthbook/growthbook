@@ -19,13 +19,21 @@ beforeEach(async () => {
 
 type Doc = Record<string, unknown>;
 
-// One organization that holds every kind of change, each owned by `owner`.
+const DAY = 24 * 60 * 60 * 1000;
+// Either side of the two weeks a draft keeps counting for.
+const RECENT = new Date(Date.now() - 13 * DAY);
+const OLD = new Date(Date.now() - 15 * DAY);
+
+// One organization that holds every kind of change, each owned by `owner` and
+// last saved at `edited`.
 async function backfill({
   experiment,
   bandit,
+  edited,
 }: {
   experiment?: Doc;
   bandit?: Doc;
+  edited?: Date;
 }) {
   const organization = "org";
   await getCollection("organizations").insertOne({ id: organization });
@@ -47,12 +55,14 @@ async function backfill({
     organization,
     ...(bandit ? { contextualBandit: "cb" } : { experiment: "exp" }),
     visualChanges: [{ js: "alert(1)" }],
+    ...(edited ? { dateUpdated: edited } : {}),
   });
   await getCollection("urlredirects").insertOne({
     organization,
     experiment: "exp",
     urlPattern: "https://example.com/a",
     destinationURLs: [{ url: "https://other.example.com/b" }],
+    ...(edited ? { dateUpdated: edited } : {}),
   });
   await getCollection("sdkconnections").insertOne({
     organization,
@@ -110,6 +120,7 @@ describe("backfillAutoExperimentSettings", () => {
       "stopped with a temporary rollout",
       { status: "stopped", releasedVariationId: "v1" },
     ],
+    ["a recent draft", { status: "draft", dateUpdated: RECENT }],
   ])("counts an experiment that is %s", async (_, experiment) => {
     expect(await backfill({ experiment })).toEqual({
       settings: ALL,
@@ -120,7 +131,12 @@ describe("backfillAutoExperimentSettings", () => {
   it.each([
     ["deleted", undefined],
     // Starting it asks to enable the feature.
-    ["a draft", { status: "draft" }],
+    ["an old draft", { status: "draft", dateUpdated: OLD }],
+    ["a draft with no date", { status: "draft" }],
+    [
+      "a recent draft that is archived",
+      { status: "draft", dateUpdated: RECENT, archived: true },
+    ],
     ["archived", { status: "running", archived: true }],
     ["stopped", { status: "stopped", releasedVariationId: "" }],
     [
@@ -138,13 +154,42 @@ describe("backfillAutoExperimentSettings", () => {
     });
   });
 
-  it("counts a contextual bandit that is running", async () => {
-    const { settings } = await backfill({ bandit: { status: "running" } });
+  // Saving a change doesn't move its experiment's date.
+  it("counts an old draft whose changes were saved recently", async () => {
+    expect(
+      await backfill({
+        experiment: { status: "draft", dateUpdated: OLD },
+        edited: RECENT,
+      }),
+    ).toEqual({ settings: ALL, connection: CONNECTION_ON });
+  });
+
+  it("ignores an old draft whose changes are old too", async () => {
+    const { settings } = await backfill({
+      experiment: { status: "draft", dateUpdated: OLD },
+      edited: OLD,
+    });
+    expect(settings).toEqual(NONE);
+  });
+
+  it("ignores recently saved changes of a stopped experiment", async () => {
+    const { settings } = await backfill({
+      experiment: { status: "stopped", releasedVariationId: "" },
+      edited: RECENT,
+    });
+    expect(settings).toEqual(NONE);
+  });
+
+  it.each([
+    ["running", { status: "running" }],
+    ["a recent draft", { status: "draft", dateUpdated: RECENT }],
+  ])("counts a contextual bandit that is %s", async (_, bandit) => {
+    const { settings } = await backfill({ bandit });
     expect(settings).toEqual({ ...NONE, visualEditor: true, customJs: true });
   });
 
   it.each([
-    ["a draft", { status: "draft" }],
+    ["an old draft", { status: "draft", dateUpdated: OLD }],
     ["stopped", { status: "stopped" }],
     ["archived", { status: "running", archived: true }],
   ])("ignores a contextual bandit that is %s", async (_, bandit) => {
