@@ -425,10 +425,9 @@ export default function AnalysisSettingsSummary({
     overallNeedsFullRefresh || overallNeverRanIncrementally;
   const hideOutdatedBadge =
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
-  // Org setting that freezes results (overall and dimension) of stopped
-  // experiments once the grace period has elapsed. Custom reports stay open.
   const resultsUpdateDisabled = isExperimentResultsUpdateDisabled(
     experiment,
+    phase,
     orgSettings,
   );
 

@@ -81,7 +81,12 @@ export default function DashboardSnapshotProvider({
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
   const resultsUpdateDisabled =
-    !!experiment && isExperimentResultsUpdateDisabled(experiment, orgSettings);
+    !!experiment &&
+    isExperimentResultsUpdateDisabled(
+      experiment,
+      experiment.phases.length - 1,
+      orgSettings,
+    );
   const {
     data: snapshotData,
     error: singleSnapshotError,

@@ -3157,7 +3157,11 @@ export async function planExperimentSnapshot({
   if (
     !bypassResultsUpdateDisabled &&
     !context.ignoreWarnings &&
-    isExperimentResultsUpdateDisabled(experiment, context.org.settings ?? {})
+    isExperimentResultsUpdateDisabled(
+      experiment,
+      phase,
+      context.org.settings ?? {},
+    )
   ) {
     throw new SoftWarningError(EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE, [
       EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
