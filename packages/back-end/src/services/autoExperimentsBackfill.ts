@@ -1,33 +1,107 @@
 import type { ObjectId } from "mongodb";
-import { isCrossOriginRedirect } from "shared/util";
+import { hasCustomJs, isCrossOriginRedirect } from "shared/util";
 import type { AutoExperimentFeature } from "shared/types/organization";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 type Settings = Record<AutoExperimentFeature, boolean>;
 
+type Owner = {
+  id: string;
+  archived?: boolean;
+  status?: string;
+  excludeFromPayload?: boolean;
+  releasedVariationId?: string;
+};
+
+// Not archived, and not stopped unless a temporary rollout keeps a variation
+// live. A contextual bandit has no temporary rollout, so a stopped one is out.
+const canStillServe = (owner: Owner) =>
+  !owner.archived &&
+  (owner.status !== "stopped" ||
+    (!owner.excludeFromPayload && !!owner.releasedVariationId));
+
+// The `ids` that belong to an experiment or contextual bandit that exists and
+// can still serve.
+async function getServingIds(
+  collection: "experiments" | "contextualbandits",
+  organization: string,
+  ids: (string | undefined)[],
+): Promise<Set<string>> {
+  const wanted = [...new Set(ids.filter((id): id is string => !!id))];
+  if (!wanted.length) return new Set();
+  const owners = await getCollection<Owner>(collection)
+    .find(
+      { organization, id: { $in: wanted } },
+      {
+        projection: {
+          id: 1,
+          archived: 1,
+          status: 1,
+          excludeFromPayload: 1,
+          releasedVariationId: 1,
+        },
+      },
+    )
+    .toArray();
+  return new Set(owners.filter(canStillServe).map((o) => o.id));
+}
+
+// A changeset or redirect left behind by a deleted experiment, or held by one
+// that can no longer serve it, is not use.
 async function getUsage(organization: string): Promise<Settings> {
-  const changesets = getCollection("visualchangesets");
-  const [visual, js, redirects] = await Promise.all([
-    changesets.countDocuments({ organization }, { limit: 1 }),
-    changesets.countDocuments(
-      { organization, "visualChanges.js": { $regex: "\\S" } },
-      { limit: 1 },
-    ),
+  const [changesets, redirects] = await Promise.all([
     getCollection<{
+      experiment?: string;
+      contextualBandit?: string;
+      visualChanges?: { js?: string }[];
+    }>("visualchangesets")
+      .find(
+        { organization },
+        {
+          projection: {
+            experiment: 1,
+            contextualBandit: 1,
+            "visualChanges.js": 1,
+          },
+        },
+      )
+      .toArray(),
+    getCollection<{
+      experiment?: string;
       urlPattern: string;
       destinationURLs: { url: string }[];
     }>("urlredirects")
       .find(
         { organization },
-        { projection: { urlPattern: 1, destinationURLs: 1 } },
+        { projection: { experiment: 1, urlPattern: 1, destinationURLs: 1 } },
       )
       .toArray(),
   ]);
+  const [experiments, bandits] = await Promise.all([
+    getServingIds(
+      "experiments",
+      organization,
+      [...changesets, ...redirects].map((d) => d.experiment),
+    ),
+    getServingIds(
+      "contextualbandits",
+      organization,
+      changesets.map((c) => c.contextualBandit),
+    ),
+  ]);
+  const liveChangesets = changesets.filter(
+    (c) =>
+      experiments.has(c.experiment ?? "") ||
+      bandits.has(c.contextualBandit ?? ""),
+  );
+  const liveRedirects = redirects.filter((r) =>
+    experiments.has(r.experiment ?? ""),
+  );
   return {
-    visualEditor: visual > 0,
-    urlRedirects: redirects.length > 0,
-    customJs: js > 0,
-    crossOriginRedirects: redirects.some((r) =>
+    visualEditor: liveChangesets.length > 0,
+    urlRedirects: liveRedirects.length > 0,
+    customJs: liveChangesets.some((c) => hasCustomJs(c.visualChanges ?? [])),
+    crossOriginRedirects: liveRedirects.some((r) =>
       isCrossOriginRedirect({
         urlPattern: r.urlPattern ?? "",
         destinationURLs: r.destinationURLs ?? [],

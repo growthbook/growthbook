@@ -180,6 +180,14 @@ if (!IS_CLOUD) {
   );
 }
 
+// Rebuilding every payload on request would be costly to offer on Cloud.
+if (!IS_CLOUD) {
+  router.post(
+    "/organization/rebuild-sdk-payloads",
+    organizationsController.postRebuildSDKPayloads,
+  );
+}
+
 // Custom Roles
 router.post("/custom-roles", organizationsController.postCustomRole);
 router.put("/custom-roles/:id", organizationsController.putCustomRole);

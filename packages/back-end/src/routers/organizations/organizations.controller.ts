@@ -158,7 +158,10 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import {
+  queueSDKPayloadRefresh,
+  refreshSDKPayloadCache,
+} from "back-end/src/services/features";
 import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
 import {
   getAutoExperimentAccess,
@@ -2376,6 +2379,35 @@ export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
     webhooks: webhooks.filter((webhook) =>
       context.permissions.canReadSingleProjectResource(webhook.project),
     ),
+  });
+}
+
+// For a change that nothing else rebuilds payloads for, such as an environment
+// variable that alters what they carry.
+export async function postRebuildSDKPayloads(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  // Read with full access: the admin may not be able to see every Project.
+  const sdkConnections = await findServingSDKConnections(
+    getContextForAgendaJobByOrgObject(context.org),
+  );
+  // Awaited, so the response comes after the rebuild. A single connection
+  // that fails to rebuild is still only logged.
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys: [],
+    sdkConnections,
+    auditContext: {
+      event: "rebuilt",
+      model: "organization",
+      id: context.org.id,
+    },
+  });
+  res.status(200).json({
+    status: 200,
+    sdkConnections: sdkConnections.length,
   });
 }
 
