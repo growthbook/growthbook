@@ -31,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { useMuteAlert } from "@/components/HealthTab/MuteAlert";
 import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import {
   HealthTabConfigParams,
@@ -528,6 +529,9 @@ function HealthSnapshotCards({
   showMultipleExposures: boolean;
   decisionFrameworkEnabled?: boolean;
 }) {
+  const srmMute = useMuteAlert(experiment, "srm");
+  const multipleExposuresMute = useMuteAlert(experiment, "multiple-exposures");
+
   const totalUsers =
     traffic.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
@@ -608,6 +612,7 @@ function HealthSnapshotCards({
             healthTabConfigParams={healthTabConfigParams}
             canConfigHealthTab={hasPermissionToConfigHealthTag}
             hideDimensions={isClusterExperiment}
+            mute={srmMute}
           />
         ) : (
           <Callout status="info" my="4">
@@ -648,6 +653,7 @@ function HealthSnapshotCards({
             snapshotId={snapshot.id}
             isClusterExperiment={isClusterExperiment}
             error={multipleExposuresError}
+            mute={multipleExposuresMute}
           />
         </div>
       )}

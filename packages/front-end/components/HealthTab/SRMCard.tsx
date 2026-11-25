@@ -6,7 +6,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import clsx from "clsx";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
@@ -14,6 +14,7 @@ import { StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";
 import { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
+import { MuteAlert, MuteAlertButton, MutedAlertNote } from "./MuteAlert";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;
@@ -27,6 +28,7 @@ interface Props {
   canConfigHealthTab: boolean;
   newDesign?: boolean;
   hideDimensions?: boolean;
+  mute?: MuteAlert;
 }
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
@@ -44,13 +46,14 @@ export default function SRMCard({
   canConfigHealthTab,
   newDesign = false,
   hideDimensions = false,
+  mute,
 }: Props) {
   const srmHealth = useSrmHealth({
     srm: traffic.overall.srm,
     numOfVariations: variations.length,
     totalUsersCount: totalUsers,
     minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    onNotify,
+    onNotify: mute?.isMuted ? undefined : onNotify,
     snapshotId,
   });
 
@@ -77,8 +80,16 @@ export default function SRMCard({
     >
       <div className={clsx("overflow-hidden", { row: !hideDimensions })}>
         <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
-          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-          {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
+          <Flex justify="between" align="start" gap="2">
+            <Box>
+              <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+              {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
+            </Box>
+            {mute && !mute.isMuted && srmHealth === "unhealthy" ? (
+              <MuteAlertButton onClick={mute.toggle} />
+            ) : null}
+          </Flex>
+          {mute?.isMuted ? <MutedAlertNote onUnmute={mute.toggle} /> : null}
           <p className="mt-1">
             Shows actual unit split compared to percent selected for the
             experiment

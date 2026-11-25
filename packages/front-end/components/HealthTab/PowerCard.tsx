@@ -1,19 +1,17 @@
 import { useEffect } from "react";
-import { useSWRConfig } from "swr";
-import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
 import { coveragePercentFormatter } from "@/services/utils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
+import { MuteAlertButton, MutedAlertNote, useMuteAlert } from "./MuteAlert";
 
 export function PowerCard({
   experiment,
@@ -24,8 +22,6 @@ export function PowerCard({
   snapshot: ExperimentSnapshotInterface;
   onNotify: (issue: IssueValue) => void;
 }) {
-  const { apiCall, orgId } = useAuth();
-  const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
   const hasMidExperimentPowerFeature =
@@ -36,30 +32,16 @@ export function PowerCard({
   const isLowPowered = snapshotPower?.isLowPowered ?? false;
 
   const canBeMuted = hasMidExperimentPowerFeature && isLowPowered;
-  const isMuted = experiment.dismissedWarnings?.includes("low-power") ?? false;
-
-  const toggleMuteAlert = async () => {
-    const existingDismissedWarnings = experiment.dismissedWarnings ?? [];
-    await apiCall(`/experiment/${experiment.id}`, {
-      method: "POST",
-      body: JSON.stringify({
-        dismissedWarnings: isMuted
-          ? existingDismissedWarnings.filter((w) => w !== "low-power")
-          : [...existingDismissedWarnings, "low-power"],
-      }),
-    });
-    // Ensure the experiment is refetched to get the updated dismissedWarnings
-    mutate(`${orgId}::/experiment/${experiment.id}`);
-  };
+  const mute = useMuteAlert(experiment, "low-power");
 
   useEffect(() => {
-    if (isLowPowered && !experiment.dismissedWarnings?.includes("low-power")) {
+    if (isLowPowered && !mute.isMuted) {
       onNotify({
         label: "Low powered",
         value: "power-card",
       });
     }
-  }, [experiment.dismissedWarnings, isLowPowered, onNotify]);
+  }, [mute.isMuted, isLowPowered, onNotify]);
 
   const renderUpsell = () => (
     <Callout status="info">
@@ -147,22 +129,13 @@ export function PowerCard({
             ) : null}
           </Flex>
 
-          {canBeMuted && !isMuted ? (
-            <Tooltip content={"Mute this alert"}>
-              <Button onClick={toggleMuteAlert} variant="ghost">
-                <PiX />
-              </Button>
-            </Tooltip>
+          {canBeMuted && !mute.isMuted ? (
+            <MuteAlertButton onClick={mute.toggle} />
           ) : null}
         </Flex>
 
-        {canBeMuted && isMuted ? (
-          <Text size="2" color="gray">
-            <PiInfo />
-            This alert was muted, it will not consider the experiment Unhealthy
-            even if problems are detected. Click{" "}
-            <Link onClick={toggleMuteAlert}>here</Link> to re-enable it.
-          </Text>
+        {canBeMuted && mute.isMuted ? (
+          <MutedAlertNote onUnmute={mute.toggle} />
         ) : null}
 
         <p className="mt-1">

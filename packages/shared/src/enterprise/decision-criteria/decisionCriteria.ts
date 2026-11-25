@@ -732,10 +732,16 @@ export function getExperimentResultStatus({
           : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       healthSettings,
     });
-    if (srm.status === "unhealthy") {
+    if (
+      srm.status === "unhealthy" &&
+      !experimentData.dismissedWarnings?.includes("srm")
+    ) {
       unhealthyData.srm = true;
     }
-    if (multipleExposures?.status === "unhealthy") {
+    if (
+      multipleExposures?.status === "unhealthy" &&
+      !experimentData.dismissedWarnings?.includes("multiple-exposures")
+    ) {
       unhealthyData.multipleExposures = {
         rawDecimal: multipleExposures.rawDecimal,
         multipleExposedUsers: multipleExposures.count,

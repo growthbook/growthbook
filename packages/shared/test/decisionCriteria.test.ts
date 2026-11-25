@@ -2005,6 +2005,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     analysisSummary,
     status = "running",
     isClusterExperiment,
+    dismissedWarnings,
   }: {
     stopAt?: Date;
     dateStarted?: Date;
@@ -2014,6 +2015,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     analysisSummary?: ExperimentDataForStatus["analysisSummary"];
     status?: ExperimentDataForStatus["status"];
     isClusterExperiment?: boolean;
+    dismissedWarnings?: ExperimentDataForStatus["dismissedWarnings"];
   } = {}): ExperimentDataForStatus {
     return {
       type: "standard",
@@ -2031,6 +2033,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       ...(stopAt ? { statusUpdateSchedule: { stopAt } } : {}),
       ...(analysisSummary ? { analysisSummary } : {}),
       ...(isClusterExperiment ? { isClusterExperiment } : {}),
+      ...(dismissedWarnings ? { dismissedWarnings } : {}),
     } as unknown as ExperimentDataForStatus;
   }
 
@@ -2597,6 +2600,48 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     expect(result).toEqual({
       status: "data-incomplete",
       erroredMetrics: ["metric-1"],
+    });
+  });
+
+  describe("dismissed health warnings", () => {
+    // SRM fails, and 5% of units saw more than one variation.
+    const failingBoth: ExperimentDataForStatus["analysisSummary"] = {
+      snapshotId: "snap-1",
+      health: {
+        srm: 0.0001,
+        multipleExposures: 50_000,
+        totalUsers: 1_000_000,
+      },
+    };
+    const statusFor = (
+      dismissedWarnings: ExperimentDataForStatus["dismissedWarnings"],
+    ) =>
+      getExperimentResultStatus({
+        experimentData: makeExperimentData({
+          analysisSummary: failingBoth,
+          dismissedWarnings,
+        }),
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+
+    it("flags both warnings when neither is dismissed", () => {
+      const result = statusFor([]);
+
+      expect(result?.status).toBe("unhealthy");
+      expect(result?.tooltip).toBe("SRM, Multiple exposures");
+    });
+
+    it("leaves out only the dismissed warning", () => {
+      expect(statusFor(["srm"])?.tooltip).toBe("Multiple exposures");
+      expect(statusFor(["multiple-exposures"])?.tooltip).toBe("SRM");
+    });
+
+    it("is not unhealthy once every failing warning is dismissed", () => {
+      expect(statusFor(["srm", "multiple-exposures"])?.status).not.toBe(
+        "unhealthy",
+      );
     });
   });
 });
