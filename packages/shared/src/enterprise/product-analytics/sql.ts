@@ -2318,6 +2318,54 @@ export function generateProductAnalyticsSQL(
   };
 }
 
+/**
+ * SQL listing a Population's members: one row per unit id, in a `unit0`
+ * column. Builds the same CTEs a Population count does, with no dimensions,
+ * so membership (including any aggregate filter) is decided over the whole
+ * date range rather than per date bucket. Units with a NULL id are left out,
+ * since they can't be targeted. Fact table template variables must already
+ * be compiled into `factTableMap`.
+ */
+export function generatePopulationMembersSQL(
+  population: ResolvedExplorationPopulation,
+  factTableMap: FactTableMap,
+  dialect: SqlDialect,
+  dateRange: DateRange,
+): string {
+  const [group] = getPopulationFactTableGroups(
+    {
+      type: "population",
+      values: [{ ...population, type: "population", name: "Population" }],
+    },
+    factTableMap,
+  );
+  const factTableCTE = generateFactTableCTE(group, dialect, dateRange, []);
+  const rowsCTE = generateFactTableRowsCTE(
+    group,
+    factTableCTE,
+    null,
+    [],
+    dialect,
+  );
+  const [metricData] = group.metrics.map((m) =>
+    getMetricData(m, group, dialect),
+  );
+  const unitCTE = generateUnitAggregationCTE(group, rowsCTE, [], 0, [
+    metricData,
+  ]);
+
+  return format(
+    `
+  WITH
+    ${[factTableCTE, rowsCTE, unitCTE].map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
+  SELECT unit0
+  FROM ${unitCTE.name}
+  WHERE ${metricData.alias} IS NOT NULL AND unit0 IS NOT NULL
+  `,
+    dialect.formatDialect,
+  );
+}
+
 function generateProductAnalyticsRawTableSQL(
   config: ExplorationConfig,
   dialect: SqlDialect,

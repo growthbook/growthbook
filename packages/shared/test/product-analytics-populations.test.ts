@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import {
+  generatePopulationMembersSQL,
   generateProductAnalyticsSQL,
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
@@ -302,14 +303,19 @@ type Results = Record<
   { populationCount?: number; values: (number | null)[][] }
 >;
 
-function run(config: MetricExplorationConfig): Results {
+function openEventsDb(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
+  db.exec(
+    "CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, device_type TEXT, event_name TEXT)",
+  );
+  const insert = db.prepare("INSERT INTO events VALUES (?, ?, ?, ?, ?)");
+  EVENTS.forEach((event) => insert.run(...event));
+  return db;
+}
+
+function run(config: MetricExplorationConfig): Results {
+  const db = openEventsDb();
   try {
-    db.exec(
-      "CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, device_type TEXT, event_name TEXT)",
-    );
-    const insert = db.prepare("INSERT INTO events VALUES (?, ?, ?, ?, ?)");
-    EVENTS.forEach((event) => insert.run(...event));
     const { sql, orderedMetricIds } = generate(config);
     const { rows } = transformProductAnalyticsRowsToResult(
       config,
@@ -956,5 +962,69 @@ describe("getPopulationCacheKey", () => {
         unit: "user_id",
       }),
     );
+  });
+});
+
+describe("generatePopulationMembersSQL", () => {
+  const SEPT_1_TO_3_DATES = {
+    startDate: new Date("2026-09-01T00:00:00Z"),
+    endDate: new Date("2026-09-03T23:59:59Z"),
+  };
+
+  function members(
+    population: ResolvedExplorationPopulation,
+    dateRange = SEPT_1_TO_3_DATES,
+  ): string[] {
+    const db = openEventsDb();
+    try {
+      const sql = generatePopulationMembersSQL(
+        population,
+        new Map([[table.id, table]]),
+        dialect,
+        dateRange,
+      );
+      return db
+        .prepare(sql)
+        .all()
+        .map((row) => String(row.unit0))
+        .sort();
+    } finally {
+      db.close();
+    }
+  }
+
+  it("lists every unit matching the row filters, without NULL ids", () => {
+    expect(members(mobileUsers())).toEqual([
+      "Alice",
+      "Bob",
+      "Erin",
+      "Frank",
+      "Gina",
+    ]);
+  });
+
+  it("applies the aggregate filter over the whole date range", () => {
+    // Alice $12, Erin $20, Gina $15 pass; Bob ($5) and Frank ($0) don't
+    expect(members(mobileRevenueOver10)).toEqual(["Alice", "Erin", "Gina"]);
+  });
+
+  it("only counts rows inside the date range", () => {
+    // Alice's $12 is on 9/1, outside the range
+    expect(
+      members(mobileRevenueOver10, {
+        startDate: new Date("2026-09-02T00:00:00Z"),
+        endDate: new Date("2026-09-03T23:59:59Z"),
+      }),
+    ).toEqual(["Erin", "Gina"]);
+  });
+
+  it("agrees with the explorer's overall Population count, less the NULL id", () => {
+    for (const population of [mobileUsers(), mobileRevenueOver10]) {
+      const { overall } = run(
+        explore({ metrics: [purchasers], population, overall: true }),
+      );
+      // The NULL id's $99 mobile purchase passes both, so the explorer counts it
+      expect(members(population).length + 1).toBe(overall.populationCount);
+    }
   });
 });
