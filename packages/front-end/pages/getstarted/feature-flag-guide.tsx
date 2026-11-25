@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -17,6 +18,7 @@ import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import Callout from "@/ui/Callout";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
+  const { t } = useLingui();
   const { organization } = useUser();
   const { data: sdkConnections } = useSDKConnections();
   const { features, loading: featuresLoading, error } = useFeatureMetaInfo();
@@ -55,8 +57,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     <div className="container pagecontents">
       <PageHead
         breadcrumb={[
-          { display: "Get Started", href: "/getstarted" },
-          { display: "Create Feature Flags" },
+          { display: t`Get Started`, href: "/getstarted" },
+          { display: t`Create Feature Flags` },
         ]}
       />
       {upgradeModal && (
@@ -66,13 +68,17 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      <h1 className="mb-3">Create Feature Flags</h1>
+      <h1 className="mb-3">
+        <Trans>Create Feature Flags</Trans>
+      </h1>
       <div className="d-flex align-middle justify-content-between mb-4">
         <span className="mr-3">
-          Have feature flags in LaunchDarkly?{" "}
-          <Link href="/importing/launchdarkly">
-            View migration instructions
-          </Link>{" "}
+          <Trans>
+            Have feature flags in LaunchDarkly?{" "}
+            <Link href="/importing/launchdarkly">
+              View migration instructions
+            </Link>
+          </Trans>{" "}
           <PiArrowRight />
         </span>
         <ViewSampleDataButton resource="feature" />
@@ -115,15 +121,17 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Integrate the GrowthBook SDK into your app",
+                      step: t`Integrate the GrowthBook SDK into your app`,
                       source: "featureFlagGuide",
                       stepKey: "sdk",
                     })
                   }
                 >
-                  Integrate the GrowthBook SDK into your app
+                  <Trans>Integrate the GrowthBook SDK into your app</Trans>
                 </NextLink>
-                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Box mt="2">
+                  <Trans>Allow GrowthBook to communicate with your app.</Trans>
+                </Box>
                 <Separator size="4" my="4" />
               </div>
             </div>
@@ -163,18 +171,22 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: `Create a Test Feature Flag${
-                        project && " in this Project"
-                      }`,
+                      step: project
+                        ? t`Create a Test Feature Flag in this Project`
+                        : t`Create a Test Feature Flag`,
                       source: "featureFlagGuide",
                       stepKey: "createFeatureFlag",
                     })
                   }
                 >
-                  Create a Test Feature Flag{project && " in this Project"}
+                  {project ? (
+                    <Trans>Create a Test Feature Flag in this Project</Trans>
+                  ) : (
+                    <Trans>Create a Test Feature Flag</Trans>
+                  )}
                 </NextLink>
                 <Box mt="2">
-                  Add your first feature flag to test your setup.
+                  <Trans>Add your first feature flag to test your setup.</Trans>
                 </Box>
               </div>
             </div>

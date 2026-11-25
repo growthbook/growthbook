@@ -1,6 +1,7 @@
 import { MouseEventHandler, ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import Tooltip from "@/ui/Tooltip";
 
 // Keep clicks on the help icon / adornment from toggling the control the label
@@ -19,6 +20,7 @@ export default function LabelWithHelp({
   help?: string;
   adornment?: ReactNode;
 }) {
+  const { t } = useLingui();
   if (!help && !adornment) return <>{label}</>;
   return (
     <Flex align="center" gap="1" asChild>
@@ -32,8 +34,8 @@ export default function LabelWithHelp({
                 onClick={guardClick}
                 aria-label={
                   typeof label === "string"
-                    ? `More information about ${label}`
-                    : "More information"
+                    ? t`More information about ${label}`
+                    : t`More information`
                 }
               >
                 <PiInfo color="var(--color-text-low)" />

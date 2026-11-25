@@ -1,4 +1,5 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   ExperimentMetricDefinition,
@@ -51,6 +52,7 @@ export default function VariationStatsTable({
   unitsLabel,
   subUnitsLabel,
 }: VariationStatsTableProps) {
+  const { t } = useLingui();
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
@@ -65,6 +67,8 @@ export default function VariationStatsTable({
   const quantileValue = isFactMetric(metric)
     ? metric.quantileSettings?.quantile
     : undefined;
+  const sampleSizeLabel =
+    quantileMetric === "event" ? t`Events` : (unitsLabel ?? t`Units`);
 
   const hasCustomDenominator =
     ((isFactMetric(metric) && metric.metricType === "ratio") ||
@@ -83,36 +87,43 @@ export default function VariationStatsTable({
     <Table size="sm">
       <TableHeader>
         <TableRow style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
-          <TableColumnHeader pl="0">Variation</TableColumnHeader>
+          <TableColumnHeader pl="0">
+            <Trans>Variation</Trans>
+          </TableColumnHeader>
           <TableColumnHeader justify="end">
-            {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
-            {quantileMetric === "event" ? "Events" : (unitsLabel ?? "Units")}
+            {quantileMetric && quantileIgnoreZeros
+              ? t`Non-zero ${sampleSizeLabel}`
+              : sampleSizeLabel}
           </TableColumnHeader>
           {subUnitsLabel ? (
             <TableColumnHeader justify="end">{subUnitsLabel}</TableColumnHeader>
           ) : null}
           {!quantileMetric ? (
             <TableColumnHeader justify="end">
-              Numerator
+              <Trans>Numerator</Trans>
               {isBandit && (
                 <>
                   <br />
                   <div className="small" style={{ marginTop: -2 }}>
-                    (adjusted)
+                    <Trans>(adjusted)</Trans>
                   </div>
                 </>
               )}
             </TableColumnHeader>
           ) : null}
           {hasCustomDenominator ? (
-            <TableColumnHeader justify="end">Denom.</TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Denom.</Trans>
+            </TableColumnHeader>
           ) : null}
           {quantileMetric && quantileValue ? (
             <TableColumnHeader justify="end">
               {getPercentileLabel(quantileValue)}
             </TableColumnHeader>
           ) : (
-            <TableColumnHeader justify="end">Value</TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Value</Trans>
+            </TableColumnHeader>
           )}
         </TableRow>
       </TableHeader>
@@ -191,7 +202,7 @@ export default function VariationStatsTable({
                         style={{ color: "var(--color-text-mid)" }}
                         weight="regular"
                       >
-                        BASELINE
+                        <Trans>BASELINE</Trans>
                       </Text>
                     ) : null}
                   </Flex>
@@ -228,7 +239,9 @@ export default function VariationStatsTable({
                     asTd={false}
                   />
                 ) : (
-                  <em className="text-muted small">No data</em>
+                  <em className="text-muted small">
+                    <Trans>No data</Trans>
+                  </em>
                 )}
               </TableCell>
             </TableRow>

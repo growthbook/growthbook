@@ -1,4 +1,5 @@
 import { ReactNode, FC } from "react";
+import { Trans } from "@lingui/react/macro";
 
 const RightRailSection: FC<{
   open?: () => void;
@@ -17,7 +18,7 @@ const RightRailSection: FC<{
             open();
           }}
         >
-          Edit
+          <Trans>Edit</Trans>
         </a>
       )}
       <h4>{title}</h4>

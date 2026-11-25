@@ -2,6 +2,7 @@ import React from "react";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import styles from "./Breadcrumbs.module.scss";
@@ -19,8 +20,9 @@ export default function Breadcrumbs({
   items: BreadcrumbItem[];
   muted?: boolean;
 }) {
+  const { t } = useLingui();
   return (
-    <nav aria-label="Breadcrumb">
+    <nav aria-label={t`Breadcrumb`}>
       <Flex align="center" gap={muted ? "2" : "1"}>
         {items.map((item, i) => {
           const isLast = i === items.length - 1;

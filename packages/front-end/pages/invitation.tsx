@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
@@ -7,6 +8,7 @@ import { trackPageView } from "@/services/track";
 import Callout from "@/ui/Callout";
 
 const InvitationPage = (): React.ReactElement => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   // Extract the invitation key from the querystring
@@ -45,13 +47,13 @@ const InvitationPage = (): React.ReactElement => {
     } else {
       throw new Error(
         res.message ||
-          "There was an error accepting the invite. Please go back to your email and click the invite link again.",
+          t`There was an error accepting the invite. Please go back to your email and click the invite link again.`,
       );
     }
-  }, [apiCall]);
+  }, [apiCall, t]);
 
   const error = !key
-    ? "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
+    ? t`Missing required invite key parameter in URL. Please go back to your email and click the invite link again.`
     : keyError?.message;
   if (error) {
     return <Callout status="error">{error}</Callout>;
@@ -61,16 +63,30 @@ const InvitationPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
+  const organization = data.organization;
+  const role = data.role;
+
   return (
     <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
-      <h3 className="mb-3">Accept Invitation</h3>
+      <h3 className="mb-3">
+        <Trans>Accept Invitation</Trans>
+      </h3>
       <div className="mb-3">
-        You&apos;ve been invited to join <strong>{data.organization}</strong> on
-        GrowthBook as {data.role?.match(/^[aeiou]/i) ? "an" : "a"} {data.role}!
+        {role?.match(/^[aeiou]/i) ? (
+          <Trans>
+            You&apos;ve been invited to join <strong>{organization}</strong> on
+            GrowthBook as an {role}!
+          </Trans>
+        ) : (
+          <Trans>
+            You&apos;ve been invited to join <strong>{organization}</strong> on
+            GrowthBook as a {role}!
+          </Trans>
+        )}
       </div>
       <div className="d-flex">
         <Button color="primary" onClick={acceptInvite} className="ml-auto">
-          Accept Invitation
+          <Trans>Accept Invitation</Trans>
         </Button>
       </div>
     </div>

@@ -1,5 +1,8 @@
 import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
@@ -8,9 +11,11 @@ import { trackPageView } from "@/services/track";
 import Callout from "@/ui/Callout";
 
 export default function ResetPasswordPage(): ReactElement {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const token = router.query.token;
-  const [error, setError] = useState("");
+  // A descriptor for our own messages, so the effect doesn't depend on the language
+  const [error, setError] = useState<string | MessageDescriptor>("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -19,7 +24,7 @@ export default function ResetPasswordPage(): ReactElement {
   useEffect(() => {
     if (!router.isReady) return;
     if (!token) {
-      setError("Missing reset token");
+      setError(msg`Missing reset token`);
       setLoading(false);
       return;
     }
@@ -29,7 +34,7 @@ export default function ResetPasswordPage(): ReactElement {
       .then((res) => res.json())
       .then((json: { status: number; message?: string; email?: string }) => {
         if (json.status > 200) {
-          setError(json.message || "Invalid reset token");
+          setError(json.message || msg`Invalid reset token`);
           setLoading(false);
           return;
         }
@@ -48,7 +53,9 @@ export default function ResetPasswordPage(): ReactElement {
     return (
       <div className="container">
         <Callout status="error">
-          Invalid URL. <Link href="/">Go Back</Link>
+          <Trans>
+            Invalid URL. <Link href="/">Go Back</Link>
+          </Trans>
         </Callout>
       </div>
     );
@@ -79,7 +86,7 @@ export default function ResetPasswordPage(): ReactElement {
                 message?: string;
               } = await res.json();
               if (json.status > 200) {
-                throw new Error(json.message || "An error occurred");
+                throw new Error(json.message || t`An error occurred`);
               }
 
               setSuccess(true);
@@ -88,12 +95,18 @@ export default function ResetPasswordPage(): ReactElement {
     >
       {loading && <LoadingOverlay />}
       {error ? (
-        <Callout status="error">{error}</Callout>
+        <Callout status="error">
+          {typeof error === "string" ? error : i18n._(error)}
+        </Callout>
       ) : success ? (
         <div>
-          <h3 className="mb-3">Reset Password</h3>
+          <h3 className="mb-3">
+            <Trans>Reset Password</Trans>
+          </h3>
           <Callout mb="3" status="success">
-            Successfully reset password for <strong>{email}</strong>
+            <Trans>
+              Successfully reset password for <strong>{email}</strong>
+            </Trans>
           </Callout>
           <button
             className="btn btn-primary"
@@ -103,17 +116,19 @@ export default function ResetPasswordPage(): ReactElement {
               router.push("/");
             }}
           >
-            Log In Now
+            <Trans>Log In Now</Trans>
           </button>
         </div>
       ) : (
         <div>
           <p className="text-muted">
-            Reset password for <strong>{email}</strong>.
+            <Trans>
+              Reset password for <strong>{email}</strong>.
+            </Trans>
           </p>
           <input type="hidden" name="email" value={email} readOnly />
           <div className="form-group">
-            New Password
+            <Trans>New Password</Trans>
             <input
               type="password"
               className="form-control"

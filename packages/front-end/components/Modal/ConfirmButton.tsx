@@ -1,4 +1,5 @@
 import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
+import { useLingui } from "@lingui/react/macro";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const ConfirmButton: FC<{
@@ -15,8 +16,8 @@ const ConfirmButton: FC<{
 }> = ({
   onClick,
   modalHeader,
-  confirmationText = "Are you sure?",
-  cta = "Yes",
+  confirmationText,
+  cta,
   ctaEnabled = true,
   size = "md",
   children,
@@ -24,6 +25,7 @@ const ConfirmButton: FC<{
   disabled = false,
   isDestructive = false,
 }) => {
+  const { t } = useLingui();
   const [confirming, setConfirming] = useState(false);
   return (
     <>
@@ -33,13 +35,13 @@ const ConfirmButton: FC<{
           header={modalHeader}
           close={() => setConfirming(false)}
           open={true}
-          cta={cta}
+          cta={cta ?? t`Yes`}
           ctaEnabled={ctaEnabled}
           ctaColor={isDestructive ? "red" : "violet"}
           submit={onClick}
           size={size}
         >
-          <div>{confirmationText}</div>
+          <div>{confirmationText ?? t`Are you sure?`}</div>
           {additionalMessage &&
             (isValidElement(additionalMessage) ? (
               additionalMessage

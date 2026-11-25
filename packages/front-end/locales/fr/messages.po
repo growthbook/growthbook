@@ -1,0 +1,2506 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+
+#: ui/VariationStatsTable.tsx
+msgid "(adjusted)"
+msgstr "(ajusté)"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "(optional)"
+msgstr "(facultatif)"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "{label} isn't available in a table"
+msgstr "{label} n'est pas disponible dans un tableau"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "{location} · matching “{search}”"
+msgstr "{location} · correspondant à « {search} »"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "{memberCount, plural, one {# member} other {# members}}"
+msgstr "{memberCount, plural, one {# membre} other {# membres}}"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} column"
+msgstr "{n} colonne"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} columns"
+msgstr "{n} colonnes"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} row"
+msgstr "{n} ligne"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} rows"
+msgstr "{n} lignes"
+
+#: components/GetStarted/OverviewCard.tsx
+msgid "{playTime} min"
+msgstr "{playTime} min"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} / to search settings"
+msgstr "{shortcutHint} / pour rechercher dans les paramètres"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} slash"
+msgstr "{shortcutHint} barre oblique"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{sizeRows, plural, one {# row} other {# rows}} × {sizeColumns, plural, one {# column} other {# columns}}"
+msgstr "{sizeRows, plural, one {# ligne} other {# lignes}} × {sizeColumns, plural, one {# colonne} other {# colonnes}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}}"
+msgstr "{total, plural, one {# résultat} other {# résultats}} dans {matchedSections, plural, one {# section} other {# sections}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}} and {pageCount, plural, one {# page} other {# pages}}"
+msgstr "{total, plural, one {# résultat} other {# résultats}} dans {matchedSections, plural, one {# section} other {# sections}} et {pageCount, plural, one {# page} other {# pages}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {pageCount, plural, one {# page} other {# pages}}"
+msgstr "{total, plural, one {# résultat} other {# résultats}} sur {pageCount, plural, one {# page} other {# pages}}"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of not shipping the worst variation."
+msgstr "{totalImpact} par an correspond à l'impact cumulé de la non-mise en production de la pire variante."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of the winning variations."
+msgstr "{totalImpact} par an correspond à l'impact cumulé des variantes gagnantes."
+
+#: components/HomePage/DiscussionFeed.tsx
+msgid "<0><1/></0> commented on {parentType}"
+msgstr "<0><1/></0> a commenté {parentType}"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "<0>Clear Input</0> to include today"
+msgstr "<0>Effacez la saisie</0> pour inclure aujourd'hui"
+
+#: ui/MultiSelectField.tsx
+msgid "<0>Create</0> <1/>"
+msgstr "<0>Créer</0> <1/>"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "<0>Current Task:</0> {currentStep}"
+msgstr "<0>Tâche en cours :</0> {currentStep}"
+
+#: components/HomePage/GetStartedStep.tsx
+msgid "<0>Notice:</0> You don't have the required permissions to complete this step."
+msgstr "<0>Remarque :</0> vous n'avez pas les autorisations nécessaires pour effectuer cette étape."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "0 experiments for which we could compute scaled impact match your filters."
+msgstr "Aucune expérience dont l'impact mis à l'échelle a pu être calculé ne correspond à vos filtres."
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "1. Connect to your data warehouse"
+msgstr "1. Connectez-vous à votre entrepôt de données"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "1M CDN Requests/month"
+msgstr "1 M de requêtes CDN/mois"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "2. Define a metric"
+msgstr "2. Définissez une métrique"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "20GB Bandwidth/month"
+msgstr "20 Go de bande passante/mois"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "2M CDN Requests/month"
+msgstr "2 M de requêtes CDN/mois"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "3. Import an experiment"
+msgstr "3. Importez une expérience"
+
+#: pages/404.tsx
+msgid "404 - Page Not Found"
+msgstr "404 - Page introuvable"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Feature Highlights"
+msgstr "Nouveautés de la version 5.2"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Release Notes"
+msgstr "Notes de version 5.2"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "5GB Bandwidth/month"
+msgstr "5 Go de bande passante/mois"
+
+#: pages/invitation.tsx
+msgid "Accept Invitation"
+msgstr "Accepter l'invitation"
+
+#: components/Modal/ModalWarningBanner.tsx
+msgid "Acknowledge"
+msgstr "J'ai compris"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "Fil d'activité"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add a billing address and customize the name displayed on invoices."
+msgstr "Ajoutez une adresse de facturation et personnalisez le nom affiché sur les factures."
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a column"
+msgstr "Ajouter une colonne"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a row"
+msgstr "Ajouter une ligne"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Add data source"
+msgstr "Ajouter une source de données"
+
+#: pages/oauth/google.tsx
+msgid "Add Data Source"
+msgstr "Ajouter une source de données"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Metrics"
+msgstr "Ajouter des métriques"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Add North Star Metric(s)"
+msgstr "Ajouter des métriques étoile du Nord"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "Ajouter une organisation"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add payment method"
+msgstr "Ajouter un moyen de paiement"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Proportion, Mean, Quantile, or Ratio metrics on top of Fact Tables."
+msgstr "Ajoutez des métriques de proportion, de moyenne, de quantile ou de ratio à partir des tables de faits."
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Add teammates to your account"
+msgstr "Ajoutez des coéquipiers à votre compte"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 3 seats"
+msgstr "Jusqu'à 3 utilisateurs"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 50 seats"
+msgstr "Jusqu'à 50 utilisateurs"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Add your first feature flag to test your setup."
+msgstr "Ajoutez votre premier indicateur de fonctionnalité pour tester votre configuration."
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "Administration"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced permissions"
+msgstr "Autorisations avancées"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced statistics"
+msgstr "Statistiques avancées"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Agent Skills"
+msgstr "Compétences pour agents"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "AI Visual Editor"
+msgstr "Éditeur visuel AI"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align center"
+msgstr "Centrer"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align column"
+msgstr "Aligner la colonne"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align left"
+msgstr "Aligner à gauche"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align right"
+msgstr "Aligner à droite"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "ALL"
+msgstr "TOUS"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/ProjectSelector.tsx
+msgid "All Projects"
+msgstr "Tous les projets"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "Autoriser les célébrations"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Allow GrowthBook to communicate with your app."
+msgstr "Permettez à GrowthBook de communiquer avec votre application."
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Allow GrowthBook to query your warehouse to compute traffic totals and metric results."
+msgstr "Autorisez GrowthBook à interroger votre entrepôt de données pour calculer le trafic total et les résultats des métriques."
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "Vous avez déjà un compte ? <0>Connectez-vous</0>"
+
+#: pages/index.tsx
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "Une erreur s'est produite"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "Une erreur s'est produite. Veuillez réessayer."
+
+#: pages/oauth/callback.tsx
+msgid "An unknown error occurred"
+msgstr "Une erreur inconnue s'est produite"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze an Existing Experiment"
+msgstr "Analyser une expérience existante"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze Existing Experiment"
+msgstr "Analyser une expérience existante"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Analyze External Experiments"
+msgstr "Analyser des expériences externes"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Analyze Imported Experiments"
+msgstr "Analyser des expériences importées"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Annual Adj. Scaled Impact"
+msgstr "Impact annuel ajusté mis à l'échelle"
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "Clés API"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Approved"
+msgstr "Approuvé"
+
+#: components/GetStarted/index.tsx
+msgid "Archetype Overview"
+msgstr "Aperçu des archétypes"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "Archétypes"
+
+#: components/Modal/ConfirmButton.tsx
+msgid "Are you sure?"
+msgstr "Êtes-vous sûr ?"
+
+#: ui/DropdownMenu.tsx
+msgid "Are you sure? This action cannot be undone."
+msgstr "Êtes-vous sûr ? Cette action est irréversible."
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "Demander à GrowthBook AI"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Ask your admin to invite you to the organization."
+msgstr "Demandez à votre administrateur de vous inviter dans l'organisation."
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "Attributs"
+
+#: pages/oauth/google.tsx
+msgid "Authentication failed"
+msgstr "Échec de l'authentification"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "avoided loss / year"
+msgstr "perte évitée / an"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Back"
+msgstr "Retour"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Back to Options"
+msgstr "Retour aux options"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "Bandits manchots"
+
+#: ui/VariationStatsTable.tsx
+msgid "BASELINE"
+msgstr "RÉFÉRENCE"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Basic flags and experiments for solo devs and small teams"
+msgstr "Indicateurs et expériences de base pour développeurs indépendants et petites équipes"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Bayesian Priors affect results"
+msgstr "Les a priori bayésiens influencent les résultats"
+
+#: components/Layout/SidebarLink.tsx
+msgid "beta"
+msgstr "bêta"
+
+#: components/Layout/SidebarLink.tsx
+msgid "Beta"
+msgstr "Bêta"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "Facturation"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing details"
+msgstr "Informations de facturation"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing email"
+msgstr "E-mail de facturation"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bold"
+msgstr "Gras"
+
+#: ui/Breadcrumbs.tsx
+msgid "Breadcrumb"
+msgstr "Fil d'Ariane"
+
+#: ui/FileInput.tsx
+msgid "Browse..."
+msgstr "Parcourir..."
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "Build :"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bulleted list"
+msgstr "Liste à puces"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Calculate Scaled Impact"
+msgstr "Calculer l'impact mis à l'échelle"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Can't remember your current password? Log out and click on <0>Forgot Password</0> to reset it."
+msgstr "Vous ne vous souvenez plus de votre mot de passe actuel ? Déconnectez-vous et cliquez sur <0>Mot de passe oublié</0> pour le réinitialiser."
+
+#: components/Modal.tsx
+#: ui/ConfirmDialog.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Cancel"
+msgstr "Annuler"
+
+#: components/Auth/ChangePasswordModal.tsx
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "Modifier le mot de passe"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Changes Requested"
+msgstr "Modifications demandées"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Chat with us on <0><1>Slack</1></0>"
+msgstr "Discutez avec nous sur <0><1>Slack</1></0>"
+
+#: ui/FileInput.tsx
+msgid "Choose file..."
+msgstr "Choisir un fichier..."
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Clear contents"
+msgstr "Effacer le contenu"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Clear search"
+msgstr "Effacer la recherche"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Click the “Start Experiment” button in the top right corner of the selected experiment."
+msgstr "Cliquez sur le bouton « Démarrer l'expérience » en haut à droite de l'expérience sélectionnée."
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "Cliquez sur le lien dans l'e-mail pour réinitialiser votre mot de passe."
+
+#: components/Modal.tsx
+#: ui/Modal/index.tsx
+msgid "Close"
+msgstr "Fermer"
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "Fermer l'assistant GrowthBook AI"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Close help"
+msgstr "Fermer l'aide"
+
+#: components/GetStarted/index.tsx
+msgid "Code Refs"
+msgstr "Références de code"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Column options"
+msgstr "Options de colonne"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns"
+msgstr "Colonnes"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns, {hiddenCount} hidden"
+msgstr "Colonnes, masquées : {hiddenCount}"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Community"
+msgstr "Communauté"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "Nom de l'entreprise"
+
+#: components/HomePage/GetStartedStep.tsx
+msgid "Completed"
+msgstr "Terminé"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "Configurations"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Configure Metric Library"
+msgstr "Configurer la bibliothèque de métriques"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Configure Your Auto-generated Experiment"
+msgstr "Configurer votre expérience générée automatiquement"
+
+#: ui/ConfirmDialog.tsx
+msgid "Confirm"
+msgstr "Confirmer"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Confirm your plan"
+msgstr "Confirmez votre forfait"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Connect a Data Source"
+msgstr "Connecter une source de données"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Connect to Your Data Warehouse"
+msgstr "Se connecter à votre entrepôt de données"
+
+#: components/GetStarted/index.tsx
+msgid "Connect to your SDK to get started. <0>Launch the setup flow</0>"
+msgstr "Connectez votre SDK pour commencer. <0>Lancer la configuration</0>"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Connect Your Data Source"
+msgstr "Connecter votre source de données"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "Constantes"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "Bandits contextuels"
+
+#: pages/oauth/lookup.tsx
+msgid "Continue"
+msgstr "Continuer"
+
+#: ui/FieldIndicator.tsx
+msgid "Copied"
+msgstr "Copié"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copied!"
+msgstr "Copié !"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copy link"
+msgstr "Copier le lien"
+
+#: ui/FieldIndicator.tsx
+msgid "Copy to clipboard"
+msgstr "Copier dans le presse-papiers"
+
+#: components/GetStarted/index.tsx
+msgid "Create"
+msgstr "Créer"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Create a Fact Table"
+msgstr "Créer une table de faits"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new one here."
+msgstr "Créez-en une nouvelle ici."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization"
+msgstr "Créer une nouvelle organisation"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization instead"
+msgstr "Créer plutôt une nouvelle organisation"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag"
+msgstr "Créer un indicateur de fonctionnalité de test"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag in this Project"
+msgstr "Créer un indicateur de fonctionnalité de test dans ce projet"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "Créer un compte"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Create an experiment and change variations. Choose from Feature Flags, URL Redirects, or the Visual Editor (Pro)."
+msgstr "Créez une expérience et modifiez les variantes. Choisissez entre les indicateurs de fonctionnalités, les redirections d'URL ou l'éditeur visuel (Pro)."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create an organization"
+msgstr "Créer une organisation"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create API Token"
+msgstr "Créer un jeton API"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create Feature Flags"
+msgstr "Créer des indicateurs de fonctionnalités"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create or join one here."
+msgstr "Créez-en une ou rejoignez-en une ici."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create organization"
+msgstr "Créer l'organisation"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create Projects"
+msgstr "Créer des projets"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Create your first metric definition. Use this as a goal or guardrail when analyzing your experiment results. With GrowthBook, you can build out an entire metric library to represent all of the KPIs for your organization."
+msgstr "Créez votre première définition de métrique. Utilisez-la comme objectif ou garde-fou lors de l'analyse des résultats de vos expériences. Avec GrowthBook, vous pouvez constituer une bibliothèque complète de métriques représentant tous les KPI de votre organisation."
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED affects results"
+msgstr "CUPED influence les résultats"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED and Bayesian Priors affect results"
+msgstr "CUPED et les a priori bayésiens influencent les résultats"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Current Password"
+msgstr "Mot de passe actuel"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "Champs personnalisés"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "Hooks personnalisés"
+
+#: components/GetStarted/index.tsx
+msgid "Custom Roles"
+msgstr "Rôles personnalisés"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Customize invoice"
+msgstr "Personnaliser la facture"
+
+#: components/GetStarted/index.tsx
+msgid "Customize your account setup and learn how to get started with GrowthBook."
+msgstr "Personnalisez la configuration de votre compte et découvrez comment bien démarrer avec GrowthBook."
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Average"
+msgstr "Moyenne quotidienne"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Count"
+msgstr "Nombre quotidien"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "Sombre"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "Tableaux de bord"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Data & Metrics"
+msgstr "Données et métriques"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
+msgid "Data Pipeline Mode"
+msgstr "Mode pipeline de données"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Data Source"
+msgstr "Source de données"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "Sources de données"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Date Ended"
+msgstr "Date de fin"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "De-bias?"
+msgstr "Corriger le biais ?"
+
+#: components/GetStarted/index.tsx
+msgid "Debug feature flags & experiments"
+msgstr "Déboguer les indicateurs de fonctionnalités et les expériences"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Define any additional settings, rules and targeting as desired. Then, click “Run experiment.”"
+msgstr "Définissez les paramètres, règles et ciblages supplémentaires souhaités. Cliquez ensuite sur « Lancer l'expérience »."
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define Fact Tables and Metrics"
+msgstr "Définir les tables de faits et les métriques"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define fact tables for the main events in your data warehouse and build metrics based on those events."
+msgstr "Définissez des tables de faits pour les principaux événements de votre entrepôt de données et créez des métriques basées sur ces événements."
+
+#: components/GetStarted/index.tsx
+msgid "Define fine-grained permission control"
+msgstr "Définir des autorisations précises"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete column"
+msgstr "Supprimer la colonne"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete row"
+msgstr "Supprimer la ligne"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Demo"
+msgstr "Démo"
+
+#: ui/VariationStatsTable.tsx
+msgid "Denom."
+msgstr "Dénom."
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design a new A/B test from scratch using either <0>Feature Flags</0>, our <1>Visual Editor</1>, or <2>URL Redirects</2>. Then, integrate our SDK into your application and start collecting and analyzing data from your users."
+msgstr "Concevez un nouveau test A/B de A à Z avec les <0>indicateurs de fonctionnalités</0>, notre <1>éditeur visuel</1> ou les <2>redirections d'URL</2>. Intégrez ensuite notre SDK à votre application et commencez à collecter et analyser les données de vos utilisateurs."
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design and Run a New Experiment"
+msgstr "Concevoir et lancer une nouvelle expérience"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design New Experiment"
+msgstr "Concevoir une nouvelle expérience"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design the First Experiment for this Project"
+msgstr "Concevoir la première expérience de ce projet"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design Your Organization’s First Experiment"
+msgstr "Concevoir la première expérience de votre organisation"
+
+#: ui/ErrorDisplay.tsx
+msgid "Details"
+msgstr "Détails"
+
+#: components/GetStarted/index.tsx
+msgid "Dev Tools"
+msgstr "Outils de développement"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "Dimensions"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Disabled as there are not enough experiments to shrink estimates"
+msgstr "Désactivé : pas assez d'expériences pour réduire les estimations"
+
+#: ui/Callout.tsx
+#: ui/PremiumCallout.tsx
+msgid "Dismiss"
+msgstr "Masquer"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Docs"
+msgstr "Documentation"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Documentation, help & support"
+msgstr "Documentation, aide et assistance"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Does not include Bandits"
+msgstr "Hors bandits manchots"
+
+#: pages/oauth/lookup.tsx
+msgid "Don't have a GrowthBook Enterprise plan yet?<0/>Email <1>sales@growthbook.io</1> to learn more and get a quote."
+msgstr "Vous n'avez pas encore de forfait GrowthBook Enterprise ?<0/>Écrivez à <1>sales@growthbook.io</1> pour en savoir plus et obtenir un devis."
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "Pas encore de compte ? <0>Commencez gratuitement</0>"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Draft"
+msgstr "Brouillon"
+
+#: ui/ColumnSettings.tsx
+msgid "Drag to reorder {columnLabel}"
+msgstr "Faites glisser pour réorganiser {columnLabel}"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Drag to reorder; check to show or hide. Saved in this browser only, not shared with your team."
+msgstr "Faites glisser pour réorganiser, cochez pour afficher ou masquer. Enregistré uniquement dans ce navigateur, non partagé avec votre équipe."
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Early access"
+msgstr "Accès anticipé"
+
+#: components/GetStarted/index.tsx
+msgid "Easily reuse sets of metrics"
+msgstr "Réutilisez facilement des ensembles de métriques"
+
+#: components/Layout/HeaderWithEdit.tsx
+#: components/Layout/RightRailSection.tsx
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Edit"
+msgstr "Modifier"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Edit link"
+msgstr "Modifier le lien"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "Edit name"
+msgstr "Modifier le nom"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Edit North Star Metric(s)"
+msgstr "Modifier les métriques étoile du Nord"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "Modifier le profil"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "Modifier le profil"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Editing Your Auto-generated Experiment"
+msgstr "Modifier votre expérience générée automatiquement"
+
+#: components/Auth/Welcome.tsx
+#: pages/oauth/lookup.tsx
+msgid "Email Address"
+msgstr "Adresse e-mail"
+
+#: components/GetStarted/index.tsx
+msgid "Enable automatic query optimization"
+msgstr "Activer l'optimisation automatique des requêtes"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your billing information. You can add your payment method next."
+msgstr "Saisissez vos informations de facturation. Vous pourrez ensuite ajouter votre moyen de paiement."
+
+#: pages/oauth/lookup.tsx
+msgid "Enter your email address and you will be redirected to your company's SSO portal, if configured."
+msgstr "Saisissez votre adresse e-mail pour être redirigé vers le portail SSO de votre entreprise, s'il est configuré."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your tax id here. E.G. VAT or EIN"
+msgstr "Saisissez ici votre numéro fiscal, par ex. TVA ou EIN"
+
+#: pages/oauth/lookup.tsx
+msgid "Enterprise SSO Login"
+msgstr "Connexion SSO Enterprise"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "Environnements"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Error running the analysis."
+msgstr "Erreur lors de l'exécution de l'analyse."
+
+#: ui/DropdownMenu.tsx
+msgid "Error: {error}. Exit menu and try again."
+msgstr "Erreur : {error}. Quittez le menu et réessayez."
+
+#: ui/VariationStatsTable.tsx
+msgid "Events"
+msgstr "Événements"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "Journal des événements"
+
+#: components/GetStarted/index.tsx
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Experiment"
+msgstr "Expérience"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Experiment Impact"
+msgstr "Impact des expériences"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Experiment Results"
+msgstr "Résultats des expériences"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "Expérimentation"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Experimentation Setup"
+msgstr "Configuration de l'expérimentation"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "Expériences"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Experiments > [selected experiment]"
+msgstr "Expériences > [expérience sélectionnée]"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Experiments requiring attention"
+msgstr "Expériences nécessitant votre attention"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "Exploration"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a demo experiment with sample data"
+msgstr "Explorez une expérience de démonstration avec des données d'exemple"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup"
+msgstr "Découvrez une configuration guidée"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup & sample results"
+msgstr "Découvrez une configuration guidée et des exemples de résultats"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Explore a Sample Experiment"
+msgstr "Explorer un exemple d'expérience"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE ADVANCED FEATURES"
+msgstr "DÉCOUVRIR LES FONCTIONNALITÉS AVANCÉES"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE FEATURES"
+msgstr "DÉCOUVRIR LES FONCTIONNALITÉS"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "Débogueur d'expositions"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "Tables de faits"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Fact Tables are defined by a SQL SELECT statement and serve as the base on which metrics are built."
+msgstr "Les tables de faits sont définies par une instruction SQL SELECT et servent de base à la création des métriques."
+
+#: ui/RichTextEditor.tsx
+msgid "Failed to upload image"
+msgstr "Échec de l'envoi de l'image"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature"
+msgstr "Fonctionnalité"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag"
+msgstr "Indicateur de fonctionnalité"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag Analytics"
+msgstr "Analyse des indicateurs de fonctionnalités"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Feature Flag Basics"
+msgstr "Notions de base sur les indicateurs de fonctionnalités"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "Indicateurs"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature flags requiring attention"
+msgstr "Indicateurs de fonctionnalités nécessitant votre attention"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature Key"
+msgstr "Clé de fonctionnalité"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "Fonctionnalités"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "Mot de passe oublié"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "Mot de passe oublié ?"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Free"
+msgstr "Gratuit"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Full featured experimentation and growth platform"
+msgstr "Plateforme complète d'expérimentation et de croissance"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "Entonnoirs"
+
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "Général"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "General · {sectionTitle}"
+msgstr "Général · {sectionTitle}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "General settings sections"
+msgstr "Sections des paramètres généraux"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Get early access June 22"
+msgstr "Accès anticipé dès le 22 juin"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get started"
+msgstr "Commencer"
+
+#: components/GetStarted/index.tsx
+#: components/Layout/Layout.tsx
+#: pages/getstarted/data-source-guide.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Get Started"
+msgstr "Premiers pas"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get Started for Free"
+msgstr "Commencer gratuitement"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "Démarrer avec GrowthBook ne prend que quelques minutes. <0/>Pour commencer, nous avons besoin de quelques informations vous concernant."
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "Retour à la connexion"
+
+#: ui/Pagination.tsx
+msgid "Go to next page"
+msgstr "Aller à la page suivante"
+
+#: ui/Pagination.tsx
+msgid "Go to page {page}"
+msgstr "Aller à la page {page}"
+
+#: ui/Pagination.tsx
+msgid "Go to previous page"
+msgstr "Aller à la page précédente"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook FAQs"
+msgstr "Questions fréquentes sur GrowthBook"
+
+#: components/Layout/Layout.tsx
+msgid "GrowthBook Home"
+msgstr "Accueil GrowthBook"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "GrowthBook needs read access to where your experiment and metric data lives. We support Snowflake, Redshift, BigQuery, Databricks, Postgres, and more. If you don't see yours, <0>let us know</0> or <1>open a GitHub issue</1>."
+msgstr "GrowthBook a besoin d'un accès en lecture à l'emplacement de vos données d'expériences et de métriques. Nous prenons en charge Snowflake, Redshift, BigQuery, Databricks, Postgres et bien d'autres. Si la vôtre n'y figure pas, <0>faites-le-nous savoir</0> ou <1>ouvrez un ticket sur GitHub</1>."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "GrowthBook Pro Subscription Created"
+msgstr "Abonnement GrowthBook Pro créé"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook SDK"
+msgstr "SDK GrowthBook"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "GUARDRAIL"
+msgstr "GARDE-FOU"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "Ça arrive aux meilleurs"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Have a question?"
+msgstr "Vous avez une question ?"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Have feature flags in LaunchDarkly? <0>View migration instructions</0>"
+msgstr "Vous avez des indicateurs de fonctionnalités dans LaunchDarkly ? <0>Voir les instructions de migration</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Have questions?"
+msgstr "Des questions ?"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Have you already been running A/B tests with another platform? Connect GrowthBook to your data warehouse and use our powerful stats engine to automate the analysis."
+msgstr "Vous menez déjà des tests A/B avec une autre plateforme ? Connectez GrowthBook à votre entrepôt de données et automatisez l'analyse grâce à notre puissant moteur statistique."
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 1"
+msgstr "Titre 1"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 2"
+msgstr "Titre 2"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 3"
+msgstr "Titre 3"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "Bonjour et bienvenue !"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "Bonjour ! Bienvenue sur GrowthBook"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Help"
+msgstr "Aide"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Help us tailor your onboarding experience."
+msgstr "Aidez-nous à personnaliser votre prise en main."
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "Bonjour !"
+
+#: ui/ErrorDisplay.tsx
+msgid "Hide details"
+msgstr "Masquer les détails"
+
+#: components/GetStarted/index.tsx
+msgid "Hide Details"
+msgstr "Masquer les détails"
+
+#: ui/RichTextEditor.tsx
+msgid "Hide formatting"
+msgstr "Masquer la mise en forme"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "Groupes d'exclusion"
+
+#: components/GetStarted/index.tsx
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "Accueil"
+
+#: components/Auth/InAppHelp.tsx
+msgid "How Can We Help?"
+msgstr "Comment pouvons-nous vous aider ?"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "How will your team use Growthbook?"
+msgstr "Comment votre équipe utilisera-t-elle GrowthBook ?"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "If de-biasing is on, we use a James-Stein adjustment to shrink estimates towards zero to mitigate selection bias."
+msgstr "Si la correction du biais est activée, nous appliquons un ajustement de James-Stein qui rapproche les estimations de zéro afin de limiter le biais de sélection."
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "Impact score"
+msgstr "Score d'impact"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Import Experiment"
+msgstr "Importer l'expérience"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "Import de données"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment & View Results"
+msgstr "Importer votre première expérience et voir les résultats"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment in this Project & View Results"
+msgstr "Importer votre première expérience dans ce projet et voir les résultats"
+
+#: components/GetStarted/index.tsx
+msgid "Improve SQL performance and reduce costs"
+msgstr "Améliorer les performances SQL et réduire les coûts"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Inline code"
+msgstr "Code en ligne"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column left"
+msgstr "Insérer une colonne à gauche"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column right"
+msgstr "Insérer une colonne à droite"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert image"
+msgstr "Insérer une image"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row above"
+msgstr "Insérer une ligne au-dessus"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row below"
+msgstr "Insérer une ligne en dessous"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert table"
+msgstr "Insérer un tableau"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "Perspectives"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Chrome DevTools Extension"
+msgstr "Installer l'extension Chrome DevTools"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Firefox DevTools Extension"
+msgstr "Installer l'extension Firefox DevTools"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Visual Editor Extension"
+msgstr "Installer l'extension de l'éditeur visuel"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Integrate Slack or Discord"
+msgstr "Intégrer Slack ou Discord"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Integrate the GrowthBook SDK into your app"
+msgstr "Intégrer le SDK GrowthBook à votre application"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "Entrelacement"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "Jeton de réinitialisation invalide"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "URL invalide. <0>Retour</0>"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Invitation Required"
+msgstr "Invitation requise"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Invite team"
+msgstr "Inviter l'équipe"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "It looks like you have a <0>config.yml</0> file. Use that to define data sources and metrics. <1>View Documentation</1>"
+msgstr "Il semble que vous ayez un fichier <0>config.yml</0>. Utilisez-le pour définir les sources de données et les métriques. <1>Voir la documentation</1>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Italic"
+msgstr "Italique"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join"
+msgstr "Rejoindre"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join an organization instead"
+msgstr "Rejoindre plutôt une organisation"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join one here."
+msgstr "Rejoignez-en une ici."
+
+#: components/Auth/InAppHelp.tsx
+msgid "Join the Slack community"
+msgstr "Rejoignez la communauté Slack"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join your organization to get started."
+msgstr "Rejoignez votre organisation pour commencer."
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "Langue"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "Enseignements"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "Lançons-nous dans l'expérimentation"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "Lançons quelques expériences ! Saisissez vos informations pour commencer."
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "Clair"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Link"
+msgstr "Lien"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Link title"
+msgstr "Titre du lien"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "Se connecter"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "Se connecter maintenant"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "log out"
+msgstr "se déconnecter"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "Rechercher le compte"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Lost"
+msgstr "Perdues"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Manage feature flags"
+msgstr "Gérer des indicateurs de fonctionnalités"
+
+#: components/GetStarted/index.tsx
+msgid "Manage member permissions"
+msgstr "Gérer les autorisations des membres"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "Gérer les PATs"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Mark as Complete"
+msgstr "Marquer comme terminé"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "Membres"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Metric"
+msgstr "Métrique"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "Corrélations"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "Effets des métriques"
+
+#: components/GetStarted/index.tsx
+msgid "Metric Groups"
+msgstr "Groupes de métriques"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Metric is inverse, lower is better"
+msgstr "Métrique inversée : plus bas, c'est mieux"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Metric(s)"
+msgstr "Métrique(s)"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "Métriques"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "Métriques et données"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Migrate from another platform"
+msgstr "Migrer depuis une autre plateforme"
+
+#: pages/invitation.tsx
+msgid "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
+msgstr "Le paramètre de clé d'invitation requis est absent de l'URL. Veuillez retourner dans votre e-mail et cliquer à nouveau sur le lien d'invitation."
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "Jeton de réinitialisation manquant"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Monthly invoices will be sent to this address"
+msgstr "Les factures mensuelles seront envoyées à cette adresse"
+
+#: ui/Tabs.tsx
+msgid "More ({hiddenCount})"
+msgstr "Plus ({hiddenCount})"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "More actions"
+msgstr "Plus d'actions"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information"
+msgstr "Plus d'informations"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information about {label}"
+msgstr "Plus d'informations sur {label}"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move down"
+msgstr "Déplacer vers le bas"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move left"
+msgstr "Déplacer vers la gauche"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move right"
+msgstr "Déplacer vers la droite"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move up"
+msgstr "Déplacer vers le haut"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "My Company"
+msgstr "Mon entreprise"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "Mes rapports"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "Mes liens Slack"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "Mes liens Slack"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "N/A"
+msgstr "N/D"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "N/A values occur if we were unable to compute scaled impact for that experiment, perhaps due to stale experiment data."
+msgstr "La valeur N/D apparaît lorsque nous n'avons pas pu calculer l'impact mis à l'échelle de cette expérience, peut-être en raison de données d'expérience obsolètes."
+
+#: components/Auth/Welcome.tsx
+#: components/GetStarted/NeedingAttention.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "Nom"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "Espaces de noms"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Navigate to Experiments > Add Experiment. In the popup, select “Analyze an Existing Experiment”"
+msgstr "Accédez à Expériences > Ajouter une expérience. Dans la fenêtre qui s'ouvre, sélectionnez « Analyser une expérience existante »"
+
+#: components/Auth/ChangePasswordModal.tsx
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "Nouveau mot de passe"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Next"
+msgstr "Suivant"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Next: Add Payment Details"
+msgstr "Suivant : ajouter les informations de paiement"
+
+#: ui/VariationStatsTable.tsx
+msgid "No data"
+msgstr "Aucune donnée"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Refresh Data button below."
+msgstr "Aucune donnée pour cette métrique pour l'instant. Cliquez sur le bouton « Actualiser les données » ci-dessous."
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Run Analysis button below."
+msgstr "Aucune donnée pour cette métrique pour l'instant. Cliquez sur le bouton « Lancer l'analyse » ci-dessous."
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No experiments requiring attention"
+msgstr "Aucune expérience ne nécessite votre attention"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No feature flags requiring attention"
+msgstr "Aucun indicateur de fonctionnalité ne nécessite votre attention"
+
+#: components/Layout/SettingsNav.tsx
+msgid "No matches"
+msgstr "Aucun résultat"
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "No recent ideas"
+msgstr "Aucune idée récente"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Check experiment results for errors."
+msgstr "Aucun résultat disponible. Vérifiez si les résultats de l'expérience contiennent des erreurs."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Run experiment update on experiment page."
+msgstr "Aucun résultat disponible. Lancez la mise à jour depuis la page de l'expérience."
+
+#: components/Layout/SettingsNav.tsx
+msgid "No sections match."
+msgstr "Aucune section ne correspond."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No snapshot with scaled impact available. Click calculate button above."
+msgstr "Aucun instantané avec impact mis à l'échelle disponible. Cliquez sur le bouton de calcul ci-dessus."
+
+#: pages/oauth/lookup.tsx
+msgid "No SSO Connection found for that email address."
+msgstr "Aucune connexion SSO trouvée pour cette adresse e-mail."
+
+#: ui/VariationStatsTable.tsx
+msgid "Non-zero {sampleSizeLabel}"
+msgstr "{sampleSizeLabel} (hors zéros)"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "None"
+msgstr "Aucun"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metric"
+msgstr "Métrique étoile du Nord"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metrics"
+msgstr "Métriques étoile du Nord"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Not ready to connect to your data warehouse? Explore a sample experiment first to get a feel for the GrowthBook platform."
+msgstr "Pas encore prêt à connecter votre entrepôt de données ? Explorez d'abord un exemple d'expérience pour découvrir la plateforme GrowthBook."
+
+#: pages/oauth/lookup.tsx
+msgid "Not using SSO? <0>Go back to login</0>"
+msgstr "Vous n'utilisez pas le SSO ? <0>Retour à la connexion</0>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Numbered list"
+msgstr "Liste numérotée"
+
+#: ui/VariationStatsTable.tsx
+msgid "Numerator"
+msgstr "Numérateur"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "OFF"
+msgstr "DÉSACTIVÉ"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "ON"
+msgstr "ACTIVÉ"
+
+#: ui/StringArrayField.tsx
+msgid "One value per line"
+msgstr "Une valeur par ligne"
+
+#: pages/oauth/lookup.tsx
+msgid "Only available on GrowthBook Cloud"
+msgstr "Disponible uniquement sur GrowthBook Cloud"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Open an issue on <0><1>GitHub</1></0>"
+msgstr "Signalez un problème sur <0><1>GitHub</1></0>"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "Ouvrir l'assistant GrowthBook AI"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "Ouvrir le menu principal"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "Organisation"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Organization · {pageName}"
+msgstr "Organisation · {pageName}"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Organization Name"
+msgstr "Nom de l'organisation"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Organization settings"
+msgstr "Paramètres de l'organisation"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Other"
+msgstr "Autres"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Owner"
+msgstr "Propriétaire"
+
+#: ui/Pagination.tsx
+msgid "Page {page}"
+msgstr "Page {page}"
+
+#: ui/Pagination.tsx
+msgid "Pagination"
+msgstr "Pagination"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "Paid"
+msgstr "Payant"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "Mot de passe"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "Lien de réinitialisation du mot de passe envoyé à <0>{email}</0>."
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Password successfully changed"
+msgstr "Mot de passe modifié"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Pending"
+msgstr "En attente"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Pending Review"
+msgstr "Revue en attente"
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "Revues en attente"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "Jetons d'accès personnels"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Plan options"
+msgstr "Options de forfait"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Please contact your organization's admin to approve your membership."
+msgstr "Veuillez contacter l'administrateur de votre organisation pour faire approuver votre adhésion."
+
+#: pages/oauth/lookup.tsx
+msgid "Please enter a valid email address"
+msgstr "Veuillez saisir une adresse e-mail valide"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "Populations"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "Calcul de puissance"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Premium Features"
+msgstr "Fonctionnalités premium"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Prepare to analyze experiment results"
+msgstr "Préparez l'analyse des résultats d'expériences"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "Présentations"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Product analytics"
+msgstr "Analyse produit"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "Analyse produit"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Project"
+msgstr "Projet"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "Projets"
+
+#: components/GetStarted/index.tsx
+msgid "Query Optimization"
+msgstr "Optimisation des requêtes"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "QUESTIONS?"
+msgstr "DES QUESTIONS ?"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Quote"
+msgstr "Citation"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Ran experiments on another platform? <0>View import instructions</0>"
+msgstr "Vous avez mené des expériences sur une autre plateforme ? <0>Voir les instructions d'importation</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Read our <0>User Guide</0>"
+msgstr "Lisez notre <0>guide de l'utilisateur</0>"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Recent"
+msgstr "Récents"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Refresh Data"
+msgstr "Actualiser les données"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "Inscription"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Remove link"
+msgstr "Supprimer le lien"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "Réinitialisation du mot de passe"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "Réinitialisation du mot de passe pour <0>{email}</0>."
+
+#: ui/ColumnSettings.tsx
+msgid "Reset to default"
+msgstr "Rétablir les valeurs par défaut"
+
+#: ui/ColumnResizeHandle.tsx
+msgid "Resize {label} column"
+msgstr "Redimensionner la colonne {label}"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "RESOURCES"
+msgstr "RESSOURCES"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Retry"
+msgstr "Réessayer"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Return to Guide"
+msgstr "Retour au guide"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup in {appName}."
+msgstr "Consultez les résultats de votre configuration GrowthBook dans {appName}."
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup."
+msgstr "Consultez les résultats de votre configuration GrowthBook."
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Row options"
+msgstr "Options de ligne"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Auto-generated Website Experiment"
+msgstr "Lancer une expérience de site web générée automatiquement"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Experiment"
+msgstr "Lancer une expérience"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Run Analysis"
+msgstr "Lancer l'analyse"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Run experiments"
+msgstr "Mener des expériences"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Running an actual A/B test on your application and waiting for results can take a long time, so this is a great way to test out the platform with a fully loaded sample experiment."
+msgstr "Mener un vrai test A/B sur votre application et attendre les résultats peut prendre du temps : c'est donc un excellent moyen de tester la plateforme avec un exemple d'expérience complet."
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Running Experiments"
+msgstr "Mener des expériences"
+
+#: components/Modal.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Save"
+msgstr "Enregistrer"
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "Groupes enregistrés"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Scaled Impact"
+msgstr "Impact mis à l'échelle"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "Configuration SDK"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "Connexions SDK"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "Rechercher"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Search settings"
+msgstr "Rechercher dans les paramètres"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Search..."
+msgstr "Rechercher..."
+
+#: components/GetStarted/index.tsx
+msgid "See exactly where flags appear in code"
+msgstr "Voyez précisément où les indicateurs apparaissent dans le code"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "Segments"
+
+#: ui/MultiSelectField.tsx
+msgid "Select an option or create one"
+msgstr "Sélectionnez ou créez une option"
+
+#: ui/MultiSelectField.tsx
+msgid "Select..."
+msgstr "Sélectionner..."
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "Mauvaise adresse e-mail ou besoin d'un nouvel envoi ? <0>Retour</0>"
+
+#: ui/StringArrayField.tsx
+msgid "Separate values by comma"
+msgstr "Séparez les valeurs par des virgules"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "Replay de session"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/data-source-guide.tsx
+msgid "Set up Data Source & Metrics"
+msgstr "Configurer la source de données et les métriques"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "Configurez votre premier compte"
+
+#: components/GetStarted/index.tsx
+msgid "SET UP YOUR WORKSPACE"
+msgstr "CONFIGURER VOTRE ESPACE DE TRAVAIL"
+
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "Paramètres"
+
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
+msgid "Settings navigation"
+msgstr "Navigation des paramètres"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Settings: {location}"
+msgstr "Paramètres : {location}"
+
+#: components/Layout/LayoutLite.tsx
+msgid "Setup"
+msgstr "Configuration"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "Affiche aléatoirement des confettis lorsque vous effectuez certaines actions, comme lancer une expérience."
+
+#: ui/ErrorDisplay.tsx
+msgid "Show details"
+msgstr "Afficher les détails"
+
+#: components/GetStarted/index.tsx
+msgid "Show Details"
+msgstr "Afficher les détails"
+
+#: ui/RichTextEditor.tsx
+msgid "Show formatting"
+msgstr "Afficher la mise en forme"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show less"
+msgstr "Afficher moins"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show more"
+msgstr "Afficher plus"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "Connectez-vous à votre compte GrowthBook"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "Se déconnecter"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "S'inscrire"
+
+#: components/GetStarted/index.tsx
+msgid "Simulate the result of targeting rules"
+msgstr "Simuler le résultat des règles de ciblage"
+
+#: components/Modal/PagedModal.tsx
+msgid "Skip"
+msgstr "Passer"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Skip plan selection"
+msgstr "Passer le choix du forfait"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Slack Logo"
+msgstr "Logo Slack"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Smoothing<0/>(7 day trailing)"
+msgstr "Lissage<0/>(moyenne mobile sur 7 jours)"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Some experiments are missing scaled impact results."
+msgstr "Certaines expériences n'ont pas de résultats d'impact mis à l'échelle."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Something went wrong"
+msgstr "Un problème est survenu"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "Explorateur SQL"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Start the Test"
+msgstr "Démarrer le test"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Starts at $40/month"
+msgstr "À partir de 40 $/mois"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Status"
+msgstr "Statut"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Sticky Bucketing"
+msgstr "Affectation persistante"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Strikethrough"
+msgstr "Barré"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "Mot de passe réinitialisé pour <0>{email}</0>"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Summary"
+msgstr "Résumé"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "summed impact / year"
+msgstr "impact cumulé / an"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to raw text mode"
+msgstr "Passer en mode texte brut"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to token mode"
+msgstr "Passer en mode jetons"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "Par défaut du système"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "Étiquettes"
+
+#: ui/PremiumCallout.tsx
+msgid "Talk to Sales"
+msgstr "Contacter l'équipe commerciale"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Talk to us in our <0><1>Slack channel</1></0>"
+msgstr "Échangez avec nous sur notre <0><1>canal Slack</1></0>"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Targeting Attributes"
+msgstr "Attributs de ciblage"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID"
+msgstr "Numéro fiscal"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID type"
+msgstr "Type de numéro fiscal"
+
+#: components/GetStarted/index.tsx
+msgid "Teams"
+msgstr "Équipes"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Teams & Permissions"
+msgstr "Équipes et autorisations"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "Modèles"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "The plus-minus value represents a 95% confidence interval."
+msgstr "La valeur plus ou moins représente un intervalle de confiance à 95 %."
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "Thème"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are a few setup steps before you can analyze an existing experiment."
+msgstr "Quelques étapes de configuration sont nécessaires avant de pouvoir analyser une expérience existante."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "There are no other organizations that you are not already a member of."
+msgstr "Il n'existe aucune autre organisation dont vous n'êtes pas déjà membre."
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are three ways to get started with experimentation in GrowthBook."
+msgstr "Il existe trois façons de vous lancer dans l'expérimentation avec GrowthBook."
+
+#: pages/invitation.tsx
+msgid "There was an error accepting the invite. Please go back to your email and click the invite link again."
+msgstr "Une erreur s'est produite lors de l'acceptation de l'invitation. Veuillez retourner dans votre e-mail et cliquer à nouveau sur le lien d'invitation."
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, chance to win, credible intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "Cela affecte les résultats des métriques (par ex. hausse, probabilité de gain, intervalles de crédibilité), et la hausse estimée diffère souvent de l'écart brut entre la variante et la référence."
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, p-values, confidence intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "Cela affecte les résultats des métriques (par ex. hausse, valeurs p, intervalles de confiance), et la hausse estimée diffère souvent de l'écart brut entre la variante et la référence."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "This Daily Scaled Impact, available in your Experiment Results under the \"Scaled Impact\" Difference Type, is adjusted if de-biasing is set to true and multiplied by 365 to yield the Annual Adjusted Scaled Impact."
+msgstr "Cet impact quotidien mis à l'échelle, disponible dans les résultats de vos expériences sous le type de différence « Impact mis à l'échelle », est ajusté si la correction du biais est activée, puis multiplié par 365 pour obtenir l'impact annuel ajusté mis à l'échelle."
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "Ces informations restent sur vos serveurs et ne sont jamais partagées. <0/>Vous pourrez inviter le reste de votre équipe plus tard."
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is a {planName} feature"
+msgstr "Cette fonctionnalité fait partie du forfait {planName}"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "This is a demo project with sample data"
+msgstr "Ceci est un projet de démonstration avec des données d'exemple"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is an {planName} feature"
+msgstr "Cette fonctionnalité fait partie du forfait {planName}"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with a prior that is normally distributed with mean {priorMean} and standard deviation {priorStdDev}."
+msgstr "Cette métrique a été analysée avec un a priori suivant une loi normale de moyenne {priorMean} et d'écart type {priorStdDev}."
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with CUPED, which adjusts for covariates."
+msgstr "Cette métrique a été analysée avec CUPED, qui corrige l'effet des covariables."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the winning variations from experiments marked as Won."
+msgstr "Cette valeur est la somme des impacts ajustés mis à l'échelle des variantes gagnantes des expériences marquées comme gagnées."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the worst variation from experiments marked as Lost."
+msgstr "Cette valeur est la somme des impacts ajustés mis à l'échelle de la pire variante des expériences marquées comme perdues."
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "Chronologie"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Title"
+msgstr "Titre"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "to"
+msgstr "au"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "To analyze experiment results, connect an event tracker and data source."
+msgstr "Pour analyser les résultats des expériences, connectez un outil de suivi d'événements et une source de données."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "To estimate the background variance in treatment effects used for the James-Stein estimator, we use all {nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters."
+msgstr "Pour estimer la variance de fond des effets de traitement utilisée par l'estimateur de James-Stein, nous utilisons les {nExpsUsedForAdjustment} expériences ayant déjà utilisé cette métrique et pour lesquelles l'impact mis à l'échelle peut être calculé, quels que soient vos filtres de projet ou de date."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Total Impact"
+msgstr "Impact total"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Try again"
+msgstr "Réessayer"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to save new payment method"
+msgstr "Impossible d'enregistrer le nouveau moyen de paiement"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to validate payment method inputs"
+msgstr "Impossible de valider les informations du moyen de paiement"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Unit dimension:"
+msgstr "Dimension d'unité :"
+
+#: ui/VariationStatsTable.tsx
+msgid "Units"
+msgstr "Unités"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited experiments"
+msgstr "Expériences illimitées"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited feature flags"
+msgstr "Indicateurs de fonctionnalités illimités"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Unsaved changes"
+msgstr "Modifications non enregistrées"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "Mettre à niveau"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade now"
+msgstr "Mettre à niveau maintenant"
+
+#: ui/PremiumCallout.tsx
+msgid "Upgrade Now"
+msgstr "Mettre à niveau maintenant"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade to unlock live chat support and premium features."
+msgstr "Passez à un forfait supérieur pour débloquer l'assistance par chat en direct et les fonctionnalités premium."
+
+#: ui/RichTextEditor.tsx
+msgid "Uploading…"
+msgstr "Envoi en cours…"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "URL"
+msgstr "URL"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "URL Redirects"
+msgstr "Redirections d'URL"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "Utilisation"
+
+#: components/GetStarted/index.tsx
+msgid "Use temp tables for intermediate steps"
+msgstr "Utiliser des tables temporaires pour les étapes intermédiaires"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "Parcours utilisateur"
+
+#: ui/VariationStatsTable.tsx
+msgid "Value"
+msgstr "Valeur"
+
+#: ui/StringArrayField.tsx
+msgid "value 1\n"
+"value 2..."
+msgstr "valeur 1\n"
+"valeur 2..."
+
+#: ui/StringArrayField.tsx
+msgid "value 1, value 2..."
+msgstr "valeur 1, valeur 2..."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: ui/VariationStatsTable.tsx
+msgid "Variation"
+msgstr "Variante"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Vercel Integration Docs"
+msgstr "Documentation de l'intégration Vercel"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "View a Sample Experiment"
+msgstr "Voir un exemple d'expérience"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all experiments"
+msgstr "Voir toutes les expériences"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all feature flags"
+msgstr "Voir tous les indicateurs de fonctionnalités"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View data sources"
+msgstr "Voir les sources de données"
+
+#: components/Auth/InAppHelp.tsx
+#: components/Layout/Layout.tsx
+#: ui/PremiumCallout.tsx
+msgid "View docs"
+msgstr "Voir la documentation"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "View docs for our <0>SDKs</0>"
+msgstr "Consultez la documentation de nos <0>SDK</0>"
+
+#: components/Modal.tsx
+msgid "View Documentation"
+msgstr "Voir la documentation"
+
+#: components/GetStarted/index.tsx
+msgid "View flag evaluations in real time"
+msgstr "Voir les évaluations des indicateurs en temps réel"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View metrics"
+msgstr "Voir les métriques"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "View report"
+msgstr "Voir le rapport"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View Sample Experiment"
+msgstr "Voir un exemple d'expérience"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+msgid "View Sample Feature"
+msgstr "Voir un exemple de fonctionnalité"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Visual Editor"
+msgstr "Éditeur visuel"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Want to run a new experiment? <0>View instructions</0>"
+msgstr "Vous souhaitez lancer une nouvelle expérience ? <0>Voir les instructions</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Watch a quick <0><1>Video Tour</1></0>"
+msgstr "Regardez une courte <0><1>visite vidéo</1></0>"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We compute the Daily Scaled Impact for all variations in all experiments that match your filters."
+msgstr "Nous calculons l'impact quotidien mis à l'échelle pour toutes les variantes de toutes les expériences correspondant à vos filtres."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "We couldn't refresh your organization details. Try again to see your updated plan."
+msgstr "Nous n'avons pas pu actualiser les informations de votre organisation. Réessayez pour voir votre forfait mis à jour."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found possible organizations for you on GrowthBook!"
+msgstr "Nous avons trouvé des organisations qui pourraient vous correspondre sur GrowthBook !"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found your organization on GrowthBook!"
+msgstr "Nous avons trouvé votre organisation sur GrowthBook !"
+
+#: pages/404.tsx
+msgid "We looked, but we couldn't find the page you're looking for"
+msgstr "Nous avons cherché, mais la page que vous recherchez est introuvable"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the winning variation of experiments marked as won and multiply values by 365 to get an annual value."
+msgstr "Nous additionnons l'impact mis à l'échelle de la variante gagnante des expériences marquées comme gagnées et multiplions les valeurs par 365 pour obtenir une valeur annuelle."
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the worst variation of experiments marked as lost and multiply values by 365 to get an annual value."
+msgstr "Nous additionnons l'impact mis à l'échelle de la pire variante des expériences marquées comme perdues et multiplions les valeurs par 365 pour obtenir une valeur annuelle."
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "We'll scan your data warehouse looking for past experiments that already have some data collected. Choose one to import and start analyzing results."
+msgstr "Nous analyserons votre entrepôt de données à la recherche d'expériences passées ayant déjà collecté des données. Choisissez-en une à importer et commencez à analyser les résultats."
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhooks"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "Bon retour parmi nous"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "Bon retour parmi nous, lançons quelques expériences"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Welcome to GrowthBook Pro!"
+msgstr "Bienvenue sur GrowthBook Pro !"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "Bienvenue sur GrowthBook !"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "WHAT'S NEW"
+msgstr "NOUVEAUTÉS"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Whether to use the James-Stein shrinkage estimator to compute an adjustment factor to mitigate selection bias from summing only a subset of experiments (e.g. winners)."
+msgstr "Indique s'il faut utiliser l'estimateur de rétrécissement de James-Stein pour calculer un facteur d'ajustement limitant le biais de sélection dû à la somme d'un sous-ensemble d'expériences seulement (par ex. les gagnantes)."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Winning Variation"
+msgstr "Variante gagnante"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Won"
+msgstr "Gagnées"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Worst Variation"
+msgstr "Pire variante"
+
+#: components/Modal/ConfirmButton.tsx
+msgid "Yes"
+msgstr "Oui"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You aren't part of an organization yet."
+msgstr "Vous ne faites encore partie d'aucune organisation."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You can change this later in your account settings."
+msgstr "Vous pourrez modifier ce choix plus tard dans les paramètres de votre compte."
+
+#: components/Layout/SettingsPage.tsx
+msgid "You do not have access to view this page."
+msgstr "Vous n'avez pas accès à cette page."
+
+#: components/GetStarted/FeaturedCards.tsx
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "You do not have permission to complete this action"
+msgstr "Vous n'avez pas l'autorisation d'effectuer cette action"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You must be invited by an administrator in order to use GrowthBook."
+msgstr "Vous devez être invité par un administrateur pour utiliser GrowthBook."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You will be charged a pro-rated amount for the remainder of this month, and $40 per month per seat thereafter. Cancel anytime."
+msgstr "Un montant au prorata vous sera facturé pour le reste du mois, puis 40 $ par mois et par utilisateur. Résiliable à tout moment."
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You're all set! Go to your GrowthBook dashboard to start your setup."
+msgstr "Tout est prêt ! Accédez à votre tableau de bord GrowthBook pour commencer la configuration."
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as a {role}!"
+msgstr "Vous avez été invité à rejoindre <0>{organization}</0> sur GrowthBook en tant que {role} !"
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as an {role}!"
+msgstr "Vous avez été invité à rejoindre <0>{organization}</0> sur GrowthBook en tant que {role} !"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Your analysis is currently running."
+msgstr "Votre analyse est en cours."
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required check to review."
+msgstr "Votre configuration GrowthBook comporte {unfinished} vérification requise à examiner."
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required checks to review."
+msgstr "Votre configuration GrowthBook comporte {unfinished} vérifications requises à examiner."
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required check to review."
+msgstr "Votre configuration GrowthBook dans {appName} comporte {unfinished} vérification requise à examiner."
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required checks to review."
+msgstr "Votre configuration GrowthBook dans {appName} comporte {unfinished} vérifications requises à examiner."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your membership is pending."
+msgstr "Votre adhésion est en attente."
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your role"
+msgstr "Votre rôle"

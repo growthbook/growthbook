@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 
@@ -27,11 +28,13 @@ export default function HeaderWithEdit({
         {children}{" "}
         {edit ? (
           <Button variant="ghost" onClick={edit}>
-            Edit
+            <Trans>Edit</Trans>
           </Button>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">
-            <Tooltip body={disabledMessage}>Edit</Tooltip>
+            <Tooltip body={disabledMessage}>
+              <Trans>Edit</Trans>
+            </Tooltip>
           </span>
         ) : null}
         {additionalActions && <div className="ml-1">{additionalActions}</div>}

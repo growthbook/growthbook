@@ -1,4 +1,5 @@
 import { ApiAutoRun, autoRunMetaString } from "shared/validators";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -8,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 // Surfaces the auto run this user last started, so coming back to GrowthBook picks
 // up where the wizard left off instead of starting from an empty Get Started page.
 export default function AutoRunCallout() {
+  const { t } = useLingui();
   const { userId } = useUser();
   const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs");
 
@@ -20,16 +22,31 @@ export default function AutoRunCallout() {
 
   const unfinished = run.checks.filter((c) => !c.ok && c.required).length;
   const appName = autoRunMetaString(run.metadata, "appName");
-  const where = appName ? ` in ${appName}` : "";
+  let message: string;
+  if (unfinished) {
+    if (appName) {
+      message =
+        unfinished === 1
+          ? t`Your GrowthBook setup in ${appName} has ${unfinished} required check to review.`
+          : t`Your GrowthBook setup in ${appName} has ${unfinished} required checks to review.`;
+    } else {
+      message =
+        unfinished === 1
+          ? t`Your GrowthBook setup has ${unfinished} required check to review.`
+          : t`Your GrowthBook setup has ${unfinished} required checks to review.`;
+    }
+  } else {
+    message = appName
+      ? t`Review the results of your GrowthBook setup in ${appName}.`
+      : t`Review the results of your GrowthBook setup.`;
+  }
 
   const body = (
     <Text size="md">
-      {unfinished
-        ? `Your GrowthBook setup${where} has ${unfinished} required check${
-            unfinished === 1 ? "" : "s"
-          } to review.`
-        : `Review the results of your GrowthBook setup${where}.`}{" "}
-      <Link href={`/auto-runs/${run.id}`}>View report</Link>
+      {message}{" "}
+      <Link href={`/auto-runs/${run.id}`}>
+        <Trans>View report</Trans>
+      </Link>
     </Text>
   );
 

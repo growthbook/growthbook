@@ -8,6 +8,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { useForm, UseFormReturn } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -43,8 +44,12 @@ const leftside = (
       </a>
     </Box>
     <Box>
-      <h1 className="title h1">Confirm your plan</h1>
-      <p>You can change this later in your account settings.</p>
+      <h1 className="title h1">
+        <Trans>Confirm your plan</Trans>
+      </h1>
+      <p>
+        <Trans>You can change this later in your account settings.</Trans>
+      </p>
     </Box>
   </Flex>
 );
@@ -55,6 +60,7 @@ type ProBillingData = {
 };
 
 const SelectInitialPlan: FC = () => {
+  const { t } = useLingui();
   const router = useRouter();
   const {
     initialPlanSelection,
@@ -131,7 +137,7 @@ const SelectInitialPlan: FC = () => {
         <Flex direction="column" gap="4" width="100%">
           {organizations && organizations.length > 1 && (
             <SelectField
-              label="Organization"
+              label={t`Organization`}
               value={orgId ?? ""}
               options={(organizations ?? []).map((o) => ({
                 label: o.name,
@@ -147,7 +153,9 @@ const SelectInitialPlan: FC = () => {
               }}
             />
           )}
-          <Heading as="h1">Plan options</Heading>
+          <Heading as="h1">
+            <Trans>Plan options</Trans>
+          </Heading>
           <RadioCards
             options={[
               {
@@ -162,13 +170,18 @@ const SelectInitialPlan: FC = () => {
                     <Heading as="h2" size="sm">
                       Starter
                     </Heading>
-                    <Text color="text-low">Free</Text>
+                    <Text color="text-low">
+                      <Trans>Free</Trans>
+                    </Text>
                   </Flex>
                 ),
                 description: (
                   <Flex direction="column" gap="3" className="mt-3">
                     <Text color="text-low">
-                      Basic flags and experiments for solo devs and small teams
+                      <Trans>
+                        Basic flags and experiments for solo devs and small
+                        teams
+                      </Trans>
                     </Text>
                     <ul
                       style={{
@@ -177,11 +190,21 @@ const SelectInitialPlan: FC = () => {
                         listStylePosition: "inside",
                       }}
                     >
-                      <li>Unlimited feature flags</li>
-                      <li>Unlimited experiments</li>
-                      <li>Add up to 3 seats</li>
-                      <li>1M CDN Requests/month</li>
-                      <li>5GB Bandwidth/month</li>
+                      <li>
+                        <Trans>Unlimited feature flags</Trans>
+                      </li>
+                      <li>
+                        <Trans>Unlimited experiments</Trans>
+                      </li>
+                      <li>
+                        <Trans>Add up to 3 seats</Trans>
+                      </li>
+                      <li>
+                        <Trans>1M CDN Requests/month</Trans>
+                      </li>
+                      <li>
+                        <Trans>5GB Bandwidth/month</Trans>
+                      </li>
                     </ul>
                     <Button
                       color="primary"
@@ -193,7 +216,7 @@ const SelectInitialPlan: FC = () => {
                       }}
                       disabled={loading || plan !== "starter"}
                     >
-                      Get Started for Free
+                      <Trans>Get Started for Free</Trans>
                     </Button>
                   </Flex>
                 ),
@@ -210,13 +233,17 @@ const SelectInitialPlan: FC = () => {
                     <Heading as="h2" size="sm">
                       Pro
                     </Heading>
-                    <Text color="text-low">Starts at $40/month</Text>
+                    <Text color="text-low">
+                      <Trans>Starts at $40/month</Trans>
+                    </Text>
                   </Flex>
                 ),
                 description: (
                   <Flex direction="column" gap="3" className="mt-3">
                     <Text color="text-low">
-                      Full featured experimentation and growth platform
+                      <Trans>
+                        Full featured experimentation and growth platform
+                      </Trans>
                     </Text>
                     <ul
                       style={{
@@ -225,11 +252,21 @@ const SelectInitialPlan: FC = () => {
                         listStylePosition: "inside",
                       }}
                     >
-                      <li>Advanced statistics</li>
-                      <li>Add up to 50 seats</li>
-                      <li>Advanced permissions</li>
-                      <li>2M CDN Requests/month</li>
-                      <li>20GB Bandwidth/month</li>
+                      <li>
+                        <Trans>Advanced statistics</Trans>
+                      </li>
+                      <li>
+                        <Trans>Add up to 50 seats</Trans>
+                      </li>
+                      <li>
+                        <Trans>Advanced permissions</Trans>
+                      </li>
+                      <li>
+                        <Trans>2M CDN Requests/month</Trans>
+                      </li>
+                      <li>
+                        <Trans>20GB Bandwidth/month</Trans>
+                      </li>
                     </ul>
                     <Button
                       color="primary"
@@ -241,7 +278,7 @@ const SelectInitialPlan: FC = () => {
                       }}
                       disabled={loading || plan !== "pro"}
                     >
-                      Next: Add Payment Details
+                      <Trans>Next: Add Payment Details</Trans>
                     </Button>
                   </Flex>
                 ),
@@ -277,14 +314,18 @@ const SelectInitialPlan: FC = () => {
       {step >= 4 && (
         <div style={{ maxWidth: "500px" }}>
           <h2 className="h3 mb-1">
-            {organizationRefreshFailed
-              ? "GrowthBook Pro Subscription Created"
-              : "Welcome to GrowthBook Pro!"}
+            {organizationRefreshFailed ? (
+              <Trans>GrowthBook Pro Subscription Created</Trans>
+            ) : (
+              <Trans>Welcome to GrowthBook Pro!</Trans>
+            )}
           </h2>
           {!organizationRefreshFailed && (
             <p className="text-muted mb-3">
-              You&apos;re all set! Go to your GrowthBook dashboard to start your
-              setup.
+              <Trans>
+                You&apos;re all set! Go to your GrowthBook dashboard to start
+                your setup.
+              </Trans>
             </p>
           )}
           {organizationRefreshFailed && (
@@ -298,12 +339,14 @@ const SelectInitialPlan: FC = () => {
                   loading={organizationRefreshStatus === "loading"}
                   onClick={retryOrganizationRefresh}
                 >
-                  Try again
+                  <Trans>Try again</Trans>
                 </UIButton>
               }
             >
-              We couldn&apos;t refresh your organization details. Try again to
-              see your updated plan.
+              <Trans>
+                We couldn&apos;t refresh your organization details. Try again to
+                see your updated plan.
+              </Trans>
             </Callout>
           )}
           <Button
@@ -311,7 +354,7 @@ const SelectInitialPlan: FC = () => {
             onClick={completeFlow}
             disabled={loading || organizationRefreshStatus === "loading"}
           >
-            Get started
+            <Trans>Get started</Trans>
           </Button>
         </div>
       )}
@@ -329,7 +372,7 @@ const SelectInitialPlan: FC = () => {
               handleDismiss();
             }}
           >
-            Skip plan selection
+            <Trans>Skip plan selection</Trans>
           </a>
         </Text>
       </Flex>
@@ -350,6 +393,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
   onBack,
   setError,
 }) => {
+  const { t } = useLingui();
   const { initialPlanFromUrl } = useAuth();
   const handleNext = () => {
     setError(null);
@@ -359,27 +403,29 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
   return (
     <div>
       <Heading as="h2" mb="1">
-        Billing details
+        <Trans>Billing details</Trans>
       </Heading>
       <Text color="text-low" mb="4" as="p">
-        Enter your billing information. You can add your payment method next.
+        <Trans>
+          Enter your billing information. You can add your payment method next.
+        </Trans>
       </Text>
       <Field
         size="legacy"
         type="email"
         required={true}
-        label="Billing email"
-        helpText="Monthly invoices will be sent to this address"
+        label={t`Billing email`}
+        helpText={t`Monthly invoices will be sent to this address`}
         {...form.register("email", { required: true })}
       />
       <Flex gap="4">
         <Box style={{ flex: 1 }}>
           <SelectField
             size="legacy"
-            label="Tax ID type"
+            label={t`Tax ID type`}
             options={taxIdTypeOptions}
             value={form.watch("taxIdType") || ""}
-            placeholder="(optional)"
+            placeholder={t`(optional)`}
             onChange={(value) => form.setValue("taxIdType", value as TaxIdType)}
             isClearable={true}
           />
@@ -389,11 +435,13 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
             size="legacy"
             type="text"
             {...form.register("taxIdValue")}
-            placeholder="(optional)"
+            placeholder={t`(optional)`}
             label={
               <Flex align="center">
-                <span className="mr-1">Tax ID</span>
-                <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
+                <span className="mr-1">
+                  <Trans>Tax ID</Trans>
+                </span>
+                <Tooltip body={t`Enter your tax id here. E.G. VAT or EIN`}>
                   <GBInfo />
                 </Tooltip>
               </Flex>
@@ -403,7 +451,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
       </Flex>
       <Flex width="100%" justify="between">
         <Button color="secondary" onClick={onBack}>
-          Back
+          <Trans>Back</Trans>
         </Button>
         <Button
           color="primary"
@@ -414,7 +462,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
             handleNext();
           }}
         >
-          Next
+          <Trans>Next</Trans>
         </Button>
       </Flex>
     </div>
@@ -476,6 +524,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   error,
   refreshOrganizationAfterUpgrade,
 }) => {
+  const { t } = useLingui();
   const { apiCall, initialPlanFromUrl } = useAuth();
   const urlPlan = initialPlanFromUrl ?? "";
   const { organization } = useUser();
@@ -496,7 +545,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw new Error(
-          submitError.message || "Unable to validate payment method inputs",
+          submitError.message || t`Unable to validate payment method inputs`,
         );
       }
       let address: StripeAddress | undefined;
@@ -523,7 +572,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       }
 
       if (!setupIntent || !setupIntent.payment_method) {
-        throw new Error("Unable to save new payment method");
+        throw new Error(t`Unable to save new payment method`);
       }
 
       await apiCall("/subscription/start-new-pro", {
@@ -548,7 +597,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       });
     } catch (e) {
       setLoading(false);
-      const message = e instanceof Error ? e.message : "Something went wrong";
+      const message = e instanceof Error ? e.message : t`Something went wrong`;
       setError(message);
       return;
     }
@@ -561,21 +610,23 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   return (
     <div style={{ maxWidth: "500px" }}>
       <Heading as="h2" mb="3">
-        Add payment method
+        <Trans>Add payment method</Trans>
       </Heading>
       <div className="mb-4">
         <PaymentElement />
         <p className="pt-3 text-muted" style={{ fontSize: "14px" }}>
-          You will be charged a pro-rated amount for the remainder of this
-          month, and $40 per month per seat thereafter. Cancel anytime.
+          <Trans>
+            You will be charged a pro-rated amount for the remainder of this
+            month, and $40 per month per seat thereafter. Cancel anytime.
+          </Trans>
         </p>
       </div>
       <div className="mb-4">
         <Checkbox
-          label="Customize invoice"
+          label={t`Customize invoice`}
           value={showAddress}
           setValue={setShowAddress}
-          description="Add a billing address and customize the name displayed on invoices."
+          description={t`Add a billing address and customize the name displayed on invoices.`}
         />
       </div>
       {showAddress && (
@@ -592,10 +643,10 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       )}
       <Flex gap="2" width="100%" justify="between">
         <Button color="secondary" onClick={onBack}>
-          Back
+          <Trans>Back</Trans>
         </Button>
         <Button color="primary" onClick={handleSubmit}>
-          {error ? "Retry" : "Next"}
+          {error ? <Trans>Retry</Trans> : <Trans>Next</Trans>}
         </Button>
       </Flex>
     </div>

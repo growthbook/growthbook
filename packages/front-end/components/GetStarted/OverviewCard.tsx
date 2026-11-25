@@ -1,6 +1,7 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
 import { MouseEventHandler } from "react";
 import { PiArrowSquareOut, PiPlayFill } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import styles from "./OverviewCard.module.scss";
 
 export default function OverviewCard({
@@ -27,7 +28,9 @@ export default function OverviewCard({
       {type === "video" && playTime && playTime > 0 && (
         <Text size="1" className={styles.playTime}>
           <PiPlayFill size={10} />{" "}
-          <span style={{ verticalAlign: "text-top" }}>{playTime} min</span>
+          <span style={{ verticalAlign: "text-top" }}>
+            <Trans>{playTime} min</Trans>
+          </span>
         </Text>
       )}
 

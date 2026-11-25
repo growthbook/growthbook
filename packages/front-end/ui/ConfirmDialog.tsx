@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import { AlertDialog, Box, Flex, Text } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import Button, { Color } from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 
@@ -19,13 +20,16 @@ type Props = {
 export default function ConfirmDialog({
   title,
   content,
-  yesText = "Confirm",
-  noText = "Cancel",
+  yesText,
+  noText,
   color = "violet",
   onConfirm,
   onCancel,
   onDismiss = onCancel,
 }: Props) {
+  const { t } = useLingui();
+  const yesLabel = yesText ?? t`Confirm`;
+  const noLabel = noText ?? t`Cancel`;
   const [error, setError] = useState<string | null>(null);
   return (
     <AlertDialog.Root
@@ -50,13 +54,13 @@ export default function ConfirmDialog({
           </Box>
           {error && <HelperText status="error">{error}</HelperText>}
           <Flex justify="end" gap="3">
-            {noText ? (
+            {noLabel ? (
               <Button variant="outline" color="gray" onClick={onCancel}>
-                {noText}
+                {noLabel}
               </Button>
             ) : null}
             <Button color={color} onClick={onConfirm} setError={setError}>
-              {yesText}
+              {yesLabel}
             </Button>
           </Flex>
         </Flex>

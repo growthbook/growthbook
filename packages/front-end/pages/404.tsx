@@ -1,6 +1,7 @@
 import { captureMessage as sentryCaptureMessage } from "@sentry/nextjs";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import { Trans } from "@lingui/react/macro";
 import { isSentryEnabled } from "@/services/env";
 
 export default function Custom404() {
@@ -32,10 +33,12 @@ export default function Custom404() {
           className="font-weight-semibold mb-1"
           style={{ fontSize: "1.1rem" }}
         >
-          404 - Page Not Found
+          <Trans>404 - Page Not Found</Trans>
         </span>
         <br />
-        We looked, but we couldn&apos;t find the page you&apos;re looking for
+        <Trans>
+          We looked, but we couldn&apos;t find the page you&apos;re looking for
+        </Trans>
       </div>
     </div>
   );

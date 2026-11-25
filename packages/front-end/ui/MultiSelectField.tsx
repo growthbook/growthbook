@@ -33,6 +33,7 @@ import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiX } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { CopyFieldIndicator } from "@/ui/FieldIndicator";
@@ -318,7 +319,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   options,
   onChange,
   initialOption,
-  placeholder = "Select...",
+  placeholder,
   sort = true,
   sortOptions = sort,
   disabled,
@@ -351,6 +352,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   legacyLabelFormatting = true,
   ...otherProps
 }) => {
+  const { t } = useLingui();
+  const placeholderText = placeholder ?? t`Select...`;
   const resolvedSize = size ?? "md";
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
@@ -619,7 +622,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                                         marginBottom: "var(--space-1)",
                                       }}
                                     >
-                                      Select an option or create one
+                                      <Trans>
+                                        Select an option or create one
+                                      </Trans>
                                     </div>
                                     <VirtualizedMenuList {...props} />
                                   </>
@@ -655,21 +660,23 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                           formatCreateLabel: (input: string) => {
                             return (
                               <span>
-                                <Text as="span" color="text-mid">
-                                  Create
-                                </Text>{" "}
-                                <Badge
-                                  color="violet"
-                                  variant="soft"
-                                  radius="small"
-                                  label={input}
-                                />
+                                <Trans>
+                                  <Text as="span" color="text-mid">
+                                    Create
+                                  </Text>{" "}
+                                  <Badge
+                                    color="violet"
+                                    variant="soft"
+                                    radius="small"
+                                    label={input}
+                                  />
+                                </Trans>
                               </span>
                             );
                           },
                         }
                       : {})}
-                    placeholder={initialOption ?? placeholder}
+                    placeholder={initialOption ?? placeholderText}
                     isOptionDisabled={isOptionDisabled}
                     hideSelectedOptions={hideSelectedOptions}
                     filterOption={filterOption}

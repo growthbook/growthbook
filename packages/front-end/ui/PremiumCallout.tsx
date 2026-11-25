@@ -8,6 +8,7 @@ import {
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -38,6 +39,7 @@ export default function PremiumCallout({
   size = "md",
   ...containerProps
 }: Props) {
+  const { t } = useLingui();
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = hasCommercialFeature(commercialFeature);
 
@@ -76,7 +78,7 @@ export default function PremiumCallout({
     hasFeature && docSection ? (
       <DocLink docSection={docSection}>
         <Flex as="span" align="center" gap="1">
-          View docs <PiArrowSquareOut size={15} />
+          <Trans>View docs</Trans> <PiArrowSquareOut size={15} />
         </Flex>
       </DocLink>
     ) : pro ? (
@@ -88,7 +90,7 @@ export default function PremiumCallout({
         }}
         style={{ whiteSpace: "nowrap" }}
       >
-        Upgrade Now
+        <Trans>Upgrade Now</Trans>
       </Link>
     ) : (
       <Link
@@ -100,7 +102,7 @@ export default function PremiumCallout({
         weight="medium"
       >
         <Flex as="span" align="center" gap="1">
-          Talk to Sales <PiArrowSquareOut size={15} />
+          <Trans>Talk to Sales</Trans> <PiArrowSquareOut size={15} />
         </Flex>
       </Link>
     );
@@ -142,7 +144,7 @@ export default function PremiumCallout({
             color="gray"
             size="1"
             onClick={() => setDismissed(true)}
-            aria-label="Dismiss"
+            aria-label={t`Dismiss`}
             style={{
               position: "absolute",
               right: 8,

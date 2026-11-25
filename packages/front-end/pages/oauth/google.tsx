@@ -1,11 +1,13 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 
 const Google: FC = () => {
+  const { t } = useLingui();
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -13,11 +15,11 @@ const Google: FC = () => {
     // Get code from querystring
     const c = window.location.search.match(/code=([^&]+)/)?.[1];
     if (!c) {
-      setError(new Error("Authentication failed"));
+      setError(new Error(t`Authentication failed`));
     } else {
       setCode(c);
     }
-  }, []);
+  }, [t]);
 
   const router = useRouter();
   const { mutateDefinitions } = useDefinitions();
@@ -36,7 +38,9 @@ const Google: FC = () => {
 
   return (
     <div className="p-3">
-      <h3>Add Data Source</h3>
+      <h3>
+        <Trans>Add Data Source</Trans>
+      </h3>
       <DataSourceForm
         existing={false}
         source="google-oauth"

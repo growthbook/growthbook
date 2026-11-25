@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import styles from "./RichTextEditor.module.scss";
 
 const MAX = 4;
-
-const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /** A grid to choose a new table's rows and columns, the first row its header. */
 export default function RichTextEditorTablePicker({
@@ -14,7 +13,13 @@ export default function RichTextEditorTablePicker({
 }: {
   onPick: (rows: number, columns: number) => void;
 }) {
+  const { t } = useLingui();
+  const rowCount = (n: number) => (n === 1 ? t`${n} row` : t`${n} rows`);
+  const columnCount = (n: number) =>
+    n === 1 ? t`${n} column` : t`${n} columns`;
   const [size, setSize] = useState({ rows: 1, columns: 1 });
+  const sizeRows = size.rows;
+  const sizeColumns = size.columns;
   return (
     <Flex
       direction="column"
@@ -30,7 +35,7 @@ export default function RichTextEditorTablePicker({
             <button
               key={i}
               type="button"
-              aria-label={`${count(rows, "row")}, ${count(columns, "column")}`}
+              aria-label={`${rowCount(rows)}, ${columnCount(columns)}`}
               className={clsx(
                 styles.tablePickerCell,
                 rows <= size.rows &&
@@ -45,7 +50,10 @@ export default function RichTextEditorTablePicker({
         })}
       </div>
       <Text size="sm" color="text-mid">
-        {count(size.rows, "row")} × {count(size.columns, "column")}
+        <Trans>
+          <Plural value={sizeRows} one="# row" other="# rows" /> ×{" "}
+          <Plural value={sizeColumns} one="# column" other="# columns" />
+        </Trans>
       </Text>
     </Flex>
   );

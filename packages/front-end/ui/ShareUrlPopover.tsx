@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -68,7 +69,7 @@ export default function ShareUrlPopover({
                 onCopy?.(shareUrl);
               }}
             >
-              {copySuccess ? "Copied!" : "Copy link"}
+              {copySuccess ? <Trans>Copied!</Trans> : <Trans>Copy link</Trans>}
             </Button>
           </Flex>
         </Box>

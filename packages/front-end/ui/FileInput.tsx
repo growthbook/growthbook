@@ -1,5 +1,6 @@
 import { ChangeEvent, FC, useRef, useState } from "react";
 import clsx from "clsx";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import styles from "./FileInput.module.scss";
 
@@ -15,9 +16,11 @@ const FileInput: FC<FileInputProps> = ({
   onChange,
   accept,
   required = false,
-  placeholder = "Choose file...",
+  placeholder,
   name,
 }) => {
+  const { t } = useLingui();
+  const placeholderText = placeholder ?? t`Choose file...`;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -53,12 +56,12 @@ const FileInput: FC<FileInputProps> = ({
           stopPropagation
           onClick={handleClick}
         >
-          Browse...
+          <Trans>Browse...</Trans>
         </Button>
         <span
           className={clsx(styles.name, fileName === null && styles.placeholder)}
         >
-          {fileName || placeholder}
+          {fileName || placeholderText}
         </span>
       </label>
       <input

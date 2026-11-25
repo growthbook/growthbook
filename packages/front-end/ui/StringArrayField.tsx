@@ -7,6 +7,7 @@ import {
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { PiRepeatBold, PiXBold } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
 import { Size } from "@/ui/sizes";
@@ -102,9 +103,10 @@ function RawTextModeToggleButton({
   rawTextMode: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <FieldIndicator
-      label={rawTextMode ? "Switch to token mode" : "Switch to raw text mode"}
+      label={rawTextMode ? t`Switch to token mode` : t`Switch to raw text mode`}
       onClick={onToggle}
       className="gb-select__raw-text-mode-indicator"
     >
@@ -162,6 +164,7 @@ export default function StringArrayField({
   helpText,
   ...otherProps
 }: Props) {
+  const { t } = useLingui();
   const resolvedSize = size ?? "md";
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
@@ -343,8 +346,8 @@ export default function StringArrayField({
         rawTextMode
           ? (helpText ??
             (textSeparator === ","
-              ? "Separate values by comma"
-              : "One value per line"))
+              ? t`Separate values by comma`
+              : t`One value per line`))
           : helpText
       }
       helpTextClassName="mt-0"
@@ -373,8 +376,8 @@ export default function StringArrayField({
                     placeholder={
                       placeholder ??
                       (textSeparator === ","
-                        ? "value 1, value 2..."
-                        : "value 1\nvalue 2...")
+                        ? t`value 1, value 2...`
+                        : t`value 1\nvalue 2...`)
                     }
                     minRows={1}
                     maxRows={10}

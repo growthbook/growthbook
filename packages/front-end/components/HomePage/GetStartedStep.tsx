@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ReactElement, ReactNode } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
+import { Trans } from "@lingui/react/macro";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
 
@@ -63,15 +64,17 @@ export default function GetStartedStep({
             <h3 className="">
               {title}
               <span className="h3 mb-0 ml-3 complete checkmark d-none">
-                <FaCheck /> Completed
+                <FaCheck /> <Trans>Completed</Trans>
               </span>
             </h3>
           </div>
           <div className="card-text mb-3">{text}</div>
           {permissionsError && (
             <Callout status="info">
-              <strong>Notice:</strong> You don&apos;t have the required
-              permissions to complete this step.
+              <Trans>
+                <strong>Notice:</strong> You don&apos;t have the required
+                permissions to complete this step.
+              </Trans>
             </Callout>
           )}
           {!finished && action ? (

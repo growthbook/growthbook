@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Grid, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -19,6 +20,7 @@ import Callout from "@/ui/Callout";
 const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
 
 const DataSourceGuide = (): React.ReactElement => {
+  const { t } = useLingui();
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const {
@@ -77,8 +79,8 @@ const DataSourceGuide = (): React.ReactElement => {
     <div className="container pagecontents">
       <PageHead
         breadcrumb={[
-          { display: "Get Started", href: "/getstarted" },
-          { display: "Data & Metrics" },
+          { display: t`Get Started`, href: "/getstarted" },
+          { display: t`Data & Metrics` },
         ]}
       />
       {upgradeModal && (
@@ -98,7 +100,9 @@ const DataSourceGuide = (): React.ReactElement => {
         mt="4"
       >
         <Box style={{ minWidth: 500 }}>
-          <h1 className="mb-3 mr-3">Set up Data Source & Metrics</h1>
+          <h1 className="mb-3 mr-3">
+            <Trans>Set up Data Source & Metrics</Trans>
+          </h1>
           <Frame>
             <div className="d-flex align-items-center justify-content-center w-100">
               <DataSourceDiagram />
@@ -140,17 +144,19 @@ const DataSourceGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Connect a Data Source",
+                      step: t`Connect a Data Source`,
                       source: "dataSourceGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
-                  Connect a Data Source
+                  <Trans>Connect a Data Source</Trans>
                 </Link>
                 <Box mt="2">
-                  To analyze experiment results, connect an event tracker and
-                  data source.
+                  <Trans>
+                    To analyze experiment results, connect an event tracker and
+                    data source.
+                  </Trans>
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -192,17 +198,19 @@ const DataSourceGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Create a Fact Table",
+                      step: t`Create a Fact Table`,
                       source: "dataSourceGuide",
                       stepKey: "createFactTable",
                     })
                   }
                 >
-                  Create a Fact Table
+                  <Trans>Create a Fact Table</Trans>
                 </Link>
                 <Box mt="2">
-                  Fact Tables are defined by a SQL SELECT statement and serve as
-                  the base on which metrics are built.
+                  <Trans>
+                    Fact Tables are defined by a SQL SELECT statement and serve
+                    as the base on which metrics are built.
+                  </Trans>
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -243,17 +251,19 @@ const DataSourceGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Add Metrics",
+                      step: t`Add Metrics`,
                       source: "dataSourceGuide",
                       stepKey: "addMetric",
                     })
                   }
                 >
-                  Add Metrics
+                  <Trans>Add Metrics</Trans>
                 </Link>
                 <Box mt="2">
-                  Add Proportion, Mean, Quantile, or Ratio metrics on top of
-                  Fact Tables.
+                  <Trans>
+                    Add Proportion, Mean, Quantile, or Ratio metrics on top of
+                    Fact Tables.
+                  </Trans>
                 </Box>
               </div>
             </div>

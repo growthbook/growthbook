@@ -217,7 +217,7 @@ export default defineConfig([
       "./packages/**/*.test.{ts,tsx,js,jsx}",
       "./packages/**/*.d.ts",
       "./packages/*/scripts/**/*",
-      "./packages/*/{jest,vitest,rollup}.config.{js,mjs}",
+      "./packages/*/{jest,vitest,rollup,lingui}.config.{js,mjs}",
       "./packages/back-end/src/scripts/{generate-openapi,generate-openapi-docs,test-rest-api,diff-features}.ts",
       // Only reachable through the rollup bundle, which inlines its imports.
       "./packages/sdk-js/src/auto-wrapper.ts",

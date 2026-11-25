@@ -1,0 +1,2506 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-25 23:53+0530\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh\n"
+
+#: ui/VariationStatsTable.tsx
+msgid "(adjusted)"
+msgstr "（已调整）"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "(optional)"
+msgstr "（可选）"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "{label} isn't available in a table"
+msgstr "表格中无法使用 {label}"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "{location} · matching “{search}”"
+msgstr "{location} · 匹配“{search}”"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "{memberCount, plural, one {# member} other {# members}}"
+msgstr "{memberCount, plural, other {# 名成员}}"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} column"
+msgstr "{n} 列"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} columns"
+msgstr "{n} 列"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} row"
+msgstr "{n} 行"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{n} rows"
+msgstr "{n} 行"
+
+#: components/GetStarted/OverviewCard.tsx
+msgid "{playTime} min"
+msgstr "{playTime} 分钟"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} / to search settings"
+msgstr "按 {shortcutHint} / 搜索设置"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{shortcutHint} slash"
+msgstr "{shortcutHint} 斜杠"
+
+#: ui/RichTextEditorTablePicker.tsx
+msgid "{sizeRows, plural, one {# row} other {# rows}} × {sizeColumns, plural, one {# column} other {# columns}}"
+msgstr "{sizeRows, plural, other {# 行}} × {sizeColumns, plural, other {# 列}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}}"
+msgstr "在 {matchedSections, plural, other {# 个分区}}中找到 {total, plural, other {# 个匹配项}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {matchedSections, plural, one {# section} other {# sections}} and {pageCount, plural, one {# page} other {# pages}}"
+msgstr "在 {matchedSections, plural, other {# 个分区}}和 {pageCount, plural, other {# 个页面}}中找到 {total, plural, other {# 个匹配项}}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "{total, plural, one {# match} other {# matches}} in {pageCount, plural, one {# page} other {# pages}}"
+msgstr "在 {pageCount, plural, other {# 个页面}}中找到 {total, plural, other {# 个匹配项}}"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of not shipping the worst variation."
+msgstr "每年 {totalImpact} 为未发布最差变体所避免影响的总和。"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "{totalImpact} per year is the summed impact of the winning variations."
+msgstr "每年 {totalImpact} 为胜出变体的影响总和。"
+
+#: components/HomePage/DiscussionFeed.tsx
+msgid "<0><1/></0> commented on {parentType}"
+msgstr "<0><1/></0> 评论了 {parentType}"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "<0>Clear Input</0> to include today"
+msgstr "<0>清除输入</0>即可包含今天"
+
+#: ui/MultiSelectField.tsx
+msgid "<0>Create</0> <1/>"
+msgstr "<0>创建</0> <1/>"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "<0>Current Task:</0> {currentStep}"
+msgstr "<0>当前任务：</0>{currentStep}"
+
+#: components/HomePage/GetStartedStep.tsx
+msgid "<0>Notice:</0> You don't have the required permissions to complete this step."
+msgstr "<0>注意：</0>您没有完成此步骤所需的权限。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "0 experiments for which we could compute scaled impact match your filters."
+msgstr "符合筛选条件且可计算折算影响的实验为 0 个。"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "1. Connect to your data warehouse"
+msgstr "1. 连接数据仓库"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "1M CDN Requests/month"
+msgstr "每月 100 万次 CDN 请求"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "2. Define a metric"
+msgstr "2. 定义指标"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "20GB Bandwidth/month"
+msgstr "每月 20GB 带宽"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "2M CDN Requests/month"
+msgstr "每月 200 万次 CDN 请求"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "3. Import an experiment"
+msgstr "3. 导入实验"
+
+#: pages/404.tsx
+msgid "404 - Page Not Found"
+msgstr "404 - 页面未找到"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Feature Highlights"
+msgstr "5.2 功能亮点"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "5.2 Release Notes"
+msgstr "5.2 版本说明"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "5GB Bandwidth/month"
+msgstr "每月 5GB 带宽"
+
+#: pages/invitation.tsx
+msgid "Accept Invitation"
+msgstr "接受邀请"
+
+#: components/Modal/ModalWarningBanner.tsx
+msgid "Acknowledge"
+msgstr "我知道了"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Activity Feed"
+msgstr "动态"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add a billing address and customize the name displayed on invoices."
+msgstr "添加账单地址，并自定义发票上显示的名称。"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a column"
+msgstr "添加列"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Add a row"
+msgstr "添加行"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Add data source"
+msgstr "添加数据源"
+
+#: pages/oauth/google.tsx
+msgid "Add Data Source"
+msgstr "添加数据源"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Metrics"
+msgstr "添加指标"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Add North Star Metric(s)"
+msgstr "添加北极星指标"
+
+#: components/Layout/TopNav.tsx
+msgid "Add organization"
+msgstr "添加组织"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add payment method"
+msgstr "添加付款方式"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Add Proportion, Mean, Quantile, or Ratio metrics on top of Fact Tables."
+msgstr "基于事实表添加比例、均值、分位数或比率指标。"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Add teammates to your account"
+msgstr "向账号添加团队成员"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 3 seats"
+msgstr "最多可添加 3 个席位"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Add up to 50 seats"
+msgstr "最多可添加 50 个席位"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Add your first feature flag to test your setup."
+msgstr "添加第一个功能开关，测试您的设置。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Admin"
+msgstr "管理员"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced permissions"
+msgstr "高级权限"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Advanced statistics"
+msgstr "高级统计"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Agent Skills"
+msgstr "智能体技能"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "AI Visual Editor"
+msgstr "AI 可视化编辑器"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align center"
+msgstr "居中对齐"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align column"
+msgstr "列对齐"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align left"
+msgstr "左对齐"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Align right"
+msgstr "右对齐"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "ALL"
+msgstr "全部"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/ProjectSelector.tsx
+msgid "All Projects"
+msgstr "所有项目"
+
+#: components/Layout/TopNav.tsx
+msgid "Allow celebration"
+msgstr "允许庆祝效果"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Allow GrowthBook to communicate with your app."
+msgstr "允许 GrowthBook 与您的应用通信。"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Allow GrowthBook to query your warehouse to compute traffic totals and metric results."
+msgstr "允许 GrowthBook 查询您的数据仓库，以计算流量总数和指标结果。"
+
+#: components/Auth/Welcome.tsx
+msgid "Already have an account? <0>Log In</0>"
+msgstr "已有账号？<0>登录</0>"
+
+#: pages/index.tsx
+#: pages/reset-password.tsx
+msgid "An error occurred"
+msgstr "发生错误"
+
+#: components/Auth/Welcome.tsx
+msgid "An error occurred. Please try again."
+msgstr "发生错误，请重试。"
+
+#: pages/oauth/callback.tsx
+msgid "An unknown error occurred"
+msgstr "发生未知错误"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze an Existing Experiment"
+msgstr "分析已有实验"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Analyze Existing Experiment"
+msgstr "分析已有实验"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Analyze External Experiments"
+msgstr "分析外部实验"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Analyze Imported Experiments"
+msgstr "分析导入的实验"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Annual Adj. Scaled Impact"
+msgstr "年度调整后折算影响"
+
+#: components/Layout/sidebarNav.ts
+msgid "API Keys"
+msgstr "API 密钥"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Approved"
+msgstr "已批准"
+
+#: components/GetStarted/index.tsx
+msgid "Archetype Overview"
+msgstr "用户原型概览"
+
+#: components/Layout/sidebarNav.ts
+msgid "Archetypes"
+msgstr "用户原型"
+
+#: components/Modal/ConfirmButton.tsx
+msgid "Are you sure?"
+msgstr "确定吗？"
+
+#: ui/DropdownMenu.tsx
+msgid "Are you sure? This action cannot be undone."
+msgstr "确定吗？此操作无法撤销。"
+
+#: components/Layout/TopNav.tsx
+msgid "Ask GrowthBook AI"
+msgstr "向 GrowthBook AI 提问"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Ask your admin to invite you to the organization."
+msgstr "请联系管理员邀请您加入组织。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Attributes"
+msgstr "属性"
+
+#: pages/oauth/google.tsx
+msgid "Authentication failed"
+msgstr "身份验证失败"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "avoided loss / year"
+msgstr "避免的损失 / 年"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Back"
+msgstr "上一步"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Back to Options"
+msgstr "返回选项"
+
+#: components/Layout/sidebarNav.ts
+msgid "Bandits"
+msgstr "多臂老虎机"
+
+#: ui/VariationStatsTable.tsx
+msgid "BASELINE"
+msgstr "基准"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Basic flags and experiments for solo devs and small teams"
+msgstr "面向个人开发者和小团队的基础开关与实验功能"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Bayesian Priors affect results"
+msgstr "贝叶斯先验会影响结果"
+
+#: components/Layout/SidebarLink.tsx
+msgid "beta"
+msgstr "测试版"
+
+#: components/Layout/SidebarLink.tsx
+msgid "Beta"
+msgstr "测试版"
+
+#: components/Layout/sidebarNav.ts
+msgid "Billing"
+msgstr "账单"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing details"
+msgstr "账单详情"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Billing email"
+msgstr "账单邮箱"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bold"
+msgstr "加粗"
+
+#: ui/Breadcrumbs.tsx
+msgid "Breadcrumb"
+msgstr "面包屑导航"
+
+#: ui/FileInput.tsx
+msgid "Browse..."
+msgstr "浏览…"
+
+#: components/Layout/Layout.tsx
+msgid "Build:"
+msgstr "构建："
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Bulleted list"
+msgstr "无序列表"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Calculate Scaled Impact"
+msgstr "计算折算影响"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Can't remember your current password? Log out and click on <0>Forgot Password</0> to reset it."
+msgstr "忘记当前密码？请退出登录，然后点击<0>忘记密码</0>进行重置。"
+
+#: components/Modal.tsx
+#: ui/ConfirmDialog.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Cancel"
+msgstr "取消"
+
+#: components/Auth/ChangePasswordModal.tsx
+#: components/Layout/TopNav.tsx
+msgid "Change Password"
+msgstr "修改密码"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Changes Requested"
+msgstr "需要修改"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Chat with us on <0><1>Slack</1></0>"
+msgstr "在 <0><1>Slack</1></0> 上与我们交流"
+
+#: ui/FileInput.tsx
+msgid "Choose file..."
+msgstr "选择文件…"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Clear contents"
+msgstr "清除内容"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Clear search"
+msgstr "清除搜索"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Click the “Start Experiment” button in the top right corner of the selected experiment."
+msgstr "点击所选实验右上角的“开始实验”按钮。"
+
+#: components/Auth/Welcome.tsx
+msgid "Click the link in the email to reset your password."
+msgstr "点击邮件中的链接重置密码。"
+
+#: components/Modal.tsx
+#: ui/Modal/index.tsx
+msgid "Close"
+msgstr "关闭"
+
+#: components/Layout/TopNav.tsx
+msgid "Close GrowthBook AI assistant"
+msgstr "关闭 GrowthBook AI 助手"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Close help"
+msgstr "关闭帮助"
+
+#: components/GetStarted/index.tsx
+msgid "Code Refs"
+msgstr "代码引用"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Column options"
+msgstr "列选项"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns"
+msgstr "列"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Columns, {hiddenCount} hidden"
+msgstr "列，已隐藏 {hiddenCount} 个"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Community"
+msgstr "社区"
+
+#: components/Auth/Welcome.tsx
+msgid "Company name"
+msgstr "公司名称"
+
+#: components/HomePage/GetStartedStep.tsx
+msgid "Completed"
+msgstr "已完成"
+
+#: components/Layout/sidebarNav.ts
+msgid "Configs"
+msgstr "配置"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Configure Metric Library"
+msgstr "配置指标库"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Configure Your Auto-generated Experiment"
+msgstr "配置自动生成的实验"
+
+#: ui/ConfirmDialog.tsx
+msgid "Confirm"
+msgstr "确认"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Confirm your plan"
+msgstr "确认您的套餐"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Connect a Data Source"
+msgstr "连接数据源"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Connect to Your Data Warehouse"
+msgstr "连接数据仓库"
+
+#: components/GetStarted/index.tsx
+msgid "Connect to your SDK to get started. <0>Launch the setup flow</0>"
+msgstr "连接 SDK 即可开始。<0>启动设置流程</0>"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Connect Your Data Source"
+msgstr "连接数据源"
+
+#: components/Layout/sidebarNav.ts
+msgid "Constants"
+msgstr "常量"
+
+#: components/Layout/sidebarNav.ts
+msgid "Contextual Bandits"
+msgstr "上下文多臂老虎机"
+
+#: pages/oauth/lookup.tsx
+msgid "Continue"
+msgstr "继续"
+
+#: ui/FieldIndicator.tsx
+msgid "Copied"
+msgstr "已复制"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copied!"
+msgstr "已复制！"
+
+#: ui/ShareUrlPopover.tsx
+msgid "Copy link"
+msgstr "复制链接"
+
+#: ui/FieldIndicator.tsx
+msgid "Copy to clipboard"
+msgstr "复制到剪贴板"
+
+#: components/GetStarted/index.tsx
+msgid "Create"
+msgstr "创建"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Create a Fact Table"
+msgstr "创建事实表"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new one here."
+msgstr "可在此新建一个。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization"
+msgstr "新建组织"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create a new organization instead"
+msgstr "改为新建组织"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag"
+msgstr "创建测试功能开关"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create a Test Feature Flag in this Project"
+msgstr "在此项目中创建测试功能开关"
+
+#: components/Auth/Welcome.tsx
+msgid "Create Account"
+msgstr "创建账号"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Create an experiment and change variations. Choose from Feature Flags, URL Redirects, or the Visual Editor (Pro)."
+msgstr "创建实验并修改变体。可选择功能开关、URL 重定向或可视化编辑器（Pro）。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create an organization"
+msgstr "创建组织"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create API Token"
+msgstr "创建 API 令牌"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Create Feature Flags"
+msgstr "创建功能开关"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create or join one here."
+msgstr "可在此创建或加入组织。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Create organization"
+msgstr "创建组织"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Create Projects"
+msgstr "创建项目"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Create your first metric definition. Use this as a goal or guardrail when analyzing your experiment results. With GrowthBook, you can build out an entire metric library to represent all of the KPIs for your organization."
+msgstr "创建您的第一个指标定义，在分析实验结果时将其用作目标或护栏指标。借助 GrowthBook，您可以构建完整的指标库，涵盖组织的所有 KPI。"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED affects results"
+msgstr "CUPED 会影响结果"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "CUPED and Bayesian Priors affect results"
+msgstr "CUPED 和贝叶斯先验会影响结果"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Current Password"
+msgstr "当前密码"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Fields"
+msgstr "自定义字段"
+
+#: components/Layout/sidebarNav.ts
+msgid "Custom Hooks"
+msgstr "自定义钩子"
+
+#: components/GetStarted/index.tsx
+msgid "Custom Roles"
+msgstr "自定义角色"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Customize invoice"
+msgstr "自定义发票"
+
+#: components/GetStarted/index.tsx
+msgid "Customize your account setup and learn how to get started with GrowthBook."
+msgstr "自定义账号设置，了解如何开始使用 GrowthBook。"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Average"
+msgstr "日均值"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Daily Count"
+msgstr "每日计数"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Dark"
+msgstr "深色"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Dashboard"
+msgstr "仪表盘"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dashboards"
+msgstr "仪表盘列表"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Data & Metrics"
+msgstr "数据与指标"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
+msgid "Data Pipeline Mode"
+msgstr "数据管道模式"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Data Source"
+msgstr "数据源"
+
+#: components/Layout/sidebarNav.ts
+msgid "Data Sources"
+msgstr "数据源"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Date Ended"
+msgstr "结束日期"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "De-bias?"
+msgstr "去偏？"
+
+#: components/GetStarted/index.tsx
+msgid "Debug feature flags & experiments"
+msgstr "调试功能开关和实验"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Define any additional settings, rules and targeting as desired. Then, click “Run experiment.”"
+msgstr "根据需要定义其他设置、规则和定向条件，然后点击“运行实验”。"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define Fact Tables and Metrics"
+msgstr "定义事实表和指标"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Define fact tables for the main events in your data warehouse and build metrics based on those events."
+msgstr "为数据仓库中的主要事件定义事实表，并基于这些事件构建指标。"
+
+#: components/GetStarted/index.tsx
+msgid "Define fine-grained permission control"
+msgstr "定义精细化权限控制"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete column"
+msgstr "删除列"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Delete row"
+msgstr "删除行"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Demo"
+msgstr "演示"
+
+#: ui/VariationStatsTable.tsx
+msgid "Denom."
+msgstr "分母"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design a new A/B test from scratch using either <0>Feature Flags</0>, our <1>Visual Editor</1>, or <2>URL Redirects</2>. Then, integrate our SDK into your application and start collecting and analyzing data from your users."
+msgstr "使用<0>功能开关</0>、<1>可视化编辑器</1>或<2>URL 重定向</2>从零开始设计新的 A/B 测试。然后将我们的 SDK 集成到您的应用中，开始收集和分析用户数据。"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design and Run a New Experiment"
+msgstr "设计并运行新实验"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Design New Experiment"
+msgstr "设计新实验"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design the First Experiment for this Project"
+msgstr "为此项目设计第一个实验"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Design Your Organization’s First Experiment"
+msgstr "设计组织的第一个实验"
+
+#: ui/ErrorDisplay.tsx
+msgid "Details"
+msgstr "详情"
+
+#: components/GetStarted/index.tsx
+msgid "Dev Tools"
+msgstr "开发者工具"
+
+#: components/Layout/sidebarNav.ts
+msgid "Dimensions"
+msgstr "维度"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Disabled as there are not enough experiments to shrink estimates"
+msgstr "实验数量不足，无法收缩估计值，因此已禁用"
+
+#: ui/Callout.tsx
+#: ui/PremiumCallout.tsx
+msgid "Dismiss"
+msgstr "关闭"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Docs"
+msgstr "文档"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Documentation, help & support"
+msgstr "文档、帮助与支持"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Does not include Bandits"
+msgstr "不包括多臂老虎机"
+
+#: pages/oauth/lookup.tsx
+msgid "Don't have a GrowthBook Enterprise plan yet?<0/>Email <1>sales@growthbook.io</1> to learn more and get a quote."
+msgstr "还没有 GrowthBook Enterprise 套餐？<0/>请发送邮件至 <1>sales@growthbook.io</1> 了解详情并获取报价。"
+
+#: components/Auth/Welcome.tsx
+msgid "Don't have an account yet? <0>Start for free</0>"
+msgstr "还没有账号？<0>免费开始使用</0>"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Draft"
+msgstr "草稿"
+
+#: ui/ColumnSettings.tsx
+msgid "Drag to reorder {columnLabel}"
+msgstr "拖动以调整 {columnLabel} 的顺序"
+
+#: ui/ColumnSettingsButton.tsx
+msgid "Drag to reorder; check to show or hide. Saved in this browser only, not shared with your team."
+msgstr "拖动可调整顺序，勾选可显示或隐藏。仅保存在当前浏览器中，不会与团队共享。"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Early access"
+msgstr "抢先体验"
+
+#: components/GetStarted/index.tsx
+msgid "Easily reuse sets of metrics"
+msgstr "轻松复用指标组合"
+
+#: components/Layout/HeaderWithEdit.tsx
+#: components/Layout/RightRailSection.tsx
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Edit"
+msgstr "编辑"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Edit link"
+msgstr "编辑链接"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "Edit name"
+msgstr "编辑名称"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Edit North Star Metric(s)"
+msgstr "编辑北极星指标"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit profile"
+msgstr "编辑个人资料"
+
+#: components/Layout/TopNav.tsx
+msgid "Edit Profile"
+msgstr "编辑个人资料"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Editing Your Auto-generated Experiment"
+msgstr "编辑自动生成的实验"
+
+#: components/Auth/Welcome.tsx
+#: pages/oauth/lookup.tsx
+msgid "Email Address"
+msgstr "邮箱地址"
+
+#: components/GetStarted/index.tsx
+msgid "Enable automatic query optimization"
+msgstr "启用自动查询优化"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your billing information. You can add your payment method next."
+msgstr "请输入账单信息，下一步即可添加付款方式。"
+
+#: pages/oauth/lookup.tsx
+msgid "Enter your email address and you will be redirected to your company's SSO portal, if configured."
+msgstr "输入邮箱地址后，如已配置，您将被重定向到公司的 SSO 门户。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Enter your tax id here. E.G. VAT or EIN"
+msgstr "在此输入税号，例如 VAT 或 EIN"
+
+#: pages/oauth/lookup.tsx
+msgid "Enterprise SSO Login"
+msgstr "Enterprise SSO 登录"
+
+#: components/Layout/sidebarNav.ts
+msgid "Environments"
+msgstr "环境"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Error running the analysis."
+msgstr "运行分析时出错。"
+
+#: ui/DropdownMenu.tsx
+msgid "Error: {error}. Exit menu and try again."
+msgstr "错误：{error}。请退出菜单后重试。"
+
+#: ui/VariationStatsTable.tsx
+msgid "Events"
+msgstr "事件"
+
+#: components/Layout/sidebarNav.ts
+msgid "Events Log"
+msgstr "事件日志"
+
+#: components/GetStarted/index.tsx
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Experiment"
+msgstr "实验"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Experiment Impact"
+msgstr "实验影响"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Experiment Results"
+msgstr "实验结果"
+
+#: components/Layout/sidebarNav.ts
+msgid "Experimentation"
+msgstr "实验管理"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Experimentation Setup"
+msgstr "实验设置"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Experiments"
+msgstr "实验"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Experiments > [selected experiment]"
+msgstr "实验 > [所选实验]"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Experiments requiring attention"
+msgstr "需要关注的实验"
+
+#: components/Layout/sidebarNav.ts
+msgid "Explore"
+msgstr "探索"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a demo experiment with sample data"
+msgstr "通过示例数据探索演示实验"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup"
+msgstr "探索引导式设置"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Explore a guided setup & sample results"
+msgstr "探索引导式设置和示例结果"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Explore a Sample Experiment"
+msgstr "探索示例实验"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE ADVANCED FEATURES"
+msgstr "探索高级功能"
+
+#: components/GetStarted/index.tsx
+msgid "EXPLORE FEATURES"
+msgstr "探索功能"
+
+#: components/Layout/sidebarNav.ts
+msgid "Exposures Debugger"
+msgstr "曝光调试器"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/GetStarted/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Fact Tables"
+msgstr "事实表"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "Fact Tables are defined by a SQL SELECT statement and serve as the base on which metrics are built."
+msgstr "事实表由 SQL SELECT 语句定义，是构建指标的基础。"
+
+#: ui/RichTextEditor.tsx
+msgid "Failed to upload image"
+msgstr "图片上传失败"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature"
+msgstr "功能"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag"
+msgstr "功能开关"
+
+#: components/GetStarted/index.tsx
+msgid "Feature Flag Analytics"
+msgstr "功能开关分析"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Feature Flag Basics"
+msgstr "功能开关基础"
+
+#: components/Layout/sidebarNav.ts
+msgid "Feature Flags"
+msgstr "功能开关"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature flags requiring attention"
+msgstr "需要关注的功能开关"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Feature Key"
+msgstr "功能键名"
+
+#: components/Layout/sidebarNav.ts
+msgid "Features"
+msgstr "功能"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password"
+msgstr "忘记密码"
+
+#: components/Auth/Welcome.tsx
+msgid "Forgot Password?"
+msgstr "忘记密码？"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Free"
+msgstr "免费"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Full featured experimentation and growth platform"
+msgstr "功能完备的实验与增长平台"
+
+#: components/Layout/sidebarNav.ts
+msgid "Funnels"
+msgstr "漏斗"
+
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
+#: components/Layout/sidebarNav.ts
+msgid "General"
+msgstr "常规"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "General · {sectionTitle}"
+msgstr "常规 · {sectionTitle}"
+
+#: components/Layout/SettingsNav.tsx
+msgid "General settings sections"
+msgstr "常规设置分区"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Get early access June 22"
+msgstr "6 月 22 日开放抢先体验"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get started"
+msgstr "开始使用"
+
+#: components/GetStarted/index.tsx
+#: components/Layout/Layout.tsx
+#: pages/getstarted/data-source-guide.tsx
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Get Started"
+msgstr "快速开始"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Get Started for Free"
+msgstr "免费开始使用"
+
+#: components/Auth/Welcome.tsx
+msgid "Getting started with GrowthBook only takes a few minutes. <0/>To start, we'll need a bit of information about you."
+msgstr "只需几分钟即可开始使用 GrowthBook。<0/>首先，请提供一些基本信息。"
+
+#: components/Auth/Welcome.tsx
+msgid "Go back to Log In"
+msgstr "返回登录"
+
+#: ui/Pagination.tsx
+msgid "Go to next page"
+msgstr "转到下一页"
+
+#: ui/Pagination.tsx
+msgid "Go to page {page}"
+msgstr "转到第 {page} 页"
+
+#: ui/Pagination.tsx
+msgid "Go to previous page"
+msgstr "转到上一页"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook FAQs"
+msgstr "GrowthBook 常见问题"
+
+#: components/Layout/Layout.tsx
+msgid "GrowthBook Home"
+msgstr "GrowthBook 首页"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "GrowthBook needs read access to where your experiment and metric data lives. We support Snowflake, Redshift, BigQuery, Databricks, Postgres, and more. If you don't see yours, <0>let us know</0> or <1>open a GitHub issue</1>."
+msgstr "GrowthBook 需要读取存放实验和指标数据的位置。我们支持 Snowflake、Redshift、BigQuery、Databricks、Postgres 等。如果没有找到您使用的数据库，请<0>告诉我们</0>或<1>在 GitHub 上提交 Issue</1>。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "GrowthBook Pro Subscription Created"
+msgstr "已创建 GrowthBook Pro 订阅"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "GrowthBook SDK"
+msgstr "GrowthBook SDK"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "GUARDRAIL"
+msgstr "护栏"
+
+#: components/Auth/Welcome.tsx
+msgid "Happens to the best of us"
+msgstr "这种事谁都会遇到"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Have a question?"
+msgstr "有疑问？"
+
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Have feature flags in LaunchDarkly? <0>View migration instructions</0>"
+msgstr "在 LaunchDarkly 中有功能开关？<0>查看迁移说明</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Have questions?"
+msgstr "有疑问？"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Have you already been running A/B tests with another platform? Connect GrowthBook to your data warehouse and use our powerful stats engine to automate the analysis."
+msgstr "已经在其他平台上运行 A/B 测试？将 GrowthBook 连接到您的数据仓库，借助强大的统计引擎自动完成分析。"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 1"
+msgstr "标题 1"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 2"
+msgstr "标题 2"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Heading 3"
+msgstr "标题 3"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello there, Welcome!"
+msgstr "您好，欢迎！"
+
+#: components/Auth/Welcome.tsx
+msgid "Hello! Welcome to GrowthBook"
+msgstr "您好！欢迎使用 GrowthBook"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Help"
+msgstr "帮助"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Help us tailor your onboarding experience."
+msgstr "帮助我们为您定制入门体验。"
+
+#: components/Auth/Welcome.tsx
+msgid "Hey there!"
+msgstr "嗨！"
+
+#: ui/ErrorDisplay.tsx
+msgid "Hide details"
+msgstr "隐藏详情"
+
+#: components/GetStarted/index.tsx
+msgid "Hide Details"
+msgstr "隐藏详情"
+
+#: ui/RichTextEditor.tsx
+msgid "Hide formatting"
+msgstr "隐藏格式"
+
+#: components/Layout/sidebarNav.ts
+msgid "Holdouts"
+msgstr "保留组"
+
+#: components/GetStarted/index.tsx
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Home"
+msgstr "首页"
+
+#: components/Auth/InAppHelp.tsx
+msgid "How Can We Help?"
+msgstr "需要什么帮助？"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "How will your team use Growthbook?"
+msgstr "您的团队将如何使用 GrowthBook？"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "If de-biasing is on, we use a James-Stein adjustment to shrink estimates towards zero to mitigate selection bias."
+msgstr "开启去偏后，我们会使用 James-Stein 调整将估计值向零收缩，以减轻选择偏差。"
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "Impact score"
+msgstr "影响分数"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Import Experiment"
+msgstr "导入实验"
+
+#: components/Layout/sidebarNav.ts
+msgid "Import Your Data"
+msgstr "导入数据"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment & View Results"
+msgstr "导入第一个实验并查看结果"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Import Your First Experiment in this Project & View Results"
+msgstr "在此项目中导入第一个实验并查看结果"
+
+#: components/GetStarted/index.tsx
+msgid "Improve SQL performance and reduce costs"
+msgstr "提升 SQL 性能并降低成本"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Inline code"
+msgstr "行内代码"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column left"
+msgstr "在左侧插入列"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert column right"
+msgstr "在右侧插入列"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert image"
+msgstr "插入图片"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row above"
+msgstr "在上方插入行"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Insert row below"
+msgstr "在下方插入行"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Insert table"
+msgstr "插入表格"
+
+#: components/Layout/sidebarNav.ts
+msgid "Insights"
+msgstr "洞察"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Chrome DevTools Extension"
+msgstr "安装 Chrome DevTools 扩展"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Firefox DevTools Extension"
+msgstr "安装 Firefox DevTools 扩展"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Install Visual Editor Extension"
+msgstr "安装可视化编辑器扩展"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Integrate Slack or Discord"
+msgstr "集成 Slack 或 Discord"
+
+#: pages/getstarted/experiment-guide.tsx
+#: pages/getstarted/feature-flag-guide.tsx
+msgid "Integrate the GrowthBook SDK into your app"
+msgstr "将 GrowthBook SDK 集成到您的应用中"
+
+#: components/Layout/sidebarNav.ts
+msgid "Interleaving"
+msgstr "交错实验"
+
+#: pages/reset-password.tsx
+msgid "Invalid reset token"
+msgstr "重置令牌无效"
+
+#: pages/reset-password.tsx
+msgid "Invalid URL. <0>Go Back</0>"
+msgstr "URL 无效。<0>返回</0>"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Invitation Required"
+msgstr "需要邀请"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Invite team"
+msgstr "邀请团队"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "It looks like you have a <0>config.yml</0> file. Use that to define data sources and metrics. <1>View Documentation</1>"
+msgstr "您似乎有一个 <0>config.yml</0> 文件，可用它来定义数据源和指标。<1>查看文档</1>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Italic"
+msgstr "斜体"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join"
+msgstr "加入"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join an organization instead"
+msgstr "改为加入组织"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join one here."
+msgstr "可在此加入组织。"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Join the Slack community"
+msgstr "加入 Slack 社区"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Join your organization to get started."
+msgstr "加入您的组织即可开始。"
+
+#: components/Layout/LanguageMenu.tsx
+msgid "Language"
+msgstr "语言"
+
+#: components/Layout/sidebarNav.ts
+msgid "Learnings"
+msgstr "经验总结"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's get started with some experimentation"
+msgstr "开始做实验吧"
+
+#: components/Auth/Welcome.tsx
+msgid "Let's run some experiments! Enter your information to get started."
+msgstr "来做实验吧！输入信息即可开始。"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Light"
+msgstr "浅色"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Link"
+msgstr "链接"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Link title"
+msgstr "链接标题"
+
+#: components/Auth/Welcome.tsx
+msgid "Log in"
+msgstr "登录"
+
+#: pages/reset-password.tsx
+msgid "Log In Now"
+msgstr "立即登录"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "log out"
+msgstr "退出登录"
+
+#: components/Auth/Welcome.tsx
+msgid "Look up"
+msgstr "查找账号"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Lost"
+msgstr "落败"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Manage feature flags"
+msgstr "管理功能开关"
+
+#: components/GetStarted/index.tsx
+msgid "Manage member permissions"
+msgstr "管理成员权限"
+
+#: components/Layout/sidebarNav.ts
+msgid "Manage PATs"
+msgstr "管理 PAT"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Mark as Complete"
+msgstr "标记为完成"
+
+#: components/Layout/sidebarNav.ts
+msgid "Members"
+msgstr "成员"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Metric"
+msgstr "指标"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Correlations"
+msgstr "指标相关性"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metric Effects"
+msgstr "指标影响"
+
+#: components/GetStarted/index.tsx
+msgid "Metric Groups"
+msgstr "指标组"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Metric is inverse, lower is better"
+msgstr "反向指标，越低越好"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Metric(s)"
+msgstr "指标"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics"
+msgstr "指标"
+
+#: components/Layout/sidebarNav.ts
+msgid "Metrics and Data"
+msgstr "指标与数据"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Migrate from another platform"
+msgstr "从其他平台迁移"
+
+#: pages/invitation.tsx
+msgid "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
+msgstr "URL 中缺少必需的邀请密钥参数。请返回邮件，再次点击邀请链接。"
+
+#: pages/reset-password.tsx
+msgid "Missing reset token"
+msgstr "缺少重置令牌"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Monthly invoices will be sent to this address"
+msgstr "月度发票将发送至此地址"
+
+#: ui/Tabs.tsx
+msgid "More ({hiddenCount})"
+msgstr "更多（{hiddenCount}）"
+
+#: components/Layout/DetailsPageHeader.tsx
+msgid "More actions"
+msgstr "更多操作"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information"
+msgstr "更多信息"
+
+#: ui/LabelWithHelp.tsx
+msgid "More information about {label}"
+msgstr "关于 {label} 的更多信息"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move down"
+msgstr "下移"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move left"
+msgstr "左移"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move right"
+msgstr "右移"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Move up"
+msgstr "上移"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "My Company"
+msgstr "我的公司"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "My Reports"
+msgstr "我的报告"
+
+#: components/Layout/TopNav.tsx
+msgid "My Slack links"
+msgstr "我的 Slack 链接"
+
+#: components/Layout/Layout.tsx
+msgid "My Slack Links"
+msgstr "我的 Slack 链接"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "N/A"
+msgstr "N/A"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "N/A values occur if we were unable to compute scaled impact for that experiment, perhaps due to stale experiment data."
+msgstr "如果无法计算某个实验的折算影响（可能是实验数据过旧），则显示 N/A。"
+
+#: components/Auth/Welcome.tsx
+#: components/GetStarted/NeedingAttention.tsx
+#: components/Layout/TopNav.tsx
+msgid "Name"
+msgstr "姓名"
+
+#: components/Layout/sidebarNav.ts
+msgid "Namespaces"
+msgstr "命名空间"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Navigate to Experiments > Add Experiment. In the popup, select “Analyze an Existing Experiment”"
+msgstr "前往“实验 > 添加实验”，在弹窗中选择“分析已有实验”"
+
+#: components/Auth/ChangePasswordModal.tsx
+#: pages/reset-password.tsx
+msgid "New Password"
+msgstr "新密码"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Modal/PagedModal.tsx
+msgid "Next"
+msgstr "下一步"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Next: Add Payment Details"
+msgstr "下一步：添加付款信息"
+
+#: ui/VariationStatsTable.tsx
+msgid "No data"
+msgstr "无数据"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Refresh Data button below."
+msgstr "此指标暂无数据。请点击下方的“刷新数据”按钮。"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "No data for this metric yet. Click the Run Analysis button below."
+msgstr "此指标暂无数据。请点击下方的“运行分析”按钮。"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No experiments requiring attention"
+msgstr "没有需要关注的实验"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "No feature flags requiring attention"
+msgstr "没有需要关注的功能开关"
+
+#: components/Layout/SettingsNav.tsx
+msgid "No matches"
+msgstr "无匹配结果"
+
+#: components/HomePage/IdeasFeed.tsx
+msgid "No recent ideas"
+msgstr "暂无最近的想法"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Check experiment results for errors."
+msgstr "暂无结果。请检查实验结果是否有错误。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No results available. Run experiment update on experiment page."
+msgstr "暂无结果。请在实验页面更新实验。"
+
+#: components/Layout/SettingsNav.tsx
+msgid "No sections match."
+msgstr "没有匹配的分区。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "No snapshot with scaled impact available. Click calculate button above."
+msgstr "没有包含折算影响的快照。请点击上方的计算按钮。"
+
+#: pages/oauth/lookup.tsx
+msgid "No SSO Connection found for that email address."
+msgstr "未找到与该邮箱地址关联的 SSO 连接。"
+
+#: ui/VariationStatsTable.tsx
+msgid "Non-zero {sampleSizeLabel}"
+msgstr "非零 {sampleSizeLabel}"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "None"
+msgstr "无"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metric"
+msgstr "北极星指标"
+
+#: components/HomePage/NorthStar.tsx
+msgid "North Star Metrics"
+msgstr "北极星指标"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Not ready to connect to your data warehouse? Explore a sample experiment first to get a feel for the GrowthBook platform."
+msgstr "还没准备好连接数据仓库？先探索一个示例实验，感受一下 GrowthBook 平台。"
+
+#: pages/oauth/lookup.tsx
+msgid "Not using SSO? <0>Go back to login</0>"
+msgstr "未使用 SSO？<0>返回登录</0>"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Numbered list"
+msgstr "有序列表"
+
+#: ui/VariationStatsTable.tsx
+msgid "Numerator"
+msgstr "分子"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "OFF"
+msgstr "关"
+
+#: components/Layout/RightRailSectionGroup.tsx
+msgid "ON"
+msgstr "开"
+
+#: ui/StringArrayField.tsx
+msgid "One value per line"
+msgstr "每行一个值"
+
+#: pages/oauth/lookup.tsx
+msgid "Only available on GrowthBook Cloud"
+msgstr "仅适用于 GrowthBook Cloud"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Open an issue on <0><1>GitHub</1></0>"
+msgstr "在 <0><1>GitHub</1></0> 上提交 Issue"
+
+#: components/Layout/TopNav.tsx
+msgid "Open GrowthBook AI assistant"
+msgstr "打开 GrowthBook AI 助手"
+
+#: components/Layout/TopNav.tsx
+msgid "Open main menu"
+msgstr "打开主菜单"
+
+#: components/Auth/SelectInitialPlan.tsx
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/SettingsPage.tsx
+#: components/Layout/TopNav.tsx
+msgid "Organization"
+msgstr "组织"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Organization · {pageName}"
+msgstr "组织 · {pageName}"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Organization Name"
+msgstr "组织名称"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Organization settings"
+msgstr "组织设置"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Other"
+msgstr "其他"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Owner"
+msgstr "所有者"
+
+#: ui/Pagination.tsx
+msgid "Page {page}"
+msgstr "第 {page} 页"
+
+#: ui/Pagination.tsx
+msgid "Pagination"
+msgstr "分页"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "Paid"
+msgstr "付费"
+
+#: components/Auth/Welcome.tsx
+msgid "Password"
+msgstr "密码"
+
+#: components/Auth/Welcome.tsx
+msgid "Password reset link sent to <0>{email}</0>."
+msgstr "密码重置链接已发送至 <0>{email}</0>。"
+
+#: components/Auth/ChangePasswordModal.tsx
+msgid "Password successfully changed"
+msgstr "密码修改成功"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Pending"
+msgstr "待批准"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Pending Review"
+msgstr "待审核"
+
+#: components/Layout/TopNav.tsx
+msgid "Pending Reviews"
+msgstr "待审核"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/TopNav.tsx
+msgid "Personal Access Tokens"
+msgstr "个人访问令牌"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Plan options"
+msgstr "套餐选项"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Please contact your organization's admin to approve your membership."
+msgstr "请联系组织管理员批准您的成员资格。"
+
+#: pages/oauth/lookup.tsx
+msgid "Please enter a valid email address"
+msgstr "请输入有效的邮箱地址"
+
+#: components/Layout/sidebarNav.ts
+msgid "Populations"
+msgstr "人群"
+
+#: components/Layout/Layout.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Power Calculator"
+msgstr "功效计算器"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Premium Features"
+msgstr "高级功能"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "Prepare to analyze experiment results"
+msgstr "准备分析实验结果"
+
+#: components/Layout/sidebarNav.ts
+msgid "Presentations"
+msgstr "演示文稿"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Product analytics"
+msgstr "产品分析"
+
+#: components/Layout/sidebarNav.ts
+msgid "Product Analytics"
+msgstr "产品分析"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Project"
+msgstr "项目"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Projects"
+msgstr "项目"
+
+#: components/GetStarted/index.tsx
+msgid "Query Optimization"
+msgstr "查询优化"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "QUESTIONS?"
+msgstr "有疑问？"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Quote"
+msgstr "引用"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Ran experiments on another platform? <0>View import instructions</0>"
+msgstr "在其他平台上运行过实验？<0>查看导入说明</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Read our <0>User Guide</0>"
+msgstr "阅读我们的<0>用户指南</0>"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "Recent"
+msgstr "最近使用"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Refresh Data"
+msgstr "刷新数据"
+
+#: components/Auth/Welcome.tsx
+msgid "Register"
+msgstr "注册"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "Remove link"
+msgstr "移除链接"
+
+#: pages/reset-password.tsx
+msgid "Reset Password"
+msgstr "重置密码"
+
+#: pages/reset-password.tsx
+msgid "Reset password for <0>{email}</0>."
+msgstr "重置 <0>{email}</0> 的密码。"
+
+#: ui/ColumnSettings.tsx
+msgid "Reset to default"
+msgstr "恢复默认"
+
+#: ui/ColumnResizeHandle.tsx
+msgid "Resize {label} column"
+msgstr "调整 {label} 列宽"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "RESOURCES"
+msgstr "资源"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Retry"
+msgstr "重试"
+
+#: components/Layout/GuidedGetStartedBar.tsx
+msgid "Return to Guide"
+msgstr "返回指南"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup in {appName}."
+msgstr "查看 GrowthBook 在 {appName} 中的设置结果。"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Review the results of your GrowthBook setup."
+msgstr "查看 GrowthBook 的设置结果。"
+
+#: ui/RichTextEditorTableControls.tsx
+msgid "Row options"
+msgstr "行选项"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Auto-generated Website Experiment"
+msgstr "运行自动生成的网站实验"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/experiment-guide.tsx
+msgid "Run an Experiment"
+msgstr "运行实验"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Run Analysis"
+msgstr "运行分析"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Run experiments"
+msgstr "运行实验"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "Running an actual A/B test on your application and waiting for results can take a long time, so this is a great way to test out the platform with a fully loaded sample experiment."
+msgstr "在应用中运行真实的 A/B 测试并等待结果可能需要很长时间，因此使用数据完整的示例实验来体验平台是个好方法。"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Running Experiments"
+msgstr "运行实验"
+
+#: components/Modal.tsx
+#: ui/Modal/Patterns/ModalStandard.tsx
+msgid "Save"
+msgstr "保存"
+
+#: components/Layout/sidebarNav.ts
+msgid "Saved Groups"
+msgstr "已保存分组"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Scaled Impact"
+msgstr "折算影响"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Configuration"
+msgstr "SDK 配置"
+
+#: components/Layout/sidebarNav.ts
+msgid "SDK Connections"
+msgstr "SDK 连接"
+
+#: components/Layout/Layout.tsx
+msgid "Search"
+msgstr "搜索"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Search settings"
+msgstr "搜索设置"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "Search..."
+msgstr "搜索…"
+
+#: components/GetStarted/index.tsx
+msgid "See exactly where flags appear in code"
+msgstr "精确查看开关在代码中的位置"
+
+#: components/Layout/sidebarNav.ts
+msgid "Segments"
+msgstr "分群"
+
+#: ui/MultiSelectField.tsx
+msgid "Select an option or create one"
+msgstr "选择或创建选项"
+
+#: ui/MultiSelectField.tsx
+msgid "Select..."
+msgstr "请选择…"
+
+#: components/Auth/Welcome.tsx
+msgid "Sent to the wrong email or need to resend? <0>Go Back</0>"
+msgstr "邮箱填错了或需要重新发送？<0>返回</0>"
+
+#: ui/StringArrayField.tsx
+msgid "Separate values by comma"
+msgstr "用逗号分隔值"
+
+#: components/Layout/sidebarNav.ts
+msgid "Session Replay"
+msgstr "会话回放"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: pages/getstarted/data-source-guide.tsx
+msgid "Set up Data Source & Metrics"
+msgstr "设置数据源和指标"
+
+#: components/Auth/Welcome.tsx
+msgid "Set up your first account"
+msgstr "设置首个账号"
+
+#: components/GetStarted/index.tsx
+msgid "SET UP YOUR WORKSPACE"
+msgstr "设置工作区"
+
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
+#: components/Layout/sidebarNav.ts
+msgid "Settings"
+msgstr "设置"
+
+#: components/Layout/SettingsJumpMenu.tsx
+#: components/Layout/SettingsNav.tsx
+msgid "Settings navigation"
+msgstr "设置导航"
+
+#: components/Layout/SettingsJumpMenu.tsx
+msgid "Settings: {location}"
+msgstr "设置：{location}"
+
+#: components/Layout/LayoutLite.tsx
+msgid "Setup"
+msgstr "初始设置"
+
+#: components/Layout/TopNav.tsx
+msgid "Show confetti celebrations randomly when you complete certain actions like launching an experiment."
+msgstr "完成某些操作（如启动实验）时，随机显示彩纸庆祝效果。"
+
+#: ui/ErrorDisplay.tsx
+msgid "Show details"
+msgstr "显示详情"
+
+#: components/GetStarted/index.tsx
+msgid "Show Details"
+msgstr "显示详情"
+
+#: ui/RichTextEditor.tsx
+msgid "Show formatting"
+msgstr "显示格式"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show less"
+msgstr "收起"
+
+#: ui/ExpandableBlock.tsx
+msgid "Show more"
+msgstr "展开"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign in to your GrowthBook account"
+msgstr "登录 GrowthBook 账号"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Sign Out"
+msgstr "退出登录"
+
+#: components/Auth/Welcome.tsx
+msgid "Sign up"
+msgstr "注册"
+
+#: components/GetStarted/index.tsx
+msgid "Simulate the result of targeting rules"
+msgstr "模拟定向规则的结果"
+
+#: components/Modal/PagedModal.tsx
+msgid "Skip"
+msgstr "跳过"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Skip plan selection"
+msgstr "跳过套餐选择"
+
+#: components/Layout/sidebarNav.ts
+msgid "Slack"
+msgstr "Slack"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Slack Logo"
+msgstr "Slack 标志"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Smoothing<0/>(7 day trailing)"
+msgstr "平滑<0/>（7 日滚动）"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Some experiments are missing scaled impact results."
+msgstr "部分实验缺少折算影响结果。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Something went wrong"
+msgstr "出了点问题"
+
+#: components/Layout/sidebarNav.ts
+msgid "SQL Explorer"
+msgstr "SQL 查询"
+
+#: pages/getstarted/experiment-guide.tsx
+msgid "Start the Test"
+msgstr "开始测试"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Starts at $40/month"
+msgstr "每月 $40 起"
+
+#: components/GetStarted/NeedingAttention.tsx
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Status"
+msgstr "状态"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Sticky Bucketing"
+msgstr "粘性分桶"
+
+#: ui/RichTextEditorToolbar.tsx
+msgid "Strikethrough"
+msgstr "删除线"
+
+#: pages/reset-password.tsx
+msgid "Successfully reset password for <0>{email}</0>"
+msgstr "已成功重置 <0>{email}</0> 的密码"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Summary"
+msgstr "摘要"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "summed impact / year"
+msgstr "影响合计 / 年"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to raw text mode"
+msgstr "切换到纯文本模式"
+
+#: ui/StringArrayField.tsx
+msgid "Switch to token mode"
+msgstr "切换到标签模式"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "System Default"
+msgstr "跟随系统"
+
+#: components/Layout/sidebarNav.ts
+msgid "Tags"
+msgstr "标签"
+
+#: ui/PremiumCallout.tsx
+msgid "Talk to Sales"
+msgstr "联系销售"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Talk to us in our <0><1>Slack channel</1></0>"
+msgstr "在我们的 <0><1>Slack 频道</1></0>中联系我们"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Targeting Attributes"
+msgstr "定向属性"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID"
+msgstr "税号"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Tax ID type"
+msgstr "税号类型"
+
+#: components/GetStarted/index.tsx
+msgid "Teams"
+msgstr "团队"
+
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "Teams & Permissions"
+msgstr "团队与权限"
+
+#: components/Layout/sidebarNav.ts
+msgid "Templates"
+msgstr "模板"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "The plus-minus value represents a 95% confidence interval."
+msgstr "正负值表示 95% 置信区间。"
+
+#: components/Layout/TopNav.tsx
+#: components/Layout/TopNavLite.tsx
+msgid "Theme"
+msgstr "主题"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are a few setup steps before you can analyze an existing experiment."
+msgstr "分析已有实验之前，需要完成几个设置步骤。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "There are no other organizations that you are not already a member of."
+msgstr "没有其他您尚未加入的组织。"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "There are three ways to get started with experimentation in GrowthBook."
+msgstr "在 GrowthBook 中开始实验有三种方式。"
+
+#: pages/invitation.tsx
+msgid "There was an error accepting the invite. Please go back to your email and click the invite link again."
+msgstr "接受邀请时出错。请返回邮件，再次点击邀请链接。"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, chance to win, credible intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "这会影响指标结果（如提升、胜率、可信区间），因此估计的提升通常与变体和基准之间的原始差值不同。"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This affects metrics results (e.g., lift, p-values, confidence intervals), and estimated lift will often differ from the raw difference between variation and baseline."
+msgstr "这会影响指标结果（如提升、p 值、置信区间），因此估计的提升通常与变体和基准之间的原始差值不同。"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "This Daily Scaled Impact, available in your Experiment Results under the \"Scaled Impact\" Difference Type, is adjusted if de-biasing is set to true and multiplied by 365 to yield the Annual Adjusted Scaled Impact."
+msgstr "此每日折算影响可在实验结果的“折算影响”差异类型中查看。若启用去偏，则会对其进行调整，再乘以 365 得出年度调整后折算影响。"
+
+#: components/Auth/Welcome.tsx
+msgid "This information stays on your servers and is never shared. <0/>You can invite the rest of your team later."
+msgstr "这些信息仅保存在您自己的服务器上，绝不会被共享。<0/>稍后可以邀请团队其他成员。"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is a {planName} feature"
+msgstr "这是 {planName} 功能"
+
+#: components/Layout/ProjectSelector.tsx
+msgid "This is a demo project with sample data"
+msgstr "这是包含示例数据的演示项目"
+
+#: components/GetStarted/PaidFeatureBadge.tsx
+msgid "This is an {planName} feature"
+msgstr "这是 {planName} 功能"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with a prior that is normally distributed with mean {priorMean} and standard deviation {priorStdDev}."
+msgstr "此指标使用均值为 {priorMean}、标准差为 {priorStdDev} 的正态分布先验进行分析。"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "This metric was analyzed with CUPED, which adjusts for covariates."
+msgstr "此指标使用 CUPED 进行分析，该方法会对协变量进行调整。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the winning variations from experiments marked as Won."
+msgstr "该值为标记为“胜出”的实验中胜出变体的调整后折算影响之和。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "This value is the sum of the adjusted scaled impacts of the worst variation from experiments marked as Lost."
+msgstr "该值为标记为“落败”的实验中最差变体的调整后折算影响之和。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Timeline"
+msgstr "时间线"
+
+#: components/HomePage/NorthStar.tsx
+msgid "Title"
+msgstr "标题"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "to"
+msgstr "至"
+
+#: pages/getstarted/data-source-guide.tsx
+msgid "To analyze experiment results, connect an event tracker and data source."
+msgstr "要分析实验结果，请连接事件追踪工具和数据源。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "To estimate the background variance in treatment effects used for the James-Stein estimator, we use all {nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters."
+msgstr "为估计 James-Stein 估计量所用的处理效应背景方差，我们会使用曾使用此指标且可计算折算影响的全部 {nExpsUsedForAdjustment} 个实验，不受项目或日期筛选条件限制。"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Total Impact"
+msgstr "总影响"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Try again"
+msgstr "再试一次"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to save new payment method"
+msgstr "无法保存新的付款方式"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unable to validate payment method inputs"
+msgstr "无法验证付款方式信息"
+
+#: ui/AnalysisResultSummary.tsx
+msgid "Unit dimension:"
+msgstr "单元维度："
+
+#: ui/VariationStatsTable.tsx
+msgid "Units"
+msgstr "单元数"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited experiments"
+msgstr "实验数量不限"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Unlimited feature flags"
+msgstr "功能开关数量不限"
+
+#: components/Layout/SettingsNav.tsx
+msgid "Unsaved changes"
+msgstr "未保存的更改"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+#: components/Layout/Layout.tsx
+msgid "Upgrade"
+msgstr "升级"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade now"
+msgstr "立即升级"
+
+#: ui/PremiumCallout.tsx
+msgid "Upgrade Now"
+msgstr "立即升级"
+
+#: components/Auth/InAppHelp.tsx
+msgid "Upgrade to unlock live chat support and premium features."
+msgstr "升级即可解锁在线聊天支持和高级功能。"
+
+#: ui/RichTextEditor.tsx
+msgid "Uploading…"
+msgstr "正在上传…"
+
+#: ui/RichTextEditorLinkEditor.tsx
+msgid "URL"
+msgstr "URL"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "URL Redirects"
+msgstr "URL 重定向"
+
+#: components/Layout/sidebarNav.ts
+msgid "Usage"
+msgstr "用量"
+
+#: components/GetStarted/index.tsx
+msgid "Use temp tables for intermediate steps"
+msgstr "中间步骤使用临时表"
+
+#: components/Layout/sidebarNav.ts
+msgid "User Journeys"
+msgstr "用户路径"
+
+#: ui/VariationStatsTable.tsx
+msgid "Value"
+msgstr "值"
+
+#: ui/StringArrayField.tsx
+msgid "value 1\n"
+"value 2..."
+msgstr "值1\n"
+"值2..."
+
+#: ui/StringArrayField.tsx
+msgid "value 1, value 2..."
+msgstr "值1, 值2..."
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+#: ui/VariationStatsTable.tsx
+msgid "Variation"
+msgstr "变体"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Vercel Integration Docs"
+msgstr "Vercel 集成文档"
+
+#: components/GetStarted/FeaturedCards.tsx
+msgid "View a Sample Experiment"
+msgstr "查看示例实验"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all experiments"
+msgstr "查看所有实验"
+
+#: components/GetStarted/NeedingAttention.tsx
+msgid "View all feature flags"
+msgstr "查看所有功能开关"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View data sources"
+msgstr "查看数据源"
+
+#: components/Auth/InAppHelp.tsx
+#: components/Layout/Layout.tsx
+#: ui/PremiumCallout.tsx
+msgid "View docs"
+msgstr "查看文档"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "View docs for our <0>SDKs</0>"
+msgstr "查看 <0>SDK</0> 文档"
+
+#: components/Modal.tsx
+msgid "View Documentation"
+msgstr "查看文档"
+
+#: components/GetStarted/index.tsx
+msgid "View flag evaluations in real time"
+msgstr "实时查看开关评估"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View metrics"
+msgstr "查看指标"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "View report"
+msgstr "查看报告"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "View Sample Experiment"
+msgstr "查看示例实验"
+
+#: components/GetStarted/ViewSampleDataButton.tsx
+msgid "View Sample Feature"
+msgstr "查看示例功能"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "Visual Editor"
+msgstr "可视化编辑器"
+
+#: pages/getstarted/imported-experiment-guide.tsx
+msgid "Want to run a new experiment? <0>View instructions</0>"
+msgstr "想要运行新实验？<0>查看说明</0>"
+
+#: components/HomePage/DocumentationLinksSidebar.tsx
+msgid "Watch a quick <0><1>Video Tour</1></0>"
+msgstr "观看简短的<0><1>视频导览</1></0>"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We compute the Daily Scaled Impact for all variations in all experiments that match your filters."
+msgstr "我们会为符合筛选条件的所有实验中的所有变体计算每日折算影响。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "We couldn't refresh your organization details. Try again to see your updated plan."
+msgstr "无法刷新组织详情。请重试以查看更新后的套餐。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found possible organizations for you on GrowthBook!"
+msgstr "我们在 GrowthBook 上找到了您可能所属的组织！"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "We found your organization on GrowthBook!"
+msgstr "我们在 GrowthBook 上找到了您的组织！"
+
+#: pages/404.tsx
+msgid "We looked, but we couldn't find the page you're looking for"
+msgstr "抱歉，找不到您要访问的页面"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the winning variation of experiments marked as won and multiply values by 365 to get an annual value."
+msgstr "我们将标记为“胜出”的实验中胜出变体的折算影响相加，再乘以 365 得出年度值。"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "We sum the Scaled Impact of the worst variation of experiments marked as lost and multiply values by 365 to get an annual value."
+msgstr "我们将标记为“落败”的实验中最差变体的折算影响相加，再乘以 365 得出年度值。"
+
+#: components/HomePage/ExperimentsGetStarted.tsx
+msgid "We'll scan your data warehouse looking for past experiments that already have some data collected. Choose one to import and start analyzing results."
+msgstr "我们将扫描您的数据仓库，查找已收集部分数据的历史实验。选择一个导入，即可开始分析结果。"
+
+#: components/Layout/sidebarNav.ts
+msgid "Webhooks"
+msgstr "Webhook"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back"
+msgstr "欢迎回来"
+
+#: components/Auth/Welcome.tsx
+msgid "Welcome back, let's get started with some experiments"
+msgstr "欢迎回来，开始做实验吧"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "Welcome to GrowthBook Pro!"
+msgstr "欢迎使用 GrowthBook Pro！"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+#: components/Auth/Welcome.tsx
+msgid "Welcome to GrowthBook!"
+msgstr "欢迎使用 GrowthBook！"
+
+#: components/GetStarted/DocumentationSidebar.tsx
+msgid "WHAT'S NEW"
+msgstr "新功能"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Whether to use the James-Stein shrinkage estimator to compute an adjustment factor to mitigate selection bias from summing only a subset of experiments (e.g. winners)."
+msgstr "是否使用 James-Stein 收缩估计量计算调整系数，以减轻仅汇总部分实验（如胜出实验）带来的选择偏差。"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Winning Variation"
+msgstr "胜出变体"
+
+#: components/HomePage/ExperimentImpact/index.tsx
+msgid "Won"
+msgstr "胜出"
+
+#: components/HomePage/ExperimentImpact/ExperimentImpactTab.tsx
+msgid "Worst Variation"
+msgstr "最差变体"
+
+#: components/Modal/ConfirmButton.tsx
+msgid "Yes"
+msgstr "是"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You aren't part of an organization yet."
+msgstr "您尚未加入任何组织。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You can change this later in your account settings."
+msgstr "您稍后可以在账号设置中更改此项。"
+
+#: components/Layout/SettingsPage.tsx
+msgid "You do not have access to view this page."
+msgstr "您无权查看此页面。"
+
+#: components/GetStarted/FeaturedCards.tsx
+#: components/GetStarted/WorkspaceLinks.tsx
+msgid "You do not have permission to complete this action"
+msgstr "您没有执行此操作的权限"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "You must be invited by an administrator in order to use GrowthBook."
+msgstr "您必须获得管理员邀请才能使用 GrowthBook。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You will be charged a pro-rated amount for the remainder of this month, and $40 per month per seat thereafter. Cancel anytime."
+msgstr "本月剩余时间将按比例收费，此后每个席位每月 $40。可随时取消。"
+
+#: components/Auth/SelectInitialPlan.tsx
+msgid "You're all set! Go to your GrowthBook dashboard to start your setup."
+msgstr "一切就绪！前往 GrowthBook 仪表盘开始设置。"
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as a {role}!"
+msgstr "您已受邀以{role}身份加入 GrowthBook 上的 <0>{organization}</0>！"
+
+#: pages/invitation.tsx
+msgid "You've been invited to join <0>{organization}</0> on GrowthBook as an {role}!"
+msgstr "您已受邀以{role}身份加入 GrowthBook 上的 <0>{organization}</0>！"
+
+#: components/HomePage/NorthStarMetricDisplay.tsx
+msgid "Your analysis is currently running."
+msgstr "分析正在运行。"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required check to review."
+msgstr "您的 GrowthBook 设置有 {unfinished} 项必需检查待查看。"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup has {unfinished} required checks to review."
+msgstr "您的 GrowthBook 设置有 {unfinished} 项必需检查待查看。"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required check to review."
+msgstr "您在 {appName} 中的 GrowthBook 设置有 {unfinished} 项必需检查待查看。"
+
+#: components/GetStarted/AutoRunCallout.tsx
+msgid "Your GrowthBook setup in {appName} has {unfinished} required checks to review."
+msgstr "您在 {appName} 中的 GrowthBook 设置有 {unfinished} 项必需检查待查看。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your membership is pending."
+msgstr "您的成员资格正在等待批准。"
+
+#: components/Auth/CreateOrJoinOrganization.tsx
+msgid "Your role"
+msgstr "您的角色"

@@ -9,6 +9,7 @@ import {
   CreateOrganizationPostBody,
 } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -35,6 +36,7 @@ const CreateOrJoinOrganization: FC<{
   title?: string;
   subtitle?: string;
 }> = ({ showFrame = true, title, subtitle }) => {
+  const { t } = useLingui();
   const { data } = useApi<{
     hasOrganizations: boolean;
   }>("/auth/hasorgs");
@@ -142,18 +144,22 @@ const CreateOrJoinOrganization: FC<{
         </a>
       </Box>
       <Box>
-        <h1 className="title h1">Welcome to GrowthBook!</h1>
+        <h1 className="title h1">
+          <Trans>Welcome to GrowthBook!</Trans>
+        </h1>
         {showCreate || showJoin ? (
           <p>
-            You aren&apos;t part of an organization yet. <br />
+            <Trans>You aren&apos;t part of an organization yet.</Trans> <br />
             {showCreate && showJoin
-              ? `Create or join one here.`
+              ? t`Create or join one here.`
               : showCreate
-                ? `Create a new one here.`
-                : `Join one here.`}
+                ? t`Create a new one here.`
+                : t`Join one here.`}
           </p>
         ) : (
-          <p>Ask your admin to invite you to the organization.</p>
+          <p>
+            <Trans>Ask your admin to invite you to the organization.</Trans>
+          </p>
         )}
       </Box>
     </Flex>
@@ -162,19 +168,19 @@ const CreateOrJoinOrganization: FC<{
   const titleCopy = (orgs) => {
     if (title) return title;
 
-    return `We found ${
-      orgs.length === 1 ? "your organization" : "possible organizations for you"
-    } on GrowthBook!`;
+    return orgs.length === 1
+      ? t`We found your organization on GrowthBook!`
+      : t`We found possible organizations for you on GrowthBook!`;
   };
 
   const subtitleCopy = (orgs) => {
     if (orgs.length === 0) {
-      return "There are no other organizations that you are not already a member of.";
+      return t`There are no other organizations that you are not already a member of.`;
     }
 
     if (subtitle) return subtitle;
 
-    return "Join your organization to get started.";
+    return t`Join your organization to get started.`;
   };
 
   const rightSide = (
@@ -191,53 +197,66 @@ const CreateOrJoinOrganization: FC<{
                   <h3>{titleCopy(orgs)}</h3>
                   <p className="text-muted">{subtitleCopy(orgs)}</p>
                 </div>
-                {orgs.map((org) => (
-                  <div key={org.id} className={style.recommendedOrgBox}>
-                    <Flex align="center" gap="3">
-                      <Avatar size="lg" color="green" variant="soft">
-                        {org.name.slice(0, 1)?.toUpperCase()}
-                      </Avatar>
-                      <Flex direction="column" flexGrow="1" minWidth="0">
-                        <Text
-                          as="div"
-                          size="md"
-                          weight="semibold"
-                          overflowWrap="break-word"
-                        >
-                          {org.name}
-                        </Text>
-                        <Text as="div" size="sm" color="text-mid">
-                          {org.members === 1
-                            ? `${org.members} member`
-                            : `${org.members} members`}
-                        </Text>
+                {orgs.map((org) => {
+                  const memberCount = org.members;
+                  return (
+                    <div key={org.id} className={style.recommendedOrgBox}>
+                      <Flex align="center" gap="3">
+                        <Avatar size="lg" color="green" variant="soft">
+                          {org.name.slice(0, 1)?.toUpperCase()}
+                        </Avatar>
+                        <Flex direction="column" flexGrow="1" minWidth="0">
+                          <Text
+                            as="div"
+                            size="md"
+                            weight="semibold"
+                            overflowWrap="break-word"
+                          >
+                            {org.name}
+                          </Text>
+                          <Text as="div" size="sm" color="text-mid">
+                            <Plural
+                              value={memberCount}
+                              one="# member"
+                              other="# members"
+                            />
+                          </Text>
+                        </Flex>
+                        <Flex flexShrink="0">
+                          <Button
+                            size="md"
+                            loading={joiningOrgId === org.id}
+                            disabled={
+                              org.currentUserIsPending ||
+                              loading ||
+                              (joiningOrgId !== null && joiningOrgId !== org.id)
+                            }
+                            onClick={() => joinOrgFormSubmit(org)}
+                          >
+                            {org.currentUserIsPending ? (
+                              <Trans>Pending</Trans>
+                            ) : (
+                              <Trans>Join</Trans>
+                            )}
+                          </Button>
+                        </Flex>
                       </Flex>
-                      <Flex flexShrink="0">
-                        <Button
-                          size="md"
-                          loading={joiningOrgId === org.id}
-                          disabled={
-                            org.currentUserIsPending ||
-                            loading ||
-                            (joiningOrgId !== null && joiningOrgId !== org.id)
-                          }
-                          onClick={() => joinOrgFormSubmit(org)}
-                        >
-                          {org.currentUserIsPending ? "Pending" : "Join"}
-                        </Button>
-                      </Flex>
-                    </Flex>
-                    {org.currentUserIsPending && (
-                      <Callout status="success" mt="2" mb="0">
-                        <div className="mb-2">Your membership is pending.</div>
-                        <div>
-                          Please contact your organization&apos;s admin to
-                          approve your membership.
-                        </div>
-                      </Callout>
-                    )}
-                  </div>
-                ))}
+                      {org.currentUserIsPending && (
+                        <Callout status="success" mt="2" mb="0">
+                          <div className="mb-2">
+                            <Trans>Your membership is pending.</Trans>
+                          </div>
+                          <div>
+                            <Trans>
+                              Please contact your organization&apos;s admin to
+                              approve your membership.
+                            </Trans>
+                          </div>
+                        </Callout>
+                      )}
+                    </div>
+                  );
+                })}
                 {error && (
                   <Callout status="error" mt="2">
                     {error}
@@ -253,7 +272,7 @@ const CreateOrJoinOrganization: FC<{
                     disabled={orgActionPending}
                     onClick={switchMode}
                   >
-                    Create a new organization instead
+                    <Trans>Create a new organization instead</Trans>
                   </Button>
                 )}
               </>
@@ -320,22 +339,28 @@ const CreateOrJoinOrganization: FC<{
                   })}
                 >
                   <div>
-                    <h2>Create {orgs ? "a new" : "an"} organization</h2>
+                    <h2>
+                      {orgs ? (
+                        <Trans>Create a new organization</Trans>
+                      ) : (
+                        <Trans>Create an organization</Trans>
+                      )}
+                    </h2>
                     <p className={`mb-4 ${style.textMid}`}>
-                      Help us tailor your onboarding experience.
+                      <Trans>Help us tailor your onboarding experience.</Trans>
                     </p>
                   </div>
                   <Field
                     size="legacy"
                     label={
                       <div className="font-weight-bold">
-                        Organization Name
+                        <Trans>Organization Name</Trans>
                         <span className="text-danger ml-1">*</span>
                       </div>
                     }
                     required
                     autoFocus
-                    placeholder="My Company"
+                    placeholder={t`My Company`}
                     autoComplete="company"
                     minLength={3}
                     maxLength={60}
@@ -343,7 +368,7 @@ const CreateOrJoinOrganization: FC<{
                   />
                   <SelectField
                     size="legacy"
-                    label="Your role"
+                    label={t`Your role`}
                     labelClassName="font-weight-bold"
                     markRequired
                     required
@@ -360,13 +385,13 @@ const CreateOrJoinOrganization: FC<{
                     value={newOrgForm.watch("ownerJobTitle")}
                   />
                   <div className="mt-4 font-weight-bold">
-                    How will your team use Growthbook?
+                    <Trans>How will your team use Growthbook?</Trans>
                   </div>
                   <div>
                     <Checkbox
                       mt="2"
                       size="md"
-                      label="Manage feature flags"
+                      label={t`Manage feature flags`}
                       value={!!newOrgForm.watch("ownerFeatureFlagUsageIntent")}
                       setValue={(v) => {
                         newOrgForm.setValue(
@@ -380,7 +405,7 @@ const CreateOrJoinOrganization: FC<{
                     <Checkbox
                       mt="2"
                       size="md"
-                      label="Run experiments"
+                      label={t`Run experiments`}
                       value={!!newOrgForm.watch("ownerExperimentUsageIntent")}
                       setValue={(v) => {
                         newOrgForm.setValue(
@@ -395,7 +420,7 @@ const CreateOrJoinOrganization: FC<{
                       mt="2"
                       mb="6"
                       size="md"
-                      label="Product analytics"
+                      label={t`Product analytics`}
                       value={
                         !!newOrgForm.watch("ownerProductAnalyticsUsageIntent")
                       }
@@ -414,7 +439,7 @@ const CreateOrJoinOrganization: FC<{
                     disabled={joiningOrgId !== null}
                     style={{ width: "100%" }}
                   >
-                    Create organization
+                    <Trans>Create organization</Trans>
                   </Button>
                   {error && (
                     <Callout status="error" mt="2">
@@ -433,7 +458,7 @@ const CreateOrJoinOrganization: FC<{
                     disabled={orgActionPending}
                     onClick={switchMode}
                   >
-                    Join an organization instead
+                    <Trans>Join an organization instead</Trans>
                   </Button>
                 )}
               </>
@@ -441,10 +466,14 @@ const CreateOrJoinOrganization: FC<{
           </>
         ) : (
           <div>
-            <h3 className="h2">Invitation Required</h3>
+            <h3 className="h2">
+              <Trans>Invitation Required</Trans>
+            </h3>
             <Callout status="error">
-              You must be invited by an administrator in order to use
-              GrowthBook.
+              <Trans>
+                You must be invited by an administrator in order to use
+                GrowthBook.
+              </Trans>
             </Callout>
           </div>
         )}{" "}
@@ -469,7 +498,7 @@ const CreateOrJoinOrganization: FC<{
               logout();
             }}
           >
-            <FiLogOut /> log out
+            <FiLogOut /> <Trans>log out</Trans>
           </a>
           {rightSide}
         </WelcomeFrame>

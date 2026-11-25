@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { OAuthError } from "@/components/OAuthError";
 import { getApiHost } from "@/services/env";
@@ -21,8 +22,12 @@ const canAutoRestart = () => {
 };
 
 export default function OAuthCallbackPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const [error, setError] = useState("");
+  // Translated at render, so the effect doesn't rerun (and repost the code)
+  // when the language changes.
+  const [unknownError, setUnknownError] = useState(false);
 
   useEffect(() => {
     const qs =
@@ -53,16 +58,23 @@ export default function OAuthCallbackPage() {
         ) {
           return redirectWithTimeout(refresh.redirectURI);
         }
-        setError(json?.message || "An unknown error occurred");
+        if (json?.message) {
+          setError(json.message);
+        } else {
+          setUnknownError(true);
+        }
       })
       .catch((e) => {
         setError(e.message);
       });
   }, []);
 
+  const shownError =
+    error || (unknownError ? t`An unknown error occurred` : "");
+
   return (
     <div className="container py-4">
-      {error ? <OAuthError error={error} /> : <LoadingOverlay />}
+      {shownError ? <OAuthError error={shownError} /> : <LoadingOverlay />}
     </div>
   );
 }

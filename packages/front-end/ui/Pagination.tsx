@@ -1,6 +1,7 @@
 import React, { CSSProperties, FC } from "react";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
+import { useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import styles from "./Pagination.module.scss";
 
@@ -106,6 +107,7 @@ const Pagination: FC<PaginationProps> = ({
   onPageChange,
   className,
 }) => {
+  const { t } = useLingui();
   const model = getPaginationModel({
     pageCount: Math.ceil(numItemsTotal / perPage),
     currentPage,
@@ -115,14 +117,14 @@ const Pagination: FC<PaginationProps> = ({
   };
 
   return (
-    <nav aria-label="Pagination" className={clsx(styles.root, className)}>
+    <nav aria-label={t`Pagination`} className={clsx(styles.root, className)}>
       <ul className={styles.container}>
         <li>
           <Button
             variant="soft"
             color="gray"
             className={clsx(styles.button, styles.arrow)}
-            aria-label="Go to previous page"
+            aria-label={t`Go to previous page`}
             disabled={model.currentPage <= 1}
             onClick={() => onPageChange(model.currentPage - 1)}
           >
@@ -133,6 +135,7 @@ const Pagination: FC<PaginationProps> = ({
           switch (item.type) {
             case "page": {
               const isCurrent = item.page === model.currentPage;
+              const page = item.page;
               return (
                 <li key={item.page} style={slotStyle}>
                   <Button
@@ -145,9 +148,7 @@ const Pagination: FC<PaginationProps> = ({
                     )}
                     aria-current={isCurrent ? "page" : undefined}
                     aria-label={
-                      isCurrent
-                        ? `Page ${item.page}`
-                        : `Go to page ${item.page}`
+                      isCurrent ? t`Page ${page}` : t`Go to page ${page}`
                     }
                     onClick={() => {
                       if (!isCurrent) onPageChange(item.page);
@@ -176,7 +177,7 @@ const Pagination: FC<PaginationProps> = ({
             variant="soft"
             color="gray"
             className={clsx(styles.button, styles.arrow)}
-            aria-label="Go to next page"
+            aria-label={t`Go to next page`}
             disabled={model.currentPage >= model.pageCount}
             onClick={() => onPageChange(model.currentPage + 1)}
           >
