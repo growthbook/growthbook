@@ -997,9 +997,13 @@ type MeasurePlan = {
   /** What each matching row contributes, before capping and row filters. */
   rowValue: (factTable: MinimalFactTable, dialect: SqlDialect) => string;
   /** Combines a unit's row values into one value per unit. */
-  perUnit: (alias: string, dialect: SqlDialect) => string;
+  unitAggregation: (alias: string, dialect: SqlDialect) => string;
   /** Combines the per-unit (or per-row) values into the reported number. */
-  rollup: (alias: string, dialect: SqlDialect, ctx: RollupContext) => string;
+  rollupAggregation: (
+    alias: string,
+    dialect: SqlDialect,
+    ctx: RollupContext,
+  ) => string;
   /** Must be aggregated per unit; can't fall back to a per-row rollup. */
   requiresUnitAggregation: boolean;
   /**
@@ -1040,8 +1044,8 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
     case "rowCount":
       return {
         rowValue: () => "1",
-        perUnit: (alias) => `SUM(${alias})`,
-        rollup: sumOrQuantile,
+        unitAggregation: (alias) => `SUM(${alias})`,
+        rollupAggregation: sumOrQuantile,
         requiresUnitAggregation: false,
         needsPresenceGuard: false,
       };
@@ -1057,7 +1061,7 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
             : "1",
         // 1 for a unit that counts and NULL, never 0, for one that doesn't:
         // rollups keep a Population's members with IS NOT NULL.
-        perUnit: (alias) => {
+        unitAggregation: (alias) => {
           const conditions = aggregateFilter
             ? parseAggregateFilter(aggregateFilter.conditions).conditions
             : [];
@@ -1067,7 +1071,7 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
           );
           return `CASE WHEN (${tests.join(" AND ")}) THEN 1 ELSE NULL END`;
         },
-        rollup: sumOrQuantile,
+        rollupAggregation: sumOrQuantile,
         requiresUnitAggregation: true,
         needsPresenceGuard: false,
       };
@@ -1085,8 +1089,8 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
           }
           return dialect.dateTrunc(timestampColumn, "day");
         },
-        perUnit: (alias) => `COUNT(DISTINCT ${alias})`,
-        rollup: sumOrQuantile,
+        unitAggregation: (alias) => `COUNT(DISTINCT ${alias})`,
+        rollupAggregation: sumOrQuantile,
         requiresUnitAggregation: true,
         needsPresenceGuard: true,
       };
@@ -1096,7 +1100,7 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
       return {
         rowValue: (factTable, dialect) =>
           columnValue(column, factTable, dialect),
-        perUnit: (alias) => {
+        unitAggregation: (alias) => {
           switch (aggregation) {
             case "sum":
               return `SUM(${alias})`;
@@ -1107,7 +1111,7 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
           }
           return assertNever(aggregation);
         },
-        rollup: sumOrQuantile,
+        rollupAggregation: sumOrQuantile,
         requiresUnitAggregation: aggregation !== "sum",
         needsPresenceGuard: aggregation === "count distinct",
       };
@@ -1120,9 +1124,9 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
       return {
         rowValue: (factTable, dialect) =>
           columnValue(column, factTable, dialect),
-        perUnit: cardinality,
+        unitAggregation: cardinality,
         // Per-unit values are already counts; per-row values are still sketches
-        rollup: (alias, dialect, { fromUnitAggregation }) =>
+        rollupAggregation: (alias, dialect, { fromUnitAggregation }) =>
           fromUnitAggregation ? `SUM(${alias})` : cardinality(alias, dialect),
         requiresUnitAggregation: false,
         needsPresenceGuard: true,
@@ -1134,8 +1138,9 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
       return {
         rowValue: (factTable, dialect) =>
           columnValue(column, factTable, dialect),
-        perUnit: (alias, dialect) => dialect.quantileSketchMergePartial(alias),
-        rollup: (alias, dialect, { quantile }) =>
+        unitAggregation: (alias, dialect) =>
+          dialect.quantileSketchMergePartial(alias),
+        rollupAggregation: (alias, dialect, { quantile }) =>
           quantile === null
             ? `SUM(${alias})`
             : dialect.quantileSketchExtractPoint(
@@ -1291,8 +1296,10 @@ function getMetricData(
       cappingSettings,
     ),
     presenceExpr,
-    unitAggregationExpr: selectedUnit ? plan.perUnit(alias, helpers) : null,
-    rollupAggregationExpr: plan.rollup(alias, helpers, {
+    unitAggregationExpr: selectedUnit
+      ? plan.unitAggregation(alias, helpers)
+      : null,
+    rollupAggregationExpr: plan.rollupAggregation(alias, helpers, {
       quantile:
         metric.metricType === "quantile" && metric.quantileSettings
           ? metric.quantileSettings.quantile
