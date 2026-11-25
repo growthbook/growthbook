@@ -903,44 +903,62 @@ function createSimpleMetric(
 }
 
 /**
- * What a metric's ColumnRef measures. This is the only place that reads the
- * special column names ($$count, $$distinctUsers, $$distinctDates) and the
- * aggregation; everything after it works from the kind.
+ * What a metric's numerator or denominator measures: which rows count, what's
+ * read from each, and how they're combined per unit (a "measure" in the BI
+ * semantic-layer sense). Parsed from a ColumnRef by parseMeasure, the only
+ * place that reads the special column names ($$count, $$distinctUsers,
+ * $$distinctDates) and the aggregation.
+ *
+ * Every kind is limited to rows matching its `rowFilters` (SQL WHERE); an
+ * empty list means every row.
  */
 type Measure =
-  | { kind: "rowCount" }
-  | { kind: "distinctUnits"; qualifier: UnitQualifier | null }
-  | { kind: "distinctDays" }
+  | { kind: "rowCount"; rowFilters: RowFilter[] }
+  | {
+      kind: "distinctUnits";
+      rowFilters: RowFilter[];
+      /**
+       * Which units count, by their total over the matching rows (SQL
+       * HAVING). Only distinct units support this today.
+       */
+      aggregateFilter: AggregateFilter | null;
+    }
+  | { kind: "distinctDays"; rowFilters: RowFilter[] }
   | {
       kind: "column";
+      rowFilters: RowFilter[];
       column: string;
       aggregation: "sum" | "max" | "count distinct";
     }
-  | { kind: "hllSketch"; column: string }
-  | { kind: "kllSketch"; column: string };
+  | { kind: "hllSketch"; rowFilters: RowFilter[]; column: string }
+  | { kind: "kllSketch"; rowFilters: RowFilter[]; column: string };
 
-/** Keeps only units whose total passes `filter`, such as revenue ">10". */
-type UnitQualifier = {
-  filter: string;
+/** Keeps units whose total passes `conditions`, such as revenue ">10". */
+type AggregateFilter = {
+  /** One or more comma-separated comparisons, such as ">=3,<10". */
+  conditions: string;
+  /** What each unit totals: its matching rows, or a column summed over them. */
   total: { kind: "rowCount" } | { kind: "column"; column: string };
 };
 
 // `aggregation` means nothing for the special columns, so it's dropped here.
 // Validation already rejects distinct-count and sketch aggregations on them.
 function parseMeasure(columnRef: ColumnRef): Measure {
+  const rowFilters = columnRef.rowFilters ?? [];
   switch (columnRef.column) {
     case "$$count":
-      return { kind: "rowCount" };
+      return { kind: "rowCount", rowFilters };
     case "$$distinctDates":
-      return { kind: "distinctDays" };
+      return { kind: "distinctDays", rowFilters };
     case "$$distinctUsers": {
       const { aggregateFilter, aggregateFilterColumn } = columnRef;
       return {
         kind: "distinctUnits",
-        qualifier:
+        rowFilters,
+        aggregateFilter:
           aggregateFilter && aggregateFilterColumn
             ? {
-                filter: aggregateFilter,
+                conditions: aggregateFilter,
                 total:
                   aggregateFilterColumn === "$$count"
                     ? { kind: "rowCount" }
@@ -954,15 +972,15 @@ function parseMeasure(columnRef: ColumnRef): Measure {
   const { column, aggregation } = columnRef;
   switch (aggregation) {
     case "hll merge":
-      return { kind: "hllSketch", column };
+      return { kind: "hllSketch", rowFilters, column };
     case "kll merge":
-      return { kind: "kllSketch", column };
+      return { kind: "kllSketch", rowFilters, column };
     case "max":
     case "count distinct":
-      return { kind: "column", column, aggregation };
+      return { kind: "column", rowFilters, column, aggregation };
     case "sum":
     case undefined:
-      return { kind: "column", column, aggregation: "sum" };
+      return { kind: "column", rowFilters, column, aggregation: "sum" };
   }
   return assertNever(aggregation);
 }
@@ -1029,18 +1047,19 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
       };
 
     case "distinctUnits": {
-      const { qualifier } = measure;
+      const { aggregateFilter } = measure;
       return {
-        // With a qualifier, each row adds to the total the unit is checked against
+        // With an aggregate filter, each row adds to the total the unit is
+        // checked against
         rowValue: (factTable, dialect) =>
-          qualifier?.total.kind === "column"
-            ? columnValue(qualifier.total.column, factTable, dialect)
+          aggregateFilter?.total.kind === "column"
+            ? columnValue(aggregateFilter.total.column, factTable, dialect)
             : "1",
         // 1 for a unit that counts and NULL, never 0, for one that doesn't:
         // rollups keep a Population's members with IS NOT NULL.
         perUnit: (alias) => {
-          const conditions = qualifier
-            ? parseAggregateFilter(qualifier.filter).conditions
+          const conditions = aggregateFilter
+            ? parseAggregateFilter(aggregateFilter.conditions).conditions
             : [];
           if (!conditions.length) return `MAX(${alias})`;
           const tests = conditions.map(
@@ -1131,15 +1150,16 @@ function getMeasurePlan(measure: Measure): MeasurePlan {
   return assertNever(measure);
 }
 
+// What each row contributes to the measure: its value, capped, and NULL for
+// rows outside the measure's row filters.
 function getEventValueExpr(
-  plan: MeasurePlan,
-  rowFilters: RowFilter[],
+  measure: Measure,
   factTable: MinimalFactTable,
   helpers: SqlDialect,
   alias: string,
   cap: MetricCappingSettings | null,
 ): string {
-  let rawValue = plan.rowValue(factTable, helpers);
+  let rawValue = getMeasurePlan(measure).rowValue(factTable, helpers);
 
   if (cap) {
     if (cap.type === "percentile") {
@@ -1149,7 +1169,7 @@ function getEventValueExpr(
     }
   }
 
-  const filters = generateRowFilterSQL(rowFilters, factTable, helpers);
+  const filters = generateRowFilterSQL(measure.rowFilters, factTable, helpers);
   if (!filters.length) {
     return rawValue;
   }
@@ -1179,8 +1199,8 @@ function getMetricData(
   }
 
   const alias = getSeriesAlias(series);
-  const plan = getMeasurePlan(parseMeasure(columnRef));
-  const rowFilters = columnRef.rowFilters || [];
+  const measure = parseMeasure(columnRef);
+  const plan = getMeasurePlan(measure);
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
@@ -1236,8 +1256,8 @@ function getMetricData(
     plan.needsPresenceGuard;
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
-        getMeasurePlan({ kind: "rowCount" }),
-        rowFilters,
+        // 1 for each of the measure's own rows
+        { kind: "rowCount", rowFilters: measure.rowFilters },
         factTable,
         helpers,
         alias,
@@ -1247,8 +1267,7 @@ function getMetricData(
 
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
-    plan,
-    rowFilters,
+    measure,
     factTable,
     helpers,
     alias,
@@ -1265,8 +1284,7 @@ function getMetricData(
         : null,
     percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
-      plan,
-      rowFilters,
+      measure,
       factTable,
       helpers,
       alias,
