@@ -106,8 +106,6 @@ const CONNECTION_OFF = {
 describe("backfillAutoExperimentSettings", () => {
   it.each([
     ["running", { status: "running" }],
-    // Someone may be about to launch it.
-    ["a draft", { status: "draft" }],
     [
       "stopped with a temporary rollout",
       { status: "stopped", releasedVariationId: "v1" },
@@ -121,6 +119,8 @@ describe("backfillAutoExperimentSettings", () => {
 
   it.each([
     ["deleted", undefined],
+    // Starting it asks to enable the feature.
+    ["a draft", { status: "draft" }],
     ["archived", { status: "running", archived: true }],
     ["stopped", { status: "stopped", releasedVariationId: "" }],
     [
@@ -138,15 +138,13 @@ describe("backfillAutoExperimentSettings", () => {
     });
   });
 
-  it.each([
-    ["running", { status: "running" }],
-    ["a draft", { status: "draft" }],
-  ])("counts a contextual bandit that is %s", async (_, bandit) => {
-    const { settings } = await backfill({ bandit });
+  it("counts a contextual bandit that is running", async () => {
+    const { settings } = await backfill({ bandit: { status: "running" } });
     expect(settings).toEqual({ ...NONE, visualEditor: true, customJs: true });
   });
 
   it.each([
+    ["a draft", { status: "draft" }],
     ["stopped", { status: "stopped" }],
     ["archived", { status: "running", archived: true }],
   ])("ignores a contextual bandit that is %s", async (_, bandit) => {
