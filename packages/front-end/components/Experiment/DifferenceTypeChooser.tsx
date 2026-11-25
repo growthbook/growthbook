@@ -6,6 +6,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { DifferenceType } from "shared/types/stats";
 import { FaCheck } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -35,6 +36,7 @@ export default function DifferenceTypeChooser({
   mutate,
   disabled,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
@@ -42,9 +44,9 @@ export default function DifferenceTypeChooser({
   const [desiredDifferenceType, setDesiredDifferenceType] =
     useState(differenceType);
   const differenceTypeMap = new Map<DifferenceType, string>([
-    ["relative", "Relative"],
-    ["absolute", "Absolute"],
-    ["scaled", "Scaled Impact"],
+    ["relative", t`Relative`],
+    ["absolute", t`Absolute`],
+    ["scaled", t`Scaled Impact`],
   ]);
   const selectedDifferenceName = differenceTypeMap.get(differenceType);
   const triggerAnalysisUpdate = useCallback(analysisUpdate, [
@@ -69,7 +71,9 @@ export default function DifferenceTypeChooser({
 
   return (
     <div>
-      <div className="uppercase-title text-muted">Difference Type</div>
+      <div className="uppercase-title text-muted">
+        <Trans>Difference Type</Trans>
+      </div>
       <Dropdown
         uuid={"difference-type-selector"}
         right={false}
@@ -77,7 +81,11 @@ export default function DifferenceTypeChooser({
         toggleClassName={`d-inline-block ${
           disabled ? "" : "dropdown-underline"
         }`}
-        header={<div className="h6 mb-0">Difference Type</div>}
+        header={
+          <div className="h6 mb-0">
+            <Trans>Difference Type</Trans>
+          </div>
+        }
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
         caret={!disabled}
         enabled={!disabled}

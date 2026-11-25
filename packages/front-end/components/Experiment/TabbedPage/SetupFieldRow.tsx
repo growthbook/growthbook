@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import UnsavedDot from "@/components/UnsavedDot";
@@ -107,13 +108,14 @@ export default function SetupFieldRow({
 }
 
 export function InfoTip({ content }: { content: ReactNode }) {
+  const { t } = useLingui();
   return (
     <Tooltip content={content}>
       {/* Focusable, so the tip opens from the keyboard too. */}
       <span
         tabIndex={0}
         role="button"
-        aria-label="More information"
+        aria-label={t`More information`}
         style={{
           display: "inline-flex",
           verticalAlign: "middle",

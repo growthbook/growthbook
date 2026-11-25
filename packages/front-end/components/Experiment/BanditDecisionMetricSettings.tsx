@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { getMetricWindowHours } from "shared/experiments";
 import { Box, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -25,6 +26,7 @@ export default function BanditDecisionMetricSettings({
   project,
   disabled = false,
 }: BanditDecisionMetricSettingsProps) {
+  const { t } = useLingui();
   const form = useFormContext();
   const settings = useOrgSettings();
   const { getDatasourceById, getExperimentMetricById } = useDefinitions();
@@ -108,6 +110,35 @@ export default function BanditDecisionMetricSettings({
   const showConversionWindowSection =
     !settings?.useStickyBucketing || !!form.watch("disableStickyBucketing");
 
+  const defaultWindowValue = goalMetricWindow?.windowValue ?? 0;
+  const defaultWindowUnit = goalMetricWindow?.windowUnit;
+  const metricDefaultText =
+    defaultWindowUnit === "minutes" ? (
+      <Plural
+        value={defaultWindowValue}
+        one="Metric default: # minute"
+        other="Metric default: # minutes"
+      />
+    ) : defaultWindowUnit === "hours" ? (
+      <Plural
+        value={defaultWindowValue}
+        one="Metric default: # hour"
+        other="Metric default: # hours"
+      />
+    ) : defaultWindowUnit === "days" ? (
+      <Plural
+        value={defaultWindowValue}
+        one="Metric default: # day"
+        other="Metric default: # days"
+      />
+    ) : (
+      <Plural
+        value={defaultWindowValue}
+        one="Metric default: # week"
+        other="Metric default: # weeks"
+      />
+    );
+
   return (
     <>
       <ExperimentMetricsSelector
@@ -130,14 +161,11 @@ export default function BanditDecisionMetricSettings({
       {showConversionWindowSection && (
         <Box my="5">
           <Text size="md" weight="semibold">
-            Decision Metric Conversion Window Override
+            <Trans>Decision Metric Conversion Window Override</Trans>
           </Text>
           {goalMetricWindow?.windowUnit && goalMetricWindow?.windowValue && (
             <Text color="text-mid" size="sm" as="p" my="1">
-              Metric default: {goalMetricWindow.windowValue}{" "}
-              {goalMetricWindow.windowValue === 1
-                ? goalMetricWindow.windowUnit.slice(0, -1)
-                : goalMetricWindow.windowUnit}
+              {metricDefaultText}
             </Text>
           )}
           <Grid align="end" flow="column" gap="5" columns="auto">
@@ -174,11 +202,11 @@ export default function BanditDecisionMetricSettings({
                 sort={false}
                 options={[
                   {
-                    label: "Hour(s)",
+                    label: t`Hour(s)`,
                     value: "hours",
                   },
                   {
-                    label: "Day(s)",
+                    label: t`Day(s)`,
                     value: "days",
                   },
                 ]}
@@ -188,8 +216,8 @@ export default function BanditDecisionMetricSettings({
             </Grid>
             <Box width="100px" />
             <Checkbox
-              description="Use the Decision Metric's default conversion window"
-              label="Disable Conversion Window Override"
+              description={t`Use the Decision Metric's default conversion window`}
+              label={t`Disable Conversion Window Override`}
               labelSize="sm"
               size="sm"
               value={disableBanditConversionWindow}
@@ -202,17 +230,21 @@ export default function BanditDecisionMetricSettings({
             !goalMetricWindow?.windowUnit &&
             !goalMetricWindow?.windowValue && (
               <Callout status="warning" my="4">
-                Disabling the conversion window may bias results if units switch
-                variations during the experiment.
+                <Trans>
+                  Disabling the conversion window may bias results if units
+                  switch variations during the experiment.
+                </Trans>
               </Callout>
             )}
           {showConversionWindowWarning && !disabled && (
             <Callout status="warning" my="4">
               <Text>
-                Limit how many conversions are counted after a unit may have
-                switched variations by decreasing the metric conversion window
-                to be &le; 10% of the{" "}
-                <Text weight="semibold">Update Cadence</Text>.
+                <Trans>
+                  Limit how many conversions are counted after a unit may have
+                  switched variations by decreasing the metric conversion window
+                  to be &le; 10% of the{" "}
+                  <Text weight="semibold">Update Cadence</Text>.
+                </Trans>
               </Text>
             </Callout>
           )}

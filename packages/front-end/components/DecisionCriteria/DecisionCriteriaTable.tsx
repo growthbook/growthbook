@@ -1,4 +1,5 @@
 import { FC, useState, MouseEvent } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaCheck } from "react-icons/fa";
 import { DecisionCriteriaData } from "shared/types/experiment";
@@ -9,6 +10,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
+import { decisionCriteriaText } from "./decisionCriteriaText";
 
 interface DecisionCriteriaTableProps {
   defaultCriteriaId: string;
@@ -27,6 +29,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
   onDeleteClick,
   isEditable,
 }) => {
+  const { i18n } = useLingui();
   const [dropdownOpen, setDropdownOpen] = useState("");
   // Prevent dropdown clicks from triggering row click
   const handleDropdownClick = (
@@ -67,7 +70,9 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
               <td className="align-middle">
                 <Flex direction="column" gap="1">
                   <Box className="d-flex align-items-center gap-2">
-                    <Text weight="bold">{criteria.name}</Text>
+                    <Text weight="bold">
+                      {decisionCriteriaText(criteria, i18n).name}
+                    </Text>
                     {isEditable(criteria) && (
                       <Badge
                         label="CUSTOM"
@@ -79,7 +84,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
                   </Box>
                   {criteria.description && (
                     <Text color="gray" size="1">
-                      {criteria.description}
+                      {decisionCriteriaText(criteria, i18n).description}
                     </Text>
                   )}
                 </Flex>

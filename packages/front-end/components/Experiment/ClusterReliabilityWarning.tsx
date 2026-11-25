@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { getClusterReliabilityHealthData } from "shared/health";
 import {
   DEFAULT_MAX_CLUSTER_SHARE,
@@ -23,6 +24,7 @@ export default function ClusterReliabilityWarning({
   snapshot?: ExperimentSnapshotInterface;
   variations: ExperimentReportVariation[];
 }) {
+  const { t } = useLingui();
   const settings = snapshot?.settings;
   const clusterIdentifier = settings?.exposureQueryIdentifierType;
   const subUnitIdentifier = settings?.clusterSubUnitIdentifier;
@@ -52,30 +54,52 @@ export default function ClusterReliabilityWarning({
 
   const cluster = <IdentifierCode>{clusterIdentifier}</IdentifierCode>;
   const { tooFewClusters, oversizedCluster } = health;
+  const variationIndex = tooFewClusters?.variationIndex ?? 0;
+  const variationName =
+    variations[variationIndex]?.name ?? t`Variation ${variationIndex}`;
+  const clusterCount = numberFormatter.format(tooFewClusters?.count ?? 0);
+  const minClusters = numberFormatter.format(
+    DEFAULT_MIN_CLUSTERS_PER_VARIATION,
+  );
+  const oversizedClusterId = oversizedCluster?.id;
+  const oversizedPct = percentFormatter.format(oversizedCluster?.pct ?? 0);
+  const maxShare = percentFormatter.format(DEFAULT_MAX_CLUSTER_SHARE);
 
   return (
     <Flex direction="column" gap="2" mx="3" mt="2">
       {tooFewClusters ? (
         <Callout status="warning">
-          <strong>Cluster Reliability Warning</strong>.{" "}
-          {variations[tooFewClusters.variationIndex]?.name ??
-            `Variation ${tooFewClusters.variationIndex}`}{" "}
-          has only {numberFormatter.format(tooFewClusters.count)} {cluster}{" "}
-          {tooFewClusters.count === 1 ? "value" : "values"}, and at least{" "}
-          {numberFormatter.format(DEFAULT_MIN_CLUSTERS_PER_VARIATION)} per
-          variation is recommended. With this few, a single unusual {cluster}{" "}
-          can swing the result.
+          <Plural
+            value={tooFewClusters.count}
+            one={
+              <>
+                <strong>Cluster Reliability Warning</strong>. {variationName}{" "}
+                has only {clusterCount} {cluster} value, and at least{" "}
+                {minClusters} per variation is recommended. With this few, a
+                single unusual {cluster} can swing the result.
+              </>
+            }
+            other={
+              <>
+                <strong>Cluster Reliability Warning</strong>. {variationName}{" "}
+                has only {clusterCount} {cluster} values, and at least{" "}
+                {minClusters} per variation is recommended. With this few, a
+                single unusual {cluster} can swing the result.
+              </>
+            }
+          />
         </Callout>
       ) : null}
       {oversizedCluster ? (
         <Callout status="warning">
-          <strong>Cluster Size Warning</strong>.{" "}
-          <IdentifierCode>{oversizedCluster.id}</IdentifierCode> holds{" "}
-          {percentFormatter.format(oversizedCluster.pct)} of{" "}
-          <IdentifierCode>{subUnitIdentifier}</IdentifierCode> values, and no
-          single {cluster} should hold{" "}
-          {percentFormatter.format(DEFAULT_MAX_CLUSTER_SHARE)} or more. That one{" "}
-          {cluster} can drive most of the result.
+          <Trans>
+            <strong>Cluster Size Warning</strong>.{" "}
+            <IdentifierCode>{oversizedClusterId}</IdentifierCode> holds{" "}
+            {oversizedPct} of{" "}
+            <IdentifierCode>{subUnitIdentifier}</IdentifierCode> values, and no
+            single {cluster} should hold {maxShare} or more. That one {cluster}{" "}
+            can drive most of the result.
+          </Trans>
         </Callout>
       ) : null}
     </Flex>

@@ -8,6 +8,7 @@ import {
 } from "shared/types/stats";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
@@ -66,7 +67,9 @@ export default function PValueColumn({
     pValText = showUnadjustedPValue ? (
       <>
         <div>{pValueFormatter(stats.pValueAdjusted)}</div>
-        <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
+        <div className="text-muted">
+          <Trans>(unadj.:&nbsp;{pValText})</Trans>
+        </div>
       </>
     ) : (
       <>{pValueFormatter(stats.pValueAdjusted)}</>
@@ -88,7 +91,11 @@ export default function PValueColumn({
 
   const renderContent = () => {
     if (!rowResults.hasData) {
-      return <em className="text-muted small">No data</em>;
+      return (
+        <em className="text-muted small">
+          <Trans>No data</Trans>
+        </em>
+      );
     }
 
     if (hideScaledImpact) {
@@ -112,7 +119,7 @@ export default function PValueColumn({
         <Trigger>
           <div className="d-flex align-items-center justify-content-end">
             <div className="result-number d-inline-block">
-              {pValText || "P-value missing"}
+              {pValText || <Trans>P-value missing</Trans>}
             </div>{" "}
             <PiWarningCircle
               size={15}
@@ -126,7 +133,7 @@ export default function PValueColumn({
     return (
       <div className="d-flex align-items-center justify-content-end">
         <div className="result-number d-inline-block">
-          {pValText || "P-value missing"}
+          {pValText || <Trans>P-value missing</Trans>}
         </div>
       </div>
     );

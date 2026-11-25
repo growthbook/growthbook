@@ -23,6 +23,7 @@ import {
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -43,7 +44,10 @@ import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { holdoutSizeTip, useHoldouts } from "@/hooks/useHoldouts";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import {
+  useExperimentStatusIndicator,
+  useStatusIndicatorText,
+} from "@/hooks/useExperimentStatusIndicator";
 import Badge from "@/ui/Badge";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import { coveragePercentFormatter } from "@/services/utils";
@@ -161,6 +165,7 @@ function FunnelCard({
   menu?: ReactNode;
   grow?: boolean;
 }) {
+  const { t } = useLingui();
   const editable = !!onEdit && !disabled;
   return (
     <Box
@@ -196,7 +201,7 @@ function FunnelCard({
                 disabled={!!editBlockedReason}
                 onClick={() => onEdit()}
                 size="2"
-                aria-label={`Edit ${title}`}
+                aria-label={t`Edit ${title}`}
               >
                 <PiPencilSimple size="16" />
               </IconButton>
@@ -206,7 +211,7 @@ function FunnelCard({
             <DropdownMenu
               trigger={
                 <MoreMenuTrigger
-                  label={`${title} actions`}
+                  label={t`${title} actions`}
                   style={{ margin: 0 }}
                 />
               }
@@ -244,6 +249,7 @@ export default function TrafficAllocationFunnel({
   safeToEdit,
   targetingDraft,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { namespaces } = useOrgSettings();
   const edits = useExperimentEdits();
   const editsBlocked = useEditsBlockedReason();
@@ -279,7 +285,7 @@ export default function TrafficAllocationFunnel({
   useRegisterExperimentEdit("targeting", !!staged, {
     statusBound: true,
     discard: clearStaged,
-    label: onlyTrafficFields(Object.keys(mine)) ? "Traffic" : "Targeting",
+    label: onlyTrafficFields(Object.keys(mine)) ? t`Traffic` : t`Targeting`,
     review: () => reviewAgainstCurrent(experiment, mine),
     rebase: () => {
       if (effective) targetingDraft?.set(effective);
@@ -402,6 +408,7 @@ export default function TrafficAllocationFunnel({
     ? coverageToHoldoutSize(holdoutPhase.coverage)
     : null;
   const getStatusIndicator = useExperimentStatusIndicator();
+  const statusText = useStatusIndicatorText();
   const holdoutStatus = holdoutExperiment
     ? getStatusIndicator(holdoutExperiment)
     : null;
@@ -419,8 +426,10 @@ export default function TrafficAllocationFunnel({
   if (!phase) {
     return (
       <Callout status="warning" mb="4">
-        No traffic allocation or targeting configured yet. Add a phase to this
-        experiment.
+        <Trans>
+          No traffic allocation or targeting configured yet. Add a phase to this
+          experiment.
+        </Trans>
       </Callout>
     );
   }
@@ -449,7 +458,7 @@ export default function TrafficAllocationFunnel({
           {holdoutId ? (
             <>
               <FunnelCard
-                title="Holdout"
+                title={t`Holdout`}
                 onEdit={
                   canJoinHoldout || holdoutLockedReason
                     ? () => setChoosingHoldout(true)
@@ -459,19 +468,19 @@ export default function TrafficAllocationFunnel({
                 menu={
                   canStageHoldout ? (
                     <DropdownMenuItem color="red" onClick={leaveHoldout}>
-                      Remove from holdout
+                      <Trans>Remove from holdout</Trans>
                     </DropdownMenuItem>
                   ) : null
                 }
               >
-                <FunnelRow label="Name">
+                <FunnelRow label={t`Name`}>
                   <Flex align="center" gap="2">
                     <Link href={`/holdout/${holdoutId}`} external>
                       {holdout?.name ?? holdoutId}
                     </Link>
                     {holdoutStatus ? (
                       <Badge
-                        label={holdoutStatus.status}
+                        label={statusText(holdoutStatus).status}
                         color={holdoutStatus.color}
                         variant="soft"
                         radius="full"
@@ -482,8 +491,8 @@ export default function TrafficAllocationFunnel({
                 </FunnelRow>
                 {holdoutSize !== null ? (
                   <FunnelRow
-                    label="Holdout size"
-                    tip={holdoutSizeTip(holdoutSize)}
+                    label={t`Holdout size`}
+                    tip={holdoutSizeTip(holdoutSize, i18n)}
                   >
                     <Text color="text-high">
                       {coveragePercentFormatter.format(holdoutSize)}
@@ -505,7 +514,7 @@ export default function TrafficAllocationFunnel({
           ) : null}
 
           <FunnelCard
-            title="Targeting"
+            title={t`Targeting`}
             grow
             onEdit={makeChanges ? () => makeChanges() : editTargeting}
             editBlockedReason={makeChanges ? editsBlocked : null}
@@ -513,7 +522,7 @@ export default function TrafficAllocationFunnel({
             menu={
               canAddHoldout ? (
                 <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
-                  Add to holdout
+                  <Trans>Add to holdout</Trans>
                 </DropdownMenuItem>
               ) : null
             }
@@ -529,13 +538,15 @@ export default function TrafficAllocationFunnel({
             <>
               <FunnelConnector />
               <FunnelCard
-                title="Namespace"
+                title={t`Namespace`}
                 onEdit={editNamespace}
                 disabled={!safeToEdit}
               >
-                <FunnelRow label="Name">
+                <FunnelRow label={t`Name`}>
                   {namespaceDeleted ? (
-                    <Tooltip content="This namespace no longer exists. The experiment still splits traffic by it, but it can't be chosen again.">
+                    <Tooltip
+                      content={t`This namespace no longer exists. The experiment still splits traffic by it, but it can't be chosen again.`}
+                    >
                       <Flex align="center" gap="1">
                         <PiWarningFill
                           style={{ color: "var(--amber-11)", flexShrink: 0 }}
@@ -548,7 +559,7 @@ export default function TrafficAllocationFunnel({
                   )}
                 </FunnelRow>
                 {namespaceCoverage ? (
-                  <FunnelRow label="Namespace percentage">
+                  <FunnelRow label={t`Namespace percentage`}>
                     <Text color="text-high">
                       {percentFormatter.format(namespaceCoverage)}
                     </Text>
@@ -563,7 +574,7 @@ export default function TrafficAllocationFunnel({
               <Link color="gray" onClick={() => editNamespace?.()}>
                 <Flex align="center" gap="1">
                   <PiPlus />
-                  Namespace
+                  <Trans>Namespace</Trans>
                 </Flex>
               </Link>
               <Box className={styles.connectorLine} height="12px" />
@@ -573,7 +584,7 @@ export default function TrafficAllocationFunnel({
           )}
 
           <FunnelCard
-            title="Traffic"
+            title={t`Traffic`}
             onEdit={
               makeChanges
                 ? () => makeChanges("traffic")
@@ -584,12 +595,12 @@ export default function TrafficAllocationFunnel({
             editBlockedReason={makeChanges ? editsBlocked : null}
             disabled={!safeToEdit}
           >
-            <FunnelRow label="Rollout percentage">
+            <FunnelRow label={t`Rollout percentage`}>
               {editDeliveryInline ? (
                 <PercentField
                   value={coverage}
                   onChange={(next) => stagePatch({ coverage: next })}
-                  ariaLabel="Rollout percentage"
+                  ariaLabel={t`Rollout percentage`}
                   form={edits?.formId}
                 />
               ) : (
@@ -634,7 +645,7 @@ export default function TrafficAllocationFunnel({
               ? (weights) => stagePatch({ variationWeights: weights })
               : null
           }
-          splitNote={isBandit ? "Managed by Bandit" : null}
+          splitNote={isBandit ? t`Managed by Bandit` : null}
           onEditKeys={
             canEditExperiment && !variationsLocked
               ? editVariationKeys
@@ -663,16 +674,19 @@ function Audience({
     "condition" | "savedGroups" | "prerequisites"
   >;
 }) {
+  const { t } = useLingui();
   if (!hasTargetingConfigured(phase)) {
     return (
-      <FunnelRow label="Audience">
-        <Text color="text-high">Everyone</Text>
+      <FunnelRow label={t`Audience`}>
+        <Text color="text-high">
+          <Trans>Everyone</Trans>
+        </Text>
       </FunnelRow>
     );
   }
   return (
     <>
-      <FunnelRow label="Audience" />
+      <FunnelRow label={t`Audience`} />
       <Box pl="4" mb="2">
         <ConditionDisplay
           variant="rows"
@@ -698,8 +712,9 @@ function AssignmentAttribute({
   hashAttribute: string;
   fallbackAttribute: string;
 }) {
+  const { t } = useLingui();
   return (
-    <FunnelRow label="Assignment attribute">
+    <FunnelRow label={t`Assignment attribute`}>
       <Text color="text-high">
         {fallbackAttribute
           ? `${hashAttribute}, ${fallbackAttribute}`

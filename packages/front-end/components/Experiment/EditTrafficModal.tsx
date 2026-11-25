@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useLingui } from "@lingui/react/macro";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
@@ -18,6 +19,7 @@ export default function EditTrafficModal({
   close: () => void;
   stage: (traffic: { coverage: number; variationWeights: number[] }) => void;
 }) {
+  const { t } = useLingui();
   const isBandit = experiment.type === "multi-armed-bandit";
   const variations = getLatestPhaseVariations(experiment);
   const [coverage, setCoverage] = useState(savedCoverage);
@@ -34,8 +36,8 @@ export default function EditTrafficModal({
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
-      header="Edit Traffic"
-      cta="Apply"
+      header={t`Edit Traffic`}
+      cta={t`Apply`}
       submit={() =>
         stage({
           coverage,
@@ -49,8 +51,12 @@ export default function EditTrafficModal({
       <div className="pt-2">
         <FeatureVariationsInput
           label={null}
-          coverageLabel="Rollout percentage"
-          coverageTooltip={`The share of targeted units in this ${isBandit ? "Bandit" : "experiment"}. The rest aren't assigned a variation.`}
+          coverageLabel={t`Rollout percentage`}
+          coverageTooltip={
+            isBandit
+              ? t`The share of targeted units in this Bandit. The rest aren't assigned a variation.`
+              : t`The share of targeted units in this experiment. The rest aren't assigned a variation.`
+          }
           valueAsId
           hideSplits={isBandit}
           startEditingSplits

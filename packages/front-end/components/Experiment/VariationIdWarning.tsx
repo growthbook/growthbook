@@ -1,4 +1,5 @@
 import { FC, Fragment, useState } from "react";
+import { Trans } from "@lingui/react/macro";
 import isEqual from "lodash/isEqual";
 import {
   ExperimentReportResultDimension,
@@ -12,7 +13,11 @@ import Callout from "@/ui/Callout";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
-    return <em>empty</em>;
+    return (
+      <em>
+        <Trans>empty</Trans>
+      </em>
+    );
   }
 
   return (
@@ -90,7 +95,7 @@ const VariationIdWarning: FC<{
     }
     return (
       <Callout status="info" contentAlign="center" mx="3" mb="3">
-        Results are out of date. Click Update to refresh.
+        <Trans>Results are out of date. Click Update to refresh.</Trans>
       </Callout>
     );
   }
@@ -102,6 +107,8 @@ const VariationIdWarning: FC<{
       !!datasource &&
       permissionsUtil.canRunExperimentQueries(datasource) &&
       permissionsUtil.canViewExperimentModal(project);
+    const expectedCount = variations.length;
+    const returnedCount = returnedVariations.length;
     return (
       <>
         {idModal && setVariationIds && (
@@ -125,19 +132,28 @@ const VariationIdWarning: FC<{
                 size="sm"
                 onClick={() => setIdModal(true)}
               >
-                Update keys
+                <Trans>Update keys</Trans>
               </Button>
             ) : null
           }
         >
-          Expected {variations.length} variation keys (
-          <CommaList vals={definedVariations} />
-          ), but the database returned{" "}
-          {returnedVariations.length === definedVariations.length
-            ? "a different set"
-            : returnedVariations.length}{" "}
-          (<CommaList vals={returnedVariations} />
-          ).
+          {returnedCount === definedVariations.length ? (
+            <Trans>
+              Expected {expectedCount} variation keys (
+              <CommaList vals={definedVariations} />
+              ), but the database returned a different set (
+              <CommaList vals={returnedVariations} />
+              ).
+            </Trans>
+          ) : (
+            <Trans>
+              Expected {expectedCount} variation keys (
+              <CommaList vals={definedVariations} />
+              ), but the database returned {returnedCount} (
+              <CommaList vals={returnedVariations} />
+              ).
+            </Trans>
+          )}
         </Callout>
       </>
     );
@@ -145,15 +161,15 @@ const VariationIdWarning: FC<{
 
   // Results missing variations
   if (definedVariations.length > returnedVariations.length) {
+    const missingVariations = definedVariations.filter(
+      (v) => !returnedVariations.includes(v),
+    );
     return (
       <Callout status="warning" contentAlign="center" mx="3" mb="3">
-        Missing data for variation keys:{" "}
-        <CommaList
-          vals={definedVariations.filter(
-            (v) => !returnedVariations.includes(v),
-          )}
-        />
-        .
+        <Trans>
+          Missing data for variation keys:{" "}
+          <CommaList vals={missingVariations} />.
+        </Trans>
       </Callout>
     );
   }

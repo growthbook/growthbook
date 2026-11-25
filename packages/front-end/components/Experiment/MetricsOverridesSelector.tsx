@@ -1,6 +1,7 @@
 import React, { ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiXBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FieldValues, useFieldArray, UseFormReturn } from "react-hook-form";
 import {
@@ -53,9 +54,6 @@ const defaultFieldMap = {
 
 const SELECT_WIDTH = 190;
 
-const withDefault = (label: string, isDefault: boolean) =>
-  isDefault ? `${label} (default)` : label;
-
 export default function MetricsOverridesSelector({
   experiment,
   form,
@@ -83,6 +81,7 @@ export default function MetricsOverridesSelector({
   /** Goal metrics whose cards lead with a target MDE, kept in `targetMDEs`. */
   targetMDEGoalIds?: string[];
 }) {
+  const { t } = useLingui();
   const {
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
@@ -178,7 +177,7 @@ export default function MetricsOverridesSelector({
           includeFacts={true}
           value=""
           onChange={(m) => m && addOverride(m)}
-          placeholder="Override another metric..."
+          placeholder={t`Override another metric...`}
           disabled={disabled}
           onPaste={(e) => {
             try {
@@ -232,6 +231,9 @@ function OverrideCard({
   bayesian: boolean;
   onRemove: () => void;
 }) {
+  const { t } = useLingui();
+  const withDefault = (label: string, isDefault: boolean) =>
+    isDefault ? t`${label} (default)` : label;
   const field = (name: string) => `${path}.${name}`;
   const set = (values: Record<string, unknown>) =>
     Object.entries(values).forEach(([name, value]) =>
@@ -263,10 +265,13 @@ function OverrideCard({
   const defaultDelay = metricDefinition?.windowSettings
     ? getDelayWindowHours(metricDefinition.windowSettings)
     : 0;
+  const defaultWindowHours = metricDefinition?.windowSettings
+    ? getMetricWindowHours(metricDefinition.windowSettings)
+    : null;
   const defaultWindow =
     metricWindowType === windowChoice && metricDefinition?.windowSettings
-      ? `Default ${getMetricWindowHours(metricDefinition.windowSettings)}`
-      : "Required";
+      ? t`Default ${defaultWindowHours}`
+      : t`Required`;
 
   const defaultPrior = metricDefinition?.priorSettings.override
     ? metricDefinition.priorSettings
@@ -276,6 +281,8 @@ function OverrideCard({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       });
+  const defaultPriorMean = defaultPrior.mean;
+  const defaultPriorStdDev = defaultPrior.stddev;
   const priorOverridden = !!mo.properPriorOverride;
 
   let cupedUnavailable: string | null = null;
@@ -288,7 +295,8 @@ function OverrideCard({
       !isFactMetric(denominator) &&
       !isBinomialMetric(denominator)
     ) {
-      cupedUnavailable = `Not available for metrics where the denominator is a ${denominator.type} type.`;
+      const denominatorType = denominator.type;
+      cupedUnavailable = t`Not available for metrics where the denominator is a ${denominatorType} type.`;
     }
   }
   if (
@@ -296,7 +304,7 @@ function OverrideCard({
     !isFactMetric(metricDefinition) &&
     metricDefinition.aggregation
   ) {
-    cupedUnavailable = "Not available for metrics with custom aggregations.";
+    cupedUnavailable = t`Not available for metrics with custom aggregations.`;
   }
   const cupedDefault = !!(metricDefinition?.regressionAdjustmentOverride
     ? metricDefinition.regressionAdjustmentEnabled
@@ -309,9 +317,9 @@ function OverrideCard({
   const days: number | undefined = mo.regressionAdjustmentDays;
   const daysWarning =
     days !== undefined && days > 28
-      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      ? t`Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data`
       : days !== undefined && days < 7
-        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        ? t`Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality`
         : null;
 
   const clearWindow = () =>
@@ -363,6 +371,8 @@ function OverrideCard({
 
   // Paid and unavailable ones are listed but can't be picked.
   const addable: {
+    // English, and keys the select; `label` is what shows.
+    key: string;
     label: string;
     paid?: boolean;
     unavailable?: string | null;
@@ -370,12 +380,14 @@ function OverrideCard({
   }[] = [
     !!targetMDEPath &&
       !targetMDEOverridden && {
-        label: "Target MDE",
+        key: "Target MDE",
+        label: t`Target MDE`,
         add: () => form.setValue(targetMDEPath, defaultTargetMDE),
       },
     !onlyTargetMDE &&
       !windowOverridden && {
-        label: "Metric window",
+        key: "Metric window",
+        label: t`Metric window`,
         add: () =>
           set({
             windowType: metricWindowType === "none" ? "" : metricWindowType,
@@ -384,7 +396,8 @@ function OverrideCard({
     !onlyTargetMDE &&
       !priorOverridden &&
       bayesian && {
-        label: "Prior",
+        key: "Prior",
+        label: t`Prior`,
         paid: !hasRegressionAdjustmentFeature,
         add: () =>
           set({
@@ -394,6 +407,7 @@ function OverrideCard({
       },
     !onlyTargetMDE &&
       !cupedOverridden && {
+        key: "CUPED",
         label: "CUPED",
         paid: !hasRegressionAdjustmentFeature,
         unavailable: cupedUnavailable,
@@ -422,7 +436,7 @@ function OverrideCard({
                     clears itself. */}
                 {onlyTargetMDE ? null : (
                   <Link type="button" color="red" onClick={onRemove}>
-                    Remove overrides
+                    <Trans>Remove overrides</Trans>
                   </Link>
                 )}
               </Flex>
@@ -432,8 +446,8 @@ function OverrideCard({
         <TableBody>
           {targetMDEPath && targetMDEOverridden ? (
             <OverrideRow
-              label="Target MDE"
-              tooltip="The smallest lift this experiment should reliably detect. Smaller values need more data and longer run times."
+              label={t`Target MDE`}
+              tooltip={t`The smallest lift this experiment should reliably detect. Smaller values need more data and longer run times.`}
               onClear={() => form.setValue(targetMDEPath, undefined)}
               choice={null}
             >
@@ -442,7 +456,7 @@ function OverrideCard({
                   type="number"
                   step="any"
                   min={0}
-                  placeholder={`Default ${defaultTargetMDE}`}
+                  placeholder={t`Default ${defaultTargetMDE}`}
                   append={<Text color="text-low">%</Text>}
                   {...form.register(targetMDEPath, { valueAsNumber: true })}
                 />
@@ -452,7 +466,7 @@ function OverrideCard({
 
           {!onlyTargetMDE && windowOverridden ? (
             <OverrideRow
-              label="Metric window"
+              label={t`Metric window`}
               onClear={clearWindow}
               choice={
                 <Select
@@ -462,9 +476,9 @@ function OverrideCard({
                   }
                 >
                   {[
-                    ["none", "None"],
-                    ["conversion", "Conversion"],
-                    ...(retention ? [] : [["lookback", "Lookback"]]),
+                    ["none", t`None`],
+                    ["conversion", t`Conversion`],
+                    ...(retention ? [] : [["lookback", t`Lookback`]]),
                   ].map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {withDefault(label, value === metricWindowType)}
@@ -479,21 +493,21 @@ function OverrideCard({
                     "delayHours",
                     retention
                       ? windowChoice === "lookback"
-                        ? "Retention window"
-                        : "Retention starts after"
-                      : "Delay",
-                    `Default ${defaultDelay}`,
-                    { unit: "hours" },
+                        ? t`Retention window`
+                        : t`Retention starts after`
+                      : t`Delay`,
+                    t`Default ${defaultDelay}`,
+                    { unit: t`hours` },
                   )}
                   {windowChoice !== "none"
                     ? numberField(
                         "windowHours",
                         windowChoice === "lookback"
-                          ? "Lookback window"
-                          : "Conversion window",
+                          ? t`Lookback window`
+                          : t`Conversion window`,
                         defaultWindow,
                         {
-                          unit: "hours",
+                          unit: t`hours`,
                           min: minWindow,
                           // Native, so the browser stops the submit and says why.
                           required: metricWindowType !== windowChoice,
@@ -507,13 +521,13 @@ function OverrideCard({
 
           {!onlyTargetMDE && priorOverridden ? (
             <OverrideRow
-              label="Prior"
-              tooltip="Only used by the Bayesian stats engine."
+              label={t`Prior`}
+              tooltip={t`Only used by the Bayesian stats engine.`}
               onClear={clearPrior}
               help={
                 bayesian
                   ? null
-                  : "Not applied: this experiment uses the frequentist stats engine."
+                  : t`Not applied: this experiment uses the frequentist stats engine.`
               }
               choice={
                 <Select
@@ -524,10 +538,10 @@ function OverrideCard({
                   }
                 >
                   <SelectItem value="proper">
-                    {withDefault("Proper", !!defaultPrior.proper)}
+                    {withDefault(t`Proper`, !!defaultPrior.proper)}
                   </SelectItem>
                   <SelectItem value="improper">
-                    {withDefault("Improper", !defaultPrior.proper)}
+                    {withDefault(t`Improper`, !defaultPrior.proper)}
                   </SelectItem>
                 </Select>
               }
@@ -536,19 +550,19 @@ function OverrideCard({
                 <>
                   {numberField(
                     "properPriorMean",
-                    "Mean",
-                    `Default ${defaultPrior.mean}`,
+                    t`Mean`,
+                    t`Default ${defaultPriorMean}`,
                     { disabled: !bayesian },
                   )}
                   {numberField(
                     "properPriorStdDev",
-                    "Standard deviation",
-                    `Default ${defaultPrior.stddev}`,
+                    t`Standard deviation`,
+                    t`Default ${defaultPriorStdDev}`,
                     {
                       disabled: !bayesian,
                       rules: {
                         validate: (v) =>
-                          !((v ?? 0) <= 0) || "Must be greater than 0",
+                          !((v ?? 0) <= 0) || t`Must be greater than 0`,
                       },
                     },
                   )}
@@ -576,10 +590,10 @@ function OverrideCard({
                     }
                   >
                     <SelectItem value="on">
-                      {withDefault("On", cupedDefault)}
+                      {withDefault(t`On`, cupedDefault)}
                     </SelectItem>
                     <SelectItem value="off">
-                      {withDefault("Off", !cupedDefault)}
+                      {withDefault(t`Off`, !cupedDefault)}
                     </SelectItem>
                   </Select>
                 )
@@ -592,10 +606,10 @@ function OverrideCard({
               ) : mo.regressionAdjustmentEnabled ? (
                 numberField(
                   "regressionAdjustmentDays",
-                  "Pre-exposure lookback",
-                  `Default ${cupedDefaultDays}`,
+                  t`Pre-exposure lookback`,
+                  t`Default ${cupedDefaultDays}`,
                   {
-                    unit: "days",
+                    unit: t`days`,
                     min: 0,
                     step: undefined,
                     disabled: !hasRegressionAdjustmentFeature,
@@ -605,7 +619,7 @@ function OverrideCard({
                         v === undefined ||
                         Number.isNaN(v) ||
                         v > 0 ||
-                        "Must be greater than 0",
+                        t`Must be greater than 0`,
                     },
                   },
                 )
@@ -619,15 +633,15 @@ function OverrideCard({
                 <Box width={`${SELECT_WIDTH}px`}>
                   <Select
                     value=""
-                    placeholder="Override a setting..."
+                    placeholder={t`Override a setting...`}
                     setValue={(value) =>
-                      addable.find(({ label }) => label === value)?.add()
+                      addable.find(({ key }) => key === value)?.add()
                     }
                   >
-                    {addable.map(({ label, paid, unavailable }) => (
+                    {addable.map(({ key, label, paid, unavailable }) => (
                       <SelectItem
-                        key={label}
-                        value={label}
+                        key={key}
+                        value={key}
                         textValue={label}
                         disabled={paid || !!unavailable}
                       >
@@ -674,7 +688,8 @@ function OverrideRow({
   help?: string | null;
   children?: ReactNode;
 }) {
-  const clearLabel = `Stop overriding ${label}`;
+  const { t } = useLingui();
+  const clearLabel = t`Stop overriding ${label}`;
   const heading = (
     <Flex align="center" gap="1" mb="2">
       <Text as="label" weight="semibold" mb="0">

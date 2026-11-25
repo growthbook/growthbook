@@ -25,6 +25,9 @@ import {
   type ExperimentRuleEnvironments,
 } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { EDITS_BLOCKED_REASON } from "@/components/StagedEdits/StagedEditsBar";
 import { useAuth } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
@@ -126,18 +129,27 @@ const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 // `onPage` when it's resolved on the page, by its fields or the save bar.
 export type SaveRefusal = { message: string; onPage: boolean };
 
-export function incompatibleNote(incompatible: IncompatibleEdit[]): string {
-  const one = incompatible.length === 1;
-  const why = incompatible.every((e) => e.stagedIn === "draft")
-    ? "This experiment is no longer a draft"
-    : `This experiment's status changed since ${one ? "it was" : "they were"} made`;
-  return `${why}, so ${
-    one ? "1 change" : `${incompatible.length} changes`
-  } can't be saved. Discard ${one ? "it" : "them"} to save the rest.`;
+export function incompatibleNote(
+  incompatible: IncompatibleEdit[],
+  i18n: I18n,
+): string {
+  const count = incompatible.length;
+  return incompatible.every((e) => e.stagedIn === "draft")
+    ? i18n._(
+        msg`${plural(count, {
+          one: "This experiment is no longer a draft, so # change can't be saved. Discard it to save the rest.",
+          other:
+            "This experiment is no longer a draft, so # changes can't be saved. Discard them to save the rest.",
+        })}`,
+      )
+    : i18n._(
+        msg`${plural(count, {
+          one: "This experiment's status changed since it was made, so # change can't be saved. Discard it to save the rest.",
+          other:
+            "This experiment's status changed since they were made, so # changes can't be saved. Discard them to save the rest.",
+        })}`,
+      );
 }
-
-const INVALID_FIELDS = "Fill in the highlighted fields to save.";
-const CONFLICTED = "Someone else saved changes to what you edited.";
 
 type ChangesConflict = ApiErrorDetails<"changes_conflict">;
 
@@ -228,6 +240,9 @@ export function ExperimentEditsProvider({
   mutate: () => unknown;
   children: ReactNode;
 }) {
+  const { t, i18n } = useLingui();
+  const invalidFieldsMessage = t`Fill in the highlighted fields to save.`;
+  const conflictedMessage = t`Someone else saved changes to what you edited.`;
   const { apiCall } = useAuth();
   const experimentId = experiment.id;
   const scope = stagedEditsScope(experiment);
@@ -323,12 +338,12 @@ export function ExperimentEditsProvider({
     async (with_?: ExperimentChangesBody) => {
       // The browser says which field and why, and takes the writer there.
       if (form.current && !form.current.reportValidity()) {
-        setError(INVALID_FIELDS);
-        return { message: INVALID_FIELDS, onPage: true };
+        setError(invalidFieldsMessage);
+        return { message: invalidFieldsMessage, onPage: true };
       }
       // Whatever asks for the save, not only the bar's disabled button.
       if (incompatible.length) {
-        return { message: incompatibleNote(incompatible), onPage: true };
+        return { message: incompatibleNote(incompatible, i18n), onPage: true };
       }
       let refusal: SaveRefusal | null = null;
       setSaving(true);
@@ -369,9 +384,9 @@ export function ExperimentEditsProvider({
       } catch (e) {
         // A conflict shows on the bar and its rows, not as an error.
         if (e instanceof ConflictFlagged) {
-          refusal = { message: CONFLICTED, onPage: true };
+          refusal = { message: conflictedMessage, onPage: true };
         } else {
-          const message = e.message || "Could not save your changes";
+          const message = e.message || t`Could not save your changes`;
           const unscoped =
             e instanceof ApiCallError && e.code === "unscoped_rule";
           if (unscoped) setUnscopedRefusal(message);
@@ -404,7 +419,15 @@ export function ExperimentEditsProvider({
       }
       return refusal;
     },
-    [postChanges, mutate, incompatible],
+    [
+      postChanges,
+      mutate,
+      incompatible,
+      invalidFieldsMessage,
+      conflictedMessage,
+      t,
+      i18n,
+    ],
   );
 
   // Its fields' input doesn't bubble to it, since they aren't inside it.
@@ -413,12 +436,12 @@ export function ExperimentEditsProvider({
       const el = form.current;
       if (!el || (e.target as HTMLInputElement).form !== el) return;
       if (el.checkValidity()) {
-        setError((prev) => (prev === INVALID_FIELDS ? null : prev));
+        setError((prev) => (prev === invalidFieldsMessage ? null : prev));
       }
     };
     document.addEventListener("input", onInput);
     return () => document.removeEventListener("input", onInput);
-  }, []);
+  }, [invalidFieldsMessage]);
 
   const discardAll = useCallback(() => {
     if (savingNow.current) return;
@@ -479,10 +502,10 @@ export function ExperimentEditsProvider({
   );
   const checkAll = useCallback(async () => {
     if (form.current && !form.current.checkValidity()) {
-      throw new Error(INVALID_FIELDS);
+      throw new Error(invalidFieldsMessage);
     }
     await dryRun(null, []);
-  }, [dryRun]);
+  }, [dryRun, invalidFieldsMessage]);
 
   // Discards before leaving: a route change started with edits still staged
   // doesn't complete until they're saved or discarded.
@@ -491,7 +514,9 @@ export function ExperimentEditsProvider({
   const { allowUnload } = navigationGuard;
   // Why the last save didn't go through, if it didn't.
   const refusal =
-    error ?? unscopedRefusal ?? (shownConflicts.length ? CONFLICTED : null);
+    error ??
+    unscopedRefusal ??
+    (shownConflicts.length ? conflictedMessage : null);
   // Leaving mid-save waits for it: saved through, it goes; left with
   // something unsaved, it asks as usual.
   const leaveAfterSave =
@@ -577,21 +602,23 @@ export function ExperimentEditsProvider({
         // Refused on the way out, it says why rather than calling them unsaved.
         <ConfirmDialog
           title={
-            refusal ? "Your changes weren't saved" : "Leave without saving?"
+            refusal ? t`Your changes weren't saved` : t`Leave without saving?`
           }
           content={
             refusal ? (
               <Flex direction="column" gap="2">
                 <Text>{refusal}</Text>
-                <Text>Leaving this page discards your changes.</Text>
+                <Text>
+                  <Trans>Leaving this page discards your changes.</Trans>
+                </Text>
               </Flex>
             ) : (
-              "You have unsaved changes to this experiment. Leaving this page discards them."
+              t`You have unsaved changes to this experiment. Leaving this page discards them.`
             )
           }
           // Staying is the primary action; leaving is the secondary one.
-          yesText={refusal ? "Stay and fix" : "Keep editing"}
-          noText="Leave page"
+          yesText={refusal ? t`Stay and fix` : t`Keep editing`}
+          noText={t`Leave page`}
           onConfirm={navigationGuard.cancelNavigation}
           onCancel={navigationGuard.confirmNavigation}
           onDismiss={navigationGuard.cancelNavigation}

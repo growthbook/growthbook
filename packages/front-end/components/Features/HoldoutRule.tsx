@@ -15,7 +15,10 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import {
+  useExperimentStatusIndicator,
+  useStatusIndicatorText,
+} from "@/hooks/useExperimentStatusIndicator";
 import { getHoldoutRuleId, useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
@@ -96,6 +99,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     const getStatusIndicator = useExperimentStatusIndicator();
+    const statusText = useStatusIndicatorText();
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
@@ -164,7 +168,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   {/* Its status alone, as the experiment page shows a holdout's. */}
                   {!isDeleted && (
                     <Badge
-                      label={status.status}
+                      label={statusText(status).status}
                       color={status.color}
                       variant="soft"
                       radius="full"

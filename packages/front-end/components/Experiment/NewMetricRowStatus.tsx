@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import type { NewMetricRowState } from "@/services/experiments";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -21,7 +22,9 @@ export default function NewMetricRowStatus({
     case "notComputed":
       return (
         <HelperText status="neutral" size="sm" {...nameOffset}>
-          Not computed yet. This metric was added after the last update.
+          <Trans>
+            Not computed yet. This metric was added after the last update.
+          </Trans>
         </HelperText>
       );
     case "running":
@@ -32,19 +35,25 @@ export default function NewMetricRowStatus({
           {...nameOffset}
           icon={<LoadingSpinner />}
         >
-          Updating...
+          <Trans>Updating...</Trans>
         </HelperText>
       );
     case "failed":
       return (
         <HelperText status="error" size="sm" {...nameOffset}>
           <Flex gap="2" wrap="wrap">
-            <span>Update failed</span>
+            <span>
+              <Trans>Update failed</Trans>
+            </span>
             {state.error ? (
               <Popover
                 side="bottom"
                 align="start"
-                trigger={<Link>Show error</Link>}
+                trigger={
+                  <Link>
+                    <Trans>Show error</Trans>
+                  </Link>
+                }
                 contentStyle={{
                   maxWidth: 400,
                   maxHeight: 300,
@@ -59,7 +68,9 @@ export default function NewMetricRowStatus({
               />
             ) : null}
             {onViewQueries ? (
-              <Link onClick={onViewQueries}>View queries</Link>
+              <Link onClick={onViewQueries}>
+                <Trans>View queries</Trans>
+              </Link>
             ) : null}
           </Flex>
         </HelperText>

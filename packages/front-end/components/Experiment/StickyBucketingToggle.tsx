@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Switch from "@/ui/Switch";
@@ -22,11 +23,14 @@ export default function StickyBucketingToggle({
       label={
         <>
           <Text weight="medium" color="text-high">
-            Sticky Bucketing
+            <Trans>Sticky Bucketing</Trans>
           </Text>{" "}
           <Text color="text-high">
-            (Organization default:{" "}
-            {stickyBucketingOnByDefault ? "Enabled" : "Disabled"})
+            {stickyBucketingOnByDefault ? (
+              <Trans>(Organization default: Enabled)</Trans>
+            ) : (
+              <Trans>(Organization default: Disabled)</Trans>
+            )}
           </Text>
         </>
       }

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowSquareOut,
   PiPlusBold,
@@ -109,6 +110,7 @@ export function MetricOverrideTooltipContent({
   /** Given, for goal metrics, each one's target MDE reads as its first override. */
   targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }) {
+  const { t } = useLingui();
   const {
     getExperimentMetricById,
     getMetricGroupById,
@@ -204,7 +206,7 @@ export function MetricOverrideTooltipContent({
         <OptionTooltipDescription description={metric.description} />
       ) : null}
       {group ? (
-        <OptionTooltipSection label="Metrics:">
+        <OptionTooltipSection label={t`Metrics:`}>
           <Flex direction="column" gap="2" mt="1">
             {memberIds.map((mid, i) => {
               const member = getExperimentMetricById(mid);
@@ -240,15 +242,15 @@ export function MetricOverrideTooltipContent({
                     )}
                     {notJoinable ? (
                       <HelperText status="error" size="sm">
-                        Not joinable with this assignment query
+                        <Trans>Not joinable with this assignment query</Trans>
                       </HelperText>
                     ) : conversionWindow ? (
                       <HelperText status="warning" size="sm">
-                        Uses a conversion window
+                        <Trans>Uses a conversion window</Trans>
                       </HelperText>
                     ) : null}
                     <RowsBlock
-                      heading="Overrides:"
+                      heading={t`Overrides:`}
                       color={METRIC_OVERRIDE_COLOR}
                       rows={rows}
                       nested
@@ -261,9 +263,9 @@ export function MetricOverrideTooltipContent({
         </OptionTooltipSection>
       ) : (
         <>
-          <RowsBlock heading="Settings:" rows={settingRows} />
+          <RowsBlock heading={t`Settings:`} rows={settingRows} />
           <RowsBlock
-            heading="Overrides:"
+            heading={t`Overrides:`}
             color={METRIC_OVERRIDE_COLOR}
             rows={rowsFor(id)}
           />
@@ -282,7 +284,11 @@ export function MetricOverrideTooltipContent({
               onClick={() => onManageOverrides(memberIds)}
               disabled={!!manageOverridesBlockedReason}
             >
-              {hasOverrides ? "Manage overrides" : "Add overrides"}
+              {hasOverrides ? (
+                <Trans>Manage overrides</Trans>
+              ) : (
+                <Trans>Add overrides</Trans>
+              )}
             </Button>
           </Tooltip>
         </Box>

@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Plural, Trans } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { armedStartDate, scheduledTime } from "./statusSchedule";
@@ -16,14 +17,19 @@ export default function ScheduledUpdateFailureCallout({
   const retrying = experiment.nextScheduledStatusUpdate;
   const action = editSchedule ? (
     <Button variant="outline" size="sm" onClick={editSchedule}>
-      Edit schedule
+      <Trans>Edit schedule</Trans>
     </Button>
   ) : null;
-  const nextStep = editSchedule
-    ? ""
-    : " Ask someone who can edit this experiment to reschedule it.";
+  const nextStep = editSchedule ? null : (
+    <>
+      {" "}
+      <Trans>Ask someone who can edit this experiment to reschedule it.</Trans>
+    </>
+  );
 
   if (failure) {
+    const gaveUpAt = scheduledTime(failure.date);
+    const reason = failure.reason;
     return (
       <Callout
         status="error"
@@ -32,13 +38,24 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The scheduled {failure.type} didn&apos;t happen (gave up{" "}
-        {scheduledTime(failure.date)}): {failure.reason}
+        {failure.type === "start" ? (
+          <Trans>
+            The scheduled start didn&apos;t happen (gave up {gaveUpAt}):{" "}
+            {reason}
+          </Trans>
+        ) : (
+          <Trans>
+            The scheduled stop didn&apos;t happen (gave up {gaveUpAt}): {reason}
+          </Trans>
+        )}
         {nextStep}
       </Callout>
     );
   }
   if (retrying?.failedAttempts && retrying.lastError) {
+    const scheduledFor = scheduledTime(retrying.date);
+    const attempts = retrying.failedAttempts;
+    const lastError = retrying.lastError;
     return (
       <Callout
         status="warning"
@@ -47,10 +64,19 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The {retrying.type} scheduled for {scheduledTime(retrying.date)} failed{" "}
-        {retrying.failedAttempts}{" "}
-        {retrying.failedAttempts === 1 ? "time" : "times"} and will retry:{" "}
-        {retrying.lastError}
+        {retrying.type === "start" ? (
+          <Trans>
+            The start scheduled for {scheduledFor} failed{" "}
+            <Plural value={attempts} one="# time" other="# times" /> and will
+            retry: {lastError}
+          </Trans>
+        ) : (
+          <Trans>
+            The stop scheduled for {scheduledFor} failed{" "}
+            <Plural value={attempts} one="# time" other="# times" /> and will
+            retry: {lastError}
+          </Trans>
+        )}
       </Callout>
     );
   }
@@ -63,8 +89,10 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The scheduled start locks what launches: targeting, traffic, variations,
-        and the experiment key. Unschedule it to change them.
+        <Trans>
+          The scheduled start locks what launches: targeting, traffic,
+          variations, and the experiment key. Unschedule it to change them.
+        </Trans>
       </Callout>
     );
   }

@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { FC, useState, useEffect } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import dynamic from "next/dynamic";
 import {
   DifferenceType,
@@ -99,6 +100,7 @@ const Results: FC<{
   sortDirection,
   setSortDirection,
 }) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
@@ -253,26 +255,27 @@ const Results: FC<{
 
   function noDataHint(): string | null {
     if (!hasValidStatsEngine) {
-      return "The stats engine changed, so click Update to re-run the analysis.";
+      return t`The stats engine changed, so click Update to re-run the analysis.`;
     }
     if (!snapshot) {
       return datasource && permissionsUtil.canRunExperimentQueries(datasource)
-        ? "Click Update to run the analysis."
+        ? t`Click Update to run the analysis.`
         : null;
     }
     const started = phaseObj?.dateStarted ?? "";
     if (phaseAgeMinutes >= 120) {
-      const noun = isBandit
-        ? "Bandit"
+      return isBandit
+        ? t`Make sure your Bandit is tracking properly.`
         : experiment.type === "holdout"
-          ? "holdout"
-          : "experiment";
-      return `Make sure your ${noun} is tracking properly.`;
+          ? t`Make sure your holdout is tracking properly.`
+          : t`Make sure your experiment is tracking properly.`;
     }
     if (phaseAgeMinutes < 0) {
-      return `This experiment will start ${relativeDate(started)}. Once it has run for a little while, click Update to check again.`;
+      const startsIn = relativeDate(started);
+      return t`This experiment will start ${startsIn}. Once it has run for a little while, click Update to check again.`;
     }
-    return `It started ${ago(started)}. Give it a little longer, then click Update to check again.`;
+    const startedAgo = ago(started);
+    return t`It started ${startedAgo}. Give it a little longer, then click Update to check again.`;
   }
 
   return (
@@ -286,12 +289,12 @@ const Results: FC<{
           action={
             editMetrics && (
               <Button variant="outline" size="sm" onClick={() => editMetrics()}>
-                Add metrics
+                <Trans>Add metrics</Trans>
               </Button>
             )
           }
         >
-          Add at least 1 metric to view results.
+          <Trans>Add at least 1 metric to view results.</Trans>
         </Callout>
       )}
 
@@ -304,12 +307,12 @@ const Results: FC<{
           action={
             hasQueries ? (
               <Link onClick={() => setQueriesModalOpen(true)}>
-                View queries
+                <Trans>View queries</Trans>
               </Link>
             ) : null
           }
         >
-          The most recent update failed.
+          <Trans>The most recent update failed.</Trans>
         </Callout>
       ) : null}
 
@@ -321,7 +324,7 @@ const Results: FC<{
         !dimensionNeedsOverallResultsFirst &&
         !snapshotLoading && (
           <Callout status="info" contentAlign="center" mx="3" my="3">
-            No data yet. {noDataHint()}
+            <Trans>No data yet.</Trans> {noDataHint()}
           </Callout>
         )}
 
@@ -335,7 +338,7 @@ const Results: FC<{
           setVariationIds={async (ids) => {
             // Don't do anything if the query is currently running
             if (status === "running") {
-              throw new Error("Cancel running query first");
+              throw new Error(t`Cancel running query first`);
             }
 
             // Update variation ids

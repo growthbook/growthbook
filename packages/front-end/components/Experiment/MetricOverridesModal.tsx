@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { isEqual } from "lodash";
 import {
   DecisionFrameworkMetricOverrides,
@@ -62,6 +63,7 @@ export default function MetricOverridesModal({
     targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
   }) => void;
 }) {
+  const { t } = useLingui();
   const { getExperimentMetricById, getDatasourceById, metricGroups } =
     useDefinitions();
   const settings = useOrgSettings();
@@ -164,9 +166,9 @@ export default function MetricOverridesModal({
       open={true}
       close={close}
       trackingEventModalType="edit-metric-overrides"
-      header="Metric Overrides"
-      subheader="Change how individual metrics are analyzed in this experiment. Anything you don't override follows the metric's own settings."
-      cta="Confirm"
+      header={t`Metric Overrides`}
+      subheader={t`Change how individual metrics are analyzed in this experiment. Anything you don't override follows the metric's own settings.`}
+      cta={t`Confirm`}
       ctaEnabled={canOverride || onlyTargetMDE}
       size="lg"
       submit={validatedSubmit(form, async (value) => {

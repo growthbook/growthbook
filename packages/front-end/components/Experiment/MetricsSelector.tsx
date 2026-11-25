@@ -23,6 +23,9 @@ import {
 } from "shared/types/fact-table";
 import { PiInfo, PiTag } from "react-icons/pi";
 import { MetricOverride } from "shared/validators";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -79,20 +82,23 @@ function MetricTagPicker({
   tagCounts: Record<string, number>;
   onSelect: (tag: string) => void;
 }) {
+  const { t } = useLingui();
   return (
     <DropdownMenu
       menuPlacement="end"
       variant="soft"
       trigger={
         <FieldIndicator
-          label="Add metrics by tag"
+          label={t`Add metrics by tag`}
           className="gb-multi-select__tag-button"
         >
           <PiTag />
         </FieldIndicator>
       }
     >
-      <DropdownMenuLabel>Add metrics by tag</DropdownMenuLabel>
+      <DropdownMenuLabel>
+        <Trans>Add metrics by tag</Trans>
+      </DropdownMenuLabel>
       {Object.keys(tagCounts)
         .sort((a, b) => a.localeCompare(b))
         .map((tag) => (
@@ -107,20 +113,20 @@ function MetricTagPicker({
   );
 }
 
-export const ARCHIVED_METRIC_REASON = "This metric is archived.";
+export const ARCHIVED_METRIC_REASON = msg`This metric is archived.`;
 
 export function getArchivedFactMetricReason(
   metric: FactMetricInterface,
   getFactTableById: (id: string) => FactTableDefinition | null,
-): string {
+): MessageDescriptor {
   const archivedFactTable = metric.archived
     ? null
     : getFactMetricFactTableIds(metric)
         .map((id) => getFactTableById(id))
         .find((ft) => ft?.archived);
-  return archivedFactTable
-    ? `The fact table "${archivedFactTable.name}" is archived.`
-    : ARCHIVED_METRIC_REASON;
+  if (!archivedFactTable) return ARCHIVED_METRIC_REASON;
+  const factTableName = archivedFactTable.name;
+  return msg`The fact table "${factTableName}" is archived.`;
 }
 
 // The name truncates before the suffix so "(archived)" is never clipped.
@@ -154,7 +160,7 @@ export function ArchivedLabel({
       </Box>
       <Box flexShrink="0">
         <Text size="sm" color="text-low">
-          (archived)
+          <Trans>(archived)</Trans>
         </Text>
       </Box>
     </Flex>
@@ -185,34 +191,61 @@ export const MetricsSelectorTooltip = ({
     <Tooltip
       body={
         <>
-          You can only select {isSingular ? "a single metric" : "metrics"} that
-          fit{isSingular ? "s" : ""} all criteria below:
+          {isSingular ? (
+            <Trans>
+              You can only select a single metric that fits all criteria below:
+            </Trans>
+          ) : (
+            <Trans>
+              You can only select metrics that fit all criteria below:
+            </Trans>
+          )}
           <ul>
             <li>
-              {isSingular ? "is" : "are"} from the same Data Source as the
-              experiment
+              {isSingular ? (
+                <Trans>is from the same Data Source as the experiment</Trans>
+              ) : (
+                <Trans>are from the same Data Source as the experiment</Trans>
+              )}
             </li>
             <li>
-              either share{isSingular ? "s" : ""} an Identifier Type with the
-              Experiment Assignment Table or can be joined to it by a Join Table
+              {isSingular ? (
+                <Trans>
+                  either shares an Identifier Type with the Experiment
+                  Assignment Table or can be joined to it by a Join Table
+                </Trans>
+              ) : (
+                <Trans>
+                  either share an Identifier Type with the Experiment Assignment
+                  Table or can be joined to it by a Join Table
+                </Trans>
+              )}
             </li>
             {onlyBinomial ? (
               <li>
-                {isSingular ? "is" : "are"} a proportion (or binomial) metric
+                {isSingular ? (
+                  <Trans>is a proportion (or binomial) metric</Trans>
+                ) : (
+                  <Trans>are a proportion (or binomial) metric</Trans>
+                )}
               </li>
             ) : null}
             {noQuantileGoalMetrics ? (
               <li>
-                {isSingular
-                  ? "is not a quantile metric"
-                  : "are not quantile metrics"}
+                {isSingular ? (
+                  <Trans>is not a quantile metric</Trans>
+                ) : (
+                  <Trans>are not quantile metrics</Trans>
+                )}
               </li>
             ) : null}
             {noFactFunnelMetrics ? (
               <li>
-                {isSingular
-                  ? "is not a funnel metric"
-                  : "are not funnel metrics"}
+                {isSingular ? (
+                  <Trans>is not a funnel metric</Trans>
+                ) : (
+                  <Trans>are not funnel metrics</Trans>
+                )}
               </li>
             ) : null}
           </ul>
@@ -290,6 +323,7 @@ const MetricsSelector: FC<{
   settingsScope,
   targetMDEOverrides,
 }) => {
+  const { t, i18n } = useLingui();
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
@@ -381,18 +415,18 @@ const MetricsSelector: FC<{
     );
     const archivedReasons = new Map<string, string>();
     archivedSelectedMetrics.forEach((m) =>
-      archivedReasons.set(m.id, ARCHIVED_METRIC_REASON),
+      archivedReasons.set(m.id, i18n._(ARCHIVED_METRIC_REASON)),
     );
     archivedSelectedFactMetrics.forEach((m) =>
       archivedReasons.set(
         m.id,
-        getArchivedFactMetricReason(m, getFactTableById),
+        i18n._(getArchivedFactMetricReason(m, getFactTableById)),
       ),
     );
     metricGroups
       .filter((mg) => archivedSelectedIds.has(mg.id))
       .forEach((mg) =>
-        archivedReasons.set(mg.id, "This metric group is archived."),
+        archivedReasons.set(mg.id, t`This metric group is archived.`),
       );
     return {
       metricsWithArchivedSelections: [...metrics, ...archivedSelectedMetrics],
@@ -410,6 +444,8 @@ const MetricsSelector: FC<{
     _metricsIncludingArchived,
     _factMetricsIncludingArchived,
     getFactTableById,
+    t,
+    i18n,
   ]);
 
   const filteredOptions = useMemo(() => {
@@ -520,9 +556,11 @@ const MetricsSelector: FC<{
               const disabledInfo = getMetricDisabledInfo?.(mg.id, true) || {
                 disabled: false,
               };
+              const groupName = mg.name;
+              const metricCount = mg.metrics.length;
               return {
                 id: mg.id,
-                name: mg.name + " (" + mg.metrics.length + " metrics)",
+                name: t`${groupName} (${metricCount} metrics)`,
                 description: mg.description || "",
                 datasource: mg.datasource,
                 tags: mg.tags || [],
@@ -566,6 +604,7 @@ const MetricsSelector: FC<{
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
+    t,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -592,8 +631,8 @@ const MetricsSelector: FC<{
     const selectedSet = new Set(selected);
     filteredOptions.forEach((m) => {
       if (!selectedSet.has(m.id) && !m.disabled && m.tags) {
-        m.tags.forEach((t) => {
-          counts[t] = (counts[t] || 0) + 1;
+        m.tags.forEach((tag) => {
+          counts[tag] = (counts[tag] || 0) + 1;
         });
       }
     });
@@ -695,7 +734,7 @@ const MetricsSelector: FC<{
       return [
         { label: userIdType, options: byLevel(false) },
         { label: clusterIdType, options: byLevel(true) },
-        { label: "Metric groups", options: metricGroupOptions },
+        { label: t`Metric groups`, options: metricGroupOptions },
       ].filter((group) => group.options.length > 0);
     }
     if (groupOptions) {
@@ -763,14 +802,14 @@ const MetricsSelector: FC<{
         tooltip: tooltipText,
       };
     });
-  }, [filteredOptions, groupOptions, clusterIdType, userIdType]);
+  }, [filteredOptions, groupOptions, clusterIdType, userIdType, t]);
 
   const formatClusterGroupLabel = useCallback(
     ({ label }: GroupedValue) =>
       label === userIdType || label === clusterIdType ? (
-        <>
+        <Trans>
           Analyzed per <IdentifierCode>{label}</IdentifierCode>
-        </>
+        </Trans>
       ) : (
         label
       ),
@@ -882,7 +921,7 @@ const MetricsSelector: FC<{
       onChange={onChange}
       options={multiSelectOptions}
       placeholder={
-        needsDatasource ? "Choose a Data Source first" : "Select metrics..."
+        needsDatasource ? t`Choose a Data Source first` : t`Select metrics...`
       }
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
@@ -933,15 +972,17 @@ const MetricsSelector: FC<{
                   >
                     <PiInfo color="var(--color-text-low)" className="mr-1" />
                     <Text size="sm">
-                      Create a Metric Group so you can easily re-use this set of
-                      metrics in other experiments.
+                      <Trans>
+                        Create a Metric Group so you can easily re-use this set
+                        of metrics in other experiments.
+                      </Trans>
                     </Text>
                     <Link
                       role="button"
                       onClick={() => setCreateMetricGroup(true)}
                     >
                       <strong style={{ textDecoration: "underline" }}>
-                        Convert now
+                        <Trans>Convert now</Trans>
                       </strong>
                     </Link>
                   </Flex>
@@ -976,7 +1017,7 @@ const MetricsSelector: FC<{
       onChange={(m) => onChange([m])}
       options={singleSelectOptions}
       placeholder={
-        needsDatasource ? "Choose a Data Source first" : "Select metric..."
+        needsDatasource ? t`Choose a Data Source first` : t`Select metric...`
       }
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}

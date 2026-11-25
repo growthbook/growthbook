@@ -1,9 +1,15 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import { StatusIndicatorData } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import StatusDot from "@/components/Experiment/StatusDot";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import {
+  useExperimentStatusIndicator,
+  useStatusIndicatorText,
+} from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
@@ -47,8 +53,9 @@ export function ExperimentStatusDetailsWithDot({
 }: {
   statusIndicatorData: StatusIndicatorData;
 }) {
-  const { color, status, detailedStatus, needsAttention, tooltip } =
-    statusIndicatorData;
+  const statusText = useStatusIndicatorText();
+  const { color, status, needsAttention } = statusIndicatorData;
+  const { detailedStatus, tooltip } = statusText(statusIndicatorData);
 
   if (!detailedStatus) return null;
 
@@ -76,10 +83,14 @@ export function RawExperimentStatusIndicator({
   experimentData: ExperimentDataForStatusStringDates;
   size?: "xs" | "sm";
 }) {
-  const { color, status, detailedStatus, tooltip } = statusIndicatorData;
+  const { t, i18n } = useLingui();
+  const statusText = useStatusIndicatorText();
+  const { color } = statusIndicatorData;
+  const { status, detailedStatus, tooltip } = statusText(statusIndicatorData);
   const isHoldout = experimentData.type === "holdout";
   const label = getFormattedLabel(
     isHoldout ? "status-only" : labelFormat,
+    i18n,
     status,
     detailedStatus,
   );
@@ -95,7 +106,7 @@ export function RawExperimentStatusIndicator({
       variant={"solid"}
       radius="full"
       size={size}
-      label={`${label}${isInAnalysisPeriod ? ": Analysis Phase" : ""}`}
+      label={isInAnalysisPeriod ? t`${label}: Analysis Phase` : label}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}
@@ -105,15 +116,17 @@ export function RawExperimentStatusIndicator({
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
 }
 
+// Takes the status text translated, as useStatusIndicatorText gives it.
 export function getFormattedLabel(
   labelFormat: LabelFormat,
+  i18n: I18n,
   status: string,
   detailedStatus?: string,
 ): string {
   switch (labelFormat) {
     case "full":
       if (detailedStatus) {
-        return `${status}: ${detailedStatus}`;
+        return i18n._(msg`${status}: ${detailedStatus}`);
       } else {
         return status;
       }

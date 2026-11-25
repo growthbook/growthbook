@@ -1,4 +1,5 @@
 import { FC, useRef } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getAllVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
@@ -45,6 +46,7 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
+  const { t } = useLingui();
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -80,7 +82,7 @@ const StopExperimentForm: FC<{
         } else if (responseData.message) {
           throw new Error(responseData.message);
         } else {
-          throw new Error("Error getting AI suggestion");
+          throw new Error(t`Error getting AI suggestion`);
         }
       },
     );
@@ -156,51 +158,84 @@ const StopExperimentForm: FC<{
 
   // What users in it get once it stops serving: a flag's rule stays on the
   // flag but leaves the payload, and visual changes and redirects drop out.
-  const noun = isBandit ? "Bandit" : "experiment";
   const flags = experiment.linkedFeatures ?? [];
   const visual = !!experiment.hasVisualChangesets;
   const redirects = !!experiment.hasURLRedirects;
   const pageChanges = visual || redirects;
-  const pageKinds =
-    visual && redirects
-      ? "visual changes and URL redirects"
-      : visual
-        ? "visual changes"
-        : "URL redirects";
-  const pageStops = visual && !redirects ? "stop showing" : "stop";
-  const pageSeen =
-    visual && redirects
-      ? "see the original pages"
-      : visual
-        ? "see the page without them"
-        : "stay on the original URL";
   const oneFlag = flags.length === 1;
+  const firstFlag = flags[0];
+  const flagCount = flags.length;
+  const flagsText = !flags.length ? null : isBandit ? (
+    oneFlag ? (
+      <Trans>
+        Without a temporary rollout, the linked Feature Flag{" "}
+        <strong>{firstFlag}</strong> stops serving this Bandit when you submit.
+        For users in the Bandit, the flag then checks the rules below this
+        Bandit&apos;s rule, in order. Users who match none of them get the
+        flag&apos;s default value.
+      </Trans>
+    ) : (
+      <Trans>
+        Without a temporary rollout, the {flagCount} linked Feature Flags stop
+        serving this Bandit when you submit. For users in the Bandit, each flag
+        then checks the rules below this Bandit&apos;s rule, in order. Users who
+        match none of them get that flag&apos;s default value.
+      </Trans>
+    )
+  ) : oneFlag ? (
+    <Trans>
+      Without a temporary rollout, the linked Feature Flag{" "}
+      <strong>{firstFlag}</strong> stops serving this experiment when you
+      submit. For users in the experiment, the flag then checks the rules below
+      this experiment&apos;s rule, in order. Users who match none of them get
+      the flag&apos;s default value.
+    </Trans>
+  ) : (
+    <Trans>
+      Without a temporary rollout, the {flagCount} linked Feature Flags stop
+      serving this experiment when you submit. For users in the experiment, each
+      flag then checks the rules below this experiment&apos;s rule, in order.
+      Users who match none of them get that flag&apos;s default value.
+    </Trans>
+  );
+  // Follows the flags' sentence when there is one, else stands alone.
+  const pagesAfterFlags = isBandit
+    ? visual && redirects
+      ? t`The Bandit's visual changes and URL redirects stop too. Users see the original pages.`
+      : visual
+        ? t`The Bandit's visual changes stop showing too. Users see the page without them.`
+        : t`The Bandit's URL redirects stop too. Users stay on the original URL.`
+    : visual && redirects
+      ? t`The experiment's visual changes and URL redirects stop too. Users see the original pages.`
+      : visual
+        ? t`The experiment's visual changes stop showing too. Users see the page without them.`
+        : t`The experiment's URL redirects stop too. Users stay on the original URL.`;
+  const pagesAlone = isBandit
+    ? visual && redirects
+      ? t`Without a temporary rollout, this Bandit's visual changes and URL redirects stop when you submit. Users in the Bandit see the original pages.`
+      : visual
+        ? t`Without a temporary rollout, this Bandit's visual changes stop showing when you submit. Users in the Bandit see the page without them.`
+        : t`Without a temporary rollout, this Bandit's URL redirects stop when you submit. Users in the Bandit stay on the original URL.`
+    : visual && redirects
+      ? t`Without a temporary rollout, this experiment's visual changes and URL redirects stop when you submit. Users in the experiment see the original pages.`
+      : visual
+        ? t`Without a temporary rollout, this experiment's visual changes stop showing when you submit. Users in the experiment see the page without them.`
+        : t`Without a temporary rollout, this experiment's URL redirects stop when you submit. Users in the experiment stay on the original URL.`;
   const withoutRollout =
     flags.length || pageChanges ? (
       <>
-        {flags.length ? (
-          <>
-            Without a temporary rollout,{" "}
-            {oneFlag ? (
-              <>
-                the linked Feature Flag <strong>{flags[0]}</strong> stops
-              </>
-            ) : (
-              `the ${flags.length} linked Feature Flags stop`
-            )}{" "}
-            serving this {noun} when you submit. For users in the {noun},{" "}
-            {oneFlag ? "the" : "each"} flag then checks the rules below this{" "}
-            {noun}&apos;s rule, in order. Users who match none of them get{" "}
-            {oneFlag ? "the" : "that"} flag&apos;s default value.
-          </>
-        ) : null}
+        {flagsText}
         {pageChanges
           ? flags.length
-            ? ` The ${noun}'s ${pageKinds} ${pageStops} too. Users ${pageSeen}.`
-            : `Without a temporary rollout, this ${noun}'s ${pageKinds} ${pageStops} when you submit. Users in the ${noun} ${pageSeen}.`
+            ? ` ${pagesAfterFlags}`
+            : pagesAlone
           : null}
       </>
     ) : null;
+
+  const coveragePercent = coveragePercentFormatter.format(
+    lastPhase?.coverage ?? 1,
+  );
 
   const variationOption = (index: number) =>
     variations[index] ? (
@@ -264,14 +299,18 @@ const StopExperimentForm: FC<{
       trackingEventModalSource={source}
       header={
         isStopped
-          ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
-          : `Stop ${isBandit ? "Bandit" : "Experiment"}`
+          ? isBandit
+            ? t`Edit Bandit Results`
+            : t`Edit Experiment Results`
+          : isBandit
+            ? t`Stop Bandit`
+            : t`Stop Experiment`
       }
       size="lg"
       close={close}
       open
       submit={submit}
-      cta={isStopped ? "Save" : "Stop"}
+      cta={isStopped ? t`Save` : t`Stop`}
       ctaColor={isStopped ? "violet" : "red"}
     >
       <Flex direction={"column"} gap={"1"}>
@@ -279,7 +318,7 @@ const StopExperimentForm: FC<{
           <>
             <Flex direction="column" gap="1">
               <Text as="label" weight="semibold">
-                Recommendation
+                <Trans>Recommendation</Trans>
               </Text>
               <DecisionRecommendation
                 experiment={experiment}
@@ -294,7 +333,7 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               size="legacy"
-              label="Conclusion"
+              label={t`Conclusion`}
               isSearchable={false}
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
@@ -323,19 +362,19 @@ const StopExperimentForm: FC<{
                   form.setValue("releasedVariationId", variations[0]?.id || "");
                 }
               }}
-              placeholder="Pick one..."
+              placeholder={t`Pick one...`}
               required
               options={[
-                { label: "Did Not Finish", value: "dnf" },
-                { label: "Won", value: "won" },
-                { label: "Lost", value: "lost" },
-                { label: "Inconclusive", value: "inconclusive" },
+                { label: t`Did Not Finish`, value: "dnf" },
+                { label: t`Won`, value: "won" },
+                { label: t`Lost`, value: "lost" },
+                { label: t`Inconclusive`, value: "inconclusive" },
               ]}
             />
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
                 size="legacy"
-                label="Winner"
+                label={t`Winner`}
                 isSearchable={false}
                 containerClassName="col-lg"
                 className={
@@ -364,13 +403,13 @@ const StopExperimentForm: FC<{
           {decisionDoesNotMatchRecommendedResult ||
           winnerDoesNotMatchRecommendedReleaseVariationId ? (
             <Callout status="warning" mb="3" mt="-2">
-              Conclusion does not match the recommendation.
+              <Trans>Conclusion does not match the recommendation.</Trans>
             </Callout>
           ) : null}
         </Flex>
         {!isStopped && !hasLinkedChanges && (
           <DatePicker
-            label="End time"
+            label={t`End time`}
             timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {
@@ -384,19 +423,19 @@ const StopExperimentForm: FC<{
               <div className="form-group col">
                 <Checkbox
                   id="excludeFromPayload"
-                  label="Enable temporary rollout"
+                  label={t`Enable temporary rollout`}
                   value={!form.watch("excludeFromPayload")}
                   setValue={(includeInPayload) => {
                     form.setValue("excludeFromPayload", !includeInPayload);
                   }}
                   description={
-                    <>
+                    <Trans>
                       GrowthBook keeps serving the variation below until you
                       ship the change in code and end the rollout.{" "}
                       <DocLink useRadix={false} docSection="temporaryRollout">
                         Learn more
                       </DocLink>
-                    </>
+                    </Trans>
                   }
                 />
               </div>
@@ -405,14 +444,13 @@ const StopExperimentForm: FC<{
             {!form.watch("excludeFromPayload") &&
             (lastPhase?.coverage ?? 1) < 1 ? (
               <Callout status="warning" mb="2" mt="-2">
-                Currently only{" "}
-                <strong>
-                  {coveragePercentFormatter.format(lastPhase.coverage)}
-                </strong>{" "}
-                of traffic is directed at this experiment.
-                <br />
-                Upon rollout, <strong>100%</strong> of traffic will be directed
-                towards the released variation.
+                <Trans>
+                  Currently only <strong>{coveragePercent}</strong> of traffic
+                  is directed at this experiment.
+                  <br />
+                  Upon rollout, <strong>100%</strong> of traffic will be
+                  directed towards the released variation.
+                </Trans>
               </Callout>
             ) : null}
 
@@ -421,7 +459,7 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     size="legacy"
-                    label="Variation to Release"
+                    label={t`Variation to Release`}
                     isSearchable={false}
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
@@ -431,11 +469,20 @@ const StopExperimentForm: FC<{
                     helpText={
                       // Body size, past the legacy field's small print.
                       <Text size="md" color="text-mid">
-                        Served to every user who meets the {noun}&apos;s
-                        targeting.
+                        {isBandit ? (
+                          <Trans>
+                            Served to every user who meets the Bandit&apos;s
+                            targeting.
+                          </Trans>
+                        ) : (
+                          <Trans>
+                            Served to every user who meets the experiment&apos;s
+                            targeting.
+                          </Trans>
+                        )}
                       </Text>
                     }
-                    placeholder="Pick one..."
+                    placeholder={t`Pick one...`}
                     required
                     options={variations.map((v) => {
                       return { value: v.id, label: v.name };
@@ -450,7 +497,9 @@ const StopExperimentForm: FC<{
                 </div>
                 {variationDoesNotMatchRecommendedReleaseVariationId ? (
                   <Callout status="warning" mb="3" mt="-2">
-                    Variation selected does not match the recommendation.
+                    <Trans>
+                      Variation selected does not match the recommendation.
+                    </Trans>
                   </Callout>
                 ) : null}
               </>
@@ -465,13 +514,13 @@ const StopExperimentForm: FC<{
         <div className="row">
           <div className="form-group col-lg">
             <Text as="label" weight="semibold">
-              Additional Analysis or Details
+              <Trans>Additional Analysis or Details</Trans>
             </Text>
             <AIRichTextField
               value={form.watch("analysis") ?? ""}
               onChange={(val) => form.setValue("analysis", val)}
               aiSuggestFunction={aiSuggestFunction}
-              aiButtonText="Generate Analysis"
+              aiButtonText={t`Generate Analysis`}
               trackingSource="stop-experiment"
               collapsibleToolbar
               onAISuggestionReceived={(result) => {

@@ -7,6 +7,7 @@ import {
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { IdeaInterface } from "shared/types/idea";
 import {
   canEditDeliveryInPlace,
@@ -30,6 +31,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
 const ExperimentPage = (): ReactElement => {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
@@ -85,7 +87,11 @@ const ExperimentPage = (): ReactElement => {
   }, [data, experimentToHoldoutsMap, router]);
 
   if (error) {
-    return <div>There was a problem loading the experiment</div>;
+    return (
+      <div>
+        <Trans>There was a problem loading the experiment</Trans>
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -199,7 +205,7 @@ const ExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
+            display: t`Experiments`,
             href: `/experiments`,
           },
           { display: experiment.name },

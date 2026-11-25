@@ -13,12 +13,15 @@ import {
 } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getScopedSettings } from "shared/settings";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeMessage, {
+  OVERRIDE_METRICS_UPGRADE,
+} from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -118,6 +121,7 @@ const EditMetricsForm: FC<{
   mutate: () => void;
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
+  const { t } = useLingui();
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const settings = useOrgSettings();
@@ -177,7 +181,7 @@ const EditMetricsForm: FC<{
     <ModalStandard
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
-      header="Edit Metrics"
+      header={t`Edit Metrics`}
       size="lg"
       open={true}
       close={cancel}
@@ -229,8 +233,10 @@ const EditMetricsForm: FC<{
           docSection="metricGroups"
           mb="4"
         >
-          <strong>Metric Groups</strong> make it possible to reuse sets of
-          metrics in your experiments.
+          <Trans>
+            <strong>Metric Groups</strong> make it possible to reuse sets of
+            metrics in your experiments.
+          </Trans>
         </PremiumCallout>
       ) : null}
 
@@ -265,10 +271,10 @@ const EditMetricsForm: FC<{
           <Box>
             <Separator size="4" my="5" />
             <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
-              <SettingsCard title="Metrics">
+              <SettingsCard title={t`Metrics`}>
                 <SetupFieldRow
-                  label="Metric overrides"
-                  tooltip="Override metric behaviors within this experiment."
+                  label={t`Metric overrides`}
+                  tooltip={t`Override metric behaviors within this experiment.`}
                   stacked
                 >
                   <MetricsOverridesSelector
@@ -284,7 +290,7 @@ const EditMetricsForm: FC<{
                     <UpgradeMessage
                       showUpgradeModal={() => setUpgradeModal(true)}
                       commercialFeature="override-metrics"
-                      upgradeMessage="override metrics"
+                      upgradeMessage={OVERRIDE_METRICS_UPGRADE}
                     />
                   )}
                 </SetupFieldRow>

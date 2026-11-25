@@ -4,6 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
@@ -276,20 +277,22 @@ export default function BanditSummaryTable({
                       showVariationsFilter={showVariationsFilter}
                       setShowVariationsFilter={setShowVariationsFilter}
                     />
-                    <span>Variation</span>
+                    <span>
+                      <Trans>Variation</Trans>
+                    </span>
                   </Flex>
                 </th>
                 <th
                   className="axis-col label"
                   style={{ width: 120 * cellScale }}
                 >
-                  Users
+                  <Trans>Users</Trans>
                 </th>
                 <th
                   className="axis-col label"
                   style={{ width: 120 * cellScale }}
                 >
-                  Mean
+                  <Trans>Mean</Trans>
                 </th>
                 <th
                   className="axis-col graph-cell"
@@ -400,7 +403,7 @@ export default function BanditSummaryTable({
                         meanText
                       ) : (
                         <Text size="sm" color="text-low" fontStyle="italic">
-                          Not enough data
+                          <Trans>Not enough data</Trans>
                         </Text>
                       )}
                     </td>
@@ -453,7 +456,7 @@ export default function BanditSummaryTable({
                 <td>
                   <Box pl="5">
                     <Text weight="medium" color="text-mid">
-                      All variations
+                      <Trans>All variations</Trans>
                     </Text>
                   </Box>
                 </td>

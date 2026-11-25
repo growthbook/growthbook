@@ -3,10 +3,10 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isAutoSnapshotScheduled } from "shared/experiments";
 import { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
-import { upperFirst } from "lodash";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
@@ -55,6 +55,7 @@ export default function BanditUpdateStatus({
   isPublic?: boolean;
   ssrSnapshot?: ExperimentSnapshotInterface;
 }) {
+  const { t } = useLingui();
   const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -90,7 +91,7 @@ export default function BanditUpdateStatus({
   );
 
   const _error = !lastEvent?.banditResult
-    ? "Bandit update failed"
+    ? t`Bandit update failed`
     : lastEvent?.banditResult?.error;
 
   const [error, setError] = useState<string | undefined>(_error);
@@ -114,9 +115,13 @@ export default function BanditUpdateStatus({
 
   const never = (
     <Text size="inherit" fontStyle="italic">
-      never
+      <Trans>never</Trans>
     </Text>
   );
+  const scheduleValue = experiment.banditScheduleValue ?? "";
+  const scheduleUnit = experiment.banditScheduleUnit;
+  const burnInDate = datetime(burnInRunDate);
+  const burnInAgo = ago(burnInRunDate);
 
   return (
     <Popover
@@ -135,12 +140,14 @@ export default function BanditUpdateStatus({
                 <PiWarningFill size={14} color="var(--red-9)" />
               ) : null}
               <Text size="sm" weight="semibold" color="text-mid">
-                last updated
+                <Trans>last updated</Trans>
               </Text>
             </Flex>
             <Flex as="span" align="center" gap="1">
               <Tooltip
-                content={hasUpdated ? datetime(lastEvent?.date ?? "") : "never"}
+                content={
+                  hasUpdated ? datetime(lastEvent?.date ?? "") : t`never`
+                }
               >
                 <Text size="sm" color="text-mid" whiteSpace="nowrap">
                   {hasUpdated ? ago(lastEvent?.date ?? "") : never}
@@ -154,66 +161,88 @@ export default function BanditUpdateStatus({
       content={
         <Flex direction="column" gap="4">
           <Grid columns="auto 1fr" gapX="4" gapY="1">
-            <SectionLabel>Current update</SectionLabel>
-            <DetailRow label="Last updated at">
+            <SectionLabel>
+              <Trans>Current update</Trans>
+            </SectionLabel>
+            <DetailRow label={t`Last updated at`}>
               {hasUpdated ? datetime(lastEvent?.date ?? "") : never}
             </DetailRow>
             {lastReweightEvent ? (
-              <DetailRow label="Last weights updated">
+              <DetailRow label={t`Last weights updated`}>
                 {datetime(lastReweightEvent.date)}
               </DetailRow>
             ) : null}
             {showScheduling && (
               <>
-                <SectionLabel mt="3">Scheduling</SectionLabel>
-                <DetailRow label="Next scheduled update">
+                <SectionLabel mt="3">
+                  <Trans>Scheduling</Trans>
+                </SectionLabel>
+                <DetailRow label={t`Next scheduled update`}>
                   {experiment.nextSnapshotAttempt &&
                   isAutoSnapshotScheduled(experiment) ? (
                     ago(experiment.nextSnapshotAttempt)
                   ) : (
                     <Text size="inherit" fontStyle="italic">
-                      Not scheduled
+                      <Trans>Not scheduled</Trans>
                     </Text>
                   )}
                 </DetailRow>
               </>
             )}
             {!isPublic && (
-              <DetailRow label="Current schedule">
-                every {experiment.banditScheduleValue ?? ""}{" "}
-                {experiment.banditScheduleUnit ?? ""}
+              <DetailRow label={t`Current schedule`}>
+                {scheduleUnit === "hours" ? (
+                  <Trans>every {scheduleValue} hours</Trans>
+                ) : scheduleUnit === "days" ? (
+                  <Trans>every {scheduleValue} days</Trans>
+                ) : (
+                  <Trans>every {scheduleValue}</Trans>
+                )}
               </DetailRow>
             )}
           </Grid>
 
           <Flex direction="column" gap="2">
             <Text as="div">
-              The Bandit is{" "}
-              {isRunning &&
-              experiment.banditStage &&
-              experiment.banditStage !== "paused" ? (
-                <>
-                  in the{" "}
+              {!isRunning ||
+              !experiment.banditStage ||
+              experiment.banditStage === "paused" ? (
+                <Trans>The Bandit is not running.</Trans>
+              ) : experiment.banditStage === "exploit" ? (
+                <Trans>
+                  The Bandit is in the{" "}
                   <Text size="inherit" weight="semibold">
-                    {experiment.banditStage === "explore"
-                      ? "Exploratory"
-                      : upperFirst(experiment.banditStage)}
+                    Exploit
                   </Text>{" "}
-                  stage
-                </>
+                  stage.
+                </Trans>
+              ) : isExploring ? (
+                <Trans>
+                  The Bandit is in the{" "}
+                  <Text size="inherit" weight="semibold">
+                    Exploratory
+                  </Text>{" "}
+                  stage and is waiting until more data is collected.
+                </Trans>
               ) : (
-                "not running"
+                <Trans>
+                  The Bandit is in the{" "}
+                  <Text size="inherit" weight="semibold">
+                    Exploratory
+                  </Text>{" "}
+                  stage.
+                </Trans>
               )}
-              {isExploring && <> and is waiting until more data is collected</>}
-              .
             </Text>
             {isExploring && (
               <Text as="div">
-                It will start updating weights and enter the Exploit stage on{" "}
-                <Text size="inherit" fontStyle="italic" whiteSpace="nowrap">
-                  {datetime(burnInRunDate)}
-                </Text>{" "}
-                ({ago(burnInRunDate)}).
+                <Trans>
+                  It will start updating weights and enter the Exploit stage on{" "}
+                  <Text size="inherit" fontStyle="italic" whiteSpace="nowrap">
+                    {burnInDate}
+                  </Text>{" "}
+                  ({burnInAgo}).
+                </Trans>
               </Text>
             )}
           </Flex>

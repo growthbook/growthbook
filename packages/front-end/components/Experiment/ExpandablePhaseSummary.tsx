@@ -1,6 +1,7 @@
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { calculateNamespaceCoverage } from "shared/util";
 import { phaseSummary } from "@/services/utils";
@@ -19,7 +20,10 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
+  const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
+  const startDate = date(phase.dateStarted ?? "", "UTC");
+  const endDate = phase.dateEnded ? date(phase.dateEnded, "UTC") : t`now`;
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
   // Calculate total namespace allocation
@@ -42,10 +46,9 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
         <div className="small">
           <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
           <div>
-            <strong>{date(phase.dateStarted ?? "", "UTC")}</strong> to{" "}
-            <strong>
-              {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
-            </strong>
+            <Trans>
+              <strong>{startDate}</strong> to <strong>{endDate}</strong>
+            </Trans>
           </div>
         </div>
         <div className="ml-auto">
@@ -63,40 +66,52 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
                   editPhase(i);
                 }}
               >
-                <GBEdit /> edit phase
+                <GBEdit /> <Trans>edit phase</Trans>
               </a>
             </div>
           )}
           <table className="table table-sm">
             <tr>
-              <th className="small">Coverage</th>
+              <th className="small">
+                <Trans>Coverage</Trans>
+              </th>
               <td>{phaseSummary(phase)}</td>
             </tr>
             <tr>
-              <th className="small">Hash Seed</th>
+              <th className="small">
+                <Trans>Hash Seed</Trans>
+              </th>
               <td>
                 <code>{phase.seed}</code>
               </td>
             </tr>
             <tr>
-              <th className="small">Targeting</th>
+              <th className="small">
+                <Trans>Targeting</Trans>
+              </th>
               <td>
                 {phase.condition ? (
                   <ConditionDisplay condition={phase.condition} />
                 ) : (
-                  <em>none</em>
+                  <em>
+                    <Trans>none</Trans>
+                  </em>
                 )}
               </td>
             </tr>
             <tr>
-              <th className="small">Namespace</th>
+              <th className="small">
+                <Trans>Namespace</Trans>
+              </th>
               <td>
                 {hasNamespace ? (
                   `${phase.namespace!.name} (${percentFormatter.format(
                     namespaceRange,
                   )})`
                 ) : (
-                  <em>none</em>
+                  <em>
+                    <Trans>none</Trans>
+                  </em>
                 )}
               </td>
             </tr>

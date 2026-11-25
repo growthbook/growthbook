@@ -3,6 +3,7 @@ import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
+import { Trans, useLingui } from "@lingui/react/macro";
 import React, { useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
@@ -34,6 +35,7 @@ const CompletedExperimentList = ({
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }) => {
+  const { t } = useLingui();
   const [currentPage, setCurrentPage] = useState(1);
   const [openCarousel, setOpenCarousel] = useState<{
     experimentIndex: number;
@@ -82,8 +84,8 @@ const CompletedExperimentList = ({
       <Box>
         {experiments.length === 0 ? (
           <EmptyState
-            title="No experiments found"
-            description="No stopped experiments match your search criteria. Try adjusting your filters."
+            title={t`No experiments found`}
+            description={t`No stopped experiments match your search criteria. Try adjusting your filters.`}
             rightButton={null}
             leftButton={null}
           />
@@ -115,25 +117,31 @@ const CompletedExperimentList = ({
                 ? releasedVariationIndex
                 : 0;
 
+            const winningName = winningVariation?.name;
+            const releasedName = releasedVariation?.name;
             const expResult = (
               <>
                 {winningVariation ? (
                   <em>
-                    <strong>{winningVariation.name}</strong> won
                     {releasedVariation &&
                     releasedVariationId !== winningVariation.id ? (
-                      <>
-                        , but <strong>{releasedVariation.name}</strong> was
-                        released to 100% instead
-                      </>
+                      <Trans>
+                        <strong>{winningName}</strong> won, but{" "}
+                        <strong>{releasedName}</strong> was released to 100%
+                        instead
+                      </Trans>
                     ) : (
-                      ` and was released to 100%`
+                      <Trans>
+                        <strong>{winningName}</strong> won and was released to
+                        100%
+                      </Trans>
                     )}
                   </em>
                 ) : releasedVariation ? (
                   <em>
-                    <strong>{releasedVariation.name}</strong> was released to
-                    100%
+                    <Trans>
+                      <strong>{releasedName}</strong> was released to 100%
+                    </Trans>
                   </em>
                 ) : null}
               </>
@@ -144,7 +152,7 @@ const CompletedExperimentList = ({
                 <Tooltip
                   key={e.id + "-visual"}
                   className="d-flex align-items-center ml-2"
-                  body="Visual experiment"
+                  body={t`Visual experiment`}
                 >
                   <RxDesktop className="text-blue" />
                 </Tooltip>,
@@ -155,7 +163,7 @@ const CompletedExperimentList = ({
                 <Tooltip
                   key={e.id + "-feature-flag"}
                   className="d-flex align-items-center ml-2"
-                  body="Linked Feature Flag"
+                  body={t`Linked Feature Flag`}
                 >
                   <BsFlag className="text-blue" />
                 </Tooltip>,
@@ -166,7 +174,7 @@ const CompletedExperimentList = ({
                 <Tooltip
                   key={e.id + "-url-redirect"}
                   className="d-flex align-items-center ml-2"
-                  body="URL Redirect experiment"
+                  body={t`URL Redirect experiment`}
                 >
                   <PiShuffle className="text-blue" />
                 </Tooltip>,
@@ -178,7 +186,7 @@ const CompletedExperimentList = ({
                 <Tooltip
                   key={e.id + "-no-type"}
                   className="d-flex align-items-center ml-2"
-                  body="Implemented outside of GrowthBook"
+                  body={t`Implemented outside of GrowthBook`}
                 >
                   <TbCloudOff className="text-blue" />
                 </Tooltip>,
@@ -203,6 +211,10 @@ const CompletedExperimentList = ({
               return null;
             });
             const moreGoalMetrics = e.goalMetrics.length > 2;
+            const moreGoalMetricsCount = goalMetrics.length - 2;
+            const resultsSummaryLabel = t`Results Summary:`;
+            const originalHypothesisLabel = t`Original Hypothesis:`;
+            const experimentDescriptionLabel = t`Experiment Description:`;
 
             const experimentProjects = e.project ? [e.project] : [];
             return (
@@ -221,7 +233,7 @@ const CompletedExperimentList = ({
                   <Box>
                     <Text size="1" weight="bold">
                       <Link href={`/experiment/${e.id}`}>
-                        View experiment <PiArrowSquareOutBold />
+                        <Trans>View experiment</Trans> <PiArrowSquareOutBold />
                       </Link>
                     </Text>
                   </Box>
@@ -269,7 +281,9 @@ const CompletedExperimentList = ({
                       <Flex gap="5" align="start" wrap={"wrap"}>
                         <Flex gap="2">
                           <Box>
-                            <Text weight="medium">Duration:</Text>
+                            <Text weight="medium">
+                              <Trans>Duration:</Trans>
+                            </Text>
                           </Box>
                           <Box>
                             {(e.phases?.[0]?.dateStarted
@@ -283,13 +297,17 @@ const CompletedExperimentList = ({
                         </Flex>
                         <Flex gap="2">
                           <Box>
-                            <Text weight="medium">Owner:</Text>
+                            <Text weight="medium">
+                              <Trans>Owner:</Trans>
+                            </Text>
                           </Box>
-                          <Box>{getOwnerDisplay(e.owner) || "None"}</Box>
+                          <Box>{getOwnerDisplay(e.owner) || t`None`}</Box>
                         </Flex>
                         <Flex gap="2" align="center">
                           <Box>
-                            <Text weight="medium">Type:</Text>
+                            <Text weight="medium">
+                              <Trans>Type:</Trans>
+                            </Text>
                           </Box>
                           <Box>
                             <Flex>{expTypes}</Flex>
@@ -298,7 +316,9 @@ const CompletedExperimentList = ({
                       </Flex>
                       <Flex align="start" gap="0" wrap={"wrap"}>
                         <Box pr="2">
-                          <Text weight="medium">Goal Metrics:</Text>
+                          <Text weight="medium">
+                            <Trans>Goal Metrics:</Trans>
+                          </Text>
                         </Box>
                         <Flex gap="1">
                           {goalMetrics.slice(0, 2).map((g, ind) => (
@@ -309,11 +329,16 @@ const CompletedExperimentList = ({
                           ))}
                           {goalMetrics.length === 0 ? (
                             <Box>
-                              <em>None</em>
+                              <em>
+                                <Trans>None</Trans>
+                              </em>
                             </Box>
                           ) : null}
                           {moreGoalMetrics ? (
-                            <Box> +{goalMetrics.length - 2} more</Box>
+                            <Box>
+                              {" "}
+                              <Trans>+{moreGoalMetricsCount} more</Trans>
+                            </Box>
                           ) : null}
                         </Flex>
                       </Flex>
@@ -324,16 +349,16 @@ const CompletedExperimentList = ({
                         <Box style={{ maxHeight: "140px", overflowY: "auto" }}>
                           <Flex direction="column" gap="3">
                             {e.analysis ? (
-                              <Markdown>{`**Results Summary:** \n${e.analysis}`}</Markdown>
+                              <Markdown>{`**${resultsSummaryLabel}** \n${e.analysis}`}</Markdown>
                             ) : null}
 
                             {e.hypothesis ? (
                               <Markdown>
-                                {`**Original Hypothesis:** \n${e.hypothesis}`}
+                                {`**${originalHypothesisLabel}** \n${e.hypothesis}`}
                               </Markdown>
                             ) : e.description ? (
                               <Markdown>
-                                {`**Experiment Description:** \n${e.description}`}
+                                {`**${experimentDescriptionLabel}** \n${e.description}`}
                               </Markdown>
                             ) : null}
                           </Flex>
@@ -341,7 +366,9 @@ const CompletedExperimentList = ({
                       ) : (
                         <Box>
                           <em>
-                            No description, hypothesis, or results summary
+                            <Trans>
+                              No description, hypothesis, or results summary
+                            </Trans>
                           </em>
                         </Box>
                       )}

@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import {
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
@@ -89,12 +91,12 @@ export function draftReviewState(
   return draft.status === "approved" ? "in-review" : "needs-approval";
 }
 
-const NEXT_STEPS: Record<DraftReviewState, string> = {
-  "changes-requested": "View feedback",
-  approved: "Publish",
-  ready: "Publish",
-  "needs-approval": "Request review",
-  "in-review": "Review",
+const NEXT_STEPS: Record<DraftReviewState, MessageDescriptor> = {
+  "changes-requested": msg`View feedback`,
+  approved: msg`Publish`,
+  ready: msg`Publish`,
+  "needs-approval": msg`Request review`,
+  "in-review": msg`Review`,
 };
 
 /** What to do next with a draft, on its review section. */

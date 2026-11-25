@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { expandMetricGroups } from "shared/experiments";
 import { getValidDate } from "shared/dates";
@@ -51,21 +52,20 @@ export function QueryFilterHelp({
 }: {
   exposureQuery?: ExposureQuery;
 }) {
+  const columns = ["timestamp", "variation_id"]
+    .concat(exposureQuery ? getExposureQueryIdentifierTypes(exposureQuery) : [])
+    .concat(exposureQuery?.dimensions || [])
+    .map((column, i) => (
+      <span key={column}>
+        {i > 0 ? ", " : null}
+        <code>{column}</code>
+      </span>
+    ));
   return (
     <HelperText status="info" size="sm" mt="1">
-      A WHERE clause added to the experiment query. Columns:{" "}
-      {["timestamp", "variation_id"]
-        .concat(
-          exposureQuery ? getExposureQueryIdentifierTypes(exposureQuery) : [],
-        )
-        .concat(exposureQuery?.dimensions || [])
-        .map((column, i) => (
-          <span key={column}>
-            {i > 0 ? ", " : null}
-            <code>{column}</code>
-          </span>
-        ))}
-      .
+      <Trans>
+        A WHERE clause added to the experiment query. Columns: {columns}.
+      </Trans>
     </HelperText>
   );
 }
@@ -81,13 +81,14 @@ export function ConversionWindowsRow({
   incrementalRefresh: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <SetupFieldRow
-      label="Conversion windows"
-      tooltip="How to treat users not enrolled long enough to complete a conversion window."
+      label={t`Conversion windows`}
+      tooltip={t`How to treat users not enrolled long enough to complete a conversion window.`}
     >
       <Tooltip
-        content="In-progress conversions can't be excluded with Incremental Refresh while in beta."
+        content={t`In-progress conversions can't be excluded with Incremental Refresh while in beta.`}
         enabled={incrementalRefresh}
       >
         <Box>
@@ -95,8 +96,8 @@ export function ConversionWindowsRow({
             value={strict ? "strict" : "loose"}
             onChange={(value) => setStrict(value === "strict")}
             options={[
-              { label: "Include in-progress conversions", value: "loose" },
-              { label: "Exclude in-progress conversions", value: "strict" },
+              { label: t`Include in-progress conversions`, value: "loose" },
+              { label: t`Exclude in-progress conversions`, value: "strict" },
             ]}
             isOptionDisabled={(option) =>
               incrementalRefresh &&
@@ -131,7 +132,7 @@ export function SettingsCard({
       {reset ? (
         <Flex justify="end" mt="2">
           <Link size="sm" onClick={reset}>
-            Reset to defaults
+            <Trans>Reset to defaults</Trans>
           </Link>
         </Flex>
       ) : null}
@@ -172,6 +173,7 @@ export default function AnalysisPlanAdvanced({
   manageOverridesBlockedReason?: string | null;
   canEdit: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const {
     getDatasourceById,
     getProjectById,
@@ -253,7 +255,7 @@ export default function AnalysisPlanAdvanced({
   // Typed as text, so "0." can be on its way to a valid value.
   const [tuningText, setTuningText] = useState(String(tuningParameter));
   const tuningError =
-    parseFloat(tuningText) > 0 ? null : "Enter a number above 0.";
+    parseFloat(tuningText) > 0 ? null : t`Enter a number above 0.`;
   // Shown from the first time the field is left, since "0." is on its way to
   // a valid value until then.
   const [tuningTouched, setTuningTouched] = useState(false);
@@ -313,8 +315,8 @@ export default function AnalysisPlanAdvanced({
     <Box id="analysis-plan-advanced" mt="3">
       <Separator size="4" mb="4" />
       <AdvancedSection open={open} setOpen={setOpen}>
-        <SettingsCard title="Statistics" reset={resetStatistics}>
-          <SetupFieldRow label="Stats engine">
+        <SettingsCard title={t`Statistics`} reset={resetStatistics}>
+          <SetupFieldRow label={t`Stats engine`}>
             <Box maxWidth="300px">
               <StatsEngineSelect
                 label={null}
@@ -328,7 +330,7 @@ export default function AnalysisPlanAdvanced({
               />
             </Box>
           </SetupFieldRow>
-          <SetupFieldRow label="Variance reduction" content="text">
+          <SetupFieldRow label={t`Variance reduction`} content="text">
             <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
@@ -348,10 +350,10 @@ export default function AnalysisPlanAdvanced({
                   label={
                     // Upgrading wouldn't enable it, so only the cluster reason shows.
                     experiment.isClusterExperiment ? (
-                      "Post-stratification"
+                      t`Post-stratification`
                     ) : (
                       <PremiumTooltip commercialFeature="post-stratification">
-                        Post-stratification
+                        <Trans>Post-stratification</Trans>
                       </PremiumTooltip>
                     )
                   }
@@ -371,7 +373,7 @@ export default function AnalysisPlanAdvanced({
                   }
                   disabledMessage={
                     experiment.isClusterExperiment
-                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      ? i18n._(POST_STRATIFICATION_CLUSTER_MESSAGE)
                       : undefined
                   }
                 />
@@ -379,12 +381,12 @@ export default function AnalysisPlanAdvanced({
             </Flex>
           </SetupFieldRow>
           {settled.statsEngine === "frequentist" ? (
-            <SetupFieldRow label="Corrections" content="text">
+            <SetupFieldRow label={t`Corrections`} content="text">
               <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
-                      Sequential testing
+                      <Trans>Sequential testing</Trans>
                     </PremiumTooltip>
                   }
                   weight="regular"
@@ -400,7 +402,9 @@ export default function AnalysisPlanAdvanced({
                 {sequentialEnabled ? (
                   <Box pl="5">
                     <Flex align="center" gap="3">
-                      <Text>Tuning parameter</Text>
+                      <Text>
+                        <Trans>Tuning parameter</Trans>
+                      </Text>
                       <Box width="120px">
                         <Field
                           // Invalid to the page's form whenever it's shown.
@@ -444,7 +448,7 @@ export default function AnalysisPlanAdvanced({
         </SettingsCard>
 
         {datasource ? (
-          <SettingsCard title="Exposures" reset={resetExposures}>
+          <SettingsCard title={t`Exposures`} reset={resetExposures}>
             <ActivationMetricRow
               datasource={datasourceId}
               exposureQueryId={exposureQueryId}
@@ -458,13 +462,13 @@ export default function AnalysisPlanAdvanced({
             />
             {properties?.experimentSegments && datasourceSegments.length > 0 ? (
               <SetupFieldRow
-                label="Segment"
-                tooltip="Only users in this segment will be included."
+                label={t`Segment`}
+                tooltip={t`Only users in this segment will be included.`}
               >
                 <SelectField
                   value={experiment.segment || ""}
                   onChange={(value) => stage({ segment: value || "" })}
-                  initialOption="None (all users)"
+                  initialOption={t`None (all users)`}
                   options={datasourceSegments.map((s) => ({
                     label: s.name,
                     value: s.id,
@@ -474,7 +478,7 @@ export default function AnalysisPlanAdvanced({
               </SetupFieldRow>
             ) : null}
             {properties?.queryLanguage === "sql" ? (
-              <SetupFieldRow label="Custom SQL filter">
+              <SetupFieldRow label={t`Custom SQL filter`}>
                 <Field
                   textarea
                   value={experiment.queryFilter || ""}
@@ -490,7 +494,7 @@ export default function AnalysisPlanAdvanced({
         ) : null}
 
         {datasource ? (
-          <SettingsCard title="Metrics" reset={resetMetrics}>
+          <SettingsCard title={t`Metrics`} reset={resetMetrics}>
             {properties?.separateExperimentResultQueries ? (
               <>
                 <ConversionWindowsRow
@@ -500,8 +504,8 @@ export default function AnalysisPlanAdvanced({
                   disabled={disabled}
                 />
                 <SetupFieldRow
-                  label="Metric windows"
-                  tooltip="Apply custom metric window behavior in this experiment."
+                  label={t`Metric windows`}
+                  tooltip={t`Apply custom metric window behavior in this experiment.`}
                 >
                   <MetricAnalysisWindowSelector
                     bare
@@ -529,8 +533,8 @@ export default function AnalysisPlanAdvanced({
             ) : null}
             {unitDimensionOptions.length > 0 ? (
               <SetupFieldRow
-                label="Unit dimensions"
-                tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                label={t`Unit dimensions`}
+                tooltip={t`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
               >
                 <MultiSelectField
                   value={unitDimensionIds}
@@ -566,12 +570,12 @@ export default function AnalysisPlanAdvanced({
             />
             {hasMetrics ? (
               <SetupFieldRow
-                label="Metric overrides"
-                tooltip="Override metric behaviors within this experiment."
+                label={t`Metric overrides`}
+                tooltip={t`Override metric behaviors within this experiment.`}
                 content="text"
               >
                 <QuickEditRow
-                  label="Edit metric overrides"
+                  label={t`Edit metric overrides`}
                   onEdit={manageOverrides}
                   blockedReason={manageOverridesBlockedReason}
                 >
@@ -580,7 +584,7 @@ export default function AnalysisPlanAdvanced({
                   >
                     {overriddenNames.length
                       ? overriddenNames.join(", ")
-                      : "None"}
+                      : t`None`}
                   </Text>
                 </QuickEditRow>
               </SetupFieldRow>

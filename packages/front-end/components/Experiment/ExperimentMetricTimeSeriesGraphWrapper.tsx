@@ -3,6 +3,7 @@ import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   MetricTimeSeries,
@@ -142,7 +143,9 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
   return (
     <ErrorBoundary
       fallback={
-        <Message>Something went wrong while displaying this graph.</Message>
+        <Message>
+          <Trans>Something went wrong while displaying this graph.</Trans>
+        </Message>
       }
       onError={(error) => {
         sentryCaptureException(error);
@@ -173,6 +176,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   oneSided = false,
   snapshotSettings,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
+  const { t } = useLingui();
   const { getFactTableById } = useDefinitions();
   const { snapshot } = useSnapshot();
   const settings = snapshotSettings ?? snapshot?.settings;
@@ -221,8 +225,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   if (baselineRow !== 0) {
     return (
       <Message>
-        Time series is only available when comparing against Control as a
-        baseline.
+        <Trans>
+          Time series is only available when comparing against Control as a
+          baseline.
+        </Trans>
       </Message>
     );
   }
@@ -230,25 +236,39 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   if (error) {
     return (
       <Message>
-        An error occurred while loading the time series data. Please try again
-        later.
+        <Trans>
+          An error occurred while loading the time series data. Please try again
+          later.
+        </Trans>
       </Message>
     );
   }
 
   if (isLoading) {
-    return <Message>Loading...</Message>;
+    return (
+      <Message>
+        <Trans>Loading...</Trans>
+      </Message>
+    );
   }
 
   if (!filteredMetricTimeSeries || filteredMetricTimeSeries.length === 0) {
-    return <Message>No time series data available for this metric.</Message>;
+    return (
+      <Message>
+        <Trans>No time series data available for this metric.</Trans>
+      </Message>
+    );
   }
 
   // NB: Can get first item because we only fetch one metric
   const timeSeries = filteredMetricTimeSeries[0];
 
   if (!timeSeries.dataPoints?.length) {
-    return <Message>No time series data available for this metric.</Message>;
+    return (
+      <Message>
+        <Trans>No time series data available for this metric.</Trans>
+      </Message>
+    );
   }
 
   const probeVariation =
@@ -322,7 +342,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
         variations: pointVariations,
         helperText:
           idx < lastIndexInvalidConfiguration
-            ? "Analysis or metric settings do not match current version"
+            ? t`Analysis or metric settings do not match current version`
             : undefined,
       };
 
@@ -334,11 +354,11 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const labelText = (() => {
     switch (displayDifferenceType) {
       case "absolute":
-        return "Absolute Change";
+        return t`Absolute Change`;
       case "relative":
-        return "% Change";
+        return t`% Change`;
       case "scaled":
-        return "Scaled Impact";
+        return t`Scaled Impact`;
     }
   })();
 

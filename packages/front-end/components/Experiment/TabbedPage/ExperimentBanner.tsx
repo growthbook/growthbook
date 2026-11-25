@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Button from "@/ui/Button";
@@ -50,7 +51,7 @@ export default function ExperimentBanner({
               aria-expanded={open}
               onClick={() => setOpen(!open)}
             >
-              {open ? "Hide details" : "View details"}
+              {open ? <Trans>Hide details</Trans> : <Trans>View details</Trans>}
             </Button>
           ) : null}
         </Flex>

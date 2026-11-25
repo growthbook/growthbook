@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -26,6 +27,7 @@ const RefreshBanditButton: FC<{
   setGeneratedSnapshot: setOuterGeneratedSnapshot,
   onLoadingChange,
 }) => {
+  const { t } = useLingui();
   const [loading, setLoadingState] = useState(false);
   const setLoading = (next: boolean) => {
     setLoadingState(next);
@@ -94,14 +96,18 @@ const RefreshBanditButton: FC<{
     <Flex direction="column" align="end" gap="1">
       <Flex align="center" justify="end" gap="2">
         <Text size="sm" color="text-low">
-          Manually update and
+          <Trans>Manually update and</Trans>
         </Text>
         <SplitButton
           variant="outline"
           menu={
             <DropdownMenu
               trigger={
-                <Button variant="outline" size="sm" aria-label="Update options">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={t`Update options`}
+                >
                   <PiCaretDownFill />
                 </Button>
               }
@@ -109,17 +115,19 @@ const RefreshBanditButton: FC<{
               variant="soft"
             >
               <DropdownMenuItem onClick={() => setReweight(false)}>
-                Check results
+                <Trans>Check results</Trans>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setReweight(true)}
                 style={{ height: "auto" }}
               >
                 <Flex direction="column" py="1">
-                  <Text>Check results and update variation weights</Text>
+                  <Text>
+                    <Trans>Check results and update variation weights</Trans>
+                  </Text>
                   {experiment.banditStage === "explore" && (
                     <HelperText status="warning" size="sm">
-                      Immediately begins the Exploit stage
+                      <Trans>Immediately begins the Exploit stage</Trans>
                     </HelperText>
                   )}
                 </Flex>
@@ -150,7 +158,7 @@ const RefreshBanditButton: FC<{
                 );
                 const banditError = res?.snapshot?.banditResult?.error;
                 if (res.status >= 400) {
-                  setError(res.message || "Unable to update bandit.");
+                  setError(res.message || t`Unable to update bandit.`);
                 } else if (banditError) {
                   setError(banditError);
                 } else {
@@ -172,23 +180,23 @@ const RefreshBanditButton: FC<{
               mutate();
             }}
           >
-            {reweight ? "Update weights" : "Check results"}
+            {reweight ? t`Update weights` : t`Check results`}
           </Button>
         </SplitButton>
       </Flex>
 
       {loading && longResult ? (
         <Text size="sm" color="text-low">
-          This may take several minutes...
+          <Trans>This may take several minutes...</Trans>
         </Text>
       ) : null}
       {error ? (
         <HelperText status="error" size="sm">
-          Update errored
+          <Trans>Update errored</Trans>
         </HelperText>
       ) : generatedSnapshot ? (
         <HelperText status="success" size="sm">
-          Update successful
+          <Trans>Update successful</Trans>
         </HelperText>
       ) : null}
     </Flex>

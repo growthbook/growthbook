@@ -10,8 +10,12 @@ import Link from "next/link";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
+import { Trans, useLingui } from "@lingui/react/macro";
 import EmptyState from "@/components/EmptyState";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import {
+  useExperimentStatusIndicator,
+  useStatusIndicatorText,
+} from "@/hooks/useExperimentStatusIndicator";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import ExperimentStatusIndicator, {
   getFormattedLabel,
@@ -48,9 +52,12 @@ function TimelineBar({
   width: number;
   height: number;
 }) {
+  const { t, i18n } = useLingui();
+  const statusText = useStatusIndicatorText();
   const { triggerProps, renderTooltip } = useHoverTooltip();
   const fadeId = `fade${useId().replace(/:/g, "")}`;
-  const { color, status, detailedStatus } = statusIndicator;
+  const { color } = statusIndicator;
+  const { status, detailedStatus } = statusText(statusIndicator);
   const { x, y, width, height } = rect;
   const end = x + width + (open ? PAST_NOW_PX : 0);
   const row = (label: string, value: React.ReactNode) => (
@@ -117,7 +124,7 @@ function TimelineBar({
               }}
             >
               <Text size="1" weight="bold">
-                {getFormattedLabel("full", status, detailedStatus)}
+                {getFormattedLabel("full", i18n, status, detailedStatus)}
               </Text>
             </Flex>
             <Flex direction="column" gap="1" px="4" py="2">
@@ -130,12 +137,12 @@ function TimelineBar({
                 {experiment.name}
               </Text>
               {/* As the header lists them, past its creation. */}
-              {allDates(experiment, new Date())
+              {allDates(experiment, new Date(), i18n)
                 .slice(1)
                 .map(({ label, value }) => row(label, value))}
               {experiment.releasedVariationId
                 ? row(
-                    "Shipped",
+                    t`Shipped`,
                     shippedVariation ? (
                       <VariationLabel
                         number={shippedVariation.index}
@@ -162,6 +169,7 @@ const HoldoutTimeline: React.FC<{
   startDate: Date;
   holdoutEndDate?: Date;
 }> = ({ experiments, startDate, holdoutEndDate }) => {
+  const { t } = useLingui();
   // Drafts, then newest start first: down the rows goes back in time.
   const rows = useMemo(() => {
     const started = (e: ExperimentInterfaceStringDates) =>
@@ -374,8 +382,8 @@ const HoldoutTimeline: React.FC<{
     <Box>
       {experiments.length === 0 ? (
         <EmptyState
-          title="No experiments found"
-          description="No Experiments in the holdout"
+          title={t`No experiments found`}
+          description={t`No Experiments in the holdout`}
           rightButton={null}
           leftButton={null}
         />
@@ -405,7 +413,7 @@ const HoldoutTimeline: React.FC<{
               }}
             >
               <Heading as="h2" size="3">
-                Experiments
+                <Trans>Experiments</Trans>
               </Heading>
             </Box>
             {rows.map((experiment, i) => (
@@ -527,7 +535,7 @@ const HoldoutTimeline: React.FC<{
                     fill="var(--red-9)"
                     fontWeight="bold"
                   >
-                    Now
+                    <Trans>Now</Trans>
                   </text>
                 </g>
               )}

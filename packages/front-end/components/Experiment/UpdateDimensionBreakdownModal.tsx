@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans } from "@lingui/react/macro";
 import { datetime } from "shared/dates";
 import { SourceSnapshotRef } from "shared/enterprise";
 import Modal from "@/ui/Modal";
@@ -28,21 +29,27 @@ export default function UpdateDimensionBreakdownModal({
       }}
     >
       <Modal.Header>
-        <Modal.Title>Update Dimension Results?</Modal.Title>
+        <Modal.Title>
+          <Trans>Update Dimension Results?</Trans>
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p>
-          Dimension Results are built from your Overall Results, which already
-          hold the latest data available from <b>{dateLabel}</b>.
+          <Trans>
+            Dimension Results are built from your Overall Results, which already
+            hold the latest data available from <b>{dateLabel}</b>.
+          </Trans>
         </p>
         <p>
-          Updating Dimension Results now re-runs on top of that same data. To
-          fetch newer data, update your Overall Results first.
+          <Trans>
+            Updating Dimension Results now re-runs on top of that same data. To
+            fetch newer data, update your Overall Results first.
+          </Trans>
         </p>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="ghost" onClick={close}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
         <Button
           variant="outline"
@@ -51,10 +58,10 @@ export default function UpdateDimensionBreakdownModal({
             close();
           }}
         >
-          Update dimension only
+          <Trans>Update dimension only</Trans>
         </Button>
         <Button onClick={handleGoToOverallResultsClick}>
-          Update overall results
+          <Trans>Update overall results</Trans>
         </Button>
       </Modal.Footer>
     </Modal.Root>

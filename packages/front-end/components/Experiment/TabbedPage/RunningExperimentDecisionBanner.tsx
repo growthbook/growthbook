@@ -1,5 +1,8 @@
 import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold } from "react-icons/pi";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   expandMetricGroups,
   getLatestPhaseVariations,
@@ -31,6 +34,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useApi from "@/hooks/useApi";
+import { decisionCriteriaText } from "@/components/DecisionCriteria/decisionCriteriaText";
 import ExperimentDecisionExplanation, {
   Reason,
 } from "./ExperimentDecisionExplanation";
@@ -38,9 +42,9 @@ import ExperimentBanner from "./ExperimentBanner";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
 const DECISIONS = {
-  "ship-now": { label: "Ship now", color: "green" },
-  "ready-for-review": { label: "Decide now", color: "amber" },
-  "rollback-now": { label: "Roll back now", color: "red" },
+  "ship-now": { label: msg`Ship now`, color: "green" },
+  "ready-for-review": { label: msg`Decide now`, color: "amber" },
+  "rollback-now": { label: msg`Roll back now`, color: "red" },
 } as const;
 
 type Decision = Extract<
@@ -151,7 +155,6 @@ function useShipLean(
     : null;
 }
 
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 const percent = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -164,6 +167,8 @@ function useSuspiciousResults(
   experiment: ExperimentInterfaceStringDates,
   status: ExperimentResultStatusData,
 ): { variationId: string; hint: string }[] {
+  const { t, i18n } = useLingui();
+  const listFormat = new Intl.ListFormat(i18n.locale, { type: "conjunction" });
   const decisionResults = useDecisionResults(experiment);
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -203,15 +208,20 @@ function useSuspiciousResults(
     );
     const names = listFormat.format(flagged.map(({ metric }) => metric.name));
     const max = maxes.every((m) => m === maxes[0])
-      ? ` ${percent.format(maxes[0])}`
-      : "";
+      ? percent.format(maxes[0])
+      : null;
+    const one = flagged.length === 1;
     return [
       {
         variationId,
         hint:
-          flagged.length === 1
-            ? `${names} is past its${max} max change.`
-            : `${names} are past their${max} max change.`,
+          max !== null
+            ? one
+              ? t`${names} is past its ${max} max change.`
+              : t`${names} are past their ${max} max change.`
+            : one
+              ? t`${names} is past its max change.`
+              : t`${names} are past their max change.`,
       },
     ];
   });
@@ -221,12 +231,13 @@ const cautionsFor = (
   suspicious: { variationId: string; hint: string }[],
   names: Record<string, JSX.Element>,
 ) =>
-  suspicious.map(({ variationId, hint }) => ({
-    text: <>{inline(names[variationId])} has suspicious results.</>,
-    hint,
-  }));
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  suspicious.map(({ variationId, hint }) => {
+    const name = inline(names[variationId]);
+    return {
+      text: <Trans>{name} has suspicious results.</Trans>,
+      hint,
+    };
+  });
 
 // What each decided variation's goal and guardrail results came to, one line
 // each: what a default decision falls back from.
@@ -236,6 +247,7 @@ function variationOutcomes(
   names: Record<string, JSX.Element>,
   goalIds: string[],
   guardrailIds: string[],
+  i18n: I18n,
 ): Record<string, JSX.Element> {
   const summaries = experiment.analysisSummary?.resultsStatus?.variations ?? [];
   return Object.fromEntries(
@@ -249,24 +261,38 @@ function variationOutcomes(
       ).length;
       const [won, lost, flat] = [count("won"), count("lost"), count("neutral")];
       const parts = [
-        won ? `${plural(won, "goal metric")} won` : "",
+        won
+          ? won === 1
+            ? i18n._(msg`${won} goal metric won`)
+            : i18n._(msg`${won} goal metrics won`)
+          : "",
         lost
           ? won
-            ? `${lost} lost`
-            : `${plural(lost, "goal metric")} lost`
+            ? i18n._(msg`${lost} lost`)
+            : lost === 1
+              ? i18n._(msg`${lost} goal metric lost`)
+              : i18n._(msg`${lost} goal metrics lost`)
           : "",
         flat
           ? won || lost
-            ? `${flat} not significant`
-            : "no goal metric significant"
+            ? i18n._(msg`${flat} not significant`)
+            : i18n._(msg`no goal metric significant`)
           : "",
-        guardrailsLost ? `${plural(guardrailsLost, "guardrail")} lost` : "",
+        guardrailsLost
+          ? guardrailsLost === 1
+            ? i18n._(msg`${guardrailsLost} guardrail lost`)
+            : i18n._(msg`${guardrailsLost} guardrails lost`)
+          : "",
       ].filter(Boolean);
+      const name = inline(names[variationId]);
+      const outcome = parts.join(", ");
       return [
         [
           variationId,
           <Text as="div" key={variationId}>
-            {inline(names[variationId])}: {parts.join(", ")}.
+            <Trans>
+              {name}: {outcome}.
+            </Trans>
           </Text>,
         ],
       ];
@@ -284,27 +310,31 @@ const tieRow = (
   if (status.status !== "ship-now" || status.variations.length < 2) {
     return null;
   }
-  const tied = status.variations.map((v) => names[v.variationId]);
+  const tied = sentenceList(
+    status.variations.map((v) => names[v.variationId]),
+    "and",
+  );
+  const metricName = lean?.metricName;
+  const leader = lean?.winnerId ? inline(names[lean.winnerId]) : null;
   return {
-    text: <>{sentenceList(tied, "and")} each qualify to ship.</>,
+    text: <Trans>{tied} each qualify to ship.</Trans>,
     hint:
       lean?.by === "tiebreaker" ? (
         lean.winnerId ? (
-          <>
-            Your tiebreaker, {lean.metricName}, favors{" "}
-            {inline(names[lean.winnerId])}.
-          </>
+          <Trans>
+            Your tiebreaker, {metricName}, favors {leader}.
+          </Trans>
         ) : (
-          <>
-            Your tiebreaker, {lean.metricName}, picks one at the scheduled end.
-          </>
+          <Trans>
+            Your tiebreaker, {metricName}, picks one at the scheduled end.
+          </Trans>
         )
       ) : lean?.by === "goal" ? (
-        <>
-          {inline(names[lean.winnerId])} is clearly ahead on {lean.metricName}.
-        </>
+        <Trans>
+          {leader} is clearly ahead on {metricName}.
+        </Trans>
       ) : (
-        "Pick the one to release."
+        <Trans>Pick the one to release.</Trans>
       ),
   };
 };
@@ -316,6 +346,7 @@ function useDecisionDetails(
   status: ExperimentResultStatusData,
   decisionCriteria: DecisionCriteriaData,
 ) {
+  const { i18n } = useLingui();
   const lean = useShipLean(experiment, status);
   const suspicious = useSuspiciousResults(experiment, status);
   const { metricGroups } = useDefinitions();
@@ -330,10 +361,17 @@ function useDecisionDetails(
     names,
     details: {
       variationNames: names,
-      criteriaName: decisionCriteria.name,
+      criteriaName: decisionCriteriaText(decisionCriteria, i18n).name,
       goalMetricCount: goalIds.length,
       outcomes: isDecision(status)
-        ? variationOutcomes(experiment, status, names, goalIds, guardrailIds)
+        ? variationOutcomes(
+            experiment,
+            status,
+            names,
+            goalIds,
+            guardrailIds,
+            i18n,
+          )
         : {},
       tie: isDecision(status) ? tieRow(status, lean, names) : null,
       cautions: cautionsFor(suspicious, names),
@@ -381,7 +419,7 @@ const listed = (labels: JSX.Element[], last: "and" | "or") =>
   labels.map((label, i) => (
     <Fragment key={i}>
       {i > 0 && i === labels.length - 1 ? (
-        <Text color="text-mid">{last}</Text>
+        <Text color="text-mid">{conjunction(last)}</Text>
       ) : null}
       <Flex align="center" minWidth="0">
         {label}
@@ -407,33 +445,42 @@ function RecommendationLine({
   lean: ShipLean | null;
   names: Record<string, JSX.Element>;
 }) {
+  const { i18n } = useLingui();
   const labels = decided.map((v) => names[v.id]);
   const shipping = shipped(decided, lean).map((id) => names[id]);
   const control = getLatestPhaseVariations(experiment)[0];
   const decision = DECISIONS[status.status];
+  const controlLabel = control ? names[control.id] : null;
+  const among = listed(
+    control ? [...labels, names[control.id]] : labels,
+    "and",
+  );
+  const shipList = listed(shipping, "or");
   return (
     <>
       <Badge
-        label={decision.label}
+        label={i18n._(decision.label)}
         color={decision.color}
         variant="solid"
         radius="full"
       />
       {status.status === "rollback-now" ? (
-        <>
+        <Trans>
           <Text color="text-mid">to</Text>
-          {control ? names[control.id] : null}
-        </>
+          {controlLabel}
+        </Trans>
       ) : status.status === "ready-for-review" ? (
-        <>
+        <Trans>
           <Text color="text-mid">no clear winner among</Text>
-          {listed(control ? [...labels, names[control.id]] : labels, "and")}
-        </>
+          {among}
+        </Trans>
+      ) : shipping.length > 1 ? (
+        <Trans>
+          <Text color="text-mid">one of</Text>
+          {shipList}
+        </Trans>
       ) : (
-        <>
-          {shipping.length > 1 ? <Text color="text-mid">one of</Text> : null}
-          {listed(shipping, "or")}
-        </>
+        shipList
       )}
     </>
   );
@@ -495,7 +542,7 @@ export default function RunningExperimentDecisionBanner({
                   onClick={makeDecision}
                   disabled={!!blockedReason}
                 >
-                  Make decision
+                  <Trans>Make decision</Trans>
                 </Button>
               </Tooltip>
             ) : null
@@ -534,16 +581,23 @@ const inline = (label: JSX.Element | undefined) => (
   </span>
 );
 
+// The word that joins a list's last name.
+const conjunction = (last: "and" | "or") =>
+  last === "and" ? <Trans>and</Trans> : <Trans>or</Trans>;
+
 const sentenceList = (labels: JSX.Element[], last: "and" | "or") =>
   labels.map((label, i) => (
     <Fragment key={i}>
-      {i === 0
-        ? ""
-        : i < labels.length - 1
-          ? ", "
-          : labels.length > 2
-            ? `, ${last} `
-            : ` ${last} `}
+      {i === 0 ? (
+        ""
+      ) : i < labels.length - 1 ? (
+        ", "
+      ) : (
+        <>
+          {labels.length > 2 ? ", " : " "}
+          {conjunction(last)}{" "}
+        </>
+      )}
       {inline(label)}
     </Fragment>
   ));
@@ -571,35 +625,44 @@ export function DecisionRecommendation({
   const shipping = shipped(decided, lean).map((id) => names[id]);
   const control = getLatestPhaseVariations(experiment)[0];
   const controlLabel = inline(control ? names[control.id] : undefined);
+  const shipList = sentenceList(shipping, "or");
+  const among = sentenceList(
+    control ? [...labels, names[control.id]] : labels,
+    "and",
+  );
 
   return (
     <Flex direction="column" gap="4">
       <Reason color={DECISIONS[status].color} icon={<PiArrowRightBold />}>
         <Text weight="semibold">
           {status === "ship-now" ? (
-            <>
-              Ship {shipping.length > 1 ? "one of " : ""}
-              {sentenceList(shipping, "or")}.
-            </>
+            shipping.length > 1 ? (
+              <Trans>Ship one of {shipList}.</Trans>
+            ) : (
+              <Trans>Ship {shipList}.</Trans>
+            )
           ) : status === "rollback-now" ? (
-            <>Roll back to {controlLabel}.</>
+            <Trans>Roll back to {controlLabel}.</Trans>
+          ) : runningExperimentStatus.powerReached ? (
+            <Trans>
+              Decide now: it has enough data to detect its target effect, but
+              there&apos;s no clear winner among {among}.
+            </Trans>
+          ) : runningExperimentStatus.scheduledEndPassed ? (
+            <Trans>
+              Decide now: its scheduled end has passed, but there&apos;s no
+              clear winner among {among}.
+            </Trans>
+          ) : runningExperimentStatus.sequentialUsed ? (
+            <Trans>
+              Decide now: sequential testing allows it, but there&apos;s no
+              clear winner among {among}.
+            </Trans>
           ) : (
-            <>
-              Decide now:{" "}
-              {runningExperimentStatus.powerReached
-                ? "it has enough data to detect its target effect"
-                : runningExperimentStatus.scheduledEndPassed
-                  ? "its scheduled end has passed"
-                  : runningExperimentStatus.sequentialUsed
-                    ? "sequential testing allows it"
-                    : "its results are already strong enough"}
-              , but there&apos;s no clear winner among{" "}
-              {sentenceList(
-                control ? [...labels, names[control.id]] : labels,
-                "and",
-              )}
-              .
-            </>
+            <Trans>
+              Decide now: its results are already strong enough, but
+              there&apos;s no clear winner among {among}.
+            </Trans>
           )}
         </Text>
       </Reason>

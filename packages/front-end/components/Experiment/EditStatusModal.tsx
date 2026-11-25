@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
@@ -37,6 +38,7 @@ export default function EditStatusModal({
   holdout,
   openStart,
 }: Props) {
+  const { t } = useLingui();
   const isHoldout = experiment.type === "holdout";
   const form = useForm<{
     status: ExperimentStatus | "analysis";
@@ -63,28 +65,29 @@ export default function EditStatusModal({
   // An armed start shows its date in place of the start popover, so moving it
   // up goes through the schedule.
   const armedStart = startsElsewhere ? armedStartDate(experiment) : null;
+  const armedStartTime = armedStart ? scheduledTime(armedStart) : "";
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
   const statusOptions = [
     {
       value: "draft",
-      label: "Draft",
+      label: t`Draft`,
     },
     {
       value: "running",
-      label: "Running",
+      label: t`Running`,
     },
     ...(isHoldout
       ? [
           {
             value: "analysis",
-            label: "Analysis Phase",
+            label: t`Analysis Phase`,
           },
         ]
       : []),
     {
       value: "stopped",
-      label: "Stopped",
+      label: t`Stopped`,
     },
   ];
   return (
@@ -92,7 +95,7 @@ export default function EditStatusModal({
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
       header={
-        isHoldout ? "Force Holdout Status Change" : "Change Experiment Status"
+        isHoldout ? t`Force Holdout Status Change` : t`Change Experiment Status`
       }
       close={close}
       open={true}
@@ -138,34 +141,40 @@ export default function EditStatusModal({
           }
         },
       )}
-      cta={startsElsewhere ? "Continue" : "Update"}
+      cta={startsElsewhere ? t`Continue` : t`Update`}
       ctaColor={startsElsewhere ? "violet" : "red"}
       ctaEnabled={!armedStart}
     >
       {isHoldout && (
         <Box mb="4">
           <Text size="md" color="text-mid">
-            <strong>Warning: </strong>Changing the status of a Holdout will
-            delete the existing schedule and could change the behavior of
-            associated Feature Flags and Metrics.
+            <Trans>
+              <strong>Warning: </strong>Changing the status of a Holdout will
+              delete the existing schedule and could change the behavior of
+              associated Feature Flags and Metrics.
+            </Trans>
           </Text>
         </Box>
       )}
       {armedStart ? (
         <Callout status="info" mb="4">
-          This experiment is scheduled to start {scheduledTime(armedStart)}. To
-          start it sooner, edit its schedule.
+          <Trans>
+            This experiment is scheduled to start {armedStartTime}. To start it
+            sooner, edit its schedule.
+          </Trans>
         </Callout>
       ) : null}
       {hasLinkedChanges && !startsElsewhere && (
         <Callout status="warning" mb="4">
-          Changes you make here will immediately affect any linked Feature Flags
-          or Visual Changes.
+          <Trans>
+            Changes you make here will immediately affect any linked Feature
+            Flags or Visual Changes.
+          </Trans>
         </Callout>
       )}
       <SelectField
         size="legacy"
-        label="Status"
+        label={t`Status`}
         options={statusOptions}
         onChange={(v) => {
           const status = v as ExperimentStatus | "analysis";
@@ -179,13 +188,13 @@ export default function EditStatusModal({
           <>
             <Field
               size="legacy"
-              label="Reason for stopping the test"
+              label={t`Reason for stopping the test`}
               textarea
               {...form.register("reason")}
-              placeholder="(optional)"
+              placeholder={t`(optional)`}
             />
             <DatePicker
-              label="Stop time"
+              label={t`Stop time`}
               timeZone="utc"
               date={form.watch("dateEnded")}
               setDate={(v) => {

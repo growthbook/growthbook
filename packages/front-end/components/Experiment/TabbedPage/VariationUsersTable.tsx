@@ -1,5 +1,6 @@
 import { ExperimentReportVariation } from "shared/types/report";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import clsx from "clsx";
 import { pValueFormatter } from "@/services/experiments";
 import VariationLabel from "@/ui/VariationLabel";
@@ -36,6 +37,7 @@ export default function VariationUsersTable({
     .reduce((sum, n) => sum + n, 0);
 
   const pinned = clsx(styles.pinned, pinnedTo.left);
+  const srmPValue = srm !== undefined ? pValueFormatter(srm) : null;
 
   return (
     <>
@@ -55,31 +57,31 @@ export default function VariationUsersTable({
                 className={clsx("border-top-0", pinned)}
                 style={{ whiteSpace: "nowrap", width: "30%", minWidth: 150 }}
               >
-                Variation
+                <Trans>Variation</Trans>
               </th>
               <th
                 className="border-top-0"
                 style={{ whiteSpace: "nowrap", width: "17.5%" }}
               >
-                Actual Units
+                <Trans>Actual Units</Trans>
               </th>
               <th
                 className="border-top-0"
                 style={{ whiteSpace: "nowrap", width: "17.5%" }}
               >
-                Expected Units
+                <Trans>Expected Units</Trans>
               </th>
               <th
                 className="border-top-0"
                 style={{ whiteSpace: "nowrap", width: "17.5%" }}
               >
-                Actual %
+                <Trans>Actual %</Trans>
               </th>
               <th
                 className="border-top-0"
                 style={{ whiteSpace: "nowrap", width: "17.5%" }}
               >
-                Expected %
+                <Trans>Expected %</Trans>
               </th>
             </tr>
           </thead>
@@ -126,9 +128,11 @@ export default function VariationUsersTable({
           </tbody>
         </table>
       </ScrollArea>
-      {srm !== undefined ? (
+      {srmPValue !== null ? (
         <Box px="3" py="2">
-          <Text color="text-mid">p-value = {pValueFormatter(srm)}</Text>
+          <Text color="text-mid">
+            <Trans>p-value = {srmPValue}</Trans>
+          </Text>
         </Box>
       ) : null}
     </>

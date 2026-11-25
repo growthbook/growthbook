@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AttributionModel,
   LookbackOverride,
@@ -43,6 +44,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   helpText,
   bare = false,
 }) => {
+  const { t } = useLingui();
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
 
@@ -80,7 +82,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             label={
               bare ? undefined : (
                 <AttributionModelTooltip>
-                  Metric Analysis Windows <GBInfo />
+                  <Trans>Metric Analysis Windows</Trans> <GBInfo />
                 </AttributionModelTooltip>
               )
             }
@@ -88,13 +90,13 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             value={attributionModel}
             onChange={handleModeChange}
             options={[
-              { label: "Respect metric settings", value: "firstExposure" },
+              { label: t`Respect metric settings`, value: "firstExposure" },
               {
-                label: "Ignore conversion windows",
+                label: t`Ignore conversion windows`,
                 value: "experimentDuration",
               },
               {
-                label: "Use custom lookback window",
+                label: t`Use custom lookback window`,
                 value: "lookbackOverride",
               },
             ]}
@@ -103,7 +105,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             helpText={
               bare
                 ? undefined
-                : "Apply custom metric window behavior in this experiment."
+                : t`Apply custom metric window behavior in this experiment.`
             }
           />
         </Box>
@@ -136,9 +138,8 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
               options={[
                 {
                   value: "date",
-                  label: "Fixed date",
-                  description:
-                    "Only use metric data from this date until the end of the experiment.",
+                  label: t`Fixed date`,
+                  description: t`Only use metric data from this date until the end of the experiment.`,
                   renderOutsideItem: true,
                   renderOnSelect:
                     lookbackOverride.type === "date" ? (
@@ -162,9 +163,8 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                 },
                 {
                   value: "window",
-                  label: "Lookback window",
-                  description:
-                    "Only use the latest metric data until the end of the experiment.",
+                  label: t`Lookback window`,
+                  description: t`Only use the latest metric data until the end of the experiment.`,
                   renderOutsideItem: true,
                   renderOnSelect:
                     lookbackOverride.type === "window" ? (
@@ -201,10 +201,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                             setLocalWindowValue(null);
                           }}
                           disabled={disabled}
-                          aria-label="Lookback window length"
+                          aria-label={t`Lookback window length`}
                         />
                         <SelectField
-                          aria-label="Lookback window unit"
+                          aria-label={t`Lookback window unit`}
                           size="legacy"
                           value={
                             lookbackOverride.valueUnit ??
@@ -218,10 +218,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                           }}
                           containerClassName="mb-0"
                           options={[
-                            { label: "Minutes", value: "minutes" },
-                            { label: "Hours", value: "hours" },
-                            { label: "Days", value: "days" },
-                            { label: "Weeks", value: "weeks" },
+                            { label: t`Minutes`, value: "minutes" },
+                            { label: t`Hours`, value: "hours" },
+                            { label: t`Days`, value: "days" },
+                            { label: t`Weeks`, value: "weeks" },
                           ]}
                           disabled={disabled}
                         />
@@ -233,8 +233,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             />
             {lookbackDateAfterPresentOrExperiment && (
               <HelperText status="warning" size="md">
-                Lookback date is later than the present or the end of the
-                experiment
+                <Trans>
+                  Lookback date is later than the present or the end of the
+                  experiment
+                </Trans>
               </HelperText>
             )}
           </Box>

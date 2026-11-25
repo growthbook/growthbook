@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
 import Link from "@/ui/Link";
@@ -47,7 +48,7 @@ export default function LinkedChange({
           {canEdit && onEdit && (
             <Box>
               <Button variant="ghost" onClick={() => onEdit()}>
-                Edit
+                <Trans>Edit</Trans>
               </Button>
             </Box>
           )}

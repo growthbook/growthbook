@@ -1,6 +1,7 @@
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Trans } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import LinkButton from "@/ui/LinkButton";
@@ -28,7 +29,7 @@ export default function PublicExperimentMetaInfo({
   const shareLinkButton =
     experiment.shareLevel !== "public" ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
-        Link copied
+        <Trans>Link copied</Trans>
       </Button>
     ) : (
       <Button
@@ -42,7 +43,7 @@ export default function PublicExperimentMetaInfo({
         }}
         style={{ width: 130 }}
       >
-        Copy link
+        <Trans>Copy link</Trans>
       </Button>
     );
 
@@ -69,7 +70,11 @@ export default function PublicExperimentMetaInfo({
               variant="outline"
               href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}`}
             >
-              Edit {isBandit ? "Bandit" : "experiment"}
+              {isBandit ? (
+                <Trans>Edit Bandit</Trans>
+              ) : (
+                <Trans>Edit experiment</Trans>
+              )}
             </LinkButton>
           )}
           {shareLinkButton}

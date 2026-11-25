@@ -28,6 +28,7 @@ import {
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import {
   ADDABLE_KINDS,
@@ -108,9 +109,6 @@ const LINKED_CHANGES_EDIT_ID = "linked-changes";
 /** Where the pre-launch checklist sends you to add linked changes. */
 export const IMPLEMENTATION_ID = "experiment-implementation";
 
-const LINKED_CHANGES_LOCKED_REASON =
-  "URL Redirects and AI Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.";
-
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   datasourceMissing?: boolean;
@@ -170,6 +168,7 @@ export default function Implementation({
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  const { t } = useLingui();
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
@@ -207,7 +206,7 @@ export default function Implementation({
     [environmentScopes, setEnvironmentScopes],
   );
   useExperimentFieldEdit("variations", !!variationsDraft, experiment, {
-    label: "Variations",
+    label: t`Variations`,
     statusBound: true,
     fields: () => ({
       variations: variationsDraft ?? experiment.variations,
@@ -255,7 +254,7 @@ export default function Implementation({
           shownVariationIds,
         )),
     {
-      label: "URL redirects and visual changes",
+      label: t`URL redirects and visual changes`,
       statusBound: true,
       changes: () => linkedBody,
       discard: clearLinked,
@@ -314,7 +313,7 @@ export default function Implementation({
     experiment.type !== "holdout" &&
     experiment.status === "draft" &&
     experimentHasLinkedChanges(experiment)
-      ? "A holdout can only change while nothing is linked to this experiment."
+      ? t`A holdout can only change while nothing is linked to this experiment.`
       : null;
   // A staged holdout the experiment has since outgrown (started, or gained a
   // linked change) couldn't save, so it goes rather than blocking the rest.
@@ -330,7 +329,7 @@ export default function Implementation({
   const linkedChangesLockedReason =
     hasVisualEditorPermission &&
     !permissionsUtil.canRunExperiment(experiment, getLinkedChangeEnvs())
-      ? LINKED_CHANGES_LOCKED_REASON
+      ? t`URL Redirects and AI Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.`
       : null;
   const stagesLinkedChanges = !disableEditing;
   const canAddAny =
@@ -345,7 +344,7 @@ export default function Implementation({
   // changes only with nothing linked.
   const addBlockedReason =
     stagedHoldout !== null
-      ? "Save or discard the holdout change first. A holdout can only change while nothing is linked."
+      ? t`Save or discard the holdout change first. A holdout can only change while nothing is linked.`
       : null;
   const shownRedirects = shownUrlRedirects(stagedLinked, urlRedirects);
   const shownChangesets = shownVisualChangesets(stagedLinked, visualChangesets);
@@ -494,9 +493,9 @@ export default function Implementation({
       ) : null}
       {saveBeforeVisual ? (
         <ConfirmDialog
-          title="Save changes first?"
-          content="Visual changes are added to the saved experiment, so its variation changes need saving first. This saves all your staged changes."
-          yesText="Save and continue"
+          title={t`Save changes first?`}
+          content={t`Visual changes are added to the saved experiment, so its variation changes need saving first. This saves all your staged changes.`}
+          yesText={t`Save and continue`}
           onConfirm={async () => {
             setSaveBeforeVisual(false);
             // A refused save shows why on the save bar.
@@ -520,7 +519,7 @@ export default function Implementation({
         style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">
-          Implementation
+          <Trans>Implementation</Trans>
         </Heading>
         {!isHoldout ? (
           <>
@@ -555,7 +554,7 @@ export default function Implementation({
             />
             <Box mt="5" mb="4">
               <Heading as="h4" size="sm" color="text-high" mb="3">
-                Variation Summary
+                <Trans>Variation Summary</Trans>
               </Heading>
               <VariationsTable
                 experiment={stagedExperiment}
@@ -595,14 +594,14 @@ export default function Implementation({
           <Frame>
             <Flex align="center" gap="2">
               <Heading color="text-high" as="h4" size="sm" mb="0">
-                Included Experiments & Features
+                <Trans>Included Experiments & Features</Trans>
               </Heading>
               {missingCount ? (
                 <Badge
                   label={
                     <Flex align="center" gap="1">
                       <PiWarningFill />
-                      {missingCount} missing
+                      <Trans>{missingCount} missing</Trans>
                     </Flex>
                   }
                   color="amber"
@@ -618,8 +617,8 @@ export default function Implementation({
                 setValue={(isDefault) => {
                   void setHoldoutDefaultState(isDefault);
                 }}
-                label="Preselect for new experiments and Feature Flags"
-                description="When someone creates one, this holdout is picked for it unless they choose another."
+                label={t`Preselect for new experiments and Feature Flags`}
+                description={t`When someone creates one, this holdout is picked for it unless they choose another.`}
                 weight="regular"
               />
             </Box>
@@ -627,15 +626,19 @@ export default function Implementation({
             {experiment.status === "draft" ? (
               <Text>
                 <em>
-                  Start the Holdout to allow new Experiments and Features to be
-                  added.
+                  <Trans>
+                    Start the Holdout to allow new Experiments and Features to
+                    be added.
+                  </Trans>
                 </em>
               </Text>
             ) : !holdoutHasLinkedExpOrFeatures ? (
               <Text>
                 <em>
-                  Add new <Link href="/experiments">Experiments</Link> and{" "}
-                  <Link href="/features">Features</Link> to this Holdout.
+                  <Trans>
+                    Add new <Link href="/experiments">Experiments</Link> and{" "}
+                    <Link href="/features">Features</Link> to this Holdout.
+                  </Trans>
                 </em>
               </Text>
             ) : (
@@ -648,7 +651,7 @@ export default function Implementation({
                 >
                   <TabsList size="md">
                     <TabsTrigger value="experiments">
-                      Experiments
+                      <Trans>Experiments</Trans>
                       {!!holdoutExperiments?.length && (
                         <Badge
                           label={holdoutExperiments.length.toString()}
@@ -660,7 +663,7 @@ export default function Implementation({
                       )}
                     </TabsTrigger>
                     <TabsTrigger value="features">
-                      Features
+                      <Trans>Features</Trans>
                       {!!holdoutFeatures?.length && (
                         <Badge
                           label={holdoutFeatures.length.toString()}
@@ -704,11 +707,13 @@ export default function Implementation({
         !hasLinkedChanges &&
         !isHoldout ? (
           <Callout status="info" mb="4">
-            This experiment has no linked GrowthBook implementation (linked
-            feature flag, AI Visual Editor changes, or URL redirect).{" "}
+            <Trans>
+              This experiment has no linked GrowthBook implementation (linked
+              feature flag, AI Visual Editor changes, or URL redirect).
+            </Trans>{" "}
             {experiment.status === "stopped"
-              ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
-              : "The implementation, traffic, and targeting may be managed by an external system."}
+              ? t`Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system.`
+              : t`The implementation, traffic, and targeting may be managed by an external system.`}
           </Callout>
         ) : null}
         {/* Bandits and holdouts analyse by a decision metric and a schedule,

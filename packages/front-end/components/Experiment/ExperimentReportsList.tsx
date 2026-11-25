@@ -4,6 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -47,6 +48,7 @@ export default function ExperimentReportsList({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { userId, users } = useUser();
@@ -117,8 +119,8 @@ export default function ExperimentReportsList({
       <Box mb="3" style={{ maxWidth: 320 }}>
         <TextField
           type="search"
-          placeholder="Search..."
-          aria-label="Search Custom Reports"
+          placeholder={t`Search...`}
+          aria-label={t`Search Custom Reports`}
           {...searchInputProps}
         />
       </Box>
@@ -126,83 +128,91 @@ export default function ExperimentReportsList({
         <TableHeader>
           <TableRow>
             <SortableTableColumnHeader field="title">
-              Title
+              <Trans>Title</Trans>
             </SortableTableColumnHeader>
-            <TableColumnHeader>Description</TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Description</Trans>
+            </TableColumnHeader>
             <SortableTableColumnHeader field="status">
-              Status
+              <Trans>Status</Trans>
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="dateUpdated">
-              Last updated
+              <Trans>Last updated</Trans>
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="owner">
-              By
+              <Trans>By</Trans>
             </SortableTableColumnHeader>
             <TableColumnHeader style={{ width: 50 }} />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shown.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell style={{ padding: "var(--space-0)" }}>
-                <Link
-                  href={`/report/${row.id}`}
-                  style={{
-                    padding: "var(--space-3)",
-                    display: "block",
-                    color: "var(--color-text-high)",
-                  }}
-                >
-                  <Flex align="center" gap="2">
-                    {row.report.type === "experiment" && row.report.error ? (
-                      <Tooltip content={row.report.error}>
-                        <Flex
-                          role="img"
-                          aria-label={`Failed: ${row.report.error}`}
-                          style={{ color: "var(--red-11)" }}
-                        >
-                          <PiWarningFill />
-                        </Flex>
-                      </Tooltip>
-                    ) : null}
-                    {row.title}
-                  </Flex>
-                </Link>
-              </TableCell>
-              <TableCell>{row.description}</TableCell>
-              <TableCell>
-                <ShareStatusBadge
-                  shareLevel={row.status}
-                  editLevel={
-                    row.report.type === "experiment-snapshot"
-                      ? row.report.editLevel
-                      : "organization"
-                  }
-                  isOwner={row.isOwner}
-                />
-              </TableCell>
-              <TableCell>
-                <Tooltip content={datetime(row.dateUpdated)}>
-                  <span>{date(row.dateUpdated)}</span>
-                </Tooltip>
-              </TableCell>
-              <TableCell>{row.owner}</TableCell>
-              <TableCell>
-                {row.canDelete ? (
-                  <ReportActions
-                    onDelete={async () => {
-                      await apiCall(`/report/${row.id}`, { method: "DELETE" });
-                      mutate();
+          {shown.map((row) => {
+            const reportError =
+              row.report.type === "experiment" ? row.report.error : undefined;
+            return (
+              <TableRow key={row.id}>
+                <TableCell style={{ padding: "var(--space-0)" }}>
+                  <Link
+                    href={`/report/${row.id}`}
+                    style={{
+                      padding: "var(--space-3)",
+                      display: "block",
+                      color: "var(--color-text-high)",
                     }}
+                  >
+                    <Flex align="center" gap="2">
+                      {reportError ? (
+                        <Tooltip content={reportError}>
+                          <Flex
+                            role="img"
+                            aria-label={t`Failed: ${reportError}`}
+                            style={{ color: "var(--red-11)" }}
+                          >
+                            <PiWarningFill />
+                          </Flex>
+                        </Tooltip>
+                      ) : null}
+                      {row.title}
+                    </Flex>
+                  </Link>
+                </TableCell>
+                <TableCell>{row.description}</TableCell>
+                <TableCell>
+                  <ShareStatusBadge
+                    shareLevel={row.status}
+                    editLevel={
+                      row.report.type === "experiment-snapshot"
+                        ? row.report.editLevel
+                        : "organization"
+                    }
+                    isOwner={row.isOwner}
                   />
-                ) : null}
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell>
+                  <Tooltip content={datetime(row.dateUpdated)}>
+                    <span>{date(row.dateUpdated)}</span>
+                  </Tooltip>
+                </TableCell>
+                <TableCell>{row.owner}</TableCell>
+                <TableCell>
+                  {row.canDelete ? (
+                    <ReportActions
+                      onDelete={async () => {
+                        await apiCall(`/report/${row.id}`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }}
+                    />
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            );
+          })}
           {!items.length ? (
             <TableRow>
               <TableCell colSpan={6} style={{ textAlign: "center" }}>
-                No custom reports match
+                <Trans>No custom reports match</Trans>
               </TableCell>
             </TableRow>
           ) : null}
@@ -221,10 +231,11 @@ export default function ExperimentReportsList({
 }
 
 function ReportActions({ onDelete }: { onDelete: () => Promise<void> }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   return (
     <DropdownMenu
-      trigger={<MoreMenuTrigger label="Custom Report actions" />}
+      trigger={<MoreMenuTrigger label={t`Custom Report actions`} />}
       open={open}
       onOpenChange={setOpen}
       menuPlacement="end"
@@ -234,13 +245,13 @@ function ReportActions({ onDelete }: { onDelete: () => Promise<void> }) {
         <DropdownMenuItem
           color="red"
           confirmation={{
-            confirmationTitle: "Delete Custom Report",
-            cta: "Delete",
+            confirmationTitle: t`Delete Custom Report`,
+            cta: t`Delete`,
             submit: onDelete,
             closeDropdown: () => setOpen(false),
           }}
         >
-          Delete
+          <Trans>Delete</Trans>
         </DropdownMenuItem>
       </DropdownMenuGroup>
     </DropdownMenu>

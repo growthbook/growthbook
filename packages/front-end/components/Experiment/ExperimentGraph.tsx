@@ -10,6 +10,7 @@ import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
 import { Parser } from "json2csv";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
@@ -21,7 +22,7 @@ import styles from "./ExperimentGraph.module.scss";
 export default function ExperimentGraph({
   resolution = "month",
   num = 12,
-  title = "Experiments by month",
+  title,
   height = 250,
   initialShowBy = "all",
 }: {
@@ -31,6 +32,8 @@ export default function ExperimentGraph({
   height?: number;
   initialShowBy?: "status" | "project" | "results" | "user" | "all";
 }): React.ReactElement {
+  const { t } = useLingui();
+  const titleText = title === undefined ? t`Experiments by month` : title;
   const { project, projects } = useDefinitions();
   const [showBy, setShowBy] = useState<
     "status" | "project" | "all" | "results" | "user"
@@ -58,22 +61,22 @@ export default function ExperimentGraph({
   const showSelectOptions = [
     {
       value: "all",
-      label: "All experiments",
+      label: t`All experiments`,
     },
     {
       value: "status",
-      label: "By status",
+      label: t`By status`,
     },
     {
       value: "results",
-      label: "By results",
+      label: t`By results`,
     },
   ];
   // have a dropdown for projects doesn't make sense when viewing just one project
   if (!project) {
     showSelectOptions.push({
       value: "project",
-      label: "By projects",
+      label: t`By projects`,
     });
   }
 
@@ -207,7 +210,12 @@ export default function ExperimentGraph({
   );
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -256,17 +264,25 @@ export default function ExperimentGraph({
     });
   }
 
+  const projectName = projectMap.get(project);
+  const heading = projectMap.has(project) ? (
+    <Trans>
+      {titleText} for {projectName}
+    </Trans>
+  ) : (
+    titleText
+  );
+
   if (!graphData.length) {
     return (
       <>
         <div className="row mb-1 align-content-end">
           <div className="col">
-            <h4 className="mb-0">
-              {title}{" "}
-              {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
-            </h4>
+            <h4 className="mb-0">{heading}</h4>
           </div>
-          <div>No data to show</div>
+          <div>
+            <Trans>No data to show</Trans>
+          </div>
         </div>
       </>
     );
@@ -276,10 +292,7 @@ export default function ExperimentGraph({
     <>
       <div className="row mb-1 align-content-end">
         <div className="col">
-          <h4 className="mb-0">
-            {title}{" "}
-            {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
-          </h4>
+          <h4 className="mb-0">{heading}</h4>
         </div>
         <div className="col-auto">
           <SelectField
@@ -302,7 +315,9 @@ export default function ExperimentGraph({
         </div>
         <div className="pt-2">
           <MoreMenu useRadix={false}>
-            <div className="p-2 px-3">Download data as CSV...</div>
+            <div className="p-2 px-3">
+              <Trans>Download data as CSV...</Trans>
+            </div>
             <a
               href="#"
               className="dropdown-item"
@@ -311,7 +326,7 @@ export default function ExperimentGraph({
                 downloadCSV("all");
               }}
             >
-              Totals
+              <Trans>Totals</Trans>
             </a>
             <a
               href="#"
@@ -321,7 +336,7 @@ export default function ExperimentGraph({
                 downloadCSV("projects");
               }}
             >
-              By Projects
+              <Trans>By Projects</Trans>
             </a>
             <a
               href="#"
@@ -331,7 +346,7 @@ export default function ExperimentGraph({
                 downloadCSV("status");
               }}
             >
-              By Status
+              <Trans>By Status</Trans>
             </a>
             <a
               href="#"
@@ -341,7 +356,7 @@ export default function ExperimentGraph({
                 downloadCSV("results");
               }}
             >
-              By Results
+              <Trans>By Results</Trans>
             </a>
           </MoreMenu>
         </div>
@@ -431,10 +446,10 @@ export default function ExperimentGraph({
                           {stackedKeys.map((k) => (
                             <div key={k} className={styles.tooltipRow}>
                               <div className={styles.tooltipName}>
-                                {projectMap.has(k)
-                                  ? projectMap.get(k)
-                                  : k === "all"
-                                    ? "All Projects"
+                                {k === "all"
+                                  ? t`All Projects`
+                                  : projectMap.has(k)
+                                    ? projectMap.get(k)
                                     : k}
                               </div>
                               <div className={styles.tooltipValue}>
@@ -458,10 +473,11 @@ export default function ExperimentGraph({
                           ))}
                         </>
                       ) : (
-                        <>
-                          {tooltipData?.numExp} experiment
-                          {tooltipData?.numExp !== 1 ? "s" : ""}
-                        </>
+                        <Plural
+                          value={tooltipData?.numExp ?? 0}
+                          one="# experiment"
+                          other="# experiments"
+                        />
                       )}
                     </>
                   </TooltipWithBounds>
@@ -610,10 +626,10 @@ export default function ExperimentGraph({
                           style={{ backgroundColor: getGraphColor(k) }}
                         ></div>
                         <div className={styles.legendName}>
-                          {projectMap.has(k)
-                            ? projectMap.get(k)
-                            : k === "all"
-                              ? "All Projects"
+                          {k === "all"
+                            ? t`All Projects`
+                            : projectMap.has(k)
+                              ? projectMap.get(k)
                               : k}
                         </div>
                       </div>

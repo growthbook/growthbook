@@ -111,6 +111,6 @@ describe("draftReviewState", () => {
     ],
   ])("a draft that %s", (_, draft, state, step) => {
     expect(draftReviewState(draft)).toBe(state);
-    expect(draftNextStep(draft)).toBe(step);
+    expect(draftNextStep(draft).message).toBe(step);
   });
 });

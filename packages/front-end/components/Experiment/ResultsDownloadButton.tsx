@@ -4,6 +4,7 @@ import {
 } from "shared/types/report";
 import { restoreOpenAdjustedCI } from "shared/experiments";
 import React, { useCallback, useMemo } from "react";
+import { Trans } from "@lingui/react/macro";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -144,7 +145,7 @@ export default function ResultsDownloadButton({
           <FaFileExport className="mr-2" />{" "}
         </>
       ) : null}
-      Export CSV
+      <Trans>Export CSV</Trans>
     </a>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
@@ -41,6 +42,7 @@ export default function EditExperimentEnvironmentsModal({
   /** Null when the choice is what's stored, which unstages any scope. */
   apply: (scope: ExperimentRuleEnvironments | null) => void;
 }) {
+  const { t } = useLingui();
   const environments = filterEnvironmentsByFeature(
     useEnvironments(),
     info.feature,
@@ -59,15 +61,18 @@ export default function EditExperimentEnvironmentsModal({
   const switchedOn = (
     allEnvironments ? environments.map((e) => e.id) : selectedEnvironments
   ).filter((id) => environmentInputs?.[id]?.flagEnabled === false);
+  const switchedOnList = new Intl.ListFormat("en-GB", {
+    type: "conjunction",
+  }).format(switchedOn);
 
   return (
     <ModalStandard
       trackingEventModalType="edit-experiment-environments"
       trackingEventModalSource="traffic-allocation"
-      header="Edit Environments"
+      header={t`Edit Environments`}
       open={true}
       close={close}
-      cta="Apply"
+      cta={t`Apply`}
       // A rule in no environment serves nothing and drops off this page.
       ctaEnabled={allEnvironments || selectedEnvironments.length > 0}
       submit={() => {
@@ -89,17 +94,13 @@ export default function EditExperimentEnvironmentsModal({
         setAllEnvironments={setAllEnvironments}
         selectedEnvironments={selectedEnvironments}
         setSelectedEnvironments={setSelectedEnvironments}
-        label="Environments"
+        label={t`Environments`}
       />
       {switchedOn.length ? (
         <HelperText status="warning" size="sm" mt="2">
-          {`${new Intl.ListFormat("en-GB", { type: "conjunction" }).format(
-            switchedOn,
-          )} ${
-            switchedOn.length === 1 ? "is" : "are"
-          } off for this Feature Flag. Applying turns ${
-            switchedOn.length === 1 ? "it on there" : "them on"
-          }, for all of its rules.`}
+          {switchedOn.length === 1
+            ? t`${switchedOnList} is off for this Feature Flag. Applying turns it on there, for all of its rules.`
+            : t`${switchedOnList} are off for this Feature Flag. Applying turns them on, for all of its rules.`}
         </HelperText>
       ) : null}
     </ModalStandard>

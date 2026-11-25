@@ -6,6 +6,7 @@ import { omit } from "lodash";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
@@ -48,6 +49,7 @@ function TemplateRowMenu({
   onEdit: () => void;
   onDuplicate: () => void;
 }) {
+  const { t } = useLingui();
   const [menuOpen, setMenuOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateTemplates } = useTemplates();
@@ -75,7 +77,7 @@ function TemplateRowMenu({
             setMenuOpen(false);
           }}
         >
-          Edit
+          <Trans>Edit</Trans>
         </DropdownMenuItem>
       )}
       {canCreate && (
@@ -85,7 +87,7 @@ function TemplateRowMenu({
             setMenuOpen(false);
           }}
         >
-          Duplicate
+          <Trans>Duplicate</Trans>
         </DropdownMenuItem>
       )}
       {canDelete && (
@@ -98,14 +100,14 @@ function TemplateRowMenu({
                 await apiCall(`/templates/${templateId}`, { method: "DELETE" });
                 await mutateTemplates();
               },
-              confirmationTitle: "Delete Template",
-              cta: "Delete",
+              confirmationTitle: t`Delete Template`,
+              cta: t`Delete`,
               ctaColor: "red",
               getConfirmationContent: async () =>
-                "Are you sure you want to delete this template? This action cannot be undone.",
+                t`Are you sure you want to delete this template? This action cannot be undone.`,
             }}
           >
-            Delete
+            <Trans>Delete</Trans>
           </DropdownMenuItem>
         </>
       )}
@@ -126,6 +128,7 @@ export const TemplatesPage = ({
   setOpenTemplateModal,
   setOpenDuplicateTemplateModal,
 }: Props) => {
+  const { t } = useLingui();
   const { ready, project, getProjectById } = useDefinitions();
 
   const { hasCommercialFeature } = useUser();
@@ -150,8 +153,11 @@ export const TemplatesPage = ({
     permissionsUtil.canDeleteExperimentTemplate(templ);
 
   const filteredTemplates = project
-    ? allTemplates.filter((t) =>
-        isProjectListValidForProject(t.project ? [t.project] : [], project),
+    ? allTemplates.filter((templ) =>
+        isProjectListValidForProject(
+          templ.project ? [templ.project] : [],
+          project,
+        ),
       )
     : allTemplates;
 
@@ -176,7 +182,7 @@ export const TemplatesPage = ({
   });
 
   const hasTemplates = items.length > 0;
-  const showProjectColumn = items.some((t) => !!t.project);
+  const showProjectColumn = items.some((templ) => !!templ.project);
 
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -190,9 +196,8 @@ export const TemplatesPage = ({
     return (
       <>
         <PremiumEmptyState
-          title="Create Reusable Experiment Templates"
-          description="Save time configuring experiment details, and ensure consistency
-            across your team and projects."
+          title={t`Create Reusable Experiment Templates`}
+          description={t`Save time configuring experiment details, and ensure consistency across your team and projects.`}
           commercialFeature="templates"
           learnMoreLink="https://docs.growthbook.io/running-experiments/experiment-templates"
         />
@@ -205,46 +210,46 @@ export const TemplatesPage = ({
         <TableHeader>
           <TableRow>
             <SortableTableColumnHeader field="templateName">
-              Template Name
+              <Trans>Template Name</Trans>
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="templateDescription">
-              Description
+              <Trans>Description</Trans>
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="tags">
-              Tags
+              <Trans>Tags</Trans>
             </SortableTableColumnHeader>
             {showProjectColumn && (
               <SortableTableColumnHeader field="project">
-                Project
+                <Trans>Project</Trans>
               </SortableTableColumnHeader>
             )}
             <SortableTableColumnHeader field="dateCreated">
-              Created
+              <Trans>Created</Trans>
             </SortableTableColumnHeader>
             <SortableTableColumnHeader
               field="usage"
               style={{ textAlign: "right" }}
             >
-              Usage
+              <Trans>Usage</Trans>
             </SortableTableColumnHeader>
             <TableColumnHeader style={{ width: 40 }} />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((t) => {
-            const templateUsage = t.usage;
+          {items.map((templ) => {
+            const templateUsage = templ.usage;
             return (
               <TableRow
-                key={t.id}
+                key={templ.id}
                 onClick={(e) => {
                   e.preventDefault();
-                  router.push(`/experiments/template/${t.id}`);
+                  router.push(`/experiments/template/${templ.id}`);
                 }}
                 style={{ cursor: "pointer" }}
               >
                 <TableCell style={{ padding: "var(--space-0)" }}>
                   <Link
-                    href={`/experiments/template/${t.id}`}
+                    href={`/experiments/template/${templ.id}`}
                     style={{
                       display: "block",
                       padding: "var(--space-3)",
@@ -252,33 +257,33 @@ export const TemplatesPage = ({
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {t.templateName}
+                    {templ.templateName}
                   </Link>
                 </TableCell>
-                <TableCell>{t.templateDescription}</TableCell>
+                <TableCell>{templ.templateDescription}</TableCell>
                 <TableCell>
                   <SortedTags
-                    tags={Object.values(t.tags ?? [])}
+                    tags={Object.values(templ.tags ?? [])}
                     useFlex={true}
                   />
                 </TableCell>
                 {showProjectColumn && (
                   <TableCell>
-                    {t.project ? getProjectById(t.project)?.name : ""}
+                    {templ.project ? getProjectById(templ.project)?.name : ""}
                   </TableCell>
                 )}
-                <TableCell>{date(t.dateCreated)}</TableCell>
+                <TableCell>{date(templ.dateCreated)}</TableCell>
                 <TableCell justify="end">
                   <Box pr="2">{templateUsage}</Box>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <TemplateRowMenu
-                    templateId={t.id}
-                    canEdit={canEdit(t)}
+                    templateId={templ.id}
+                    canEdit={canEdit(templ)}
                     canCreate={canCreate}
-                    canDelete={canDelete(t)}
-                    onEdit={() => setOpenTemplateModal(t)}
-                    onDuplicate={() => setOpenDuplicateTemplateModal(t)}
+                    canDelete={canDelete(templ)}
+                    onEdit={() => setOpenTemplateModal(templ)}
+                    onDuplicate={() => setOpenDuplicateTemplateModal(templ)}
                   />
                 </TableCell>
               </TableRow>
@@ -289,21 +294,20 @@ export const TemplatesPage = ({
     </Box>
   ) : (
     <EmptyState
-      title="Create Reusable Experiment Templates"
-      description="Save time configuring experiment details, and ensure consistency
-        across your team and projects."
+      title={t`Create Reusable Experiment Templates`}
+      description={t`Save time configuring experiment details, and ensure consistency across your team and projects.`}
       leftButton={
         <LinkButton
           href="https://docs.growthbook.io/running-experiments/experiment-templates"
           variant="outline"
           external={true}
         >
-          View docs
+          <Trans>View docs</Trans>
         </LinkButton>
       }
       rightButton={
         <Button disabled={!canCreate} onClick={() => setOpenTemplateModal({})}>
-          Create Template
+          <Trans>Create Template</Trans>
         </Button>
       }
     ></EmptyState>

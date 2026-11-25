@@ -1,6 +1,7 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { parseIntWithDefault } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
@@ -14,28 +15,28 @@ export default function HashVersionSelector({
   onChange: (value: 1 | 2) => void;
   project?: string;
 }) {
+  const { t } = useLingui();
   return (
     <div style={{ marginTop: "var(--space-6)" }}>
       <Text as="label" weight="semibold">
-        Hashing Algorithm
+        <Trans>Hashing Algorithm</Trans>
       </Text>
       <RadioGroup
         options={[
           {
-            label: "V2 (Preferred)",
+            label: t`V2 (Preferred)`,
             value: "2",
-            description:
-              "Fixes potential bias issues when using similarly named tracking keys",
+            description: t`Fixes potential bias issues when using similarly named tracking keys`,
             renderOnSelect: (
               <SDKCapabilityWarning
                 capability="bucketingV2"
                 project={project}
-                someMessage="Some of your SDK Connections may not support V2 hashing."
-                noneMessage="None of your SDK Connections support V2 hashing."
+                someMessage={t`Some of your SDK Connections may not support V2 hashing.`}
+                noneMessage={t`None of your SDK Connections support V2 hashing.`}
               />
             ),
           },
-          { label: "V1 (Legacy)", value: "1" },
+          { label: t`V1 (Legacy)`, value: "1" },
         ]}
         value={value + ""}
         setValue={(v) => {

@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { QueryLanguage } from "shared/types/datasource";
+import { useLingui } from "@lingui/react/macro";
 import Modal from "@/components/Modal";
 import Code from "@/components/SyntaxHighlighting/Code";
 
@@ -8,14 +9,15 @@ const QueryModal: FC<{
   language: QueryLanguage;
   close: () => void;
 }> = ({ queries, language, close }) => {
+  const { t } = useLingui();
   return (
     <Modal
       trackingEventModalType=""
       close={close}
-      header="View Query"
+      header={t`View Query`}
       open={true}
       size="max"
-      closeCta="Close"
+      closeCta={t`Close`}
     >
       {queries.map((query, i) => (
         <Code language={language} key={i} code={query} />

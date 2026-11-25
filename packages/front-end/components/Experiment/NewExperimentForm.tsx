@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
@@ -156,6 +157,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   inline,
   isNewExperiment,
 }) => {
+  const { t } = useLingui();
   const { organization, hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -463,12 +465,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Name must not be empty");
+      throw new Error(t`Name must not be empty`);
     }
 
     if (!value.templateId && templateRequired && !isImport && !duplicate) {
       setStep(0);
-      throw new Error("You must select a template");
+      throw new Error(t`You must select a template`);
     }
 
     const data = { ...value };
@@ -480,7 +482,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       data.exposureQueryId &&
       !data.exposureQueryIdentifierType
     ) {
-      throw new Error("Choose an identifier type for the assignment query");
+      throw new Error(t`Choose an identifier type for the assignment query`);
     }
 
     if (data.status !== "stopped" && data.phases?.[0]) {
@@ -495,7 +497,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       });
 
       if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
+        throw new Error(t`Prerequisite targeting issues must be resolved`);
       }
 
       // Opt-in client-side pre-flight — catches typo'd experiment attributes
@@ -523,15 +525,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         data.type === "multi-armed-bandit" &&
         !hasCommercialFeature("multi-armed-bandits")
       ) {
-        throw new Error("Bandits are a premium feature");
+        throw new Error(t`Bandits are a premium feature`);
       }
       if (data.type === "multi-armed-bandit") {
         data.statsEngine = "bayesian";
         if (!data.datasource) {
-          throw new Error("You must select a datasource");
+          throw new Error(t`You must select a datasource`);
         }
         if ((data.goalMetrics?.length ?? 0) !== 1) {
-          throw new Error("You must select 1 decision metric");
+          throw new Error(t`You must select 1 decision metric`);
         }
         const shouldIncludeConversionWindow =
           !disableBanditConversionWindow &&
@@ -545,7 +547,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           !data.banditConversionWindowUnit
         ) {
           throw new Error(
-            "Enter a conversion window override or disable the conversion window override",
+            t`Enter a conversion window override or disable the conversion window override`,
           );
         }
       }
@@ -586,7 +588,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
+        t`Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.`,
       );
     }
 
@@ -621,10 +623,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
-    .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project),
+    .filter((tmpl) =>
+      isProjectListValidForProject(tmpl.project ? [tmpl.project] : [], project),
     )
-    .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
+    .map((tmpl) => ({ value: tmpl.id, label: tmpl.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
   const hasProjectPermission = selectedProject
@@ -739,6 +741,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
   const trackingEventModalType = kebabCase(header);
+  // `header` stays English for the tracking event; this is what shows.
+  const headerText = duplicate
+    ? isBandit
+      ? t`Duplicate Bandit`
+      : t`Duplicate Experiment`
+    : isNewExperiment
+      ? isBandit
+        ? t`Add New Bandit`
+        : t`Add New Experiment`
+      : t`Add New Experiment Analysis`;
+  const missingKeyProvider = missingEmbeddingKey?.provider;
+  const missingKeyEnvVar = missingEmbeddingKey?.envVar;
+  const similarCount = similarExperiments.length;
 
   const nameFieldHandlers = form.register("name", {
     setValueAs: (s) => s?.trim(),
@@ -859,33 +874,35 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <PagedModal
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
-        header={header}
+        header={headerText}
         close={onClose}
         docSection="experimentConfiguration"
         submit={onSubmit}
-        cta={"Save"}
+        cta={t`Save`}
         ctaEnabled={canSubmit && hasProjectPermission}
         disabledMessage={
           !hasProjectPermission
             ? !selectedProject && availableProjects.length > 0
-              ? "Select a project to continue."
-              : "You don't have permission to create experiments."
+              ? t`Select a project to continue.`
+              : t`You don't have permission to create experiments.`
             : undefined
         }
-        closeCta="Cancel"
+        closeCta={t`Cancel`}
         size="lg"
         step={step}
         setStep={setStep}
         inline={inline}
         backButton={true}
       >
-        <Page display="Overview">
+        <Page display={t`Overview`}>
           <div className="px-2">
             {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating an experiment in the Sample Data Project.
+                <Trans>
+                  You are creating an experiment in the Sample Data Project.
+                </Trans>
               </Callout>
             )}
             {hasCommercialFeature("templates") &&
@@ -895,20 +912,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               !duplicate && (
                 <div className="form-group">
                   <PremiumTooltip commercialFeature="templates">
-                    <label>Select Template</label>
+                    <label>
+                      <Trans>Select Template</Trans>
+                    </label>
                   </PremiumTooltip>
                   <SelectField
                     size="legacy"
                     value={form.watch("templateId") ?? ""}
-                    onChange={(t) => {
-                      if (t === "") {
+                    onChange={(templateId) => {
+                      if (templateId === "") {
                         form.setValue("templateId", undefined);
                         form.reset();
                         return;
                       }
-                      form.setValue("templateId", t);
+                      form.setValue("templateId", templateId);
                       // Convert template to experiment interface shape and reset values
-                      const template = templatesMap.get(t);
+                      const template = templatesMap.get(templateId);
                       if (!template) return;
 
                       const templateAsExperiment =
@@ -918,23 +937,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       });
                     }}
                     name="template"
-                    initialOption={"None"}
+                    initialOption={t`None`}
                     options={availableTemplates}
                     formatOptionLabel={(value) => {
-                      const t = templatesMap.get(value.value);
-                      if (!t) return <span>{value.label}</span>;
+                      const template = templatesMap.get(value.value);
+                      if (!template) return <span>{value.label}</span>;
+                      const createdDate = date(template.dateCreated);
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
                           <Text size="sm" color="text-mid" ml="auto">
-                            Created {date(t.dateCreated)}
+                            <Trans>Created {createdDate}</Trans>
                           </Text>
                         </Flex>
                       );
                     }}
                     helpText={
                       templateRequired
-                        ? "Your organization requires experiments to be created from a template"
+                        ? t`Your organization requires experiments to be created from a template`
                         : undefined
                     }
                     disabled={!hasCommercialFeature("templates")}
@@ -945,7 +965,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             {projects.length >= 1 && (
               <div className="form-group">
-                <label>Project</label>
+                <label>
+                  <Trans>Project</Trans>
+                </label>
                 <SelectField
                   size="legacy"
                   value={form.watch("project") ?? ""}
@@ -953,7 +975,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form.setValue("project", p);
                   }}
                   name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                  initialOption={allowAllProjects ? t`All Projects` : undefined}
                   options={availableProjects}
                 />
               </div>
@@ -973,7 +995,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             <Field
               size="legacy"
-              label={isBandit ? "Bandit Name" : "Experiment Name"}
+              label={isBandit ? t`Bandit Name` : t`Experiment Name`}
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -1002,7 +1024,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             <div className="form-group">
               <Text as="label" weight="semibold" mb="1">
-                Tracking Key
+                <Trans>Tracking Key</Trans>
                 {trackingKeyFormatProps.markRequired ? (
                   <span
                     style={{
@@ -1015,9 +1037,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 ) : null}
               </Text>
               <Text as="div" color="text-mid" mb="2">
-                {`Unique identifier for this ${
-                  isBandit ? "Bandit" : "Experiment"
-                }, used to track impressions and analyze results`}
+                {isBandit ? (
+                  <Trans>
+                    Unique identifier for this Bandit, used to track impressions
+                    and analyze results
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Unique identifier for this Experiment, used to track
+                    impressions and analyze results
+                  </Trans>
+                )}
               </Text>
               <Field
                 size="legacy"
@@ -1032,12 +1062,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {duplicate && (
               <Box mb="4">
                 <Checkbox
-                  label="Use same randomization seed as original experiment"
+                  label={t`Use same randomization seed as original experiment`}
                   value={useSameSeedAsOriginal}
                   setValue={(v) => setUseSameSeedAsOriginal(v)}
                   error={
                     useSameSeedAsOriginal
-                      ? "Can introduce bias if the original experiment influenced user behavior."
+                      ? t`Can introduce bias if the original experiment influenced user behavior.`
                       : undefined
                   }
                   errorLevel="warning"
@@ -1047,10 +1077,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isBandit && (
               <Field
                 size="legacy"
-                label="Hypothesis"
+                label={t`Hypothesis`}
                 textarea
                 minRows={2}
-                placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+                placeholder={t`e.g. Making the signup button bigger will increase clicks and ultimately improve revenue`}
                 {...form.register("hypothesis", {
                   onChange: () => {
                     queueCheckForSimilar(); // Debounced call
@@ -1066,7 +1096,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {includeDescription && (
               <Field
                 size="legacy"
-                label="Description"
+                label={t`Description`}
                 textarea
                 minRows={2}
                 {...form.register("description", {
@@ -1079,19 +1109,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     checkForSimilar(); // Immediate call on blur
                   },
                 })}
-                placeholder={`Short human-readable description of the ${
-                  isBandit ? "Bandit" : "Experiment"
-                }`}
+                placeholder={
+                  isBandit
+                    ? t`Short human-readable description of the Bandit`
+                    : t`Short human-readable description of the Experiment`
+                }
               />
             )}
             <>
               {missingEmbeddingKey ? (
                 <Box my="4">
                   <Callout status="warning">
-                    {missingEmbeddingKey.provider} API key is required for
-                    checking similar experiments. Please set{" "}
-                    <code>{missingEmbeddingKey.envVar}</code> in your
-                    environment variables.
+                    <Trans>
+                      {missingKeyProvider} API key is required for checking
+                      similar experiments. Please set{" "}
+                      <code>{missingKeyEnvVar}</code> in your environment
+                      variables.
+                    </Trans>
                   </Callout>
                 </Box>
               ) : !enoughWords ? (
@@ -1099,7 +1133,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   <Flex gap="2" className="text-muted" align="center">
                     <FaExclamationCircle />
                     <Text weight="regular">
-                      Enter more details to check for similar experiments
+                      <Trans>
+                        Enter more details to check for similar experiments
+                      </Trans>
                     </Text>
                   </Flex>
                 </Box>
@@ -1109,7 +1145,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <Box my="4">
                       <Flex gap="2" className="text-muted">
                         <LoadingSpinner />
-                        <Text>Checking for similar experiments...</Text>
+                        <Text>
+                          <Trans>Checking for similar experiments...</Trans>
+                        </Text>
                       </Flex>
                     </Box>
                   ) : (
@@ -1137,15 +1175,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                   }}
                                 />
                                 <Text weight="medium" as="span">
-                                  Similar experiment
-                                  {similarExperiments.length === 1 ? "" : "s"} (
-                                  {similarExperiments.length})
+                                  <Plural
+                                    value={similarCount}
+                                    one="Similar experiment (#)"
+                                    other="Similar experiments (#)"
+                                  />
                                 </Text>
                               </Flex>
                             ) : (
                               <Flex gap="2" align="center">
                                 <FaCheckCircle />
-                                No similar experiments found
+                                <Trans>No similar experiments found</Trans>
                               </Flex>
                             )}
                           </Text>
@@ -1205,14 +1245,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                   </Flex>
                                   {s.experiment.description && (
                                     <Box style={{ fontSize: "0.9em" }}>
-                                      <strong>Description:</strong>{" "}
+                                      <strong>
+                                        <Trans>Description:</Trans>
+                                      </strong>{" "}
                                       <Markdown>
                                         {s.experiment.description}
                                       </Markdown>
                                     </Box>
                                   )}
                                   <Box style={{ fontSize: "0.9em" }}>
-                                    <strong>Hypothesis:</strong>{" "}
+                                    <strong>
+                                      <Trans>Hypothesis:</Trans>
+                                    </strong>{" "}
                                     <Markdown>
                                       {s.experiment.hypothesis}
                                     </Markdown>
@@ -1229,7 +1273,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
             </>
             <div className="form-group">
-              <label>Tags</label>
+              <label>
+                <Trans>Tags</Trans>
+              </label>
               <TagsInput
                 value={form.watch("tags") ?? []}
                 onChange={(tags) => form.setValue("tags", tags)}
@@ -1239,11 +1285,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <>
                 <SelectField
                   size="legacy"
-                  label="Status"
+                  label={t`Status`}
                   options={[
-                    { label: "draft", value: "draft" },
-                    { label: "running", value: "running" },
-                    { label: "stopped", value: "stopped" },
+                    { label: t`draft`, value: "draft" },
+                    { label: t`running`, value: "running" },
+                    { label: t`stopped`, value: "stopped" },
                   ]}
                   onChange={(v) => {
                     const status = v as ExperimentStatus;
@@ -1254,7 +1300,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start time"
+                    label={t`Start time`}
                     timeZone="utc"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
@@ -1269,7 +1315,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End time"
+                    label={t`End time`}
                     timeZone="utc"
                     date={form.watch("phases.0.dateEnded")}
                     setDate={(v) => {
@@ -1298,7 +1344,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {/* Standard Experiments */}
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+          ? [t`Overview`, t`Traffic`, t`Targeting`, t`Metrics`].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -1354,7 +1400,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+          ? [t`Overview`, t`Traffic`, t`Targeting`, t`Metrics`].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -1411,18 +1457,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {/* Imported Experiments */}
         {!(isNewExperiment || duplicate) ? (
-          <Page display="Targeting">
+          <Page display={t`Targeting`}>
             <div>
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <div className="flex-1">
                       <Text as="label" weight="semibold" mb="1">
-                        Assign variation based on attribute
+                        <Trans>Assign variation based on attribute</Trans>
                       </Text>
                       <Text as="div" color="text-mid" mb="2">
-                        Will be hashed together with the seed (UUID) to
-                        determine which variation to assign
+                        <Trans>
+                          Will be hashed together with the seed (UUID) to
+                          determine which variation to assign
+                        </Trans>
                       </Text>
                       <SelectField
                         size="legacy"
@@ -1502,8 +1550,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <hr />
               {isImport && (
                 <Callout status="info" mb="3">
-                  We&apos;ve guessed the variation weights below based on the
-                  data we&apos;ve seen. They may need to be adjusted.
+                  <Trans>
+                    We&apos;ve guessed the variation weights below based on the
+                    data we&apos;ve seen. They may need to be adjusted.
+                  </Trans>
                 </Callout>
               )}
               <FeatureVariationsInput
@@ -1514,8 +1564,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }
                 coverageTooltip={
                   isNewExperiment
-                    ? "This can be changed later"
-                    : "This is just for documentation purposes and has no effect on the analysis."
+                    ? t`This can be changed later`
+                    : t`This is just for documentation purposes and has no effect on the analysis.`
                 }
                 setWeight={setVariationWeight}
                 valueAsId={false}
@@ -1531,16 +1581,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ) : null}
 
         {!(isNewExperiment || duplicate) ? (
-          <Page display="Metrics">
+          <Page display={t`Metrics`}>
             <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
                   size="legacy"
-                  label="Data Source"
+                  label={t`Data Source`}
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
                   onChange={(v) => form.setValue("datasource", v)}
-                  placeholder="Select..."
+                  placeholder={t`Select...`}
                   options={datasources.map((d) => {
                     const isDefaultDataSource =
                       d.id === settings.defaultDataSource;
@@ -1548,7 +1598,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       value: d.id,
                       label: `${d.name}${
                         d.description ? ` — ${d.description}` : ""
-                      }${isDefaultDataSource ? " (default)" : ""}`,
+                      }${isDefaultDataSource ? ` ${t`(default)`}` : ""}`,
                     };
                   })}
                   className="portal-overflow-ellipsis"
@@ -1557,7 +1607,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {datasource?.properties?.exposureQueries && (
                 <AssignmentQueryFields
                   selection={assignmentQuerySelection}
-                  initialOption="Choose..."
+                  initialOption={t`Choose...`}
                 />
               )}
 
@@ -1587,8 +1637,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {isImport && (
               <Checkbox
                 id="auto_refresh_results"
-                label="Auto Refresh Results"
-                description="Populate results on save"
+                label={t`Auto Refresh Results`}
+                description={t`Populate results on save`}
                 value={autoRefreshResults}
                 setValue={setAutoRefreshResults}
                 ml="2"

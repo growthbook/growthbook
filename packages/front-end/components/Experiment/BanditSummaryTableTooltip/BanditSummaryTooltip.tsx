@@ -8,6 +8,7 @@ import { MetricInterface } from "shared/types/metric";
 import { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
@@ -65,6 +66,7 @@ export default function BanditSummaryTooltip({
   ssrPolyfills,
   ...otherProps
 }: Props) {
+  const { t } = useLingui();
   useEffect(() => {
     if (!data || !tooltipOpen) return;
 
@@ -97,7 +99,7 @@ export default function BanditSummaryTooltip({
 
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip
-      body="metric is inverse, lower is better"
+      body={t`metric is inverse, lower is better`}
       className="inverse-indicator ml-1"
       tipMinWidth={"180px"}
     >
@@ -240,14 +242,18 @@ export default function BanditSummaryTooltip({
                 <Tooltip
                   body={
                     <p className="mb-0">
-                      The probability of winning is above the{" "}
-                      {WIN_THRESHOLD_PROBABILITY} threshold.
+                      <Trans>
+                        The probability of winning is above the{" "}
+                        {WIN_THRESHOLD_PROBABILITY} threshold.
+                      </Trans>
                     </p>
                   }
                   tipMinWidth={"250px"}
                   className="cursor-pointer"
                 >
-                  <span style={{ marginRight: 12 }}>Won</span>
+                  <span style={{ marginRight: 12 }}>
+                    <Trans>Won</Trans>
+                  </span>
                   <RxInfoCircled
                     className="position-absolute"
                     style={{ top: 3, right: 4, fontSize: "14px" }}
@@ -258,7 +264,7 @@ export default function BanditSummaryTooltip({
 
             <div className={clsx("results-chance d-flex mt-0", data.status)}>
               <div className="label mr-2" style={{ width: 140 }}>
-                Probability of Winning:
+                <Trans>Probability of Winning:</Trans>
               </div>
               <div
                 className={clsx("value", {
@@ -269,7 +275,9 @@ export default function BanditSummaryTooltip({
                   percentFormatter.format(data?.probability ?? 0)
                 ) : (
                   <em className="text-muted">
-                    <small>Not enough data</small>
+                    <small>
+                      <Trans>Not enough data</Trans>
+                    </small>
                   </em>
                 )}
               </div>
@@ -279,7 +287,7 @@ export default function BanditSummaryTooltip({
 
             <div className={clsx("results-chance d-flex mt-1", data.status)}>
               <div className="label mr-2" style={{ width: 140 }}>
-                Variation Mean:
+                <Trans>Variation Mean:</Trans>
               </div>
               <div
                 className={clsx("value", {
@@ -292,16 +300,18 @@ export default function BanditSummaryTooltip({
 
             <div className={clsx("results-ci d-flex mt-1", data.status)}>
               <div className="label mr-2" style={{ width: 140 }}>
-                95% CI:
+                <Trans>95% CI:</Trans>
               </div>
               <div className="value">{ciRangeText}</div>
             </div>
 
             {data.regressionAdjustmentEnabled && (
               <div className="mt-3">
-                <Tooltip body="Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.">
+                <Tooltip
+                  body={t`Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.`}
+                >
                   <div className="mt-1 text-muted">
-                    <GBCuped size={13} /> CUPED affects results{" "}
+                    <GBCuped size={13} /> <Trans>CUPED affects results</Trans>{" "}
                     <HiOutlineExclamationCircle />
                   </div>
                 </Tooltip>

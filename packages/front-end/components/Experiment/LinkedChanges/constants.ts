@@ -1,4 +1,5 @@
 import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
+import { msg } from "@lingui/core/macro";
 
 export const ICON_PROPERTIES = {
   "feature-flag": {
@@ -20,16 +21,13 @@ export const ICON_PROPERTIES = {
 
 export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
   "feature-flag": {
-    header: "Linked Features",
-    addButtonCopy: "Add Feature Flag",
+    addButtonCopy: msg`Add Feature Flag`,
   },
   "visual-editor": {
-    header: "AI Visual Editor Changes",
-    addButtonCopy: "Add AI Visual Editor Change",
+    addButtonCopy: msg`Add AI Visual Editor Change`,
   },
   redirects: {
-    header: "URL Redirects",
-    addButtonCopy: "Add URL Redirect",
+    addButtonCopy: msg`Add URL Redirect`,
   },
 };
 

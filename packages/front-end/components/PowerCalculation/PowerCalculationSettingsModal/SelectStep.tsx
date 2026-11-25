@@ -15,6 +15,7 @@ import {
   getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Trans, useLingui } from "@lingui/react/macro";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -47,6 +48,7 @@ export const SelectStep = ({
   onNext: () => void;
   experiments: ExperimentInterfaceStringDates[];
 }) => {
+  const { t } = useLingui();
   const {
     metrics: appMetrics,
     metricGroups,
@@ -307,13 +309,13 @@ export const SelectStep = ({
   const populationName = () => {
     switch (metricValuesSource) {
       case "factTable":
-        return "Fact Table";
+        return t`Fact Table`;
       case "experiment":
-        return "Experiment";
+        return t`Experiment`;
       case "segment":
-        return "Segment";
+        return t`Segment`;
       case "manual":
-        return "Manual entry";
+        return t`Manual entry`;
     }
   };
 
@@ -322,43 +324,47 @@ export const SelectStep = ({
       trackingEventModalType="power-calculation-select"
       open
       size="lg"
-      header="New Power Calculation"
+      header={t`New Power Calculation`}
       close={close}
       includeCloseCta={false}
-      cta="Next >"
+      cta={t`Next >`}
       secondaryCTA={
         <button
           disabled={isNextDisabled}
           onClick={onNext}
           className="btn btn-primary"
         >
-          Next &gt;
+          <Trans>Next &gt;</Trans>
         </button>
       }
     >
       <>
         <p>
-          Estimate the power of your future experiment based on user traffic and
-          selected key metrics. Use <strong>Fact Tables</strong>,{" "}
-          <strong>Segments</strong>, or <strong>Past Experiments</strong> to
-          automatically calculate expected traffic and metric values to more
-          reliably estimate power.
+          <Trans>
+            Estimate the power of your future experiment based on user traffic
+            and selected key metrics. Use <strong>Fact Tables</strong>,{" "}
+            <strong>Segments</strong>, or <strong>Past Experiments</strong> to
+            automatically calculate expected traffic and metric values to more
+            reliably estimate power.
+          </Trans>
         </p>
 
         <div className="d-flex">
-          <label className="font-weight-bold">Population Type</label>
+          <label className="font-weight-bold">
+            <Trans>Population Type</Trans>
+          </label>
           <PremiumTooltip
-            premiumText={
-              "Automated calculations based on Fact Tables, Segments, and Past Experiments are only available on the Pro or Enterprise plans."
-            }
+            premiumText={t`Automated calculations based on Fact Tables, Segments, and Past Experiments are only available on the Pro or Enterprise plans.`}
             commercialFeature="historical-power"
           >
             <></>
           </PremiumTooltip>
         </div>
         <div className="mb-2">
-          Pick the population that best represents the users you are targeting
-          with your experiment.
+          <Trans>
+            Pick the population that best represents the users you are targeting
+            with your experiment.
+          </Trans>
         </div>
 
         <RadioGroup
@@ -366,20 +372,20 @@ export const SelectStep = ({
           options={[
             {
               value: "factTable",
-              label: "Fact table",
+              label: t`Fact table`,
               disabled: !hasHistoricalPower,
             },
             {
               value: "segment",
-              label: "Segment",
+              label: t`Segment`,
               disabled: !hasHistoricalPower,
             },
             {
               value: "experiment",
-              label: "Past experiment",
+              label: t`Past experiment`,
               disabled: !hasHistoricalPower,
             },
-            { value: "manual", label: "Enter values manually" },
+            { value: "manual", label: t`Enter values manually` },
           ]}
           setValue={(value) => {
             if (value !== metricValuesSource) {
@@ -425,7 +431,7 @@ export const SelectStep = ({
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
-                    Identifier Type
+                    <Trans>Identifier Type</Trans>
                   </span>
                 </>
               }
@@ -444,27 +450,36 @@ export const SelectStep = ({
 
         <label className="mr-auto font-weight-bold">
           {" "}
-          Select Metrics{" "}
+          <Trans>Select Metrics</Trans>{" "}
           <Tooltip
             body={
               <>
                 {metricValuesSource === "experiment" ? (
                   <p>
-                    Only metrics analyzed with this experiment can be selected.
+                    <Trans>
+                      Only metrics analyzed with this experiment can be
+                      selected.
+                    </Trans>
                   </p>
                 ) : metricValuesSource !== "manual" ? (
                   <p>
-                    Only metrics that are in the same datasource and share an
-                    identifier type with your population can be selected.
+                    <Trans>
+                      Only metrics that are in the same datasource and share an
+                      identifier type with your population can be selected.
+                    </Trans>
                   </p>
                 ) : null}
-                <p>Quantile metrics cannot be selected.</p>
+                <p>
+                  <Trans>Quantile metrics cannot be selected.</Trans>
+                </p>
               </>
             }
           />
         </label>
         <div className="mb-2">
-          Pick the key metrics for which you want to estimate power.
+          <Trans>
+            Pick the key metrics for which you want to estimate power.
+          </Trans>
         </div>
         <MultiSelectField
           legacyHeight
@@ -518,7 +533,7 @@ export const SelectStep = ({
 
         {selectedMetrics.length === 5 && (
           <HelperText status="info" mb="3">
-            Limit 5 metrics
+            <Trans>Limit 5 metrics</Trans>
           </HelperText>
         )}
       </>

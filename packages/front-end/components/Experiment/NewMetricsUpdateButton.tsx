@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
 import type { SnapshotUpdateScopeKind } from "shared/types/experiment-snapshot";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
@@ -14,6 +15,7 @@ export default function NewMetricsUpdateButton({
   onUpdateAllMetrics: () => Promise<void>;
   disabled: boolean;
 }) {
+  const { t } = useLingui();
   // Shared by both actions, so neither can start while the other's request is
   // in flight. The ref also catches a second click before the re-render.
   const pendingRef = useRef(false);
@@ -44,7 +46,7 @@ export default function NewMetricsUpdateButton({
             <Button
               variant="outline"
               size="md"
-              aria-label="More update options"
+              aria-label={t`More update options`}
               disabled={disabled || pending}
             >
               <PiCaretDownFill />
@@ -59,7 +61,7 @@ export default function NewMetricsUpdateButton({
             disabled={pending}
             onClick={() => void runUpdate("all_metrics", onUpdateAllMetrics)}
           >
-            Update all metrics
+            <Trans>Update all metrics</Trans>
           </DropdownMenuItem>
         </DropdownMenu>
       }
@@ -72,7 +74,7 @@ export default function NewMetricsUpdateButton({
         loading={pendingScope === "new_metrics"}
         onClick={() => runUpdate("new_metrics", onUpdateNewMetrics)}
       >
-        Update new metrics
+        <Trans>Update new metrics</Trans>
       </Button>
     </SplitButton>
   );

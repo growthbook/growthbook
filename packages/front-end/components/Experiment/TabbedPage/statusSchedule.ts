@@ -5,30 +5,64 @@ import {
 import { hasPendingScheduledStart } from "shared/util";
 import { date, daysBetween } from "shared/dates";
 import { format } from "date-fns-tz";
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
 
 export const scheduledTime = (value: string | Date) =>
   format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
 
 const day = (value: string | Date) => date(value, "UTC");
 
-const stopAfterSpan = ({ value, unit }: { value: number; unit: string }) =>
-  `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+type StopAfter = { value: number; unit: "hours" | "days" };
+
+/** "2 days after start" */
+const afterStart = ({ value, unit }: StopAfter, i18n: I18n) =>
+  unit === "hours"
+    ? i18n._(
+        msg`${plural(value, {
+          one: "# hour after start",
+          other: "# hours after start",
+        })}`,
+      )
+    : i18n._(
+        msg`${plural(value, {
+          one: "# day after start",
+          other: "# days after start",
+        })}`,
+      );
+
+/** "After 2 days" */
+const afterSpan = ({ value, unit }: StopAfter, i18n: I18n) =>
+  unit === "hours"
+    ? i18n._(
+        msg`${plural(value, { one: "After # hour", other: "After # hours" })}`,
+      )
+    : i18n._(
+        msg`${plural(value, { one: "After # day", other: "After # days" })}`,
+      );
 
 /** How long it ran between two dates, in whole days: "36 days", "under a day". */
-export const runLength = (start: string | Date, end: string | Date) => {
+export const runLength = (
+  start: string | Date,
+  end: string | Date,
+  i18n: I18n,
+) => {
   const days = daysBetween(start, end);
-  return days < 1 ? "under a day" : `${days} ${days === 1 ? "day" : "days"}`;
+  return days < 1
+    ? i18n._(msg`under a day`)
+    : i18n._(msg`${plural(days, { one: "# day", other: "# days" })}`);
 };
 
 /** When a schedule ends: a date, or a span after the start. */
 export const scheduledEnd = (
   schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+  i18n: I18n,
   formatAt: (value: string | Date) => string = scheduledTime,
 ) =>
   schedule?.stopAt
     ? formatAt(schedule.stopAt)
     : schedule?.stopAfter
-      ? `${stopAfterSpan(schedule.stopAfter)} after start`
+      ? afterStart(schedule.stopAfter, i18n)
       : null;
 
 /** Whether a start or end is scheduled. A stop plan alone schedules nothing. */
@@ -46,20 +80,21 @@ type DatedExperiment = Pick<
   phases: Pick<ExperimentPhaseStringDates, "dateStarted" | "dateEnded">[];
 };
 
-export type LabeledDate = { label: string; value: string };
+// `key` names the date for code, `label` is its translated name.
+export type LabeledDate = { key: string; label: string; value: string };
 
 /** How long its one phase ran, or has so far while it runs; null if unknown. */
-const soloRun = (experiment: DatedExperiment, now: Date) => {
+const soloRun = (experiment: DatedExperiment, now: Date, i18n: I18n) => {
   const { phases, status } = experiment;
   if (status === "draft" || experiment.type === "holdout") return null;
   if (phases.length !== 1) return null;
   const [{ dateStarted, dateEnded }] = phases;
   if (!dateStarted) return null;
   if (dateEnded) {
-    return { ended: true, length: runLength(dateStarted, dateEnded) };
+    return { ended: true, length: runLength(dateStarted, dateEnded, i18n) };
   }
   return status === "running"
-    ? { ended: false, length: runLength(dateStarted, now) }
+    ? { ended: false, length: runLength(dateStarted, now, i18n) }
     : null;
 };
 
@@ -70,6 +105,7 @@ export const upcomingEnd = (
     "status" | "archived" | "statusUpdateSchedule"
   >,
   now: Date,
+  i18n: I18n,
 ) => {
   const schedule = experiment.statusUpdateSchedule;
   // Archived, its schedule never fires.
@@ -77,7 +113,7 @@ export const upcomingEnd = (
     experiment.archived ||
     (schedule?.stopAt && new Date(schedule.stopAt) <= now)
     ? null
-    : scheduledEnd(schedule, day);
+    : scheduledEnd(schedule, i18n, day);
 };
 
 /**
@@ -87,6 +123,7 @@ export const upcomingEnd = (
 export const headerDates = (
   experiment: DatedExperiment,
   now: Date,
+  i18n: I18n,
 ): LabeledDate[] => {
   const { phases, status } = experiment;
   const isHoldout = experiment.type === "holdout";
@@ -97,19 +134,25 @@ export const headerDates = (
       ? (isHoldout ? phases[0] : latest)?.dateStarted
       : undefined;
   const ended = status === "stopped" ? latest?.dateEnded : undefined;
-  const ends = upcomingEnd(experiment, now);
+  const ends = upcomingEnd(experiment, now, i18n);
   return [
     started
-      ? {
-          label:
-            phases.length > 1 && !isHoldout
-              ? "Latest phase started"
-              : "Started",
-          value: day(started),
-        }
-      : { label: "Created", value: day(experiment.dateCreated) },
-    ...(ended ? [{ label: "Ended", value: day(ended) }] : []),
-    ...(ends ? [{ label: "Ends", value: ends }] : []),
+      ? phases.length > 1 && !isHoldout
+        ? {
+            key: "latest-phase-started",
+            label: i18n._(msg`Latest phase started`),
+            value: day(started),
+          }
+        : { key: "started", label: i18n._(msg`Started`), value: day(started) }
+      : {
+          key: "created",
+          label: i18n._(msg`Created`),
+          value: day(experiment.dateCreated),
+        },
+    ...(ended
+      ? [{ key: "ended", label: i18n._(msg`Ended`), value: day(ended) }]
+      : []),
+    ...(ends ? [{ key: "ends", label: i18n._(msg`Ends`), value: ends }] : []),
   ];
 };
 
@@ -120,29 +163,47 @@ export const headerDates = (
 export const allDates = (
   experiment: DatedExperiment,
   now: Date,
+  i18n: I18n,
 ): LabeledDate[] => {
   const { phases, status } = experiment;
   const isHoldout = experiment.type === "holdout";
   const schedule = experiment.statusUpdateSchedule;
-  const dates = [{ label: "Created", value: day(experiment.dateCreated) }];
+  const dates: LabeledDate[] = [
+    {
+      key: "created",
+      label: i18n._(msg`Created`),
+      value: day(experiment.dateCreated),
+    },
+  ];
   if (status === "draft") {
     if (schedule?.startAt) {
       dates.push({
-        label: "Scheduled start",
+        key: "scheduled-start",
+        label: i18n._(msg`Scheduled start`),
         value: scheduledTime(schedule.startAt),
       });
     }
   } else if (phases.length === 1 && !isHoldout) {
     const [{ dateStarted, dateEnded }] = phases;
     // How long it ran, beside the date it's measured to.
-    const run = soloRun(experiment, now);
+    const run = soloRun(experiment, now, i18n);
     if (dateStarted) {
-      const running = run && !run.ended ? ` (running ${run.length})` : "";
-      dates.push({ label: "Started", value: day(dateStarted) + running });
+      const started = day(dateStarted);
+      let value = started;
+      if (run && !run.ended) {
+        const length = run.length;
+        value = i18n._(msg`${started} (running ${length})`);
+      }
+      dates.push({ key: "started", label: i18n._(msg`Started`), value });
     }
     if (dateEnded) {
-      const ran = run?.ended ? ` (ran ${run.length})` : "";
-      dates.push({ label: "Ended", value: day(dateEnded) + ran });
+      const ended = day(dateEnded);
+      let value = ended;
+      if (run?.ended) {
+        const length = run.length;
+        value = i18n._(msg`${ended} (ran ${length})`);
+      }
+      dates.push({ key: "ended", label: i18n._(msg`Ended`), value });
     }
   } else {
     phases.forEach(({ dateStarted, dateEnded }, i) => {
@@ -150,16 +211,18 @@ export const allDates = (
       const end = dateEnded
         ? day(dateEnded)
         : status === "running" && i === phases.length - 1
-          ? "now"
+          ? i18n._(msg`now`)
           : null;
+      const number = i + 1;
       dates.push({
+        key: isHoldout ? (i === 0 ? "holdout" : "analysis") : `phase-${number}`,
         label: isHoldout
           ? i === 0
-            ? "Holdout"
-            : "Analysis"
-          : `Phase ${i + 1}`,
+            ? i18n._(msg`Holdout`)
+            : i18n._(msg`Analysis`)
+          : i18n._(msg`Phase ${number}`),
         value: end
-          ? `${day(dateStarted)} – ${end} (${runLength(dateStarted, dateEnded || now)})`
+          ? `${day(dateStarted)} – ${end} (${runLength(dateStarted, dateEnded || now, i18n)})`
           : day(dateStarted),
       });
     });
@@ -167,9 +230,15 @@ export const allDates = (
   // Archived, its schedule never fires.
   const end =
     status !== "stopped" && !experiment.archived
-      ? scheduledEnd(schedule)
+      ? scheduledEnd(schedule, i18n)
       : null;
-  if (end) dates.push({ label: "Scheduled end", value: end });
+  if (end) {
+    dates.push({
+      key: "scheduled-end",
+      label: i18n._(msg`Scheduled end`),
+      value: end,
+    });
+  }
   return dates;
 };
 
@@ -177,17 +246,28 @@ export const allDates = (
  * What the header's tooltip adds to its line, and nothing the line already
  * shows: how long it has run, then the rest of its dates.
  */
-export const headerDetails = (experiment: DatedExperiment, now: Date) => {
-  const shown = headerDates(experiment, now);
-  const ends = shown.find(({ label }) => label === "Ends")?.value;
-  const run = soloRun(experiment, now);
+export const headerDetails = (
+  experiment: DatedExperiment,
+  now: Date,
+  i18n: I18n,
+) => {
+  const shown = headerDates(experiment, now, i18n);
+  const ends = shown.find(({ key }) => key === "ends")?.value;
+  const run = soloRun(experiment, now, i18n);
+  let runtime: string | null = null;
+  if (run) {
+    const length = run.length;
+    runtime = run.ended
+      ? i18n._(msg`Ran for ${length}`)
+      : i18n._(msg`Running for ${length}`);
+  }
   return {
-    runtime: run ? `${run.ended ? "Ran" : "Running"} for ${run.length}` : null,
-    dates: allDates(experiment, now).filter(
-      ({ label, value }) =>
-        !shown.some((date) => date.label === label) &&
+    runtime,
+    dates: allDates(experiment, now, i18n).filter(
+      ({ key, value }) =>
+        !shown.some((date) => date.key === key) &&
         // A span after the start reads the same on the line; a date adds its time.
-        !(label === "Scheduled end" && value === ends),
+        !(key === "scheduled-end" && value === ends),
     ),
   };
 };
@@ -212,6 +292,7 @@ export const scheduleTimes = (
   > & {
     phases: Pick<ExperimentPhaseStringDates, "dateStarted" | "dateEnded">[];
   },
+  i18n: I18n,
 ) => {
   const at = (value: string | Date) =>
     format(new Date(value), "MMM d, yyyy h:mm a");
@@ -227,6 +308,6 @@ export const scheduleTimes = (
     started: !!started,
     ended: !!ended,
     starts: start ? at(start) : null,
-    ends: end ? at(end) : after ? `After ${stopAfterSpan(after)}` : null,
+    ends: end ? at(end) : after ? afterSpan(after, i18n) : null,
   };
 };

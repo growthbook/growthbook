@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
+import { useLingui } from "@lingui/react/macro";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import {
   AuditDiffConfig,
@@ -370,10 +371,11 @@ export default function CompareExperimentEventsModal({
   experiment,
   onClose,
 }: CompareExperimentEventsModalProps) {
+  const { t } = useLingui();
   return (
     <AuditHistoryExplorerModal<ExperimentInterfaceStringDates>
       entityId={experiment.id}
-      entityName="Experiment"
+      entityName={t`Experiment`}
       config={EXPERIMENT_DIFF_CONFIG}
       eventLabels={EXPERIMENT_EVENT_LABELS}
       onClose={onClose}

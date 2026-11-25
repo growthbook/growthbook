@@ -4,6 +4,7 @@ import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -28,6 +29,7 @@ export default function PhaseSelector({
   holdout,
   details,
 }: Props) {
+  const { t, i18n } = useLingui();
   const {
     phase: snapshotPhase,
     setPhase: setSnapshotPhase,
@@ -46,8 +48,8 @@ export default function PhaseSelector({
       ? date(phase.dateEnded, "UTC")
       : (index === phaseOptions.length - 1 &&
           experiment?.status === "running" &&
-          upcomingEnd(experiment, new Date())) ||
-        "now";
+          upcomingEnd(experiment, new Date(), i18n)) ||
+        t`now`;
 
   function formatPhase(
     { value }: { value: string },
@@ -58,6 +60,7 @@ export default function PhaseSelector({
     if (!phase) return value;
 
     const isValueContext = meta?.context === "value";
+    const phaseNumber = phaseIndex + 1;
 
     if (isValueContext) {
       const tip = details?.(phaseIndex) ?? null;
@@ -67,15 +70,14 @@ export default function PhaseSelector({
         <Tooltip content={tip} enabled={!!tip} side="top">
           <span>
             <span className="font-weight-bold">
-              {!isHoldout
-                ? "Phase "
-                : phaseIndex === 0
-                  ? "Holdout: "
-                  : "Analysis: "}
+              {!isHoldout ? (
+                <Trans>Phase {phaseNumber}:</Trans>
+              ) : phaseIndex === 0 ? (
+                <Trans>Holdout:</Trans>
+              ) : (
+                <Trans>Analysis:</Trans>
+              )}{" "}
             </span>
-            {!isHoldout && (
-              <span className="font-weight-bold">{phaseIndex + 1}: </span>
-            )}
             <span className="date-label">
               {phase.lookbackStartDate && isHoldout
                 ? date(
@@ -130,7 +132,9 @@ export default function PhaseSelector({
             </div>
           ) : (
             <div className="gb-select__single-value" style={{ height: 24 }}>
-              <em>No phases</em>
+              <em>
+                <Trans>No phases</Trans>
+              </em>
             </div>
           )}
         </div>

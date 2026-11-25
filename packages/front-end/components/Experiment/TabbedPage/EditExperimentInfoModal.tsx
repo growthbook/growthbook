@@ -3,6 +3,9 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { isEqual } from "lodash";
 import { Box } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -32,13 +35,13 @@ export type InfoSection =
   | "project"
   | "customFields";
 
-export const SECTION_HEADERS: Record<InfoSection, string> = {
-  name: "Edit Name",
-  trackingKey: "Edit Experiment Key",
-  owner: "Edit Owner",
-  tags: "Edit Tags",
-  project: "Edit Project",
-  customFields: "Edit Additional Fields",
+export const SECTION_HEADERS: Record<InfoSection, MessageDescriptor> = {
+  name: msg`Edit Name`,
+  trackingKey: msg`Edit Experiment Key`,
+  owner: msg`Edit Owner`,
+  tags: msg`Edit Tags`,
+  project: msg`Edit Project`,
+  customFields: msg`Edit Additional Fields`,
 };
 
 interface Props {
@@ -60,11 +63,12 @@ export default function EditExperimentInfoModal({
   section,
   customFieldId,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
-  const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
+  const initialProjectOption = canUpdateExperimentProject("") ? t`None` : "";
 
   const customFields =
     filterCustomFieldsForSectionAndProject(
@@ -108,6 +112,7 @@ export default function EditExperimentInfoModal({
     trackingKey,
     trackingKey === experiment.trackingKey,
   );
+  const customFieldName = shownCustomFields[0]?.name;
 
   return (
     <ModalStandard
@@ -118,10 +123,10 @@ export default function EditExperimentInfoModal({
       trackingEventModalSource="experiment-more-menu"
       header={
         customFieldId && shownCustomFields.length
-          ? `Edit ${shownCustomFields[0].name}`
+          ? t`Edit ${customFieldName}`
           : holdout && section === "project"
-            ? "Edit Projects"
-            : SECTION_HEADERS[section]
+            ? t`Edit Projects`
+            : i18n._(SECTION_HEADERS[section])
       }
       submit={validatedSubmit(form, async (data) => {
         if (holdout && section === "project") {
@@ -151,7 +156,7 @@ export default function EditExperimentInfoModal({
         <Field
           size="legacy"
           autoFocus
-          label={holdout ? "Holdout name" : "Experiment name"}
+          label={holdout ? t`Holdout name` : t`Experiment name`}
           {...form.register("name")}
           required
         />
@@ -161,7 +166,7 @@ export default function EditExperimentInfoModal({
           size="legacy"
           autoFocus
           disabled={experiment.status !== "draft"}
-          label="Experiment key"
+          label={t`Experiment key`}
           {...form.register("trackingKey")}
           required
           {...trackingKeyFormatProps}
@@ -176,7 +181,9 @@ export default function EditExperimentInfoModal({
       {section === "tags" ? (
         <div className="form-group">
           <Box mb="2">
-            <Text weight="semibold">Tags</Text>
+            <Text weight="semibold">
+              <Trans>Tags</Trans>
+            </Text>
           </Box>
           <TagsInput
             autoFocus
@@ -191,14 +198,16 @@ export default function EditExperimentInfoModal({
             legacyHeight
             label={
               <>
-                <Text weight="semibold">Projects</Text>
+                <Text weight="semibold">
+                  <Trans>Projects</Trans>
+                </Text>
                 <Tooltip
                   className="pl-1"
-                  body="The dropdown below has been filtered to only include projects where you have permission to update Holdouts"
+                  body={t`The dropdown below has been filtered to only include projects where you have permission to update Holdouts`}
                 />
               </>
             }
-            placeholder="All Projects"
+            placeholder={t`All Projects`}
             value={form.watch("projects")}
             options={holdoutProjectOptions}
             onChange={(v) => form.setValue("projects", v)}
@@ -206,8 +215,10 @@ export default function EditExperimentInfoModal({
           />
           {!isEqual(form.watch("projects"), holdout.projects) ? (
             <Callout status="warning">
-              Changing projects could restrict use of some Data Sources and
-              Metrics.
+              <Trans>
+                Changing projects could restrict use of some Data Sources and
+                Metrics.
+              </Trans>
             </Callout>
           ) : null}
         </>
@@ -217,12 +228,12 @@ export default function EditExperimentInfoModal({
             size="legacy"
             label={
               <>
-                <Text weight="semibold">Project</Text>
+                <Text weight="semibold">
+                  <Trans>Project</Trans>
+                </Text>
                 <Tooltip
                   className="pl-1"
-                  body={
-                    "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-                  }
+                  body={t`The dropdown below has been filtered to only include projects where you have permission to update Experiments`}
                 />
               </>
             }
@@ -234,9 +245,11 @@ export default function EditExperimentInfoModal({
           />
           {(experiment.project || "") !== form.watch("project") ? (
             <Callout status="warning">
-              Moving to a different Project may prevent your linked Feature
-              Flags, Visual Changes, and URL Redirects from being sent to users,
-              and could restrict use of some Data Sources and Metrics.
+              <Trans>
+                Moving to a different Project may prevent your linked Feature
+                Flags, Visual Changes, and URL Redirects from being sent to
+                users, and could restrict use of some Data Sources and Metrics.
+              </Trans>
             </Callout>
           ) : null}
         </>

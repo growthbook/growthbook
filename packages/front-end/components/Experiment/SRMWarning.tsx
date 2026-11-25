@@ -1,4 +1,6 @@
 import { FC, useState } from "react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
@@ -13,8 +15,7 @@ import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { InfoTip } from "./TabbedPage/SetupFieldRow";
 
-const NOT_ENOUGH_EVIDENCE_MESSAGE =
-  "There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to chance and aren’t cause for concern at this time.";
+const NOT_ENOUGH_EVIDENCE_MESSAGE = msg`There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to chance and aren’t cause for concern at this time.`;
 
 const SRMWarning: FC<{
   srm: number;
@@ -35,18 +36,20 @@ const SRMWarning: FC<{
   type = "with_modal",
   isBandit,
 }) => {
+  const { t, i18n } = useLingui();
   const [open, setOpen] = useState(false);
   const { settings } = useUser();
   const { snapshot } = useSnapshot();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
+  const formattedSrm = pValueFormatter(srm, 4);
   const srmWarningMessage = (
-    <>
+    <Trans>
       The threshold for firing an SRM warning is <b>{srmThreshold}</b> and the
-      p-value for this experiment is <b>{pValueFormatter(srm, 4)}</b>. This is a
-      strong indicator that your traffic is imbalanced and there is a problem
-      with your traffic assignment.
-    </>
+      p-value for this experiment is <b>{formattedSrm}</b>. This is a strong
+      indicator that your traffic is imbalanced and there is a problem with your
+      traffic assignment.
+    </Trans>
   );
 
   if (typeof srm !== "number") {
@@ -54,6 +57,7 @@ const SRMWarning: FC<{
   }
 
   const healthy = srm >= srmThreshold;
+  const formattedThreshold = pValueFormatter(srmThreshold);
   if (!showWhenHealthy && healthy) {
     return null;
   }
@@ -65,14 +69,18 @@ const SRMWarning: FC<{
   // The modal explains in full; a compact card's tooltip in brief.
   const learnMoreLink =
     type === "with_modal" ? (
-      <Link onClick={() => setOpen(true)}>Learn more</Link>
+      <Link onClick={() => setOpen(true)}>
+        <Trans>Learn more</Trans>
+      </Link>
     ) : null;
   const learnMoreTip =
     type === "simple" ? (
       <>
         {" "}
         <InfoTip
-          content={healthy ? NOT_ENOUGH_EVIDENCE_MESSAGE : srmWarningMessage}
+          content={
+            healthy ? i18n._(NOT_ENOUGH_EVIDENCE_MESSAGE) : srmWarningMessage
+          }
         />
       </>
     ) : null;
@@ -86,20 +94,26 @@ const SRMWarning: FC<{
           open={open}
           header={
             <div>
-              <h2>Sample Ratio Mismatch (SRM)</h2>
+              <h2>
+                <Trans>Sample Ratio Mismatch (SRM)</Trans>
+              </h2>
               <p className="mb-0">
-                When actual traffic splits are significantly different from
-                expected, we raise an SRM issue.
+                <Trans>
+                  When actual traffic splits are significantly different from
+                  expected, we raise an SRM issue.
+                </Trans>
               </p>
             </div>
           }
-          closeCta="Close"
+          closeCta={t`Close`}
           size="lg"
         >
           <div className="mx-2">
             {srm >= srmThreshold ? (
               <>
-                <Callout status="info">{NOT_ENOUGH_EVIDENCE_MESSAGE}</Callout>
+                <Callout status="info">
+                  {i18n._(NOT_ENOUGH_EVIDENCE_MESSAGE)}
+                </Callout>
                 {variations ? (
                   <VariationUsersTable
                     variations={variations}
@@ -118,31 +132,61 @@ const SRMWarning: FC<{
                     srm={srm}
                   />
                 ) : null}
-                <p>Most common causes:</p>
+                <p>
+                  <Trans>Most common causes:</Trans>
+                </p>
                 <ul>
                   <li>
-                    <b>Bucketing</b>
+                    <b>
+                      <Trans>Bucketing</Trans>
+                    </b>
                     <ul>
                       <li>
-                        Broken event firing or conditional statements in SDK
-                        trackingCallback
+                        <Trans>
+                          Broken event firing or conditional statements in SDK
+                          trackingCallback
+                        </Trans>
                       </li>
-                      <li>Mismatch between SDK attribute and data ID</li>
+                      <li>
+                        <Trans>
+                          Mismatch between SDK attribute and data ID
+                        </Trans>
+                      </li>
                     </ul>
                   </li>
                   <li>
-                    <b>Analysis</b>
+                    <b>
+                      <Trans>Analysis</Trans>
+                    </b>
                     <ul>
-                      <li>Activation Metric influenced by variations</li>
-                      <li>Broken filtering (e.g. bot removal)</li>
-                      <li>Missing data in data warehouse</li>
+                      <li>
+                        <Trans>
+                          Activation Metric influenced by variations
+                        </Trans>
+                      </li>
+                      <li>
+                        <Trans>Broken filtering (e.g. bot removal)</Trans>
+                      </li>
+                      <li>
+                        <Trans>Missing data in data warehouse</Trans>
+                      </li>
                     </ul>
                   </li>
                   <li>
-                    <b>Experiment Changes</b>
+                    <b>
+                      <Trans>Experiment Changes</Trans>
+                    </b>
                     <ul>
-                      <li>New phase without re-randomizing (carryover bias)</li>
-                      <li>Certain targeting changes without re-randomizing </li>
+                      <li>
+                        <Trans>
+                          New phase without re-randomizing (carryover bias)
+                        </Trans>
+                      </li>
+                      <li>
+                        <Trans>
+                          Certain targeting changes without re-randomizing
+                        </Trans>{" "}
+                      </li>
                     </ul>
                   </li>
                 </ul>
@@ -152,7 +196,9 @@ const SRMWarning: FC<{
                     rel="noreferrer"
                     href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
                   >
-                    Read about troubleshooting experiments in our docs
+                    <Trans>
+                      Read about troubleshooting experiments in our docs
+                    </Trans>
                   </a>
                 </p>
               </>
@@ -167,7 +213,10 @@ const SRMWarning: FC<{
           contentAlign="center"
           action={isBandit ? null : learnMoreLink}
         >
-          No Sample Ratio Mismatch (SRM) detected: p-value above {srmThreshold}.
+          <Trans>
+            No Sample Ratio Mismatch (SRM) detected: p-value above{" "}
+            {srmThreshold}.
+          </Trans>
           {!isBandit ? learnMoreTip : null}
         </Callout>
       ) : (
@@ -186,18 +235,24 @@ const SRMWarning: FC<{
                   setTab("health");
                 }}
               >
-                View health
+                <Trans>View health</Trans>
               </Button>
             ) : (
               learnMoreLink
             )
           }
         >
-          Sample Ratio Mismatch (SRM) detected: p-value below{" "}
-          {pValueFormatter(srmThreshold)}.{" "}
-          {showHealthLink
-            ? "Results are likely untrustworthy."
-            : "There is likely a bug in the implementation."}
+          {showHealthLink ? (
+            <Trans>
+              Sample Ratio Mismatch (SRM) detected: p-value below{" "}
+              {formattedThreshold}. Results are likely untrustworthy.
+            </Trans>
+          ) : (
+            <Trans>
+              Sample Ratio Mismatch (SRM) detected: p-value below{" "}
+              {formattedThreshold}. There is likely a bug in the implementation.
+            </Trans>
+          )}
           {showHealthLink ? null : learnMoreTip}
         </Callout>
       )}

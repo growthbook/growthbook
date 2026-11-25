@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomHookInterface } from "shared/validators";
 import { useUser } from "@/services/UserContext";
@@ -24,6 +25,7 @@ export default function ExperimentCustomHooksSection({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
@@ -55,15 +57,14 @@ export default function ExperimentCustomHooksSection({
   const scope: HookScope = {
     entityType: "experiment",
     entityId: experiment.id,
-    label: "Experiment",
+    label: t`Experiment`,
   };
 
   let disableReason = "";
   if (!hasAccessToCustomHooks) {
-    disableReason = "Custom Hooks require an Enterprise plan.";
+    disableReason = t`Custom Hooks require an Enterprise plan.`;
   } else if (!canManage) {
-    disableReason =
-      "You don't have permission to manage custom hooks for this experiment.";
+    disableReason = t`You don't have permission to manage custom hooks for this experiment.`;
   }
 
   return (
@@ -77,12 +78,15 @@ export default function ExperimentCustomHooksSection({
         />
       )}
       <Heading as="h3" size="md" mb="1">
-        Custom Hooks
+        <Trans>Custom Hooks</Trans>
       </Heading>
       <Box mb="3">
         <Text color="text-low">
           <em>
-            Run sandboxed JavaScript validation before this experiment is saved.
+            <Trans>
+              Run sandboxed JavaScript validation before this experiment is
+              saved.
+            </Trans>
           </em>
         </Text>
       </Box>
@@ -92,13 +96,13 @@ export default function ExperimentCustomHooksSection({
           commercialFeature="custom-hooks"
           id="experiment-custom-hooks-section"
         >
-          Custom Hooks require an Enterprise plan.
+          <Trans>Custom Hooks require an Enterprise plan.</Trans>
         </PremiumCallout>
       ) : (
         <>
           <Flex align="center" justify="between" gap="1" mb="1">
             <Heading as="h4" size="sm" mb="0">
-              Experiment-specific Hooks
+              <Trans>Experiment-specific Hooks</Trans>
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
               <Button
@@ -106,7 +110,7 @@ export default function ExperimentCustomHooksSection({
                 onClick={() => setModalData(true)}
                 disabled={!hasAccessToCustomHooks || !canManage}
               >
-                Add Experiment Hook
+                <Trans>Add Experiment Hook</Trans>
               </Button>
             </Tooltip>
           </Flex>
@@ -121,14 +125,14 @@ export default function ExperimentCustomHooksSection({
 
           <Flex align="center" justify="between" gap="1" mb="1" mt="5" pt="5">
             <Heading as="h4" size="sm" mb="0">
-              Global/Project Hooks
+              <Trans>Global/Project Hooks</Trans>
             </Heading>
             <LinkButton
               href="/settings/custom-hooks"
               variant="soft"
               disabled={!hasAccessToCustomHooks || !canManage}
             >
-              Manage in Settings <PiArrowSquareOut />
+              <Trans>Manage in Settings</Trans> <PiArrowSquareOut />
             </LinkButton>
           </Flex>
 

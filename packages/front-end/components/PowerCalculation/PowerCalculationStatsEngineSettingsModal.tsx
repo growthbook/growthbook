@@ -3,6 +3,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { StatsEngineSettings } from "shared/power";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import RadioGroup from "@/ui/RadioGroup";
@@ -35,6 +36,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
   params,
   onSubmit,
 }: Props) {
+  const { t } = useLingui();
   const orgSettings = useOrgSettings();
   const pValueThresholdOrgDefault = usePValueThreshold(undefined);
   const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } =
@@ -52,6 +54,8 @@ export default function PowerCalculationStatsEngineSettingsModal({
     alphaToChanceToWin(params.alpha),
   );
 
+  const ciUpperOrgDefaultPercent = 100 * ciUpperOrgDefault;
+
   const defaultAlpha =
     params.type === "frequentist"
       ? pValueThresholdOrgDefault
@@ -68,13 +72,13 @@ export default function PowerCalculationStatsEngineSettingsModal({
       trackingEventModalType=""
       open
       size="lg"
-      header="Choose Statistics Engine"
+      header={t`Choose Statistics Engine`}
       close={close}
       includeCloseCta={false}
-      cta="Update"
+      cta={t`Update`}
       secondaryCTA={
         <button className="btn btn-link" onClick={close}>
-          Cancel
+          <Trans>Cancel</Trans>
         </button>
       }
       tertiaryCTA={
@@ -82,7 +86,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
           className="btn btn-primary"
           onClick={() => onSubmit(currentParams)}
         >
-          Update
+          <Trans>Update</Trans>
         </button>
       }
     >
@@ -92,28 +96,27 @@ export default function PowerCalculationStatsEngineSettingsModal({
           options={[
             {
               value: "bayesian",
-              label: `Bayesian${
-                orgSettings.statsEngine === "bayesian" ? " (Org default)" : ""
-              }`,
+              label:
+                orgSettings.statsEngine === "bayesian"
+                  ? t`Bayesian (Org default)`
+                  : t`Bayesian`,
             },
             {
               value: "frequentist",
-              label: `Frequentist${
+              label:
                 orgSettings.statsEngine === "frequentist" &&
                 !orgSettings.sequentialTestingEnabled
-                  ? " (Org default)"
-                  : ""
-              }`,
+                  ? t`Frequentist (Org default)`
+                  : t`Frequentist`,
             },
             {
               value: "sequential",
-              label: `Frequentist, with Sequential Testing${
+              label:
                 orgSettings.statsEngine === "frequentist" &&
                 orgSettings.sequentialTestingEnabled
-                  ? " (Org default)"
-                  : ""
-              }`,
-              description: `Sequential Testing enables safe peeking at results but makes confidence intervals wider.`,
+                  ? t`Frequentist, with Sequential Testing (Org default)`
+                  : t`Frequentist, with Sequential Testing`,
+              description: t`Sequential Testing enables safe peeking at results but makes confidence intervals wider.`,
             },
           ]}
           setValue={(type: StatsEngineWithSequential) => {
@@ -141,7 +144,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
         trigger={
           <div className="link-purple font-weight-bold mt-4 mb-2">
             <PiCaretRightFill className="chevron mr-1" />
-            Advanced Settings
+            <Trans>Advanced Settings</Trans>
           </div>
         }
         transitionTime={100}
@@ -150,7 +153,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
           {currentParams.type === "frequentist" ? (
             <Field
               size="legacy"
-              label="P-value threshold"
+              label={t`P-value threshold`}
               type="number"
               step="0.001"
               max="0.5"
@@ -172,7 +175,9 @@ export default function PowerCalculationStatsEngineSettingsModal({
               }}
               helpText={
                 <span className="ml-2">
-                  ({pValueThresholdOrgDefault} is your organization default)
+                  <Trans>
+                    ({pValueThresholdOrgDefault} is your organization default)
+                  </Trans>
                 </span>
               }
             />
@@ -180,7 +185,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
           {currentParams.type === "bayesian" ? (
             <Field
               size="legacy"
-              label="Chance to win threshold"
+              label={t`Chance to win threshold`}
               type="number"
               step="any"
               min="70"
@@ -203,7 +208,9 @@ export default function PowerCalculationStatsEngineSettingsModal({
               }}
               helpText={
                 <span className="ml-2">
-                  ({100 * ciUpperOrgDefault}% is your organization default)
+                  <Trans>
+                    ({ciUpperOrgDefaultPercent}% is your organization default)
+                  </Trans>
                 </span>
               }
             />

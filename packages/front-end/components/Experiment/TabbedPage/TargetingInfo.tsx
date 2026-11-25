@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -22,7 +23,11 @@ function formatRanges(ranges: [number, number][]): string {
   return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
 }
 
-const none = <em>None</em>;
+const none = (
+  <em>
+    <Trans>None</Trans>
+  </em>
+);
 
 type TargetingField = {
   key: keyof ExperimentTargetingData;
@@ -35,11 +40,12 @@ type TargetingField = {
 function useTargetingFields(
   experiment: ExperimentInterfaceStringDates,
 ): TargetingField[] {
+  const { t } = useLingui();
   const { namespaces } = useOrgSettings();
   return [
     {
       key: "savedGroups",
-      label: "Saved Group targeting",
+      label: t`Saved Group targeting`,
       render: ({ savedGroups }) =>
         savedGroups?.length ? (
           <SavedGroupTargetingDisplay savedGroups={savedGroups} />
@@ -49,7 +55,7 @@ function useTargetingFields(
     },
     {
       key: "condition",
-      label: "Attribute targeting",
+      label: t`Attribute targeting`,
       render: ({ condition }) =>
         hasAttributeCondition(condition) ? (
           <ConditionDisplay condition={condition} />
@@ -59,7 +65,7 @@ function useTargetingFields(
     },
     {
       key: "prerequisites",
-      label: "Prerequisite targeting",
+      label: t`Prerequisite targeting`,
       render: ({ prerequisites }) =>
         prerequisites?.length ? (
           <ConditionDisplay prerequisites={prerequisites} />
@@ -69,9 +75,15 @@ function useTargetingFields(
     },
     {
       key: "namespace",
-      label: "Namespace targeting",
+      label: t`Namespace targeting`,
       render: ({ namespace }) => {
-        if (!namespace?.enabled) return <em>Global (all users)</em>;
+        if (!namespace?.enabled) {
+          return (
+            <em>
+              <Trans>Global (all users)</Trans>
+            </em>
+          );
+        }
         const { coverage, ranges, name } = getNamespaceDisplayData(
           namespace,
           namespaces,
@@ -93,14 +105,14 @@ function useTargetingFields(
     },
     {
       key: "coverage",
-      label: "Traffic percent",
+      label: t`Traffic percent`,
       render: ({ coverage }) => coveragePercentFormatter.format(coverage),
     },
     ...(experiment.type !== "multi-armed-bandit"
       ? [
           {
             key: "variationWeights",
-            label: "Variation weights",
+            label: t`Variation weights`,
             render: ({ variationWeights }) =>
               formatTrafficSplit(variationWeights, 2),
           } satisfies TargetingField,
@@ -108,29 +120,29 @@ function useTargetingFields(
       : []),
     {
       key: "hashAttribute",
-      label: "Assignment attribute",
+      label: t`Assignment attribute`,
       advanced: true,
       render: ({ hashAttribute }) => hashAttribute,
     },
     {
       key: "fallbackAttribute",
-      label: "Fallback attribute",
+      label: t`Fallback attribute`,
       advanced: true,
       render: ({ fallbackAttribute }) => fallbackAttribute || none,
     },
     {
       key: "disableStickyBucketing",
-      label: "Sticky bucketing",
+      label: t`Sticky bucketing`,
       advanced: true,
       render: ({ disableStickyBucketing }) =>
-        disableStickyBucketing ? "Disabled" : "Enabled",
+        disableStickyBucketing ? t`Disabled` : t`Enabled`,
     },
     {
       key: "hashVersion",
-      label: "Hashing algorithm",
+      label: t`Hashing algorithm`,
       advanced: true,
       render: ({ hashVersion }) =>
-        hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
+        hashVersion === 1 ? t`V1 (Legacy)` : t`V2 (Preferred)`,
     },
   ];
 }
@@ -157,7 +169,9 @@ export default function TargetingInfo({
           ))
       ) : (
         <Box py="2">
-          <em>No targeting configured yet</em>
+          <em>
+            <Trans>No targeting configured yet</Trans>
+          </em>
         </Box>
       )}
     </SetupFieldGroup>
@@ -172,6 +186,7 @@ export function TargetingChanges({
   experiment: ExperimentInterfaceStringDates;
   value: ExperimentTargetingData;
 }) {
+  const { t } = useLingui();
   const [showDetails, setShowDetails] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const live = useTargetingDefaults(experiment);
@@ -179,6 +194,7 @@ export function TargetingChanges({
   // Judged as the save judges them, so only what it would write shows.
   const changed = new Set(Object.keys(changedTargeting(value, live)));
   const phase = experiment.phases.length;
+  const nextPhase = phase + 1;
   const bucketMoved = changed.has("bucketVersion");
   const minBucketMoved = changed.has("minBucketVersion");
   // What the release plan does, in words; the settings behind each open up.
@@ -187,10 +203,10 @@ export function TargetingChanges({
       ? [
           {
             key: "phase",
-            label: "Phase",
+            label: t`Phase`,
             changed: true,
-            before: phase ? `Phase ${phase}` : none,
-            after: `Phase ${phase + 1}`,
+            before: phase ? t`Phase ${phase}` : none,
+            after: t`Phase ${nextPhase}`,
           },
         ]
       : []),
@@ -198,15 +214,15 @@ export function TargetingChanges({
       ? [
           {
             key: "assignment",
-            label: "Assignment",
+            label: t`Assignment`,
             changed: true,
-            before: "As assigned now",
-            after: "Randomized again",
+            before: t`As assigned now`,
+            after: t`Randomized again`,
             details: [
               {
-                label: "Seed",
+                label: t`Seed`,
                 before: live.seed || experiment.trackingKey,
-                after: "A new seed",
+                after: t`A new seed`,
               },
             ],
           },
@@ -216,18 +232,18 @@ export function TargetingChanges({
       ? [
           {
             key: "stickyBucketing",
-            label: "Sticky bucketed users",
+            label: t`Sticky bucketed users`,
             changed: true,
-            before: "Keep their assigned variation",
+            before: t`Keep their assigned variation`,
             after: minBucketMoved
-              ? "Excluded from the experiment"
-              : "Reassigned",
+              ? t`Excluded from the experiment`
+              : t`Reassigned`,
             // Only the versions that move.
             details: [
               ...(bucketMoved
                 ? [
                     {
-                      label: "Bucket version",
+                      label: t`Bucket version`,
                       before: live.bucketVersion,
                       after: value.bucketVersion ?? live.bucketVersion,
                     },
@@ -236,7 +252,7 @@ export function TargetingChanges({
               ...(minBucketMoved
                 ? [
                     {
-                      label: "Minimum bucket version",
+                      label: t`Minimum bucket version`,
                       before: live.minBucketVersion,
                       after: value.minBucketVersion ?? live.minBucketVersion,
                     },
@@ -258,8 +274,8 @@ export function TargetingChanges({
     }));
   return (
     <ChangesTable
-      before="Live"
-      after="After publishing"
+      before={t`Live`}
+      after={t`After publishing`}
       showDetails={showDetails}
       groups={[
         {
@@ -270,7 +286,7 @@ export function TargetingChanges({
               open={showDetails}
               onOpenChange={setShowDetails}
             >
-              {showDetails ? "Hide details" : "Show details"}
+              {showDetails ? t`Hide details` : t`Show details`}
             </TargetingDetailsLink>
           ) : undefined,
         },
@@ -279,7 +295,7 @@ export function TargetingChanges({
           rows: targetingRows,
           footer: (
             <TargetingDetailsLink open={showAll} onOpenChange={setShowAll}>
-              {showAll ? "Show changes only" : "Show full targeting"}
+              {showAll ? t`Show changes only` : t`Show full targeting`}
             </TargetingDetailsLink>
           ),
         },

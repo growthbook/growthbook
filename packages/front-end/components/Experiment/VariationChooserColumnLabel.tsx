@@ -1,6 +1,7 @@
 import { Variation, VariationWithIndex } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useState } from "react";
+import { Trans } from "@lingui/react/macro";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
@@ -119,7 +120,9 @@ export default function VariationChooserColumnLabel({
                 disabled={allSelected}
               />
             </Flex>
-            <Text>Select All</Text>
+            <Text>
+              <Trans>Select All</Trans>
+            </Text>
           </Flex>
         </DropdownMenuItem>,
       );
@@ -192,7 +195,7 @@ export default function VariationChooserColumnLabel({
     // Multiple selected or all selected - show plain "Variation" text
     triggerContent = (
       <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-        Variation
+        <Trans>Variation</Trans>
       </Text>
     );
   }
@@ -205,9 +208,11 @@ export default function VariationChooserColumnLabel({
       shouldDisplay={!dropdownOpen}
       body={
         <div style={{ lineHeight: 1.5 }}>
-          {isHoldout
-            ? "The variation being compared to the holdout."
-            : "The variation being compared to the baseline."}
+          {isHoldout ? (
+            <Trans>The variation being compared to the holdout.</Trans>
+          ) : (
+            <Trans>The variation being compared to the baseline.</Trans>
+          )}
           {singleSelected && (
             <Box mt="1" style={{ marginBottom: 2 }}>
               <VariationLabel
@@ -251,7 +256,7 @@ export default function VariationChooserColumnLabel({
           textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
-          Show Variations
+          <Trans>Show Variations</Trans>
         </DropdownMenuLabel>
         {renderMenuItems()}
       </DropdownMenuGroup>

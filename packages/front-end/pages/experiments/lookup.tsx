@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
 export default function ExperimentLookupPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { trackingKey } = router.query;
   const [error, setError] = useState("");
@@ -30,9 +32,9 @@ export default function ExperimentLookupPage() {
         }
       })
       .catch((e) => {
-        setError(e.message || "An error occurred");
+        setError(e.message || t`An error occurred`);
       });
-  }, [trackingKey, apiCall, router]);
+  }, [trackingKey, apiCall, router, t]);
 
   if (error) {
     return <Callout status="error">{error}</Callout>;
@@ -44,10 +46,12 @@ export default function ExperimentLookupPage() {
 
   return (
     <div className="container-fluid pagecontents">
-      <Callout status="error">Experiment not found</Callout>
+      <Callout status="error">
+        <Trans>Experiment not found</Trans>
+      </Callout>
       <div className="mt-3 px-3">
         <Link href="/experiments" size="lg">
-          All Experiments
+          <Trans>All Experiments</Trans>
         </Link>
       </div>
     </div>

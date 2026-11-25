@@ -12,6 +12,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { FactTableDefinition } from "shared/types/fact-table";
+import { useLingui } from "@lingui/react/macro";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -84,13 +85,16 @@ export default function MetricValueColumn({
   style,
   rowSpan,
   showRatio = true,
-  noDataMessage = "No data",
+  noDataMessage,
   displayCurrency,
   getExperimentMetricById,
   getFactTableById,
   asTd = true,
   ...otherProps
 }: Props) {
+  const { t } = useLingui();
+  const noDataContent =
+    noDataMessage === undefined ? t`No data` : noDataMessage;
   const formatterOptions = { currency: displayCurrency };
 
   const crForDisplay = effectiveCrForDisplay(metric, stats);
@@ -115,9 +119,9 @@ export default function MetricValueColumn({
 
   const quantileMetric = quantileMetricType(metric);
   if (quantileMetric && stats.stats?.count !== undefined) {
-    numerator = `${numberFormatter.format(stats.stats.count)} ${
-      quantileMetric === "event" ? "events" : "users"
-    }`;
+    const count = numberFormatter.format(stats.stats.count);
+    numerator =
+      quantileMetric === "event" ? t`${count} events` : t`${count} users`;
   } else if (isFactMetric(metric)) {
     numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
       numeratorValue,
@@ -172,7 +176,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className="text-muted small">{noDataMessage}</em>
+        <em className="text-muted small">{noDataContent}</em>
       )}
     </ConditionalWrapper>
   );

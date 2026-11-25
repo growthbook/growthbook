@@ -6,6 +6,7 @@ import {
 } from "shared/experiments";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -23,6 +24,7 @@ export default function PublicExperimentAnalysisSettingsBar({
   snapshot?: ExperimentSnapshotInterface;
   ssrPolyfills?: SSRPolyfills;
 }) {
+  const { t } = useLingui();
   const analysis = snapshot
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
@@ -39,36 +41,38 @@ export default function PublicExperimentAnalysisSettingsBar({
           trigger={
             <Link>
               <PiEye className="mr-1" />
-              View details
+              <Trans>View details</Trans>
             </Link>
           }
           align="end"
           content={
             <div style={{ minWidth: 250 }}>
-              <h5>Results computed with:</h5>
+              <h5>
+                <Trans>Results computed with:</Trans>
+              </h5>
               <Metadata
-                label="Engine"
+                label={t`Engine`}
                 value={
                   analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
+                    ? t`Frequentist`
+                    : t`Bayesian`
                 }
               />
               <Metadata
                 label="CUPED"
                 value={
                   snapshot?.settings?.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"
+                    ? t`Enabled`
+                    : t`Disabled`
                 }
               />
               {analysis?.settings?.statsEngine === "frequentist" && (
                 <Metadata
-                  label="Sequential"
+                  label={t`Sequential`}
                   value={
                     analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"
+                      ? t`Enabled`
+                      : t`Disabled`
                   }
                 />
               )}
@@ -76,10 +80,10 @@ export default function PublicExperimentAnalysisSettingsBar({
                 {/* Added metrics are queried through the run's end date, so
                     every number is as of the run; the later update only
                     added metrics. */}
-                <Metadata label="Run date" value={datetime(lastUpdated)} />
+                <Metadata label={t`Run date`} value={datetime(lastUpdated)} />
                 {getNewMetricsUpdate(snapshot) ? (
                   <Metadata
-                    label="Metrics added"
+                    label={t`Metrics added`}
                     value={datetime(snapshot.dateCreated)}
                   />
                 ) : null}
@@ -119,13 +123,15 @@ export default function PublicExperimentAnalysisSettingsBar({
           </div>
           <div className="col-auto d-flex align-items-end">
             <div>
-              <div className="uppercase-title text-muted">Date range</div>
+              <div className="uppercase-title text-muted">
+                <Trans>Date range</Trans>
+              </div>
               <div className="relative">
                 <span className="date-label">
                   {date(snapshot.settings.startDate)} —{" "}
                   {snapshot.settings.endDate
                     ? date(snapshot.settings.endDate)
-                    : "now"}
+                    : t`now`}
                 </span>
               </div>
             </div>
@@ -140,7 +146,7 @@ export default function PublicExperimentAnalysisSettingsBar({
                 title={datetime(lastUpdated)}
               >
                 <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                  last updated
+                  <Trans>last updated</Trans>
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
                   {ago(lastUpdated)}

@@ -8,6 +8,7 @@ import {
 } from "shared/power";
 import { MetricPriorSettings } from "shared/types/fact-table";
 import { OrganizationSettings } from "shared/types/organization";
+import { useLingui } from "@lingui/react/macro";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -67,6 +68,7 @@ export default function PowerCalculationSettingsModal({
   params,
   startPage,
 }: Props) {
+  const { t, i18n } = useLingui();
   const settings = useOrgSettings();
   const { project } = useDefinitions();
   const { experiments } = useExperiments(project, false, "standard");
@@ -143,7 +145,12 @@ export default function PowerCalculationSettingsModal({
                 );
                 // Retrieve experiment snapshot and set data from it before moving
                 // to the set params step
-                setMetricDataFromExperiment({ form, experiment, apiCall });
+                setMetricDataFromExperiment({
+                  form,
+                  experiment,
+                  apiCall,
+                  i18n,
+                });
               } else if (form.watch("metricValuesData.source") !== "manual") {
                 // Kick of segment of fact table power query, or retrieve
                 // existing values from cache and proceed to the set params step
@@ -162,9 +169,10 @@ export default function PowerCalculationSettingsModal({
                 }
               }
             } catch (e) {
+              const errorMessage = e.message;
               form.setValue(
                 "metricValuesData.error",
-                `Unable to compute metric values: ${e.message}`,
+                t`Unable to compute metric values: ${errorMessage}`,
               );
             } finally {
               setStep("set-params");

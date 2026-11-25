@@ -1,4 +1,6 @@
+import { setupI18n } from "@lingui/core";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { messages } from "@/locales/en/messages.po";
 import {
   getStartTitle,
   getStartActions,
@@ -7,6 +9,8 @@ import {
   StartActions,
   withServerChecklist,
 } from "@/components/Experiment/TabbedPage/startActions";
+
+const i18n = setupI18n({ locale: "en", messages: { en: messages } });
 
 // Local-time dates, so the formatted label doesn't depend on the runner's zone.
 const now = new Date(2026, 8, 28, 12, 0);
@@ -164,6 +168,7 @@ describe("getStartActions", () => {
           canBypassApproval,
           needsUpgrade,
           bypassed,
+          i18n,
         }),
       ).toEqual({
         action: "start",
@@ -256,8 +261,8 @@ describe("getStartTitle", () => {
           : null,
         nextScheduledStatusUpdate: next,
       };
-      expect(getStartTitle(input, now)).toBe(expected);
-      expect(getStartTitle(input, now, true)).toBe(heading);
+      expect(getStartTitle(input, now, i18n)).toBe(expected);
+      expect(getStartTitle(input, now, i18n, true)).toBe(heading);
     },
   );
 });

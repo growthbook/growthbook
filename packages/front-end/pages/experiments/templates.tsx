@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { isEmpty } from "lodash";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import Button from "@/ui/Button";
@@ -30,13 +31,13 @@ const ExperimentTemplatesPage: React.FC = () => {
       <Box className="contents experiments container-fluid pagecontents">
         <Flex mb="4" mt="2" align="center" justify="between">
           <Heading as="h1" mb="2">
-            Experiment Templates
+            <Trans>Experiment Templates</Trans>
           </Heading>
           <Button
             onClick={() => setOpenTemplateModal({})}
             disabled={!hasTemplatesFeature || !canAddTemplate}
           >
-            Add Template
+            <Trans>Add Template</Trans>
           </Button>
         </Flex>
         <TemplatesPage

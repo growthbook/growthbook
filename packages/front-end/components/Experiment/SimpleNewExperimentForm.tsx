@@ -1,4 +1,5 @@
 import { FC, useEffect, useId, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -245,6 +246,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   source,
   onSwitchToLegacy,
 }) => {
+  const { t } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const {
@@ -423,10 +425,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const name = (rawValue.name || "").trim();
     if (name.length < 1) {
-      throw new Error("Name must not be empty");
+      throw new Error(t`Name must not be empty`);
     }
     if (templateRequired && !rawValue.templateId) {
-      throw new Error("You must select a template");
+      throw new Error(t`You must select a template`);
     }
 
     let data: Partial<ExperimentInterfaceStringDates>;
@@ -471,7 +473,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     const project = rawValue.project || "";
     const hashAttribute = rawValue.hashAttribute || defaultHashAttribute;
     if (!hashAttribute) {
-      throw new Error("You must select an assignment attribute");
+      throw new Error(t`You must select an assignment attribute`);
     }
 
     const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -559,7 +561,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
     if ("duplicateTrackingKey" in res) {
       throw new Error(
-        "An experiment with that tracking key already exists. Please try a different name.",
+        t`An experiment with that tracking key already exists. Please try a different name.`,
       );
     }
 
@@ -573,11 +575,16 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     router.push(`/experiment/${res.experiment.id}`);
   });
 
+  const unavailableIdentifierType =
+    unavailableTemplateAssignment?.kind === "unavailable"
+      ? unavailableTemplateAssignment.identifierType
+      : "";
+
   return (
     <ModalStandard
       open
-      header="Create Experiment"
-      cta="Create"
+      header={t`Create Experiment`}
+      cta={t`Create`}
       size="lg"
       ctaEnabled={canSubmit}
       submit={onSubmit}
@@ -587,7 +594,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       headerAction={
         onSwitchToLegacy && showSwitchToOldExpCreate ? (
           <Link onClick={onSwitchToLegacy} color="gray">
-            Switch to old experience
+            <Trans>Switch to old experience</Trans>
           </Link>
         ) : undefined
       }
@@ -599,33 +606,37 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             dismissible
             id="new-experiment-create-flow-callout"
           >
-            Other experiment configuration steps now live on the experiment
-            overview page.
+            <Trans>
+              Other experiment configuration steps now live on the experiment
+              overview page.
+            </Trans>
           </Callout>
         )}
         {creatingInDemoProject && (
           <Callout status="warning">
-            You are creating an experiment in the Sample Data Project.
+            <Trans>
+              You are creating an experiment in the Sample Data Project.
+            </Trans>
           </Callout>
         )}
         <SDKCapabilityWarning
           capability="bucketingV2"
           project={selectedProject}
-          someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
-          noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
-          popoverTriggerText="Show incompatible SDKs"
+          someMessage={t`Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing.`}
+          noneMessage={t`Using V1 hashing algorithm as none of your SDK Connections support V2 hashing.`}
+          popoverTriggerText={t`Show incompatible SDKs`}
           size="medium"
         />
       </Flex>
       <Field
-        label="Experiment Name"
+        label={t`Experiment Name`}
         required
         minLength={2}
         {...form.register("name")}
       />
       {settings.experimentKeyRegexValidator && (
         <Field
-          label="Tracking Key"
+          label={t`Tracking Key`}
           {...form.register("trackingKey")}
           {...trackingKeyFormatProps}
         />
@@ -633,18 +644,21 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
       {projects.length >= 1 && (
         <SelectField
-          label="Project"
+          label={t`Project`}
           value={selectedProject}
           onChange={(p) => form.setValue("project", p)}
           name="project"
-          initialOption={allowAllProjects ? "All Projects" : undefined}
+          initialOption={allowAllProjects ? t`All Projects` : undefined}
           options={availableProjects}
         />
       )}
 
       {!hasProjectPermission && (
         <Callout status="error" mb="3">
-          You don&apos;t have permission to create experiments in this project.
+          <Trans>
+            You don&apos;t have permission to create experiments in this
+            project.
+          </Trans>
         </Callout>
       )}
 
@@ -652,7 +666,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <SelectField
           label={
             <PremiumTooltip commercialFeature="templates">
-              Template
+              <Trans>Template</Trans>
             </PremiumTooltip>
           }
           value={form.watch("templateId") ?? ""}
@@ -680,11 +694,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             form.setValue("customFields", templateAsExperiment.customFields);
           }}
           name="template"
-          initialOption="None"
+          initialOption={t`None`}
           options={availableTemplates}
           helpText={
             templateRequired
-              ? "Your organization requires experiments to be created from a template"
+              ? t`Your organization requires experiments to be created from a template`
               : undefined
           }
           disabled={!hasCommercialFeature("templates")}
@@ -693,14 +707,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       )}
       {unavailableTemplateAssignment?.kind === "unavailable" && (
         <Callout status="warning" mb="3">
-          This template&apos;s identifier type (&quot;
-          {unavailableTemplateAssignment.identifierType}&quot;) isn&apos;t
-          declared by{" "}
-          {unavailableTemplateAssignment.outOfScope
-            ? "an assignment query scoped to this Project"
-            : "any assignment query"}
-          . The experiment will be created without assignment settings, so
-          choose them before analyzing results.
+          {unavailableTemplateAssignment.outOfScope ? (
+            <Trans>
+              This template&apos;s identifier type (&quot;
+              {unavailableIdentifierType}&quot;) isn&apos;t declared by an
+              assignment query scoped to this Project. The experiment will be
+              created without assignment settings, so choose them before
+              analyzing results.
+            </Trans>
+          ) : (
+            <Trans>
+              This template&apos;s identifier type (&quot;
+              {unavailableIdentifierType}&quot;) isn&apos;t declared by any
+              assignment query. The experiment will be created without
+              assignment settings, so choose them before analyzing results.
+            </Trans>
+          )}
         </Callout>
       )}
 
@@ -714,17 +736,17 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       <Box mb="3">
         <Box id={hypothesisLabelId} mb="1">
           <Text as="label" weight="semibold">
-            Hypothesis
+            <Trans>Hypothesis</Trans>
           </Text>
         </Box>
         <AIRichTextField
           value={form.watch("hypothesis") ?? ""}
           onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
-          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          placeholder={t`e.g. Making the signup button bigger will increase clicks and ultimately improve revenue`}
           height="xs"
           collapsibleToolbar
           aiSuggestFunction={suggestHypothesis}
-          aiButtonText="Check hypothesis"
+          aiButtonText={t`Check hypothesis`}
           trackingSource="simple-new-experiment-form"
           onUploadingChange={setHypothesisUploading}
           ariaLabelledBy={hypothesisLabelId}
@@ -737,11 +759,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           label={
             <>
               <Text weight="semibold" mb="1">
-                Assignment attribute
+                <Trans>Assignment attribute</Trans>
               </Text>
               <Text as="div" color="text-mid">
-                Will be hashed together with the tracking key to determine which
-                variation to assign
+                <Trans>
+                  Will be hashed together with the tracking key to determine
+                  which variation to assign
+                </Trans>
               </Text>
             </>
           }
@@ -753,8 +777,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           helpText={
             hashAttributeHoldoutMismatch ? (
               <HelperText status="warning" size="sm" mt="2">
-                The hash attribute of this experiment does not match the hash
-                attribute of the holdout this experiment will belong to.
+                <Trans>
+                  The hash attribute of this experiment does not match the hash
+                  attribute of the holdout this experiment will belong to.
+                </Trans>
               </HelperText>
             ) : undefined
           }

@@ -6,6 +6,9 @@ import {
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ReactElement } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
@@ -29,34 +32,31 @@ import { ICON_PROPERTIES, LinkedChange } from "./constants";
 export const LINKED_CHANGES: Record<
   LinkedChange,
   {
-    header: string;
-    cta: string;
-    description: string;
+    header: MessageDescriptor;
+    cta: MessageDescriptor;
+    description: MessageDescriptor;
     commercialFeature: CommercialFeature | "";
     sdkCapabilityKey: SDKCapability | "";
   }
 > = {
   "feature-flag": {
-    header: "Feature Flag",
-    cta: "Link Feature Flag",
-    description:
-      "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
+    header: msg`Feature Flag`,
+    cta: msg`Link Feature Flag`,
+    description: msg`Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.`,
     commercialFeature: "",
     sdkCapabilityKey: "",
   },
   "visual-editor": {
-    header: "AI Visual Editor",
-    cta: "Launch AI Visual Editor",
-    description:
-      "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
+    header: msg`AI Visual Editor`,
+    cta: msg`Launch AI Visual Editor`,
+    description: msg`Use our no-code browser extension to A/B test minor changes, such as headings or button text.`,
     commercialFeature: "visual-editor",
     sdkCapabilityKey: "visualEditor",
   },
   redirects: {
-    header: "URL Redirects",
-    cta: "Add URL Redirect",
-    description:
-      "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
+    header: msg`URL Redirects`,
+    cta: msg`Add URL Redirect`,
+    description: msg`Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.`,
     commercialFeature: "redirects",
     sdkCapabilityKey: "redirects",
   },
@@ -73,15 +73,25 @@ export type LinkedChangeTarget = {
 export function linkedChangeSdkUnsupportedCopy(
   type: LinkedChange,
   target: LinkedChangeTarget,
+  i18n: I18n,
 ): string {
+  const header = i18n._(LINKED_CHANGES[type].header);
   return (
     target.sdkUnsupportedCopy?.[type] ??
-    `The SDKs in this Project don't support ${LINKED_CHANGES[type].header}. Upgrade your SDK(s) or add a supported SDK.`
+    i18n._(
+      msg`The SDKs in this Project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`,
+    )
   );
 }
 
-export function linkedChangePremiumCopy(target: LinkedChangeTarget): string {
-  return `You can add this to your draft, but you will not be able to start the ${target.noun} until upgrading.`;
+export function linkedChangePremiumCopy(
+  target: LinkedChangeTarget,
+  i18n: I18n,
+): string {
+  const noun = target.noun;
+  return i18n._(
+    msg`You can add this to your draft, but you will not be able to start the ${noun} until upgrading.`,
+  );
 }
 
 export function linkedChangeSdkSupported(
@@ -111,7 +121,16 @@ const AddLinkedChangeRow = ({
   setModal: (open: boolean) => void;
   target: LinkedChangeTarget;
 }) => {
-  const { header, cta, description, commercialFeature } = LINKED_CHANGES[type];
+  const { i18n } = useLingui();
+  const {
+    header: headerMessage,
+    cta: ctaMessage,
+    description: descriptionMessage,
+    commercialFeature,
+  } = LINKED_CHANGES[type];
+  const header = i18n._(headerMessage);
+  const cta = i18n._(ctaMessage);
+  const description = i18n._(descriptionMessage);
   const { component: Icon, radixColor } = ICON_PROPERTIES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -157,7 +176,7 @@ const AddLinkedChangeRow = ({
           commercialFeature && !hasFeature ? (
             <PremiumTooltip
               commercialFeature={commercialFeature}
-              body={linkedChangePremiumCopy(target)}
+              body={linkedChangePremiumCopy(target, i18n)}
               usePortal={true}
             >
               <Button
@@ -181,7 +200,7 @@ const AddLinkedChangeRow = ({
           )
         ) : (
           <Tooltip
-            content={linkedChangeSdkUnsupportedCopy(type, target)}
+            content={linkedChangeSdkUnsupportedCopy(type, target, i18n)}
             side="top"
           >
             <Button variant="ghost" disabled>
@@ -250,34 +269,34 @@ export const ADDABLE_KINDS: AddableKind[] = [
 const ADD_OPTIONS: Record<
   AddableKind,
   {
-    header: string;
-    description: string;
-    addLabel: string;
+    header: MessageDescriptor;
+    description: MessageDescriptor;
+    addLabel: MessageDescriptor;
     icon: ReactElement;
     color: AvatarProps["color"];
     kind: LinkedChange;
   }
 > = {
   feature: {
-    header: "Feature Flag",
-    description: "Make code changes in your app",
-    addLabel: "Feature Flag",
+    header: msg`Feature Flag`,
+    description: msg`Make code changes in your app`,
+    addLabel: msg`Feature Flag`,
     icon: <PiFlag />,
     color: ICON_PROPERTIES["feature-flag"].radixColor,
     kind: "feature-flag",
   },
   visual: {
-    header: "AI Visual Editor",
-    description: "No-code browser extension",
-    addLabel: "AI Visual Editor changes",
+    header: msg`AI Visual Editor`,
+    description: msg`No-code browser extension`,
+    addLabel: msg`AI Visual Editor changes`,
     icon: <PiDesktop />,
     color: ICON_PROPERTIES["visual-editor"].radixColor,
     kind: "visual-editor",
   },
   urlredirect: {
-    header: "URL Redirect",
-    description: "A/B test URL redirects",
-    addLabel: "URL redirect",
+    header: msg`URL Redirect`,
+    description: msg`A/B test URL redirects`,
+    addLabel: msg`URL redirect`,
     icon: <PiLink />,
     color: ICON_PROPERTIES.redirects.radixColor,
     kind: "redirects",
@@ -301,6 +320,7 @@ function useLinkedChangeAddGate(
   disabledReason: string | null;
   missingFeature: CommercialFeature | null;
 } {
+  const { i18n } = useLingui();
   const { data: sdkConnectionsData } = useSDKConnections();
   const { hasCommercialFeature } = useUser();
   const { kind } = ADD_OPTIONS[type];
@@ -314,7 +334,9 @@ function useLinkedChangeAddGate(
   return {
     disabledReason:
       blockedReason ??
-      (sdkSupported ? null : linkedChangeSdkUnsupportedCopy(kind, target)),
+      (sdkSupported
+        ? null
+        : linkedChangeSdkUnsupportedCopy(kind, target, i18n)),
     missingFeature:
       commercialFeature && !hasCommercialFeature(commercialFeature)
         ? commercialFeature
@@ -333,6 +355,7 @@ function AddImplementationItem({
   onClick: () => void;
   blockedReason?: string | null;
 }) {
+  const { i18n } = useLingui();
   const { disabledReason, missingFeature } = useLinkedChangeAddGate(
     type,
     experiment,
@@ -347,9 +370,9 @@ function AddImplementationItem({
       </Avatar>
       <Flex direction="column">
         <Text color={color} weight="semibold">
-          {option.header}
+          {i18n._(option.header)}
         </Text>
-        <Text color={color}>{option.description}</Text>
+        <Text color={color}>{i18n._(option.description)}</Text>
       </Flex>
     </Flex>
   );
@@ -366,7 +389,7 @@ function AddImplementationItem({
       ) : missingFeature ? (
         <PremiumTooltip
           commercialFeature={missingFeature}
-          body={linkedChangePremiumCopy(experimentTarget(experiment))}
+          body={linkedChangePremiumCopy(experimentTarget(experiment), i18n)}
           tipPosition="left"
         >
           {content}
@@ -392,6 +415,7 @@ export function AddImplementationMenu({
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
+  const { t, i18n } = useLingui();
   if (!primary) {
     return (
       <Frame width="100%" mb="0" px="4" py="2">
@@ -409,9 +433,11 @@ export function AddImplementationMenu({
                   {ADD_OPTIONS[type].icon}
                 </Avatar>
                 <Text weight="semibold" color="text-high" whiteSpace="nowrap">
-                  {ADD_OPTIONS[type].header}
+                  {i18n._(ADD_OPTIONS[type].header)}
                 </Text>
-                <Text color="text-mid">{ADD_OPTIONS[type].description}</Text>
+                <Text color="text-mid">
+                  {i18n._(ADD_OPTIONS[type].description)}
+                </Text>
               </Flex>
               <AddImplementationButton
                 type={type}
@@ -434,7 +460,7 @@ export function AddImplementationMenu({
           trigger={
             <Button
               variant="outline"
-              aria-label="Add another kind of implementation"
+              aria-label={t`Add another kind of implementation`}
             >
               <PiCaretDownFill />
             </Button>
@@ -478,6 +504,7 @@ function AddImplementationButton({
   blockedReason?: string | null;
   ghost?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { disabledReason, missingFeature } = useLinkedChangeAddGate(
     type,
     experiment,
@@ -486,15 +513,15 @@ function AddImplementationButton({
   // Once there's a page of changes, this adds another rather than reopening it.
   const label =
     type === "visual" && experiment.hasVisualChangesets
-      ? "Another AI Visual Editor page"
-      : ADD_OPTIONS[type].addLabel;
+      ? t`Another AI Visual Editor page`
+      : i18n._(ADD_OPTIONS[type].addLabel);
   const button = (
     <Button
       variant={ghost ? "ghost" : "outline"}
       icon={<PiPlus />}
       onClick={onClick}
       disabled={!!disabledReason}
-      aria-label={`Add ${label}`}
+      aria-label={t`Add ${label}`}
     >
       {label}
     </Button>
@@ -506,7 +533,7 @@ function AddImplementationButton({
     return (
       <PremiumTooltip
         commercialFeature={missingFeature}
-        body={linkedChangePremiumCopy(experimentTarget(experiment))}
+        body={linkedChangePremiumCopy(experimentTarget(experiment), i18n)}
         usePortal
       >
         {button}

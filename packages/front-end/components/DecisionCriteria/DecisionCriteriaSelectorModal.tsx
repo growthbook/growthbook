@@ -1,4 +1,5 @@
 import { FC, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DecisionCriteriaData } from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
@@ -10,6 +11,7 @@ import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import { decisionCriteriaText } from "./decisionCriteriaText";
 
 interface DecisionCriteriaSelectorModalProps {
   onSubmit: () => void;
@@ -25,6 +27,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
   initialCriteria,
   stageChanges,
 }) => {
+  const { i18n } = useLingui();
   const { data } = useApi<{
     status: number;
     decisionCriteria: DecisionCriteriaData[];
@@ -80,14 +83,20 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
             }}
             size="md"
           >
-            {decisionCriterias.map((criteria) => (
-              <SelectItem key={criteria.id} value={criteria.id}>
-                <Text weight="bold">{criteria.name}</Text>
-                {criteria.description ? (
-                  <Text color="gray">{`: ${criteria.description}`}</Text>
-                ) : null}
-              </SelectItem>
-            ))}
+            {decisionCriterias.map((criteria) => {
+              const { name, description } = decisionCriteriaText(
+                criteria,
+                i18n,
+              );
+              return (
+                <SelectItem key={criteria.id} value={criteria.id}>
+                  <Text weight="bold">{name}</Text>
+                  {description ? (
+                    <Text color="gray">{`: ${description}`}</Text>
+                  ) : null}
+                </SelectItem>
+              );
+            })}
           </Select>
         </Box>
 

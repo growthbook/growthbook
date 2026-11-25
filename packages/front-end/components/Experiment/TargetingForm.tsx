@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { UseFormReturn } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import {
@@ -32,6 +33,7 @@ export default function TargetingForm({
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: TargetingFormProps) {
+  const { t } = useLingui();
   const restrictedAttributeProjects =
     attributeProjects !== undefined
       ? attributeProjects
@@ -63,9 +65,12 @@ export default function TargetingForm({
         <>
           <hr className="my-4" />
           <Callout status="info" mb="4">
-            Changes made below are only metadata changes and will have no impact
-            on actual experiment delivery unless you link a GrowthBook-managed
-            Linked Feature or Visual Change to this experiment.
+            <Trans>
+              Changes made below are only metadata changes and will have no
+              impact on actual experiment delivery unless you link a
+              GrowthBook-managed Linked Feature or Visual Change to this
+              experiment.
+            </Trans>
           </Callout>
         </>
       )}
@@ -110,12 +115,14 @@ export default function TargetingForm({
       {holdsBack ? (
         <Box mb="2">
           <Text as="div" weight="semibold">
-            {changeType === "traffic" ? "Traffic percent" : "Variation weights"}
+            {changeType === "traffic"
+              ? t`Traffic percent`
+              : t`Variation weights`}
           </Text>
           <Text as="div" size="sm" color="text-mid">
             {changeType === "traffic"
-              ? "Only the traffic percent changes here. To change variation weights too, go back and choose Advanced."
-              : "Only variation weights change here. To change the traffic percent too, go back and choose Advanced."}
+              ? t`Only the traffic percent changes here. To change variation weights too, go back and choose Advanced.`
+              : t`Only variation weights change here. To change the traffic percent too, go back and choose Advanced.`}
           </Text>
         </Box>
       ) : null}
@@ -144,7 +151,7 @@ export default function TargetingForm({
           hideSplits={type === "multi-armed-bandit"}
           coverageLabel={
             type === "multi-armed-bandit"
-              ? "Traffic included in this Bandit"
+              ? t`Traffic included in this Bandit`
               : undefined
           }
           // Alone on its step, it is named above or by its slider.
@@ -152,8 +159,8 @@ export default function TargetingForm({
             !isAdvancedChange
               ? null
               : type === "multi-armed-bandit"
-                ? "Traffic percent"
-                : "Traffic percent and variation weights"
+                ? t`Traffic percent`
+                : t`Traffic percent and variation weights`
           }
           startEditingSplits={true}
         />

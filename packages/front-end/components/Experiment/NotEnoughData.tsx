@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { formatDistance } from "date-fns";
 import { PiWarningCircle } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import { RowResults } from "@/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
@@ -23,6 +24,10 @@ export default function NotEnoughData({
   showPercentComplete?: boolean;
 }) {
   const enoughDataMeta = rowResults.enoughDataMeta;
+  const timeRemaining =
+    enoughDataMeta.reason === "notEnoughData"
+      ? formatDistance(0, enoughDataMeta.timeRemainingMs ?? 0)
+      : "";
   return (
     <div className="not-enough-data">
       <Flex direction="row" align="center" gap="1">
@@ -30,7 +35,7 @@ export default function NotEnoughData({
           className="text-muted font-weight-normal"
           style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
-          Not enough data
+          <Trans>Not enough data</Trans>
         </em>
         <PiWarningCircle
           size={15}
@@ -45,14 +50,11 @@ export default function NotEnoughData({
             style={{ fontSize: "10.5px", lineHeight: "18px" }}
           >
             {(enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
-              <>
-                <span className="nowrap">
-                  {formatDistance(0, enoughDataMeta.timeRemainingMs ?? 0)}
-                </span>{" "}
-                left
-              </>
+              <Trans>
+                <span className="nowrap">{timeRemaining}</span> left
+              </Trans>
             ) : (
-              "try updating now"
+              <Trans>try updating now</Trans>
             )}
           </div>
         )}

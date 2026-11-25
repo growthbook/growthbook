@@ -8,6 +8,7 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
+import { Plural, Trans } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm, {
@@ -162,6 +163,8 @@ export default function AnalysisSettings({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const burnInValue = experiment.banditBurnInValue ?? 1;
+  const scheduleValue = experiment.banditScheduleValue ?? 1;
 
   return (
     <>
@@ -184,12 +187,14 @@ export default function AnalysisSettings({
       <Frame>
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
           <Heading color="text-high" as="h4" size="sm" mb="0">
-            Analysis Settings
+            <Trans>Analysis Settings</Trans>
           </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
             <Link onClick={() => setAnalysisModal(true)}>
-              <Text weight="semibold">Edit</Text>
+              <Text weight="semibold">
+                <Trans>Edit</Trans>
+              </Text>
             </Link>
           ) : null}
         </div>
@@ -198,7 +203,7 @@ export default function AnalysisSettings({
           <div className="row">
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
-                Data Source
+                <Trans>Data Source</Trans>
               </Text>
               <div>
                 <Text color="text-mid">
@@ -209,7 +214,7 @@ export default function AnalysisSettings({
 
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
-                Experiment Assignment Table
+                <Trans>Experiment Assignment Table</Trans>
               </Text>
               <div>
                 <Text color="text-mid">
@@ -233,21 +238,23 @@ export default function AnalysisSettings({
 
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
-                {experiment.isClusterExperiment
-                  ? "Identifier Types"
-                  : "Identifier Type"}
+                {experiment.isClusterExperiment ? (
+                  <Trans>Identifier Types</Trans>
+                ) : (
+                  <Trans>Identifier Type</Trans>
+                )}
               </Text>
               {experiment.isClusterExperiment ? (
                 <>
                   <div>
                     <Text color="text-high" weight="medium">
-                      Cluster:
+                      <Trans>Cluster:</Trans>
                     </Text>{" "}
                     <Text color="text-mid">{identifierType || "--"}</Text>
                   </div>
                   <div>
                     <Text color="text-high" weight="medium">
-                      Subunit:
+                      <Trans>Subunit:</Trans>
                     </Text>{" "}
                     <Text color="text-mid">
                       {experiment.clusterSubUnitIdentifier || "--"}
@@ -264,7 +271,7 @@ export default function AnalysisSettings({
             {experiment.activationMetric && (
               <div className="col-4 mb-4">
                 <Text color="text-high" weight="semibold">
-                  Activation Metric
+                  <Trans>Activation Metric</Trans>
                 </Text>
                 <div>
                   <Text color="text-mid">
@@ -276,13 +283,15 @@ export default function AnalysisSettings({
             {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
                 <Text color="text-high" weight="semibold">
-                  Segment
+                  <Trans>Segment</Trans>
                 </Text>
                 <div>
                   <Text color="text-mid">
-                    {experiment.segment
-                      ? getSegmentById(experiment.segment)?.name
-                      : "all users"}
+                    {experiment.segment ? (
+                      getSegmentById(experiment.segment)?.name
+                    ) : (
+                      <Trans>all users</Trans>
+                    )}
                   </Text>
                 </div>
               </div>
@@ -293,7 +302,11 @@ export default function AnalysisSettings({
         <div className="row mt-4">
           <div className="col-4 mb-4">
             <Text color="text-high" weight="semibold">
-              {!isBandit ? "Goal Metrics" : "Decision Metric"}
+              {!isBandit ? (
+                <Trans>Goal Metrics</Trans>
+              ) : (
+                <Trans>Decision Metric</Trans>
+              )}
             </Text>
             <div>
               {goalsWithTargetMDE.length ? (
@@ -312,14 +325,24 @@ export default function AnalysisSettings({
                             experiment.banditConversionWindowValue &&
                             experiment.banditConversionWindowUnit && (
                               <Text size="sm" color="text-mid">
-                                Conversion Window:{" "}
-                                {experiment.banditConversionWindowValue}{" "}
-                                {experiment.banditConversionWindowValue === 1
-                                  ? experiment.banditConversionWindowUnit.slice(
-                                      0,
-                                      -1,
-                                    )
-                                  : experiment.banditConversionWindowUnit}
+                                {experiment.banditConversionWindowUnit ===
+                                "hours" ? (
+                                  <Plural
+                                    value={
+                                      experiment.banditConversionWindowValue
+                                    }
+                                    one="Conversion Window: # hour"
+                                    other="Conversion Window: # hours"
+                                  />
+                                ) : (
+                                  <Plural
+                                    value={
+                                      experiment.banditConversionWindowValue
+                                    }
+                                    one="Conversion Window: # day"
+                                    other="Conversion Window: # days"
+                                  />
+                                )}
                               </Text>
                             )}
                         </li>
@@ -335,7 +358,7 @@ export default function AnalysisSettings({
 
           <div className="col-4">
             <Text color="text-high" weight="semibold">
-              Secondary Metrics
+              <Trans>Secondary Metrics</Trans>
             </Text>
             <div>
               {secondary.length ? (
@@ -354,7 +377,7 @@ export default function AnalysisSettings({
           {!isHoldout && (
             <div className="col-4">
               <Text color="text-high" weight="semibold">
-                Guardrail Metrics
+                <Trans>Guardrail Metrics</Trans>
               </Text>
               <div>
                 {guardrails.length ? (
@@ -378,29 +401,30 @@ export default function AnalysisSettings({
           <div className="row mt-4">
             <div className="col-4">
               <Text color="text-high" weight="semibold">
-                Exploratory Stage
+                <Trans>Exploratory Stage</Trans>
               </Text>
               <div>
                 <Text color="text-mid">
-                  {experiment.banditBurnInValue ?? 1}{" "}
-                  {(experiment.banditBurnInUnit ?? "days") === "days"
-                    ? "day"
-                    : "hour"}
-                  {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                  {(experiment.banditBurnInUnit ?? "days") === "days" ? (
+                    <Plural value={burnInValue} one="# day" other="# days" />
+                  ) : (
+                    <Plural value={burnInValue} one="# hour" other="# hours" />
+                  )}
                 </Text>
               </div>
             </div>
 
             <div className="col-4">
               <Text color="text-high" weight="semibold">
-                Update Cadence
+                <Trans>Update Cadence</Trans>
               </Text>
               <div>
                 <Text color="text-mid">
-                  Every {experiment.banditScheduleValue ?? 1}{" "}
-                  {(experiment.banditScheduleUnit ?? "days") === "days"
-                    ? "days"
-                    : "hours"}
+                  {(experiment.banditScheduleUnit ?? "days") === "days" ? (
+                    <Trans>Every {scheduleValue} days</Trans>
+                  ) : (
+                    <Trans>Every {scheduleValue} hours</Trans>
+                  )}
                 </Text>
               </div>
             </div>

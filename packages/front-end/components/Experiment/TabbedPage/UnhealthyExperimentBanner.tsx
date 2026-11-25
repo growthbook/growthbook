@@ -1,6 +1,9 @@
 import { Fragment } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretRight } from "react-icons/pi";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import {
   ExperimentInterfaceStringDates,
@@ -22,12 +25,49 @@ const percent = new Intl.NumberFormat(undefined, {
 
 // "1 cluster (4%) ... was removed" / "3 clusters (12%) ... were removed"
 const removedFromResults = (
+  i18n: I18n,
   n: number,
-  noun: string,
+  noun: "user" | "subunit" | "cluster" | "unit",
   rawDecimal: number,
-  what: string,
-) =>
-  `${count.format(n)} ${noun}${n === 1 ? "" : "s"} (${percent.format(rawDecimal)}) ${what} and ${n === 1 ? "was" : "were"} removed from results.`;
+) => {
+  const amount = count.format(n);
+  const share = percent.format(rawDecimal);
+  const one = n === 1;
+  switch (noun) {
+    case "user":
+      return one
+        ? i18n._(
+            msg`${amount} user (${share}) saw more than one variation and was removed from results.`,
+          )
+        : i18n._(
+            msg`${amount} users (${share}) saw more than one variation and were removed from results.`,
+          );
+    case "subunit":
+      return one
+        ? i18n._(
+            msg`${amount} subunit (${share}) saw more than one variation and was removed from results.`,
+          )
+        : i18n._(
+            msg`${amount} subunits (${share}) saw more than one variation and were removed from results.`,
+          );
+    case "cluster":
+      return one
+        ? i18n._(
+            msg`${amount} cluster (${share}) had units in more than one variation and was removed from results.`,
+          )
+        : i18n._(
+            msg`${amount} clusters (${share}) had units in more than one variation and were removed from results.`,
+          );
+    case "unit":
+      return one
+        ? i18n._(
+            msg`${amount} unit (${share}) appeared in more than one cluster and was removed from results.`,
+          )
+        : i18n._(
+            msg`${amount} units (${share}) appeared in more than one cluster and were removed from results.`,
+          );
+  }
+};
 
 function getHealthIssues(
   {
@@ -40,65 +80,73 @@ function getHealthIssues(
   }: ExperimentUnhealthyData,
   srmThreshold: number,
   isClusterExperiment: boolean,
+  i18n: I18n,
 ): { label: string; severe: boolean; detail: string }[] {
+  const threshold = pValueFormatter(srmThreshold);
   return [
     srm
       ? {
-          label: "SRM",
+          label: i18n._(msg`SRM`),
           severe: true,
-          detail: `Sample ratio mismatch: the p-value is below ${pValueFormatter(srmThreshold)}, so traffic isn't splitting the way the variation weights say it should.`,
+          detail: i18n._(
+            msg`Sample ratio mismatch: the p-value is below ${threshold}, so traffic isn't splitting the way the variation weights say it should.`,
+          ),
         }
       : null,
     multipleExposures
       ? {
           label: isClusterExperiment
-            ? "Subunit multiple exposures"
-            : "Multiple exposures",
+            ? i18n._(msg`Subunit multiple exposures`)
+            : i18n._(msg`Multiple exposures`),
           severe: true,
           detail: removedFromResults(
+            i18n,
             multipleExposures.multipleExposedUsers,
             isClusterExperiment ? "subunit" : "user",
             multipleExposures.rawDecimal,
-            "saw more than one variation",
           ),
         }
       : null,
     covariateImbalance
       ? {
-          label: "Pre-exposure bias",
+          label: i18n._(msg`Pre-exposure bias`),
           severe: true,
-          detail: "The variations differed before users were exposed.",
+          detail: i18n._(
+            msg`The variations differed before users were exposed.`,
+          ),
         }
       : null,
     clusterAssignment
       ? {
-          label: "Mixed cluster assignment",
+          label: i18n._(msg`Mixed cluster assignment`),
           severe: true,
           detail: removedFromResults(
+            i18n,
             clusterAssignment.mixedClusters,
             "cluster",
             clusterAssignment.rawDecimal,
-            "had units in more than one variation",
           ),
         }
       : null,
     clusterMapping
       ? {
-          label: "Units in multiple clusters",
+          label: i18n._(msg`Units in multiple clusters`),
           severe: true,
           detail: removedFromResults(
+            i18n,
             clusterMapping.multiClusterUnits,
             "unit",
             clusterMapping.rawDecimal,
-            "appeared in more than one cluster",
           ),
         }
       : null,
     lowPowered
       ? {
-          label: "Low powered",
+          label: i18n._(msg`Low powered`),
           severe: false,
-          detail: "Unlikely to detect the target effect in the time planned.",
+          detail: i18n._(
+            msg`Unlikely to detect the target effect in the time planned.`,
+          ),
         }
       : null,
   ].filter((issue) => issue !== null);
@@ -128,12 +176,14 @@ export default function UnhealthyExperimentBanner({
   isClusterExperiment = false,
   ...margin
 }: Props) {
+  const { i18n } = useLingui();
   const { settings } = useUser();
   if (status.status !== "unhealthy") return null;
   const issues = getHealthIssues(
     status.unhealthyData,
     settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
     isClusterExperiment,
+    i18n,
   );
   const severe = issues.some((issue) => issue.severe);
 
@@ -150,13 +200,15 @@ export default function UnhealthyExperimentBanner({
             iconPosition="right"
             onClick={viewHealth}
           >
-            View health
+            <Trans>View health</Trans>
           </Button>
         ) : null
       }
       {...margin}
     >
-      <Text weight="semibold">Unhealthy:</Text>{" "}
+      <Text weight="semibold">
+        <Trans>Unhealthy:</Trans>
+      </Text>{" "}
       {issues.map(({ label, detail }, i) => (
         <Fragment key={label}>
           {i ? ", " : null}
@@ -167,8 +219,8 @@ export default function UnhealthyExperimentBanner({
       ))}
       .{" "}
       {severe
-        ? "Results are likely untrustworthy."
-        : "It's unlikely to detect the target effect in time."}
+        ? i18n._(msg`Results are likely untrustworthy.`)
+        : i18n._(msg`It's unlikely to detect the target effect in time.`)}
     </Callout>
   );
 }

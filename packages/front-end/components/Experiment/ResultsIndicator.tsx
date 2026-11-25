@@ -1,4 +1,7 @@
 import { FC } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import Badge, { Size } from "@/ui/Badge";
 
 export type Results = "won" | "lost" | "dnf" | "inconclusive";
@@ -21,17 +24,18 @@ const getColorAndVariant = (
   }
 };
 
-export const RESULT_LABELS: Record<Results, string> = {
-  won: "Won",
-  lost: "Lost",
-  dnf: "Didn't finish",
-  inconclusive: "Inconclusive",
+export const RESULT_LABELS: Record<Results, MessageDescriptor> = {
+  won: msg`Won`,
+  lost: msg`Lost`,
+  dnf: msg`Didn't finish`,
+  inconclusive: msg`Inconclusive`,
 };
 
 const ResultsIndicator: FC<{
   results: Results;
   size?: Size;
 }> = ({ results, size }) => {
+  const { i18n } = useLingui();
   const [color, variant] = getColorAndVariant(results);
 
   return (
@@ -40,7 +44,7 @@ const ResultsIndicator: FC<{
       variant={variant}
       radius="full"
       size={size}
-      label={RESULT_LABELS[results]}
+      label={i18n._(RESULT_LABELS[results])}
     />
   );
 };

@@ -29,6 +29,7 @@ import {
   PiCaretCircleDown,
   PiFunnelSimple,
 } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
@@ -189,6 +190,7 @@ const CompactResults: FC<{
   setDifferenceType,
   onRowClick,
 }) => {
+  const { t } = useLingui();
   const {
     getExperimentMetricById: _getExperimentMetricById,
     getFactTableById: _getFactTableById,
@@ -450,8 +452,8 @@ const CompactResults: FC<{
           tableRowAxis="metric"
           labelHeader={
             experimentType !== "multi-armed-bandit"
-              ? "Goal Metrics"
-              : "Decision Metric"
+              ? t`Goal Metrics`
+              : t`Decision Metric`
           }
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
@@ -515,7 +517,7 @@ const CompactResults: FC<{
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
-            labelHeader="Secondary Metrics"
+            labelHeader={t`Secondary Metrics`}
             editMetrics={editMetrics}
             onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
@@ -576,7 +578,7 @@ const CompactResults: FC<{
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
-            labelHeader="Guardrail Metrics"
+            labelHeader={t`Guardrail Metrics`}
             editMetrics={editMetrics}
             onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
@@ -621,6 +623,46 @@ const CompactResults: FC<{
   );
 };
 export default CompactResults;
+
+// A component, so the label column (rendered by a plain function) can translate.
+function ExpandChildRowsToggle({
+  isFunnel,
+  isExpanded,
+  disabled,
+  onClick,
+}: {
+  isFunnel: boolean;
+  isExpanded: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  const { t } = useLingui();
+  const label = isFunnel
+    ? isExpanded
+      ? t`Collapse funnel steps`
+      : t`Expand funnel steps`
+    : isExpanded
+      ? t`Collapse metric slices`
+      : t`Expand metric slices`;
+  return (
+    <RadixTooltip content={label} side="top">
+      <IconButton
+        size="1"
+        variant="ghost"
+        radius="full"
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {isExpanded ? (
+          <PiCaretCircleDown size={16} />
+        ) : (
+          <PiCaretCircleRight size={16} />
+        )}
+      </IconButton>
+    </RadixTooltip>
+  );
+}
 
 export function getRenderLabelColumn({
   expandedMetrics,
@@ -832,48 +874,19 @@ export function getRenderLabelColumn({
                   alignItems: "center",
                 }}
               >
-                <RadixTooltip
-                  content={
-                    isFactFunnelMetric(metric)
-                      ? isExpanded
-                        ? "Collapse funnel steps"
-                        : "Expand funnel steps"
-                      : isExpanded
-                        ? "Collapse metric slices"
-                        : "Expand metric slices"
+                <ExpandChildRowsToggle
+                  isFunnel={isFactFunnelMetric(metric)}
+                  isExpanded={isExpanded}
+                  onClick={
+                    row?.labelOnly || sliceTagsFilter?.includes("overall")
+                      ? undefined
+                      : () =>
+                          toggleExpandedMetric(metric.id, location || "goal")
                   }
-                  side="top"
-                >
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    radius="full"
-                    aria-label={
-                      isFactFunnelMetric(metric)
-                        ? isExpanded
-                          ? "Collapse funnel steps"
-                          : "Expand funnel steps"
-                        : isExpanded
-                          ? "Collapse metric slices"
-                          : "Expand metric slices"
-                    }
-                    onClick={
-                      row?.labelOnly || sliceTagsFilter?.includes("overall")
-                        ? undefined
-                        : () =>
-                            toggleExpandedMetric(metric.id, location || "goal")
-                    }
-                    disabled={
-                      row?.labelOnly || sliceTagsFilter?.includes("overall")
-                    }
-                  >
-                    {isExpanded ? (
-                      <PiCaretCircleDown size={16} />
-                    ) : (
-                      <PiCaretCircleRight size={16} />
-                    )}
-                  </IconButton>
-                </RadixTooltip>
+                  disabled={
+                    row?.labelOnly || sliceTagsFilter?.includes("overall")
+                  }
+                />
               </div>
             ) : null}
             <span

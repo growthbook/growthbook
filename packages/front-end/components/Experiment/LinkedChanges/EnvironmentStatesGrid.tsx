@@ -7,6 +7,9 @@ import {
 import type { ExperimentRuleEnvironments } from "shared/validators";
 import { PiArrowRight, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Fragment, ReactNode, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   FaCircleCheck,
   FaCircleXmark,
@@ -96,11 +99,14 @@ export function sameScope(
   );
 }
 
-const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
-  active: "Active",
-  "disabled-env": "Off",
-  "disabled-rule": "Off",
-  missing: "Not included",
+const ENVIRONMENT_STATE_LABELS: Record<
+  LinkedFeatureEnvState,
+  MessageDescriptor
+> = {
+  active: msg`Active`,
+  "disabled-env": msg`Off`,
+  "disabled-rule": msg`Off`,
+  missing: msg`Not included`,
 };
 
 function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
@@ -134,7 +140,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
       <Link color="dark" onClick={() => setEnvironmentsOpen((prev) => !prev)}>
         <Flex align="center">
           <Text color="text-low" weight="semibold" size="md">
-            Environments
+            <Trans>Environments</Trans>
           </Text>
           <Text color="text-low" size="md" ml="1">
             ({activeCount}/{totalCount})
@@ -180,6 +186,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
 
 // One of an environment's two settings: on, off, or unknown (null).
 function EnvironmentSetting({ value }: { value: boolean | null }) {
+  const { t } = useLingui();
   return (
     <Flex align="center" justify="center">
       {value === null ? (
@@ -188,7 +195,7 @@ function EnvironmentSetting({ value }: { value: boolean | null }) {
         </Text>
       ) : (
         // Same marks as a feature rule's environment badges.
-        <Box aria-label={value ? "On" : "Off"} style={{ display: "flex" }}>
+        <Box aria-label={value ? t`On` : t`Off`} style={{ display: "flex" }}>
           {value ? (
             <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
           ) : (
@@ -243,6 +250,7 @@ export function EnvironmentInputsPopover({
   note?: string | null;
   onEdit?: (() => void) | null;
 }) {
+  const { i18n } = useLingui();
   return (
     <EnvironmentsPopover
       active={environmentStates.filter((e) => e.isActive).length}
@@ -258,13 +266,13 @@ export function EnvironmentInputsPopover({
             <Box />
             <Flex justify="center">
               <Text size="sm" color="text-low">
-                Flag
+                <Trans>Flag</Trans>
               </Text>
             </Flex>
             <Box />
             <Flex justify="center">
               <Text size="sm" color="text-low">
-                Rule
+                <Trans>Rule</Trans>
               </Text>
             </Flex>
             <Box />
@@ -285,7 +293,7 @@ export function EnvironmentInputsPopover({
                   <Flex align="center" gap="1">
                     <EnvironmentStateIcon isActive={isActive} />
                     <Text size="sm" weight="medium">
-                      {ENVIRONMENT_STATE_LABELS[state]}
+                      {i18n._(ENVIRONMENT_STATE_LABELS[state])}
                     </Text>
                   </Flex>
                 </Fragment>
@@ -302,7 +310,7 @@ export function EnvironmentInputsPopover({
           {onEdit ? (
             <Text size="sm">
               <Link underline="hover" onClick={onEdit}>
-                Edit environments
+                <Trans>Edit environments</Trans>
               </Link>
             </Text>
           ) : null}
@@ -339,7 +347,9 @@ function EnvironmentsPopover({
           }}
         >
           <Text size="sm" color="text-low" whiteSpace="nowrap">
-            Environments {active}/{total}
+            <Trans>
+              Environments {active}/{total}
+            </Trans>
           </Text>
         </span>
       }
@@ -375,9 +385,11 @@ export function SdkConnectionEnvironmentsPopover({
       content={
         <Flex direction="column" gap="3" style={{ maxWidth: 300 }}>
           <Text size="sm" color="text-mid">
-            On where an SDK Connection in the environment includes this
-            experiment&apos;s Project and has <strong>{kind}</strong>{" "}
-            experiments enabled.
+            <Trans>
+              On where an SDK Connection in the environment includes this
+              experiment&apos;s Project and has <strong>{kind}</strong>{" "}
+              experiments enabled.
+            </Trans>
           </Text>
           <Grid
             columns="max-content max-content"
@@ -393,7 +405,11 @@ export function SdkConnectionEnvironmentsPopover({
                   <Flex align="center" gap="1">
                     <EnvironmentStateIcon isActive={isActive} />
                     <Text size="sm" weight="medium">
-                      {isActive ? "On" : "No SDK Connection"}
+                      {isActive ? (
+                        <Trans>On</Trans>
+                      ) : (
+                        <Trans>No SDK Connection</Trans>
+                      )}
                     </Text>
                   </Flex>
                 </Fragment>
@@ -403,7 +419,7 @@ export function SdkConnectionEnvironmentsPopover({
           {canManageSdkConnections ? (
             <Text size="sm">
               <Link href="/sdks" external>
-                Manage SDK Connections
+                <Trans>Manage SDK Connections</Trans>
               </Link>
             </Text>
           ) : null}

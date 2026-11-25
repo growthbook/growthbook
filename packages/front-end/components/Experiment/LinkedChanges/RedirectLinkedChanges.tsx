@@ -1,4 +1,6 @@
 import { LinkedChangeEnvStates } from "shared/types/experiment";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   ColumnCell,
@@ -33,8 +35,8 @@ function RedirectDestination({ from, to }: { from: string; to: string }) {
 }
 
 const STAGED_NOTES = {
-  added: "Added when you save.",
-  edited: "Changed when you save.",
+  added: msg`Added when you save.`,
+  edited: msg`Changed when you save.`,
 };
 
 export default function UrlRedirectColumn({
@@ -58,6 +60,7 @@ export default function UrlRedirectColumn({
   onRemove: () => void;
   onUndo: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { variations } = layout;
   const origin = redirect.urlPattern;
   const menu = canEdit
@@ -68,7 +71,7 @@ export default function UrlRedirectColumn({
           tooltip={lockedReason ?? undefined}
           onClick={onEdit}
         >
-          Edit URL redirect
+          <Trans>Edit URL redirect</Trans>
         </DropdownMenuItem>,
         <DropdownMenuSeparator key="separator" />,
         <DropdownMenuItem
@@ -78,7 +81,7 @@ export default function UrlRedirectColumn({
           tooltip={lockedReason ?? undefined}
           onClick={onRemove}
         >
-          Remove from experiment
+          <Trans>Remove from experiment</Trans>
         </DropdownMenuItem>,
       ]
     : [];
@@ -89,15 +92,19 @@ export default function UrlRedirectColumn({
         layout={layout}
         title={
           <>
-            <HeaderText>Redirects</HeaderText>
+            <HeaderText>
+              <Trans>Redirects</Trans>
+            </HeaderText>
             <Link href={origin} external weight="regular" truncate>
               {withoutProtocol(origin)}
             </Link>
-            <HeaderText>to…</HeaderText>
+            <HeaderText>
+              <Trans>to…</Trans>
+            </HeaderText>
           </>
         }
         menu={menu}
-        menuLabel={`${origin} actions`}
+        menuLabel={t`${origin} actions`}
       />
       {variations.map((v, i) => {
         const to = redirect.destinationURLs.find(
@@ -108,7 +115,9 @@ export default function UrlRedirectColumn({
             {to ? (
               <RedirectDestination from={origin} to={to} />
             ) : (
-              <Text color="text-low">No redirect</Text>
+              <Text color="text-low">
+                <Trans>No redirect</Trans>
+              </Text>
             )}
           </ColumnCell>
         );
@@ -127,7 +136,7 @@ export default function UrlRedirectColumn({
       >
         {redirect.staged ? (
           <StagedNote onUndo={onUndo}>
-            {STAGED_NOTES[redirect.staged]}
+            {i18n._(STAGED_NOTES[redirect.staged])}
           </StagedNote>
         ) : null}
       </ColumnFooter>

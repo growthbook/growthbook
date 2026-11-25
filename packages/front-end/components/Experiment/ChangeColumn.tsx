@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { Trans } from "@lingui/react/macro";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricDefinition } from "shared/experiments";
@@ -129,7 +130,9 @@ export default function ChangeColumn({
         ) : null}
       </span>{" "}
       {expected === 0 && stats.errorMessage ? (
-        <span className="expected">n/a</span>
+        <span className="expected">
+          <Trans>n/a</Trans>
+        </span>
       ) : (
         <span className="expected">
           {formatter(expected, formatterOptions)}{" "}

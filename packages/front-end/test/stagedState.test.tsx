@@ -10,6 +10,7 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 vi.mock("@/services/auth", () => ({ useAuth: () => ({ apiCall: vi.fn() }) }));
 vi.mock("@/hooks/useUnsavedChangesGuard", () => ({
@@ -51,12 +52,14 @@ describe("useEditBase", () => {
   beforeEach(() => sessionStorage.clear());
 
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <ExperimentEditsProvider
-      experiment={{ id: "exp_1" } as ExperimentInterfaceStringDates}
-      mutate={() => undefined}
-    >
-      {children}
-    </ExperimentEditsProvider>
+    <I18nTestProvider>
+      <ExperimentEditsProvider
+        experiment={{ id: "exp_1" } as ExperimentInterfaceStringDates}
+        mutate={() => undefined}
+      >
+        {children}
+      </ExperimentEditsProvider>
+    </I18nTestProvider>
   );
 
   it("judges what a dialog stages against what it opened on, not a refresh", () => {

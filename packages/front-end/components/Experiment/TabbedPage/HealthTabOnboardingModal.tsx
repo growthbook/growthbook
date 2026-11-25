@@ -9,6 +9,7 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -53,6 +54,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   healthTabOnboardingPurpose,
   healthTabConfigParams,
 }) => {
+  const { t } = useLingui();
   const {
     experiment,
     phase,
@@ -197,32 +199,37 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         trackingEventModalType=""
         open={open}
         submit={close}
-        cta={"Confirm"}
+        cta={t`Confirm`}
         includeCloseCta={false}
         size={"md"}
-        header={`Exit without ${
+        header={
           healthTabOnboardingPurpose === "setup"
-            ? "Enabling Health Tab"
-            : "Configuring Experiment Dimensions"
-        }`}
+            ? t`Exit without Enabling Health Tab`
+            : t`Exit without Configuring Experiment Dimensions`
+        }
         secondaryCTA={
           <>
             <button
               className={`btn btn-link`}
               onClick={() => setStep(lastStep)}
             >
-              {"Back"}
+              <Trans>Back</Trans>
             </button>
           </>
         }
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row mb-2">
-            {`${
-              healthTabOnboardingPurpose === "setup"
-                ? "The Health Tab will not be enabled"
-                : "Experiment Dimensions will not be configured for the health tab"
-            } until you complete setup.`}
+            {healthTabOnboardingPurpose === "setup" ? (
+              <Trans>
+                The Health Tab will not be enabled until you complete setup.
+              </Trans>
+            ) : (
+              <Trans>
+                Experiment Dimensions will not be configured for the health tab
+                until you complete setup.
+              </Trans>
+            )}
           </div>
         </div>
       </Modal>
@@ -244,12 +251,14 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   }[] = [
     // step 0
     {
-      header: "Set up Health Tab",
+      header: t`Set up Health Tab`,
       children: (
         <div>
-          By enabling the health tab, one additional query will be run per
-          experiment analysis to automatically provide data about traffic over
-          time and dimension breakdowns.
+          <Trans>
+            By enabling the health tab, one additional query will be run per
+            experiment analysis to automatically provide data about traffic over
+            time and dimension breakdowns.
+          </Trans>
         </div>
       ),
       secondaryCTA: (
@@ -258,20 +267,22 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           type="submit"
           onClick={() => setStep(showDimensionsPage ? 1 : 2)}
         >
-          {"Next >"}
+          <Trans>Next &gt;</Trans>
         </button>
       ),
     },
     // step 1
     {
-      header: "Configure Experiment Dimensions for Health Tab",
+      header: t`Configure Experiment Dimensions for Health Tab`,
       children: (
         <>
           <div className="my-2 ml-3 mr-3">
             <div className="row mb-3">
-              Configure Experiment Dimension slices to pre-bin dimensions in the
-              most common values. These dimensions will then display on your
-              Health Tab for traffic and experiment balance checks.
+              <Trans>
+                Configure Experiment Dimension slices to pre-bin dimensions in
+                the most common values. These dimensions will then display on
+                your Health Tab for traffic and experiment balance checks.
+              </Trans>
             </div>
             <div className="row">
               <DimensionSlicesRunner
@@ -296,7 +307,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 setStep(2);
               }}
             >
-              {"Skip"}
+              <Trans>Skip</Trans>
             </button>
           ) : null}
           <button
@@ -305,19 +316,21 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             disabled={!saveDimensionsEnabled}
             onClick={() => setStep(2)}
           >
-            {"Next >"}
+            <Trans>Next &gt;</Trans>
           </button>
         </>
       ),
     },
     // step 2
     {
-      header: "Set up Health Tab",
+      header: t`Set up Health Tab`,
       children: (
         <>
           <div className="my-2 ml-3 mr-3">
             <div className="row mb-2">
-              Your Health Tab will display results when your data refreshes.
+              <Trans>
+                Your Health Tab will display results when your data refreshes.
+              </Trans>
             </div>
             <div className="row">
               <RadioGroup
@@ -326,11 +339,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 options={[
                   {
                     value: "refresh",
-                    label: "Refresh results upon setup completion",
+                    label: t`Refresh results upon setup completion`,
                   },
                   {
                     value: "norefresh",
-                    label: "Refresh data whenever you next update results",
+                    label: t`Refresh data whenever you next update results`,
                   },
                 ]}
               />
@@ -344,7 +357,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             className={`btn btn-link`}
             onClick={() => setStep(showDimensionsPage ? 1 : 0)}
           >
-            {"< Back"}
+            <Trans>&lt; Back</Trans>
           </button>
           <div className="flex-1" />
           <button
@@ -352,7 +365,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             type="submit"
             onClick={setUpHealthTab}
           >
-            {"Complete Setup"}
+            <Trans>Complete Setup</Trans>
           </button>
         </>
       ),

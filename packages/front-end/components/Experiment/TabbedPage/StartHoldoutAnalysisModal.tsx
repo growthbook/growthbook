@@ -1,4 +1,5 @@
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
@@ -11,6 +12,7 @@ export default function StartHoldoutAnalysisModal({
   close,
   startAnalysis,
 }: Props) {
+  const { t } = useLingui();
   return (
     <ModalStandard
       trackingEventModalType="start-holdout"
@@ -19,21 +21,31 @@ export default function StartHoldoutAnalysisModal({
       size="md"
       submit={startAnalysis}
       ctaColor="red"
-      cta="Confirm"
+      cta={t`Confirm`}
       ctaEnabled={true}
       close={close}
-      header="Start Analysis Phase"
+      header={t`Start Analysis Phase`}
     >
       <Box>
         <Text as="div" size="md" color="text-mid">
-          Once you start the Analysis Phase:
+          <Trans>Once you start the Analysis Phase:</Trans>
           <ul style={{ paddingLeft: "var(--space-4)", marginBottom: 0 }}>
-            <li>No new features or experiments can be added to the holdout</li>
             <li>
-              Traffic will continue to be held out from existing features and
-              experiments
+              <Trans>
+                No new features or experiments can be added to the holdout
+              </Trans>
             </li>
-            <li>Data will continue collecting until you stop the holdout</li>
+            <li>
+              <Trans>
+                Traffic will continue to be held out from existing features and
+                experiments
+              </Trans>
+            </li>
+            <li>
+              <Trans>
+                Data will continue collecting until you stop the holdout
+              </Trans>
+            </li>
           </ul>
         </Text>
       </Box>

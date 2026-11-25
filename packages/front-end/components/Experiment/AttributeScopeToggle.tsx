@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { PiFunnel } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import FieldIndicator from "@/ui/FieldIndicator";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -12,28 +13,38 @@ export default function AttributeScopeToggle({
   setAllProjects: (v: boolean) => void;
   scopeProjects?: string[] | null;
 }) {
+  const { t } = useLingui();
   const { getProjectById } = useDefinitions();
 
   const scopeNames = (scopeProjects ?? []).map(
     (id) => getProjectById(id)?.name || id,
   );
   const scopeLabel = allProjects
-    ? "All Projects"
-    : scopeNames.join(", ") || "the current project scope";
-  const scopePrefix = allProjects
-    ? ""
+    ? t`All Projects`
+    : scopeNames.join(", ") || t`the current project scope`;
+  const label = allProjects
+    ? t`Showing attributes for ${scopeLabel}`
     : scopeNames.length > 1
-      ? "Projects: "
-      : "Project: ";
+      ? t`Showing attributes for Projects: ${scopeLabel}`
+      : t`Showing attributes for Project: ${scopeLabel}`;
 
   return (
     <FieldIndicator
-      label={`Showing attributes for ${scopePrefix}${scopeLabel}`}
+      label={label}
       tooltip={
-        <>
-          Showing attributes for {scopePrefix}
-          <strong>{scopeLabel}</strong>
-        </>
+        allProjects ? (
+          <Trans>
+            Showing attributes for <strong>{scopeLabel}</strong>
+          </Trans>
+        ) : scopeNames.length > 1 ? (
+          <Trans>
+            Showing attributes for Projects: <strong>{scopeLabel}</strong>
+          </Trans>
+        ) : (
+          <Trans>
+            Showing attributes for Project: <strong>{scopeLabel}</strong>
+          </Trans>
+        )
       }
       onClick={() => setAllProjects(!allProjects)}
       className={clsx("gb-select__toggle", {

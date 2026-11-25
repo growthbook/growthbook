@@ -8,6 +8,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
@@ -176,6 +177,7 @@ function TabbedPageContents({
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  const { t } = useLingui();
   // A tab named in the URL wins over the one viewed last, from the first
   // render, so the last one's content never acts on the URL meanwhile.
   const fromUrl = parseTabHash(window.location.hash);
@@ -245,7 +247,7 @@ function TabbedPageContents({
     HoldoutDraft["value"]
   >("holdout", null);
   useExperimentFieldEdit("holdout", stagedHoldout !== null, experiment, {
-    label: "Holdout",
+    label: t`Holdout`,
     statusBound: true,
     fields: () => (stagedHoldout !== null ? { holdoutId: stagedHoldout } : {}),
     discard: () => setStagedHoldout(null),
@@ -617,9 +619,9 @@ function TabbedPageContents({
         <Modal
           trackingEventModalType=""
           open={true}
-          header="Experiment Watchers"
+          header={t`Experiment Watchers`}
           close={() => setWatchersModal(false)}
-          closeCta="Close"
+          closeCta={t`Close`}
         >
           <ul>
             {usersWatching.map((u, i) => (
@@ -644,7 +646,7 @@ function TabbedPageContents({
               beforeLeave: edits?.allowUnload,
             });
           }}
-          cta="Open AI Visual Editor"
+          cta={t`Open AI Visual Editor`}
           source={trackSource}
         />
       )}
@@ -679,11 +681,11 @@ function TabbedPageContents({
 
       {pendingTab ? (
         <ConfirmDialog
-          title="Leave without saving?"
-          content="You have unsaved changes to this experiment. Leaving Setup discards them."
+          title={t`Leave without saving?`}
+          content={t`You have unsaved changes to this experiment. Leaving Setup discards them.`}
           // Staying is the primary action; leaving is the secondary one.
-          yesText="Keep editing"
-          noText="Leave Setup"
+          yesText={t`Keep editing`}
+          noText={t`Leave Setup`}
           onConfirm={() => setPendingTab(null)}
           onCancel={() => {
             edits?.discardAll();
@@ -759,12 +761,16 @@ function TabbedPageContents({
               <Callout
                 status="warning"
                 action={
-                  <Link onClick={() => window.location.reload()}>Reload</Link>
+                  <Link onClick={() => window.location.reload()}>
+                    <Trans>Reload</Trans>
+                  </Link>
                 }
                 {...bannerMargin}
               >
-                Your changes saved, but the page couldn&apos;t refresh to show
-                them.
+                <Trans>
+                  Your changes saved, but the page couldn&apos;t refresh to show
+                  them.
+                </Trans>
               </Callout>
             ) : null}
             {showStoppedBanner && (
@@ -818,15 +824,15 @@ function TabbedPageContents({
                       onClick={() => setPhase(experiment.phases.length - 1)}
                     >
                       {isHoldout
-                        ? "Switch to analysis phase"
-                        : "Switch to latest phase"}
+                        ? t`Switch to analysis phase`
+                        : t`Switch to latest phase`}
                     </Link>
                   }
                   {...bannerMargin}
                 >
                   {isHoldout
-                    ? "You're viewing results for the whole holdout period. The analysis phase looks back from its own start date."
-                    : "You're viewing results from a previous phase."}
+                    ? t`You're viewing results for the whole holdout period. The analysis phase looks back from its own start date.`
+                    : t`You're viewing results from a previous phase.`}
                 </Callout>
               )}
 
@@ -929,8 +935,10 @@ function TabbedPageContents({
                 docSection="metricGroups"
                 mb="2"
               >
-                <strong>Metric Groups</strong> help you organize and manage your
-                metrics at scale.
+                <Trans>
+                  <strong>Metric Groups</strong> help you organize and manage
+                  your metrics at scale.
+                </Trans>
               </PremiumCallout>
             ) : null}
             {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}

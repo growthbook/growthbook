@@ -4,6 +4,7 @@ import {
 } from "shared/constants";
 import { getMultipleExposureHealthData } from "shared/health";
 import { ExperimentInterface, ExperimentType } from "shared/validators";
+import { Trans } from "@lingui/react/macro";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 
@@ -33,12 +34,17 @@ export default function MultipleExposureWarning({
   if (error) {
     return (
       <Callout status="error">
-        <strong>
-          {isClusterExperiment
-            ? "Subunit Multiple Exposures Check"
-            : "Multiple Exposures Check"}
-        </strong>
-        . Unable to run this check: {error}
+        {isClusterExperiment ? (
+          <Trans>
+            <strong>Subunit Multiple Exposures Check</strong>. Unable to run
+            this check: {error}
+          </Trans>
+        ) : (
+          <Trans>
+            <strong>Multiple Exposures Check</strong>. Unable to run this check:{" "}
+            {error}
+          </Trans>
+        )}
       </Callout>
     );
   }
@@ -69,18 +75,28 @@ export default function MultipleExposureWarning({
     return null;
   }
 
+  const exposedCount = numberFormatter.format(multipleExposures);
+  const exposedPercent = percentFormatter.format(
+    multipleExposureHealth.rawDecimal,
+  );
+
   return (
     <Callout status="warning">
-      <strong>
-        {isClusterExperiment
-          ? "Subunit Multiple Exposures Warning"
-          : "Multiple Exposures Warning"}
-      </strong>
-      . {numberFormatter.format(multipleExposures)}{" "}
-      {isClusterExperiment ? "subunits" : "users"} (
-      {percentFormatter.format(multipleExposureHealth.rawDecimal)}) saw multiple
-      variations and were automatically removed from results. Check for bugs in
-      your implementation, event tracking, or data pipeline.
+      {isClusterExperiment ? (
+        <Trans>
+          <strong>Subunit Multiple Exposures Warning</strong>. {exposedCount}{" "}
+          subunits ({exposedPercent}) saw multiple variations and were
+          automatically removed from results. Check for bugs in your
+          implementation, event tracking, or data pipeline.
+        </Trans>
+      ) : (
+        <Trans>
+          <strong>Multiple Exposures Warning</strong>. {exposedCount} users (
+          {exposedPercent}) saw multiple variations and were automatically
+          removed from results. Check for bugs in your implementation, event
+          tracking, or data pipeline.
+        </Trans>
+      )}
     </Callout>
   );
 }

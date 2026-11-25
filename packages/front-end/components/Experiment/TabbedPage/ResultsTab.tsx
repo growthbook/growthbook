@@ -13,6 +13,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -101,6 +102,7 @@ export default function ResultsTab({
   setSortDirection,
   holdoutProjects,
 }: Props) {
+  const { t } = useLingui();
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -262,8 +264,10 @@ export default function ResultsTab({
     <div>
       {isBandit && hasResults ? (
         <Callout status="info" mb="5">
-          Bandits are better than experiments at directing traffic to the best
-          variation but they can produce biased results.
+          <Trans>
+            Bandits are better than experiments at directing traffic to the best
+            variation but they can produce biased results.
+          </Trans>
         </Callout>
       ) : null}
 
@@ -278,25 +282,25 @@ export default function ResultsTab({
               onClick={() => setAnalysisSettingsOpen(true)}
               mr="2"
             >
-              Edit Settings
+              <Trans>Edit Settings</Trans>
             </Link>
           ) : null}
           {hasData && (
             <>
               <Flex align="center" gap="1">
                 <Metadata
-                  label="Engine"
+                  label={t`Engine`}
                   value={
                     analysis?.settings?.statsEngine === "frequentist"
-                      ? "Frequentist"
-                      : "Bayesian"
+                      ? t`Frequentist`
+                      : t`Bayesian`
                   }
                 />
                 {priorUsed ? (
                   <AnalysisSettingInfo
                     drilldownHint
-                    ariaLabel="How a Bayesian prior affects results"
-                    description="A Bayesian prior shrinks the metric estimate towards the prior mean."
+                    ariaLabel={t`How a Bayesian prior affects results`}
+                    description={t`A Bayesian prior shrinks the metric estimate towards the prior mean.`}
                   />
                 ) : null}
               </Flex>
@@ -305,53 +309,53 @@ export default function ResultsTab({
                   label="CUPED"
                   value={
                     analysis?.settings?.regressionAdjusted
-                      ? "Enabled"
-                      : "Disabled"
+                      ? t`Enabled`
+                      : t`Disabled`
                   }
                 />
                 {cupedUsed ? (
                   <AnalysisSettingInfo
                     drilldownHint
-                    ariaLabel="How CUPED affects results"
-                    description="CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance."
+                    ariaLabel={t`How CUPED affects results`}
+                    description={t`CUPED adjusts for pre-exposure mean imbalances across variations to reduce variance.`}
                   />
                 ) : null}
               </Flex>
               {!organization?.settings?.disablePrecomputedDimensions ? (
                 <Flex align="center" gap="1">
                   <Metadata
-                    label="Post-Stratification"
+                    label={t`Post-Stratification`}
                     value={
                       analysis?.settings?.postStratificationEnabled
-                        ? "Enabled"
-                        : "Disabled"
+                        ? t`Enabled`
+                        : t`Disabled`
                     }
                   />
                   {postStratificationUsed ? (
                     <AnalysisSettingInfo
                       drilldownHint
-                      ariaLabel="How post-stratification affects results"
-                      description="Post-stratification adjusts for within-dimension imbalances to reduce variance."
+                      ariaLabel={t`How post-stratification affects results`}
+                      description={t`Post-stratification adjusts for within-dimension imbalances to reduce variance.`}
                     />
                   ) : null}
                 </Flex>
               ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
-                  label="Sequential"
+                  label={t`Sequential`}
                   value={
                     analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"
+                      ? t`Enabled`
+                      : t`Disabled`
                   }
                 />
               ) : null}
               {segment ? (
-                <Metadata label="Segment" value={segment.name} />
+                <Metadata label={t`Segment`} value={segment.name} />
               ) : null}
               {activationMetric ? (
                 <Metadata
-                  label="Activation Metric"
+                  label={t`Activation Metric`}
                   value={activationMetric.name}
                 />
               ) : null}
@@ -360,10 +364,10 @@ export default function ResultsTab({
                 experiment.lookbackOverride,
               ) && experiment.lookbackOverride ? (
                 <Metadata
-                  label="Lookback Enforced"
+                  label={t`Lookback Enforced`}
                   value={
                     experiment.lookbackOverride.type === "date"
-                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
+                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : t`now`}`
                       : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
                   }
                 />
@@ -373,38 +377,48 @@ export default function ResultsTab({
                   <Flex style={{ flex: 1 }} />
                   <Flex direction="column" align="end">
                     <Metadata
-                      label="Analysis type"
+                      label={t`Analysis type`}
                       value={
                         snapshot?.type === "exploratory" ? (
                           <Tooltip
                             body={
                               <div className="text-left">
-                                <p>This is an exploratory analysis.</p>
                                 <p>
-                                  Exploratory analyses do not cause bandit
-                                  variation weights to change.
+                                  <Trans>
+                                    This is an exploratory analysis.
+                                  </Trans>
+                                </p>
+                                <p>
+                                  <Trans>
+                                    Exploratory analyses do not cause bandit
+                                    variation weights to change.
+                                  </Trans>
                                 </p>
                               </div>
                             }
                           >
-                            Exploratory
+                            <Trans>Exploratory</Trans>
                           </Tooltip>
                         ) : snapshot?.type === "standard" ? (
                           <Tooltip
                             body={
                               <div className="text-left">
-                                <p>This is a standard analysis.</p>
                                 <p>
-                                  Bandit variation weights may have changed in
-                                  response to this analysis.
+                                  <Trans>This is a standard analysis.</Trans>
+                                </p>
+                                <p>
+                                  <Trans>
+                                    Bandit variation weights may have changed in
+                                    response to this analysis.
+                                  </Trans>
                                 </p>
                               </div>
                             }
                           >
-                            Standard
+                            <Trans>Standard</Trans>
                           </Tooltip>
                         ) : (
-                          <span>{snapshot?.type || `unknown`}</span>
+                          <span>{snapshot?.type || t`unknown`}</span>
                         )
                       }
                     />
@@ -413,7 +427,9 @@ export default function ResultsTab({
                         onClick={() => setSnapshotType("standard")}
                         style={{ marginBottom: -8 }}
                       >
-                        <Text size="1">View standard analysis</Text>
+                        <Text size="1">
+                          <Trans>View standard analysis</Trans>
+                        </Text>
                       </Link>
                     )}
                   </Flex>
@@ -478,7 +494,9 @@ export default function ResultsTab({
           />
           {experiment.status === "draft" ? (
             <Callout status="info" contentAlign="center" mx="3" my="3">
-              This experiment is still a draft. Start it to see results.
+              <Trans>
+                This experiment is still a draft. Start it to see results.
+              </Trans>
             </Callout>
           ) : (
             <>
@@ -498,7 +516,7 @@ export default function ResultsTab({
                         size="sm"
                         onClick={() => setAnalysisSettingsOpen(true)}
                       >
-                        Select Data Source
+                        <Trans>Select Data Source</Trans>
                       </Button>
                     ) : (
                       <LinkButton
@@ -506,14 +524,14 @@ export default function ResultsTab({
                         variant="outline"
                         size="sm"
                       >
-                        Connect a Data Source
+                        <Trans>Connect a Data Source</Trans>
                       </LinkButton>
                     )
                   }
                 >
                   {datasources.length > 0
-                    ? "Select a Data Source and metrics so GrowthBook can analyze this experiment's results."
-                    : "Connect GrowthBook to your data to analyze this experiment's results automatically."}
+                    ? t`Select a Data Source and metrics so GrowthBook can analyze this experiment's results.`
+                    : t`Connect GrowthBook to your data to analyze this experiment's results automatically.`}
                 </Callout>
               ) : (
                 <Results
@@ -543,10 +561,21 @@ export default function ResultsTab({
         <Box className="appbox" mt="7">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
-              <div className="h3">Custom Reports</div>
+              <div className="h3">
+                <Trans>Custom Reports</Trans>
+              </div>
               <div>
-                Create and share a stand-alone ad-hoc analysis without affecting
-                this {isBandit ? "Bandit" : "Experiment"}.
+                {isBandit ? (
+                  <Trans>
+                    Create and share a stand-alone ad-hoc analysis without
+                    affecting this Bandit.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Create and share a stand-alone ad-hoc analysis without
+                    affecting this Experiment.
+                  </Trans>
+                )}
               </div>
             </div>
             <div className="col-auto mr-2">
@@ -563,7 +592,7 @@ export default function ResultsTab({
                       },
                     );
                     if (!res.report) {
-                      throw new Error("Failed to create report");
+                      throw new Error(t`Failed to create report`);
                     }
                     track("Experiment Report: Create", {
                       source: "experiment results tab",
@@ -571,7 +600,7 @@ export default function ResultsTab({
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
-                  New Custom Report
+                  <Trans>New Custom Report</Trans>
                 </Button>
               ) : null}
             </div>

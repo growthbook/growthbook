@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -12,6 +13,7 @@ import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { decisionCriteriaText } from "@/components/DecisionCriteria/decisionCriteriaText";
 import { useDecisionMakingSummary } from "./DecisionMakingSettings";
 import {
   useExperimentFieldEdit,
@@ -39,10 +41,12 @@ function Panel({ children }: { children: ReactNode }) {
 }
 
 function CriteriaName({ criteria }: { criteria: DecisionCriteriaData }) {
+  const { i18n } = useLingui();
+  const { name, description } = decisionCriteriaText(criteria, i18n);
   return (
     <Flex align="center" gap="1">
-      <Text color="text-high">{criteria.name}</Text>
-      {criteria.description ? <InfoTip content={criteria.description} /> : null}
+      <Text color="text-high">{name}</Text>
+      {description ? <InfoTip content={description} /> : null}
     </Flex>
   );
 }
@@ -90,13 +94,14 @@ export default function DecisionPlan({
   // Environments the experiment reaches; the schedule dialog gates on them.
   envs: string[];
 }) {
+  const { t, i18n } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   // Held with the page's other edits until it saves; null clears it.
   const [stagedSchedule, setStagedSchedule] = useStagedState<{
     schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"];
   } | null>("analysis-plan:schedule", null);
   useExperimentFieldEdit("schedule", !!stagedSchedule, plan, {
-    label: "Schedule",
+    label: t`Schedule`,
     statusBound: true,
     fields: () => ({ statusUpdateSchedule: stagedSchedule?.schedule ?? null }),
     onSaved: () => setStagedSchedule(null),
@@ -114,9 +119,9 @@ export default function DecisionPlan({
   const scheduleEditable =
     canEditSchedule && permissionsUtil.canUpdateExperiment(experiment, {});
   const close = () => setEditing(null);
-  const times = scheduleTimes(experiment);
+  const times = scheduleTimes(experiment, i18n);
   const scheduled = !!(times.starts || times.ends);
-  const hasEnd = !!scheduledEnd(experiment.statusUpdateSchedule);
+  const hasEnd = !!scheduledEnd(experiment.statusUpdateSchedule, i18n);
 
   return (
     <>
@@ -168,40 +173,42 @@ export default function DecisionPlan({
       ) : null}
 
       <SetupFieldRow
-        label="Schedule"
+        label={t`Schedule`}
         content="panel"
         labelAlign={scheduled ? "top" : "center"}
       >
         <Panel>
           <QuickEditRow
-            label="Edit schedule"
+            label={t`Edit schedule`}
             onEdit={scheduleEditable ? () => setEditing("schedule") : null}
             align={scheduled ? "start" : "center"}
           >
             {scheduled ? (
               <Flex direction="column" gap="3" flexGrow="1">
-                <InnerRow label={times.started ? "Started" : "Starts"}>
-                  <Text color="text-high">{times.starts ?? "Manually"}</Text>
+                <InnerRow label={times.started ? t`Started` : t`Starts`}>
+                  <Text color="text-high">{times.starts ?? t`Manually`}</Text>
                 </InnerRow>
-                <InnerRow label={times.ended ? "Ended" : "Ends"}>
-                  <Text color="text-high">{times.ends ?? "Manually"}</Text>
+                <InnerRow label={times.ended ? t`Ended` : t`Ends`}>
+                  <Text color="text-high">{times.ends ?? t`Manually`}</Text>
                 </InnerRow>
               </Flex>
             ) : (
-              <Text color="text-high">Starts and ends manually.</Text>
+              <Text color="text-high">
+                <Trans>Starts and ends manually.</Trans>
+              </Text>
             )}
           </QuickEditRow>
         </Panel>
       </SetupFieldRow>
 
       {summary ? (
-        <SetupFieldRow label="Decision" content="panel">
+        <SetupFieldRow label={t`Decision`} content="panel">
           <Panel>
             <Flex direction="column" gap="3">
-              <InnerRow label="Decision criteria">
+              <InnerRow label={t`Decision criteria`}>
                 {canEdit ? (
                   <QuickEditRow
-                    label="Edit decision criteria"
+                    label={t`Edit decision criteria`}
                     onEdit={() => setEditing("criteria")}
                   >
                     <CriteriaName criteria={summary.decisionCriteria} />
@@ -213,13 +220,13 @@ export default function DecisionPlan({
                 )}
               </InnerRow>
               <InnerRow
-                label="At end"
-                tooltip="What happens when the experiment reaches its scheduled end."
+                label={t`At end`}
+                tooltip={t`What happens when the experiment reaches its scheduled end.`}
               >
                 {/* The plan only runs at a scheduled end. */}
                 {hasEnd ? (
                   <QuickEditRow
-                    label="Edit end of experiment"
+                    label={t`Edit end of experiment`}
                     onEdit={
                       scheduleEditable ? () => setEditing("endPlan") : null
                     }
@@ -237,7 +244,9 @@ export default function DecisionPlan({
                   </QuickEditRow>
                 ) : (
                   <Text color="text-high">
-                    You choose what happens when you stop the experiment.
+                    <Trans>
+                      You choose what happens when you stop the experiment.
+                    </Trans>
                   </Text>
                 )}
               </InnerRow>

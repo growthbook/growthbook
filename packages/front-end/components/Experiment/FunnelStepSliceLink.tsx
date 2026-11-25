@@ -5,6 +5,7 @@ import {
 } from "shared/experiments";
 import { CustomMetricSlice } from "shared/types/experiment";
 import { FactTableDefinition } from "shared/types/fact-table";
+import { Trans } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import { ExperimentTableRow } from "@/services/experiments";
 import {
@@ -39,7 +40,7 @@ export default function FunnelStepSliceLink({
         });
       }}
     >
-      View by slice
+      <Trans>View by slice</Trans>
     </Link>
   );
 }

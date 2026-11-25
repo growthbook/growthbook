@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import clsx from "clsx";
@@ -139,6 +140,7 @@ interface Props {
 }
 
 function NoImageBox({ onUpload }: { onUpload?: () => void }) {
+  const { t } = useLingui();
   const box = (
     <Flex
       align="center"
@@ -166,10 +168,10 @@ function NoImageBox({ onUpload }: { onUpload?: () => void }) {
   );
 
   return onUpload ? (
-    <Tooltip content="Upload, drop or paste an image" side="top">
+    <Tooltip content={t`Upload, drop or paste an image`} side="top">
       <button
         type="button"
-        aria-label="Upload image"
+        aria-label={t`Upload image`}
         className={styles.noImageButton}
         onClick={onUpload}
       >
@@ -223,6 +225,7 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
   stageScreenshot?: (variationId: string, screenshot: Screenshot) => void;
 }) {
+  const { t } = useLingui();
   const { blockFileUploads } = useOrgSettings();
   const canUpload = !!canEdit && allowImages && !blockFileUploads;
   const upload = useScreenshotUpload({
@@ -241,12 +244,15 @@ export function VariationBox({
   const descriptionSnippet = !showDescription ? null : v.description ? (
     v.description
   ) : experiment.status === "draft" || canEdit ? (
-    <Text color="text-disabled">No description</Text>
+    <Text color="text-disabled">
+      <Trans>No description</Trans>
+    </Text>
   ) : null;
   // Beside the placeholder without a screenshot, below the carousel with one.
   const showsPlaceholder =
     allowImages && v.screenshots.length === 0 && showNoImage;
   const descriptionBelow = !!descriptionSnippet && !showsPlaceholder;
+  const variationKey = v.key;
   const split =
     shouldShowSplit && percent !== undefined ? `${percent.toFixed(0)}%` : null;
 
@@ -282,7 +288,7 @@ export function VariationBox({
               {canEdit && onEditMetadata ? (
                 <QuickEditButton
                   size="2"
-                  label="Edit variation"
+                  label={t`Edit variation`}
                   onClick={() => onEditMetadata(i)}
                 />
               ) : null}
@@ -324,8 +330,12 @@ export function VariationBox({
         {descriptionBelow || showIds || split ? (
           <Flex direction="column" gap="2" mt="2">
             {descriptionBelow ? <Box>{descriptionSnippet}</Box> : null}
-            {showIds ? <code className="small">ID: {v.key}</code> : null}
-            {split ? <Metadata label="Split" value={split} /> : null}
+            {showIds ? (
+              <code className="small">
+                <Trans>ID: {variationKey}</Trans>
+              </code>
+            ) : null}
+            {split ? <Metadata label={t`Split`} value={split} /> : null}
           </Flex>
         ) : null}
         {upload.error ? (

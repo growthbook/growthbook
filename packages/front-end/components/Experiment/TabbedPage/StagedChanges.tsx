@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import HelperText from "@/ui/HelperText";
 import { ApiCallError } from "@/services/apiCallError";
 import {
@@ -11,6 +12,7 @@ type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 
 /** The save bar's list of staged edits, what each changes, and whether they'd save. */
 export default function StagedChanges() {
+  const { t, i18n } = useLingui();
   const edits = useExperimentEdits();
   const [open, setOpen] = useState(false);
   const [check, setCheck] = useState<SaveCheck | null>(null);
@@ -46,13 +48,13 @@ export default function StagedChanges() {
         }
         setCheck({
           status: "refused",
-          reason: e.message || "The save would be refused.",
+          reason: e.message || t`The save would be refused.`,
         });
       });
     return () => {
       current = false;
     };
-  }, [open, staged, conflicts, incompatible]);
+  }, [open, staged, conflicts, incompatible, t]);
 
   if (!edits || !staged) return null;
 
@@ -64,7 +66,7 @@ export default function StagedChanges() {
     >
       {edits.incompatible.length ? (
         <HelperText status="warning" size="sm" mb="1">
-          {incompatibleNote(edits.incompatible)}
+          {incompatibleNote(edits.incompatible, i18n)}
         </HelperText>
       ) : null}
       {staged.map(({ id, label }) => (
@@ -78,7 +80,7 @@ export default function StagedChanges() {
           }
           incompatible={
             edits.incompatible.some((e) => e.id === id)
-              ? "Made before the experiment's status changed."
+              ? t`Made before the experiment's status changed.`
               : null
           }
           saving={edits.saving}
@@ -86,7 +88,7 @@ export default function StagedChanges() {
       ))}
       {check?.status === "ready" ? (
         <HelperText status="success" size="sm" mt="1">
-          Ready to save.
+          <Trans>Ready to save.</Trans>
         </HelperText>
       ) : check?.status === "refused" ? (
         <HelperText status="error" size="sm" mt="1">

@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
@@ -42,10 +45,52 @@ interface Props {
 }
 
 const REASONS_HEADING = {
-  "ship-now": "Reasons to ship:",
-  "ready-for-review": "Why there's no clear winner:",
-  "rollback-now": "Reasons to roll back:",
+  "ship-now": msg`Reasons to ship:`,
+  "ready-for-review": msg`Why there's no clear winner:`,
+  "rollback-now": msg`Reasons to roll back:`,
 } as const;
+
+type Condition = DecisionCriteriaInterface["rules"][0]["conditions"][0];
+
+// Each condition as one sentence, by match, metrics and direction.
+const CONDITION_TEXT: Record<
+  Condition["match"],
+  Record<
+    Condition["metrics"],
+    Record<Condition["direction"], MessageDescriptor>
+  >
+> = {
+  all: {
+    goals: {
+      statsigWinner: msg`All goal metrics are statistically significant and beneficial.`,
+      statsigLoser: msg`All goal metrics are statistically significant and harmful.`,
+    },
+    guardrails: {
+      statsigWinner: msg`All guardrail metrics are statistically significant and beneficial.`,
+      statsigLoser: msg`All guardrail metrics are statistically significant and harmful.`,
+    },
+  },
+  any: {
+    goals: {
+      statsigWinner: msg`At least one goal metric is statistically significant and beneficial.`,
+      statsigLoser: msg`At least one goal metric is statistically significant and harmful.`,
+    },
+    guardrails: {
+      statsigWinner: msg`At least one guardrail metric is statistically significant and beneficial.`,
+      statsigLoser: msg`At least one guardrail metric is statistically significant and harmful.`,
+    },
+  },
+  none: {
+    goals: {
+      statsigWinner: msg`No goal metrics are statistically significant and beneficial.`,
+      statsigLoser: msg`No goal metrics are statistically significant and harmful.`,
+    },
+    guardrails: {
+      statsigWinner: msg`No guardrail metrics are statistically significant and beneficial.`,
+      statsigLoser: msg`No guardrail metrics are statistically significant and harmful.`,
+    },
+  },
+};
 
 export default function ExperimentDecisionExplanation({
   status,
@@ -62,6 +107,7 @@ export default function ExperimentDecisionExplanation({
   cautions = [],
   reasonColor,
 }: Props) {
+  const { t, i18n } = useLingui();
   // If the experiment is not in a decision state, don't show anything
   if (
     status.status !== "ship-now" &&
@@ -71,40 +117,10 @@ export default function ExperimentDecisionExplanation({
     return null;
   }
 
-  const getConditionText = (
-    condition: DecisionCriteriaInterface["rules"][0]["conditions"][0],
-  ) => {
-    const { quantity, connection } = (() => {
-      switch (condition.match) {
-        case "all":
-          return { quantity: "All", connection: "metrics are" };
-        case "any":
-          return { quantity: "At least one", connection: "metric is" };
-        case "none":
-          return { quantity: "No", connection: "metrics are" };
-      }
-    })();
-
-    const metricType = (() => {
-      switch (condition.metrics) {
-        case "goals":
-          return "goal";
-        case "guardrails":
-          return "guardrail";
-      }
-    })();
-
-    const direction = (() => {
-      switch (condition.direction) {
-        case "statsigWinner":
-          return "beneficial";
-        case "statsigLoser":
-          return "harmful";
-      }
-    })();
-
-    return `${quantity} ${metricType} ${connection} statistically significant and ${direction}.`;
-  };
+  const getConditionText = (condition: Condition) =>
+    i18n._(
+      CONDITION_TEXT[condition.match][condition.metrics][condition.direction],
+    );
 
   // get the variations that have identical deciding rules
   const decidingRules: {
@@ -132,28 +148,28 @@ export default function ExperimentDecisionExplanation({
   return (
     <Box>
       <Text as="div" mb="2">
-        {REASONS_HEADING[status.status]}
+        {i18n._(REASONS_HEADING[status.status])}
       </Text>
       {/* Enough data to decide on: good news, whatever the decision. */}
       <Reason
         color="green"
         hint={
           status.powerReached
-            ? `Running longer would only detect effects smaller than its ${
-                goalMetricCount === 1
-                  ? "goal metric's target"
-                  : "goal metrics' targets"
-              }.`
+            ? goalMetricCount === 1
+              ? t`Running longer would only detect effects smaller than its goal metric's target.`
+              : t`Running longer would only detect effects smaller than its goal metrics' targets.`
             : undefined
         }
       >
-        {status.powerReached
-          ? "Enough data to detect its target effect."
-          : status.scheduledEndPassed
-            ? "Its scheduled end has passed, so it can be decided now."
-            : status.sequentialUsed
-              ? "Sequential testing lets it be decided early."
-              : "Its results are strong enough to decide early."}
+        {status.powerReached ? (
+          <Trans>Enough data to detect its target effect.</Trans>
+        ) : status.scheduledEndPassed ? (
+          <Trans>Its scheduled end has passed, so it can be decided now.</Trans>
+        ) : status.sequentialUsed ? (
+          <Trans>Sequential testing lets it be decided early.</Trans>
+        ) : (
+          <Trans>Its results are strong enough to decide early.</Trans>
+        )}
       </Reason>
       {decidingRules.map((r) => (
         <Fragment key={JSON.stringify(r.variationIds)}>
@@ -185,14 +201,37 @@ export default function ExperimentDecisionExplanation({
                     : undefined
                 }
               >
-                No rule in {criteriaName ?? "your decision criteria"} matched,
-                so{" "}
-                {status.status === "ship-now"
-                  ? "it ships by default"
-                  : status.status === "ready-for-review"
-                    ? "the call is yours"
-                    : "it rolls back by default"}
-                .
+                {criteriaName !== undefined ? (
+                  status.status === "ship-now" ? (
+                    <Trans>
+                      No rule in {criteriaName} matched, so it ships by default.
+                    </Trans>
+                  ) : status.status === "ready-for-review" ? (
+                    <Trans>
+                      No rule in {criteriaName} matched, so the call is yours.
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      No rule in {criteriaName} matched, so it rolls back by
+                      default.
+                    </Trans>
+                  )
+                ) : status.status === "ship-now" ? (
+                  <Trans>
+                    No rule in your decision criteria matched, so it ships by
+                    default.
+                  </Trans>
+                ) : status.status === "ready-for-review" ? (
+                  <Trans>
+                    No rule in your decision criteria matched, so the call is
+                    yours.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    No rule in your decision criteria matched, so it rolls back
+                    by default.
+                  </Trans>
+                )}
               </Reason>
             )}
           </Flex>
@@ -208,7 +247,7 @@ export default function ExperimentDecisionExplanation({
       {cautions.length ? (
         <>
           <Text as="div" mt="3" mb="2">
-            Caution:
+            <Trans>Caution:</Trans>
           </Text>
           <Flex direction="column" gap="1">
             {cautions.map(({ text, hint }, i) => (
@@ -231,7 +270,7 @@ export default function ExperimentDecisionExplanation({
             <Link
               onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}
             >
-              View decision criteria
+              <Trans>View decision criteria</Trans>
             </Link>
           ) : null}
         </Flex>

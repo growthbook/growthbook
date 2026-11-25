@@ -1,11 +1,13 @@
 import { AISuggestionType, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 
 // Throws on failure: the field shows the error, and owns the opt-in and
 // premium gates.
 export function useSuggestHypothesis(hypothesis: string, source: string) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const gb = useGrowthBook();
   return async (type: AISuggestionType) => {
@@ -26,7 +28,7 @@ export function useSuggestHypothesis(hypothesis: string, source: string) {
         failure =
           responseData.status === 429
             ? formatAIRateLimitRetryMessage(responseData.retryAfter)
-            : responseData.message || "Error getting AI suggestion";
+            : responseData.message || t`Error getting AI suggestion`;
       },
     );
     if (failure) throw new Error(failure);

@@ -32,6 +32,7 @@ import {
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { CustomMetricSlice } from "shared/validators";
 import { FaCaretRight } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
@@ -184,6 +185,7 @@ const BreakDownResults: FC<{
   setDifferenceType,
   customMetricSlices,
 }) => {
+  const { t } = useLingui();
   const {
     getDimensionById,
     getExperimentMetricById,
@@ -227,7 +229,7 @@ const BreakDownResults: FC<{
         ssrPolyfills?.getDimensionById?.(id)?.name ||
         getDimensionById(id)?.name ||
         undefined,
-    ) || "Dimension";
+    ) || t`Dimension`;
 
   const { tables } = useExperimentDimensionRows({
     results,
@@ -291,10 +293,12 @@ const BreakDownResults: FC<{
       <div className="mb-4">
         {dimensionId === "pre:activation" && activationMetricObj && (
           <Callout status="info" mt="1" mx="3">
-            Your experiment has an Activation Metric (
-            <strong>{activationMetricObj?.name}</strong>
-            ). This report lets you compare activated users with those who
-            entered into the experiment, but were not activated.
+            <Trans>
+              Your experiment has an Activation Metric (
+              <strong>{activationMetricObj?.name}</strong>
+              ). This report lets you compare activated users with those who
+              entered into the experiment, but were not activated.
+            </Trans>
           </Callout>
         )}
         {!isBandit && (
@@ -303,7 +307,7 @@ const BreakDownResults: FC<{
               trigger={
                 <Link className="d-inline-flex mx-3 align-items-center">
                   <FaCaretRight className="chevron mr-1" />
-                  View dimension breakdown
+                  <Trans>View dimension breakdown</Trans>
                 </Link>
               }
               transitionTime={100}
@@ -335,13 +339,13 @@ const BreakDownResults: FC<{
               className="mt-2 mb-1 d-flex position-relative ml-2"
               style={{ gap: 4 }}
             >
-              {table.rows[0]?.resultGroup === "goal"
-                ? "Goal Metric"
-                : table.rows[0]?.resultGroup === "secondary"
-                  ? "Secondary Metric"
-                  : table.rows[0]?.resultGroup === "guardrail"
-                    ? "Guardrail Metric"
-                    : null}
+              {table.rows[0]?.resultGroup === "goal" ? (
+                <Trans>Goal Metric</Trans>
+              ) : table.rows[0]?.resultGroup === "secondary" ? (
+                <Trans>Secondary Metric</Trans>
+              ) : table.rows[0]?.resultGroup === "guardrail" ? (
+                <Trans>Guardrail Metric</Trans>
+              ) : null}
             </h4>
             <ResultsTable
               key={i}
@@ -416,16 +420,28 @@ const BreakDownResults: FC<{
                 const hasSteps = !!row?.numChildren;
                 const parentRowId = `${row?.metric?.id}:${row?.label ?? ""}`;
                 const isExpanded = !!expandedRows[parentRowId];
-                const childLabel = isFactFunnelMetric(table.metric)
-                  ? "funnel steps"
-                  : "metric slices";
+                const isFunnel = isFactFunnelMetric(table.metric);
                 const statsAdjustmentImpacts = row
                   ? getStatsAdjustmentImpacts(row)
                   : [];
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
-                    : "unknown";
+                    : t`unknown`;
+                const toggleTooltip = isFunnel
+                  ? isExpanded
+                    ? t`Collapse funnel steps`
+                    : t`Expand funnel steps`
+                  : isExpanded
+                    ? t`Collapse metric slices`
+                    : t`Expand metric slices`;
+                const toggleAriaLabel = isFunnel
+                  ? isExpanded
+                    ? t`Collapse funnel steps for ${rowName}`
+                    : t`Expand funnel steps for ${rowName}`
+                  : isExpanded
+                    ? t`Collapse metric slices for ${rowName}`
+                    : t`Expand metric slices for ${rowName}`;
                 return (
                   <Flex
                     align="center"
@@ -444,23 +460,12 @@ const BreakDownResults: FC<{
                           alignItems: "center",
                         }}
                       >
-                        <RadixTooltip
-                          content={
-                            isExpanded
-                              ? `Collapse ${childLabel}`
-                              : `Expand ${childLabel}`
-                          }
-                          side="top"
-                        >
+                        <RadixTooltip content={toggleTooltip} side="top">
                           <IconButton
                             size="1"
                             variant="ghost"
                             radius="full"
-                            aria-label={
-                              isExpanded
-                                ? `Collapse ${childLabel} for ${rowName}`
-                                : `Expand ${childLabel} for ${rowName}`
-                            }
+                            aria-label={toggleAriaLabel}
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >
                             {isExpanded ? (
@@ -485,7 +490,9 @@ const BreakDownResults: FC<{
                           label
                         )
                       ) : (
-                        <em>unknown</em>
+                        <em>
+                          <Trans>unknown</Trans>
+                        </em>
                       )}
                     </span>
                     {row && statsAdjustmentImpacts.length ? (

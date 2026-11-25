@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment";
 import { getStorableVariations } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -20,6 +21,7 @@ export default function EditVariationKeysModal({
   close: () => void;
   stage: (variations: Variation[]) => void;
 }) {
+  const { t } = useLingui();
   const variations = getStorableVariations(experiment);
   const form = useForm({
     defaultValues: { keys: variations.map((v) => v.key) },
@@ -28,39 +30,45 @@ export default function EditVariationKeysModal({
   return (
     <ModalStandard
       trackingEventModalType="edit-variation-keys"
-      header="Change variation keys"
+      header={t`Change variation keys`}
       open={true}
       close={close}
-      cta="Apply"
+      cta={t`Apply`}
       submit={validatedSubmit(form, ({ keys }) =>
         stage(variations.map((v, i) => ({ ...v, key: keys[i].trim() }))),
       )}
     >
       <Flex direction="column" gap="3">
         <Callout status="warning">
-          A variation key is how SDKs report a variation and how analysis finds
-          it. Change one only to match values already in your data: anything
-          tracked under the old key stops counting toward that variation.
+          <Trans>
+            A variation key is how SDKs report a variation and how analysis
+            finds it. Change one only to match values already in your data:
+            anything tracked under the old key stops counting toward that
+            variation.
+          </Trans>
         </Callout>
-        {variations.map((v, i) => (
-          <Flex key={v.id} align="center" justify="between" gap="4">
-            <VariationLabel number={i} name={v.name || `Variation ${i}`} />
-            <Field
-              required
-              containerClassName="mb-0"
-              aria-label={`${v.name || `Variation ${i}`} key`}
-              {...form.register(`keys.${i}`, {
-                validate: (key) =>
-                  form
-                    .getValues("keys")
-                    .every(
-                      (other, j) => j === i || other.trim() !== key.trim(),
-                    ) || "Another variation already uses this key.",
-              })}
-              error={form.formState.errors.keys?.[i]?.message}
-            />
-          </Flex>
-        ))}
+        {variations.map((v, i) => {
+          const variationName = v.name || t`Variation ${i}`;
+          return (
+            <Flex key={v.id} align="center" justify="between" gap="4">
+              <VariationLabel number={i} name={variationName} />
+              <Field
+                required
+                containerClassName="mb-0"
+                aria-label={t`${variationName} key`}
+                {...form.register(`keys.${i}`, {
+                  validate: (key) =>
+                    form
+                      .getValues("keys")
+                      .every(
+                        (other, j) => j === i || other.trim() !== key.trim(),
+                      ) || t`Another variation already uses this key.`,
+                })}
+                error={form.formState.errors.keys?.[i]?.message}
+              />
+            </Flex>
+          );
+        })}
       </Flex>
     </ModalStandard>
   );

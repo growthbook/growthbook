@@ -12,6 +12,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import clsx from "clsx";
 import { FormatOptionLabelMeta } from "react-select";
+import { Trans, useLingui } from "@lingui/react/macro";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { SingleValue } from "@/components/Forms/SelectField";
 import { Popover } from "@/ui/Popover";
@@ -203,20 +204,25 @@ export function formatSliceOptionLabel(
   if (option.value === "overall") {
     return (
       <>
-        Overall <span className="text-muted">(Totals)</span>
+        <Trans>
+          Overall <span className="text-muted">(Totals)</span>
+        </Trans>
       </>
     );
   }
 
   if (option.parsedChunks[0]?.isSelectAll) {
     const chunk = option.parsedChunks[0];
+    const column = chunk.column;
     return (
       <span
         style={
           option.isOrphaned ? { textDecoration: "line-through" } : undefined
         }
       >
-        {chunk.column} <span className="text-muted">(All Slices)</span>
+        <Trans>
+          {column} <span className="text-muted">(All Slices)</span>
+        </Trans>
       </span>
     );
   }
@@ -246,7 +252,7 @@ export function formatSliceOptionLabel(
                   fontWeight: 600,
                 }}
               >
-                {chunk.datatype === "boolean" ? "null" : "other"}
+                {chunk.datatype === "boolean" ? "null" : <Trans>other</Trans>}
               </span>
             </>
           ) : (
@@ -350,6 +356,7 @@ export default function ResultsFilter({
   setShowMetricFilter: (show: boolean) => void;
   dimension?: string;
 }) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
@@ -420,7 +427,9 @@ export default function ResultsFilter({
         trigger={
           <Button color="violet" variant="ghost" size="md" icon={<PiPlus />}>
             <Flex align="center" gap="1">
-              <span>Filters</span>
+              <span>
+                <Trans>Filters</Trans>
+              </span>
               {activeFilterCount > 0 && (
                 <Badge
                   color="indigo"
@@ -439,7 +448,7 @@ export default function ResultsFilter({
               <Flex align="center" justify="between" mb="2">
                 <Heading size="2" weight="medium">
                   <Flex align="center" gap="1">
-                    Filters
+                    <Trans>Filters</Trans>
                     {activeFilterCount > 0 && (
                       <Badge
                         color="indigo"
@@ -462,7 +471,7 @@ export default function ResultsFilter({
                       setSliceTagsFilter?.([]);
                     }}
                   >
-                    Clear all
+                    <Trans>Clear all</Trans>
                   </Link>
                 ) : null}
               </Flex>
@@ -477,11 +486,15 @@ export default function ResultsFilter({
                   <Box style={{ width: 80 }}>
                     <Heading size="2" weight="medium" mb="0">
                       {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
-                        <Tooltip body="Slice filters are ignored when a unit dimension is set">
-                          <HelperText status="warning">Slices</HelperText>
+                        <Tooltip
+                          body={t`Slice filters are ignored when a unit dimension is set`}
+                        >
+                          <HelperText status="warning">
+                            <Trans>Slices</Trans>
+                          </HelperText>
                         </Tooltip>
                       ) : (
-                        "Slices"
+                        t`Slices`
                       )}
                     </Heading>
                   </Box>
@@ -489,7 +502,7 @@ export default function ResultsFilter({
                     legacyHeight
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
-                    placeholder="Type to search..."
+                    placeholder={t`Type to search...`}
                     value={sliceTagsFilter || []}
                     options={sliceOptions.map(({ value, isOrphaned }) => ({
                       label: value,
@@ -520,20 +533,20 @@ export default function ResultsFilter({
                     mb="0"
                     style={{ width: 80 }}
                   >
-                    Metrics
+                    <Trans>Metrics</Trans>
                   </Heading>
                   <MultiSelectField
                     legacyHeight
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
-                    placeholder="Type to search..."
+                    placeholder={t`Type to search...`}
                     value={metricsFilter || []}
                     options={[
                       ...(hasMetricGroupsFeature &&
                       metricOptions.groups.length > 0
                         ? [
                             {
-                              label: "Metric Groups",
+                              label: t`Metric Groups`,
                               options: metricOptions.groups.map((group) => ({
                                 label: group.name,
                                 value: group.id,
@@ -545,7 +558,7 @@ export default function ResultsFilter({
                       ...(metricOptions.metrics.length > 0
                         ? [
                             {
-                              label: "Metrics",
+                              label: t`Metrics`,
                               options: metricOptions.metrics.map((metric) => ({
                                 label: metric.name,
                                 value: metric.id,
@@ -592,7 +605,7 @@ export default function ResultsFilter({
                     mb="0"
                     style={{ width: 80 }}
                   >
-                    Tags
+                    <Trans>Tags</Trans>
                   </Heading>
                   <Box className="w-100">
                     <TagsInput
@@ -600,7 +613,7 @@ export default function ResultsFilter({
                       onChange={(v) => {
                         setMetricTagFilter?.(v);
                       }}
-                      prompt="Type to search..."
+                      prompt={t`Type to search...`}
                       closeMenuOnSelect={false}
                       autoFocus={false}
                       creatable={false}
@@ -629,7 +642,7 @@ export default function ResultsFilter({
             setSliceTagsFilter?.([]);
           }}
         >
-          Clear
+          <Trans>Clear</Trans>
         </Link>
       ) : null}
     </Flex>

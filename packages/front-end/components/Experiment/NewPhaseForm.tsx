@@ -6,6 +6,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   getNamespaceRanges,
   isMultiRangeNamespaceFormat,
@@ -43,6 +44,7 @@ const NewPhaseForm: FC<{
   close: () => void;
   source?: string;
 }> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const { t } = useLingui();
   const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
     experiment.project,
     linkedFeatures,
@@ -110,11 +112,12 @@ const NewPhaseForm: FC<{
 
   const variationWeights = form.watch("variationWeights");
   const isValid = areVariationWeightsValid(variationWeights);
+  const totalPercent = variationWeightsTotalPercent(variationWeights);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const submit = form.handleSubmit(async (value) => {
-    if (!isValid) throw new Error("Variation weights must add up to 100%.");
+    if (!isValid) throw new Error(t`Variation weights must add up to 100%.`);
 
     validateSavedGroupTargeting(value.savedGroups);
 
@@ -141,24 +144,26 @@ const NewPhaseForm: FC<{
     <Modal
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
-      header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
+      header={firstPhase ? t`Start Experiment` : t`New Experiment Phase`}
       close={close}
       open={true}
       submit={submit}
-      cta={"Start"}
-      closeCta="Cancel"
+      cta={t`Start`}
+      closeCta={t`Cancel`}
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
         <Callout status="warning">
-          <strong>Warning:</strong> Starting a new phase will immediately affect
-          all linked Feature Flags and Visual Changes.
+          <Trans>
+            <strong>Warning:</strong> Starting a new phase will immediately
+            affect all linked Feature Flags and Visual Changes.
+          </Trans>
         </Callout>
       )}
       <div className="row">
         <Field
           size="legacy"
-          label="Name"
+          label={t`Name`}
           containerClassName="col-lg"
           required
           {...form.register("name")}
@@ -167,15 +172,15 @@ const NewPhaseForm: FC<{
       {!firstPhase && (
         <Field
           size="legacy"
-          label="Reason for Starting New Phase"
+          label={t`Reason for Starting New Phase`}
           textarea
           {...form.register("reason")}
-          placeholder="(optional)"
+          placeholder={t`(optional)`}
         />
       )}
       {!hasLinkedChanges && (
         <DatePicker
-          label="Start time"
+          label={t`Start time`}
           timeZone="utc"
           date={form.watch("dateStarted")}
           setDate={(v) => {
@@ -227,9 +232,10 @@ const NewPhaseForm: FC<{
       />
       {!isValid && (
         <Callout status="warning" mb="3">
-          Variation weights add up to{" "}
-          {variationWeightsTotalPercent(variationWeights)}%. Adjust them to add
-          up to 100% to start the new phase.
+          <Trans>
+            Variation weights add up to {totalPercent}%. Adjust them to add up
+            to 100% to start the new phase.
+          </Trans>
         </Callout>
       )}
       {hasLinkedChanges && (

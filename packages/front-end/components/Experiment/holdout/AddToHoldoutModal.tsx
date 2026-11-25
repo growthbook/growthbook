@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -17,6 +18,7 @@ const AddToHoldoutModal = ({
   stage: (holdoutId: string) => void;
   close: () => void;
 }) => {
+  const { t } = useLingui();
   const [selected, setSelected] = useState(holdoutId);
 
   const experimentHasLinkedFeatures =
@@ -30,12 +32,12 @@ const AddToHoldoutModal = ({
 
   return (
     <ModalStandard
-      header={holdoutId ? "Change holdout" : "Add to holdout"}
+      header={holdoutId ? t`Change holdout` : t`Add to holdout`}
       close={close}
       open={true}
       trackingEventModalType="add-feature-to-holdout"
       size="lg"
-      cta="Apply"
+      cta={t`Apply`}
       // "None" clears a holdout that's set; there's nothing to clear otherwise.
       ctaEnabled={showHoldoutSelect && selected !== holdoutId}
       submit={showHoldoutSelect ? async () => stage(selected) : undefined}
@@ -43,9 +45,11 @@ const AddToHoldoutModal = ({
       {experimentHasLinkedFeatures && (
         <Callout status="error">
           <Text>
-            Holdouts cannot be added to experiments with linked features that
-            are not already in the holdout. Please add the holdout to the
-            feature first.
+            <Trans>
+              Holdouts cannot be added to experiments with linked features that
+              are not already in the holdout. Please add the holdout to the
+              feature first.
+            </Trans>
           </Text>
         </Callout>
       )}
@@ -53,8 +57,10 @@ const AddToHoldoutModal = ({
       {experimentIsNotCompatibleWithHoldouts && (
         <Callout status="error">
           <Text>
-            Holdouts cannot be added to experiments with Visual Changesets or
-            URL redirects.
+            <Trans>
+              Holdouts cannot be added to experiments with Visual Changesets or
+              URL redirects.
+            </Trans>
           </Text>
         </Callout>
       )}

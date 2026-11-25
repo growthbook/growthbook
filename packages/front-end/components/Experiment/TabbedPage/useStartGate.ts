@@ -3,6 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { canBypassStartApproval } from "shared/permissions";
+import { useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -31,6 +32,7 @@ export default function useStartGate({
   >;
   bypassed: boolean;
 }) {
+  const { i18n } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
   const { summary, checklistItemsRemaining } = usePreLaunchChecklist();
@@ -75,6 +77,7 @@ export default function useStartGate({
     canBypassApproval,
     needsUpgrade: !!upgrade,
     bypassed,
+    i18n,
   });
   // What still stands in the way once this viewer's bypass is counted.
   const blockers = summary.incomplete.blocking.filter(

@@ -8,6 +8,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -156,9 +157,15 @@ export default function BaselineChooserColumnLabel({
       shouldDisplay={!dropdownOpen}
       body={
         <div style={{ lineHeight: 1.5 }}>
-          {isHoldout
-            ? "The holdout variation that all variations are compared against."
-            : "The baseline that all variations are compared against."}
+          {isHoldout ? (
+            <Trans>
+              The holdout variation that all variations are compared against.
+            </Trans>
+          ) : (
+            <Trans>
+              The baseline that all variations are compared against.
+            </Trans>
+          )}
           <Box mt="1" style={{ marginBottom: 2 }}>
             <VariationLabel
               number={baselineRow}
@@ -178,7 +185,7 @@ export default function BaselineChooserColumnLabel({
             maxWidth={labelMaxWidth}
             style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
           >
-            Holdout
+            <Trans>Holdout</Trans>
           </OverflowText>
         ) : (
           <Box
@@ -226,7 +233,7 @@ export default function BaselineChooserColumnLabel({
           textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
-          Baseline
+          <Trans>Baseline</Trans>
         </DropdownMenuLabel>
         {renderMenuItems()}
       </DropdownMenuGroup>

@@ -16,6 +16,7 @@ import {
 } from "shared/experiments";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
@@ -92,6 +93,7 @@ export function SelectDashboardAndBlockPage({
   updateSchedule,
   defaultFormValues,
 }: SharedProps) {
+  const { t } = useLingui();
   const dashboardId = form.watch("dashboardId");
   const isCreatingNew = dashboardId === "__create__";
 
@@ -137,10 +139,10 @@ export function SelectDashboardAndBlockPage({
       visibleIndices.length === 0 ||
       visibleIndices.length === totalVariations
     ) {
-      return "All variations";
+      return t`All variations`;
     }
     return visibleIndices.map((index) => `#${index}`).join(", ");
-  }, [variationFilter, experiment, baselineRow]);
+  }, [variationFilter, experiment, baselineRow, t]);
 
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
 
@@ -150,7 +152,8 @@ export function SelectDashboardAndBlockPage({
         // Check if it's a "select all" tag
         const selectAllResult = isSliceTagSelectAll(tag);
         if (selectAllResult.isSelectAll && selectAllResult.column) {
-          return `${selectAllResult.column}: All`;
+          const column = selectAllResult.column;
+          return t`${column}: All`;
         }
         // Parse regular slice tag (e.g., "dim:browser=Chrome&dim:country=AU")
         const sliceLevels = parseSliceQueryString(tag);
@@ -159,13 +162,13 @@ export function SelectDashboardAndBlockPage({
         }
         return sliceLevels
           .map((level) => {
-            const value = level.levels[0] || "other";
+            const value = level.levels[0] || t`other`;
             return `${level.column}=${value}`;
           })
           .join(" + ");
       })
       .join(", ");
-  }, [sliceTagsFilter]);
+  }, [sliceTagsFilter, t]);
 
   const metricsDisplay = useMemo(() => {
     return metricsFilter
@@ -185,24 +188,29 @@ export function SelectDashboardAndBlockPage({
   }, [metricTagFilter]);
 
   const sortByDisplay = useMemo(() => {
-    if (sortBy === "metrics") return "Metric order";
-    if (sortBy === "metricTags") return "Metric tags";
-    if (sortBy === "significance") return "Significance";
-    if (sortBy === "change") return "Change";
-    return "Default";
-  }, [sortBy]);
+    if (sortBy === "metrics") return t`Metric order`;
+    if (sortBy === "metricTags") return t`Metric tags`;
+    if (sortBy === "significance") return t`Significance`;
+    if (sortBy === "change") return t`Change`;
+    return t`Default`;
+  }, [sortBy, t]);
 
   const sortDirectionDisplay = useMemo(() => {
-    if (sortDirection === "asc") return "Ascending";
-    if (sortDirection === "desc") return "Descending";
+    if (sortDirection === "asc") return t`Ascending`;
+    if (sortDirection === "desc") return t`Descending`;
     return "";
-  }, [sortDirection]);
+  }, [sortDirection, t]);
 
   const differenceTypeDisplay = useMemo(() => {
-    if (differenceType === "absolute") return "Absolute";
-    if (differenceType === "scaled") return "Scaled";
-    return "Relative";
-  }, [differenceType]);
+    if (differenceType === "absolute") return t`Absolute`;
+    if (differenceType === "scaled") return t`Scaled`;
+    return t`Relative`;
+  }, [differenceType, t]);
+
+  const blockIcon = dimension
+    ? BLOCK_TYPE_INFO["experiment-dimension"].icon
+    : BLOCK_TYPE_INFO["experiment-metric"].icon;
+  const blockTypeName = dimension ? t`Dimension Results` : t`Metric Results`;
 
   return (
     <>
@@ -220,7 +228,7 @@ export function SelectDashboardAndBlockPage({
             className="mb-2"
             style={{ display: "block" }}
           >
-            Select Dashboard
+            <Trans>Select Dashboard</Trans>
           </Text>
 
           <DashboardSelector
@@ -241,9 +249,9 @@ export function SelectDashboardAndBlockPage({
               <Field
                 size="legacy"
                 id="dashboard-name-input"
-                label="Dashboard Name"
+                label={t`Dashboard Name`}
                 {...form.register("newDashboardTitle")}
-                placeholder="Dashboard name"
+                placeholder={t`Dashboard name`}
                 labelClassName="font-weight-bold"
                 containerClassName="mb-0"
                 onFocus={(e) => {
@@ -260,7 +268,7 @@ export function SelectDashboardAndBlockPage({
                   <Link className="font-weight-bold">
                     <Text>
                       <PiCaretRightFill className="chevron mr-1" />
-                      Dashboard Settings
+                      <Trans>Dashboard Settings</Trans>
                     </Text>
                   </Link>
                 }
@@ -271,8 +279,8 @@ export function SelectDashboardAndBlockPage({
                   <Flex direction="column" gap="5">
                     {refreshInterval && (
                       <Checkbox
-                        label="Auto-update dashboard data"
-                        description={`An automatic data refresh will occur ${refreshInterval}.`}
+                        label={t`Auto-update dashboard data`}
+                        description={t`An automatic data refresh will occur ${refreshInterval}.`}
                         disabled={updateSchedule?.type === "never"}
                         disabledMessage={autoUpdateDisabledMessage}
                         value={form.watch("newDashboardEnableAutoUpdates")}
@@ -286,12 +294,12 @@ export function SelectDashboardAndBlockPage({
                     )}
                     <SelectField
                       size="legacy"
-                      label="View access"
+                      label={t`View access`}
                       containerClassName="mb-0"
                       options={[
-                        { label: "Organization members", value: "published" },
+                        { label: t`Organization members`, value: "published" },
                         {
-                          label: "Only me",
+                          label: t`Only me`,
                           value: "private",
                         },
                       ]}
@@ -308,19 +316,18 @@ export function SelectDashboardAndBlockPage({
                     />
                     <SelectField
                       size="legacy"
-                      label="Edit access"
+                      label={t`Edit access`}
                       containerClassName="mb-0"
                       disabled={
                         form.watch("newDashboardShareLevel") === "private"
                       }
                       options={[
                         {
-                          label:
-                            "Any organization members with editing permission",
+                          label: t`Any organization members with editing permission`,
                           value: "published",
                         },
                         {
-                          label: "Only me",
+                          label: t`Only me`,
                           value: "private",
                         },
                       ]}
@@ -342,7 +349,7 @@ export function SelectDashboardAndBlockPage({
         <Box mt="4">
           <Field
             size="legacy"
-            label="Block Name"
+            label={t`Block Name`}
             {...form.register("blockName")}
             placeholder={defaultBlockName}
             labelClassName="font-weight-bold"
@@ -352,17 +359,21 @@ export function SelectDashboardAndBlockPage({
           <Box mt="2">
             <Text size="2" mt="2" color="gray">
               <Flex align="center" display="inline-flex" gap="1">
-                <span>Will be imported as </span>
-                <Avatar radius="small" color="indigo" variant="soft" size="sm">
-                  {dimension
-                    ? BLOCK_TYPE_INFO["experiment-dimension"].icon
-                    : BLOCK_TYPE_INFO["experiment-metric"].icon}
-                </Avatar>
-
-                <Text weight="bold" color="indigo">
-                  {dimension ? "Dimension Results" : "Metric Results"}
-                </Text>
-                <span> block</span>
+                <Trans>
+                  <span>Will be imported as </span>
+                  <Avatar
+                    radius="small"
+                    color="indigo"
+                    variant="soft"
+                    size="sm"
+                  >
+                    {blockIcon}
+                  </Avatar>
+                  <Text weight="bold" color="indigo">
+                    {blockTypeName}
+                  </Text>
+                  <span> block</span>
+                </Trans>
               </Flex>
             </Text>
           </Box>
@@ -370,8 +381,10 @@ export function SelectDashboardAndBlockPage({
 
         {hasMatchingBlock && (
           <Callout status="wizard" mt="3">
-            This dashboard already contains a similar block. Click &quot;Save
-            &amp; Continue&quot; to create this block anyhow.
+            <Trans>
+              This dashboard already contains a similar block. Click &quot;Save
+              &amp; Continue&quot; to create this block anyhow.
+            </Trans>
           </Callout>
         )}
       </Box>
@@ -380,15 +393,18 @@ export function SelectDashboardAndBlockPage({
 
       <Box>
         <Heading size="2" weight="bold" mb="3">
-          View Summary
+          <Trans>View Summary</Trans>
         </Heading>
 
         <Flex direction="column" gap="1">
-          <Metadata label="Unit Dimension" value={dimensionName} />
+          <Metadata
+            label={t`Unit Dimension`}
+            value={dimension ? dimensionName : t`None`}
+          />
           {sliceTagsCount > 0 || metricsCount > 0 || metricTagCount > 0 ? (
             <Box my="1">
               <Text>
-                Filters{" "}
+                <Trans>Filters</Trans>{" "}
                 <Badge
                   radius="full"
                   label={String(sliceTagsCount + metricsCount + metricTagCount)}
@@ -397,30 +413,32 @@ export function SelectDashboardAndBlockPage({
               <Box ml="2" mb="1">
                 {sliceTagsCount > 0 && (
                   <Metadata
-                    label="Slices"
+                    label={t`Slices`}
                     value={<Text size="1">{sliceTagsDisplay}</Text>}
                   />
                 )}
                 {metricsCount > 0 && (
                   <Metadata
-                    label="Metrics"
+                    label={t`Metrics`}
                     value={<Text size="1">{metricsDisplay}</Text>}
                   />
                 )}
                 {metricTagCount > 0 && (
                   <Metadata
-                    label="Metric Tags"
+                    label={t`Metric Tags`}
                     value={<Text size="1">{metricFiltersTagsDisplay}</Text>}
                   />
                 )}
               </Box>
             </Box>
           ) : null}
-          {baselineText && <Metadata label="Baseline" value={baselineText} />}
-          <Metadata label="Variations" value={variationsText} />
-          <Metadata label="Difference Type" value={differenceTypeDisplay} />
+          {baselineText && (
+            <Metadata label={t`Baseline`} value={baselineText} />
+          )}
+          <Metadata label={t`Variations`} value={variationsText} />
+          <Metadata label={t`Difference Type`} value={differenceTypeDisplay} />
           <Metadata
-            label="Sort by"
+            label={t`Sort by`}
             value={
               (sortBy === "significance" || sortBy === "change") &&
               sortDirection
@@ -443,23 +461,24 @@ export function NewDashboardSettingsPage({
   refreshInterval?: string;
   updateSchedule?: { type: string };
 }) {
+  const { t } = useLingui();
   return (
     <>
       <Heading size="2" weight="bold" mb="3">
-        New Dashboard Settings
+        <Trans>New Dashboard Settings</Trans>
       </Heading>
       <Flex direction="column" gap="5" mb="2">
         <Field
           size="legacy"
-          label="Name"
+          label={t`Name`}
           {...form.register("newDashboardTitle")}
-          placeholder="Dashboard name"
+          placeholder={t`Dashboard name`}
           containerClassName="mb-0"
         />
         {refreshInterval && (
           <Checkbox
-            label="Auto-update dashboard data"
-            description={`An automatic data refresh will occur ${refreshInterval}.`}
+            label={t`Auto-update dashboard data`}
+            description={t`An automatic data refresh will occur ${refreshInterval}.`}
             disabled={updateSchedule?.type === "never"}
             disabledMessage={autoUpdateDisabledMessage}
             value={form.watch("newDashboardEnableAutoUpdates")}
@@ -470,12 +489,12 @@ export function NewDashboardSettingsPage({
         )}
         <SelectField
           size="legacy"
-          label="View access"
+          label={t`View access`}
           containerClassName="mb-0"
           options={[
-            { label: "Organization members", value: "published" },
+            { label: t`Organization members`, value: "published" },
             {
-              label: "Only me",
+              label: t`Only me`,
               value: "private",
             },
           ]}
@@ -492,16 +511,16 @@ export function NewDashboardSettingsPage({
         />
         <SelectField
           size="legacy"
-          label="Edit access"
+          label={t`Edit access`}
           containerClassName="mb-0"
           disabled={form.watch("newDashboardShareLevel") === "private"}
           options={[
             {
-              label: "Any organization members with editing permission",
+              label: t`Any organization members with editing permission`,
               value: "published",
             },
             {
-              label: "Only me",
+              label: t`Only me`,
               value: "private",
             },
           ]}
@@ -522,9 +541,10 @@ export function ConfirmationPage({
   isNewDashboard: boolean;
   blockType: "experiment-metric" | "experiment-dimension";
 }) {
+  const { t } = useLingui();
   const getBlockTypeDisplay = () => {
-    if (blockType === "experiment-dimension") return "Dimension Results";
-    return "Metric Results";
+    if (blockType === "experiment-dimension") return t`Dimension Results`;
+    return t`Metric Results`;
   };
   const blockTypeDisplay = getBlockTypeDisplay();
 
@@ -532,15 +552,15 @@ export function ConfirmationPage({
     <Box my="4">
       <Text>
         {isNewDashboard ? (
-          <>
+          <Trans>
             Your new dashboard has been created, and the{" "}
             <strong>{blockTypeDisplay}</strong> block has been added to it.
-          </>
+          </Trans>
         ) : (
-          <>
+          <Trans>
             The new <strong>{blockTypeDisplay}</strong> block was appended to
             the bottom of your selected dashboard.
-          </>
+          </Trans>
         )}
       </Text>
     </Box>

@@ -1,4 +1,5 @@
 import { FC, useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -77,6 +78,7 @@ const DateResults: FC<{
   differenceType,
   ssrPolyfills,
 }) => {
+  const { t, i18n } = useLingui();
   const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
 
@@ -305,15 +307,19 @@ const DateResults: FC<{
             return {
               metric,
               resultGroup,
-              charts: metric.funnelSettings.steps.map((step, stepIndex) => ({
-                label: `Step ${stepIndex + 1}: ${step.name}${
-                  step.optional ? " (optional)" : ""
-                }`,
-                datapoints: buildDatapoints(
-                  funnelStepMetricId(metric.id, stepIndex),
-                  metric,
-                ),
-              })),
+              charts: metric.funnelSettings.steps.map((step, stepIndex) => {
+                const stepNumber = stepIndex + 1;
+                const stepName = step.name;
+                return {
+                  label: step.optional
+                    ? t`Step ${stepNumber}: ${stepName} (optional)`
+                    : t`Step ${stepNumber}: ${stepName}`,
+                  datapoints: buildDatapoints(
+                    funnelStepMetricId(metric.id, stepIndex),
+                    metric,
+                  ),
+                };
+              }),
             };
           }
 
@@ -345,6 +351,7 @@ const DateResults: FC<{
     statsEngine,
     variations,
     ssrPolyfills,
+    t,
   ]);
 
   const metricFormatterOptions: Intl.NumberFormatOptions = {
@@ -358,16 +365,18 @@ const DateResults: FC<{
       {seriestype === "pre:date" && (
         <div className="mb-3 d-flex align-items-center">
           <div className="mr-3">
-            <strong>Graph Controls: </strong>
+            <strong>
+              <Trans>Graph Controls:</Trans>{" "}
+            </strong>
           </div>
           <div>
             <Tooltip
-              content="Cumulative charts disabled for Scaled Impact difference type"
+              content={t`Cumulative charts disabled for Scaled Impact difference type`}
               enabled={differenceType === "scaled"}
             >
               <Switch
                 id="cumulative"
-                label="Cumulative"
+                label={t`Cumulative`}
                 value={cumulative}
                 onChange={setCumulative}
                 disabled={differenceType === "scaled"}
@@ -377,11 +386,13 @@ const DateResults: FC<{
         </div>
       )}
       <div className="mb-5">
-        <h2>Units</h2>
+        <h2>
+          <Trans>Units</Trans>
+        </h2>
         <ExperimentDateGraph
           yaxis="users"
           variations={variations}
-          label="Units"
+          label={t`Units`}
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
@@ -389,15 +400,19 @@ const DateResults: FC<{
       </div>
       {metricSections && (
         <>
-          <h2>Metrics</h2>
+          <h2>
+            <Trans>Metrics</Trans>
+          </h2>
           <div className="mb-4">
             <small>
-              The following results are cohort effects. In other words, units
-              are first grouped by the first date they are exposed to the
-              experiment (x-axis) and then the total uplift for all of those
-              users is computed (y-axis). This is not the same as a standard
-              time series, because the impact on units first exposed on day X
-              could include conversions on future days.
+              <Trans>
+                The following results are cohort effects. In other words, units
+                are first grouped by the first date they are exposed to the
+                experiment (x-axis) and then the total uplift for all of those
+                users is computed (y-axis). This is not the same as a standard
+                time series, because the impact on units first exposed on day X
+                could include conversions on future days.
+              </Trans>
             </small>
           </div>
         </>
@@ -408,7 +423,12 @@ const DateResults: FC<{
           <h3>
             {metric.name}{" "}
             {resultGroup !== "goal" && (
-              <Badge color="gray" label={resultGroup} />
+              <Badge
+                color="gray"
+                label={
+                  resultGroup === "secondary" ? t`secondary` : t`guardrail`
+                }
+              />
             )}
           </h3>
           {charts.map((chart, chartIndex) => (
@@ -421,7 +441,7 @@ const DateResults: FC<{
                 <ExperimentDateGraph
                   yaxis="effect"
                   datapoints={chart.datapoints}
-                  label={getEffectLabel(differenceType ?? "relative")}
+                  label={getEffectLabel(differenceType ?? "relative", i18n)}
                   formatter={
                     differenceType === "relative"
                       ? formatPercent
@@ -439,7 +459,9 @@ const DateResults: FC<{
                   hasStats={!cumulative}
                 />
               ) : (
-                <>No cumulative graph available for quantile metrics</>
+                <Trans>
+                  No cumulative graph available for quantile metrics
+                </Trans>
               )}
             </div>
           ))}

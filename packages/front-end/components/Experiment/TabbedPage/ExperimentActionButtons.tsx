@@ -1,6 +1,7 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
 import { HoldoutStage } from "shared/util";
 import { Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 
@@ -30,16 +31,18 @@ export default function ExperimentActionButtons({
     runningStatus === "rollback-now";
   const displayCTAText = () => {
     if (holdoutStage) {
-      return holdoutStage === "analysis-period"
-        ? "Stop Holdout"
-        : "Start Analysis Phase";
+      return holdoutStage === "analysis-period" ? (
+        <Trans>Stop Holdout</Trans>
+      ) : (
+        <Trans>Start Analysis Phase</Trans>
+      );
     }
     if (readyForDecision) {
-      return "Make decision";
+      return <Trans>Make decision</Trans>;
     } else if (isBandit) {
-      return "Stop Bandit";
+      return <Trans>Stop Bandit</Trans>;
     } else {
-      return "Stop Experiment";
+      return <Trans>Stop Experiment</Trans>;
     }
   };
   // Hidden without permission to run them, as on the feature page.
@@ -53,7 +56,7 @@ export default function ExperimentActionButtons({
             onClick={editTargeting}
             disabled={!!blockedReason}
           >
-            Make Changes
+            <Trans>Make Changes</Trans>
           </Button>
         </Tooltip>
       ) : null}

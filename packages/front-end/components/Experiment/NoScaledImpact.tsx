@@ -1,14 +1,18 @@
 import { CSSProperties } from "react";
+import { useLingui } from "@lingui/react/macro";
 
 export default function NoScaledImpact({
   noStyle = false,
   style,
-  message = "No scaled impact for this metric type",
+  message,
 }: {
   noStyle?: boolean;
   style?: CSSProperties;
   message?: string;
 }) {
+  const { t } = useLingui();
+  const messageText =
+    message === undefined ? t`No scaled impact for this metric type` : message;
   return (
     <div className="no-scaled-impact" style={style}>
       <div>
@@ -16,7 +20,7 @@ export default function NoScaledImpact({
           className="font-weight-normal main-text"
           style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
         >
-          {message}
+          {messageText}
         </div>
       </div>
     </div>

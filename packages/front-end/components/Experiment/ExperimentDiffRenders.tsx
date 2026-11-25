@@ -1,4 +1,7 @@
 import { ReactNode } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -52,6 +55,54 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function NoneLabel() {
+  return (
+    <em>
+      <Trans>None</Trans>
+    </em>
+  );
+}
+
+function UnsetLabel() {
+  return (
+    <em>
+      <Trans>unset</Trans>
+    </em>
+  );
+}
+
+// A field label, numbered by phase when the experiment has several.
+function PhaseFieldLabel({
+  label,
+  phase,
+}: {
+  label: MessageDescriptor;
+  phase: number | null;
+}) {
+  const { i18n } = useLingui();
+  const labelText = i18n._(label);
+  if (phase === null) return <>{labelText}</>;
+  return (
+    <Trans>
+      {labelText} (Phase {phase})
+    </Trans>
+  );
+}
+
+// TextChangedField takes its label as a string, so resolve it in a component.
+function TranslatedTextChangedField({
+  label,
+  pre,
+  post,
+}: {
+  label: MessageDescriptor;
+  pre: string | null | undefined;
+  post: string | null | undefined;
+}) {
+  const { i18n } = useLingui();
+  return <TextChangedField label={i18n._(label)} pre={pre} post={post} />;
+}
+
 function normalizePrereqs(prereqs: unknown): FeaturePrerequisite[] | undefined {
   if (!Array.isArray(prereqs) || !prereqs.length) return undefined;
   return prereqs.map((p) => ({
@@ -96,10 +147,11 @@ function MetricDiff({
   preArr,
   postArr,
 }: {
-  label: string;
+  label: MessageDescriptor;
   preArr?: string[] | null;
   postArr?: string[] | null;
 }) {
+  const { i18n } = useLingui();
   const a = preArr ?? [];
   const b = postArr ?? [];
   const added = b.filter((id) => !a.includes(id));
@@ -110,7 +162,7 @@ function MetricDiff({
     <div className="mb-2">
       <div className="mb-1">
         <Text size="md" weight="medium" color="text-mid">
-          {label}
+          {i18n._(label)}
         </Text>
       </div>
       <div className="d-flex flex-wrap" style={{ gap: 4 }}>
@@ -171,7 +223,7 @@ export function renderUserTargetingPhases(
 
   postPhases.forEach((postP, i) => {
     const preP = prePhases[i] ?? {};
-    const ph = multi ? ` (Phase ${i + 1})` : "";
+    const phase = multi ? i + 1 : null;
 
     // ── Attribute targeting (condition) ──────────────────────────────────────
     const condChanged = !isEqual(preP.condition, postP.condition);
@@ -181,20 +233,22 @@ export function renderUserTargetingPhases(
       sections.push(
         <ChangeField
           key={`cond-${i}`}
-          label={`Attribute targeting${ph}`}
+          label={
+            <PhaseFieldLabel label={msg`Attribute targeting`} phase={phase} />
+          }
           changed
           oldNode={
             preStr && preStr !== "{}" ? (
               <ConditionDisplay condition={preStr} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
           newNode={
             postStr && postStr !== "{}" ? (
               <ConditionDisplay condition={postStr} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
         />,
@@ -207,20 +261,22 @@ export function renderUserTargetingPhases(
       sections.push(
         <ChangeField
           key={`sg-${i}`}
-          label={`Saved group targeting${ph}`}
+          label={
+            <PhaseFieldLabel label={msg`Saved group targeting`} phase={phase} />
+          }
           changed
           oldNode={
             preP.savedGroups?.length ? (
               <SavedGroupTargetingDisplay savedGroups={preP.savedGroups} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
           newNode={
             postP.savedGroups?.length ? (
               <SavedGroupTargetingDisplay savedGroups={postP.savedGroups} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
         />,
@@ -235,20 +291,25 @@ export function renderUserTargetingPhases(
       sections.push(
         <ChangeField
           key={`prereq-${i}`}
-          label={`Prerequisite targeting${ph}`}
+          label={
+            <PhaseFieldLabel
+              label={msg`Prerequisite targeting`}
+              phase={phase}
+            />
+          }
           changed
           oldNode={
             prePrereqs?.length ? (
               <ConditionDisplay prerequisites={prePrereqs} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
           newNode={
             postPrereqs?.length ? (
               <ConditionDisplay prerequisites={postPrereqs} />
             ) : (
-              <em>None</em>
+              <NoneLabel />
             )
           }
         />,
@@ -262,20 +323,23 @@ export function renderUserTargetingPhases(
       postP.variationWeights,
     );
     if (coverageChanged || weightsChanged) {
-      const fmtTraffic = (p: PhaseTargeting) => {
+      const fmtTraffic = (p: PhaseTargeting): ReactNode => {
         const cov =
           p.coverage !== undefined
             ? coveragePercentFormatter.format(p.coverage)
             : "—";
-        const split = p.variationWeights?.length
-          ? `, ${formatTrafficSplit(p.variationWeights, 0)} split`
-          : "";
-        return `${cov} included${split}`;
+        if (!p.variationWeights?.length) return <Trans>{cov} included</Trans>;
+        const split = formatTrafficSplit(p.variationWeights, 0);
+        return (
+          <Trans>
+            {cov} included, {split} split
+          </Trans>
+        );
       };
       sections.push(
         <ChangeField
           key={`traffic-${i}`}
-          label={`Traffic${ph}`}
+          label={<PhaseFieldLabel label={msg`Traffic`} phase={phase} />}
           changed
           oldNode={fmtTraffic(preP)}
           newNode={fmtTraffic(postP)}
@@ -289,14 +353,16 @@ export function renderUserTargetingPhases(
       normalizeNsForDiff(postP.namespace),
     );
     if (nsChanged) {
-      const fmtNs = (ns: PhaseTargeting["namespace"]) =>
-        ns?.enabled
-          ? `${ns.name} (${percentFormatter.format(calculateNamespaceCoverage(ns))})`
-          : "Global (all users)";
+      const fmtNs = (ns: PhaseTargeting["namespace"]): ReactNode =>
+        ns?.enabled ? (
+          `${ns.name} (${percentFormatter.format(calculateNamespaceCoverage(ns))})`
+        ) : (
+          <Trans>Global (all users)</Trans>
+        );
       sections.push(
         <ChangeField
           key={`ns-${i}`}
-          label={`Namespace${ph}`}
+          label={<PhaseFieldLabel label={msg`Namespace`} phase={phase} />}
           changed
           oldNode={fmtNs(preP.namespace)}
           newNode={fmtNs(postP.namespace)}
@@ -309,10 +375,10 @@ export function renderUserTargetingPhases(
       sections.push(
         <ChangeField
           key={`seed-${i}`}
-          label={`Hash seed${ph}`}
+          label={<PhaseFieldLabel label={msg`Hash seed`} phase={phase} />}
           changed
-          oldNode={preP.seed ?? <em>None</em>}
-          newNode={postP.seed || <em>None</em>}
+          oldNode={preP.seed ?? <NoneLabel />}
+          newNode={postP.seed || <NoneLabel />}
         />,
       );
     }
@@ -333,11 +399,17 @@ export function renderUserTargetingTopLevel(
     post.disableStickyBucketing !== undefined
   ) {
     const fmt = (v: boolean | undefined): ReactNode =>
-      v === undefined ? <em>unset</em> : v ? "disabled" : "enabled";
+      v === undefined ? (
+        <UnsetLabel />
+      ) : v ? (
+        <Trans>disabled</Trans>
+      ) : (
+        <Trans>enabled</Trans>
+      );
     rows.push(
       <ChangeField
         key="sticky"
-        label="Sticky bucketing"
+        label={<Trans>Sticky bucketing</Trans>}
         changed
         oldNode={fmt(pre?.disableStickyBucketing)}
         newNode={fmt(post.disableStickyBucketing)}
@@ -374,16 +446,16 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
 
   postPhases.forEach((postP, i) => {
     const preP = prePhases[i] ?? {};
-    const ph = multi ? ` (Phase ${i + 1})` : "";
+    const phase = multi ? i + 1 : null;
 
     if (!isEqual(preP.dateStarted, postP.dateStarted) && postP.dateStarted) {
       sections.push(
         <ChangeField
           key={`start-${i}`}
-          label={`Start date${ph}`}
+          label={<PhaseFieldLabel label={msg`Start date`} phase={phase} />}
           changed
           oldNode={
-            preP.dateStarted ? phaseDatetime(preP.dateStarted) : <em>None</em>
+            preP.dateStarted ? phaseDatetime(preP.dateStarted) : <NoneLabel />
           }
           newNode={phaseDatetime(postP.dateStarted)}
         />,
@@ -394,13 +466,13 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
       sections.push(
         <ChangeField
           key={`end-${i}`}
-          label={`End date${ph}`}
+          label={<PhaseFieldLabel label={msg`End date`} phase={phase} />}
           changed
           oldNode={
-            preP.dateEnded ? phaseDatetime(preP.dateEnded) : <em>None</em>
+            preP.dateEnded ? phaseDatetime(preP.dateEnded) : <NoneLabel />
           }
           newNode={
-            postP.dateEnded ? phaseDatetime(postP.dateEnded) : <em>None</em>
+            postP.dateEnded ? phaseDatetime(postP.dateEnded) : <NoneLabel />
           }
         />,
       );
@@ -410,9 +482,9 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
       sections.push(
         <ChangeField
           key={`name-${i}`}
-          label={`Phase name${ph}`}
+          label={<PhaseFieldLabel label={msg`Phase name`} phase={phase} />}
           changed
-          oldNode={preP.name ?? <em>None</em>}
+          oldNode={preP.name ?? <NoneLabel />}
           newNode={postP.name}
         />,
       );
@@ -422,9 +494,9 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
       sections.push(
         <ChangeField
           key={`reason-${i}`}
-          label={`Stop reason${ph}`}
+          label={<PhaseFieldLabel label={msg`Stop reason`} phase={phase} />}
           changed
-          oldNode={preP.reason ?? <em>None</em>}
+          oldNode={preP.reason ?? <NoneLabel />}
           newNode={postP.reason}
         />,
       );
@@ -437,11 +509,11 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
       const d = postP.lookbackStartDate as unknown;
       const preD = preP.lookbackStartDate as unknown;
       const fmt = (v: unknown) =>
-        v ? phaseDatetime(v as string | Date) : <em>None</em>;
+        v ? phaseDatetime(v as string | Date) : <NoneLabel />;
       sections.push(
         <ChangeField
           key={`lookback-${i}`}
-          label={`Lookback start${ph}`}
+          label={<PhaseFieldLabel label={msg`Lookback start`} phase={phase} />}
           changed
           oldNode={fmt(preD)}
           newNode={fmt(d)}
@@ -473,9 +545,17 @@ export function renderVariations(pre: Pre, post: Post): ReactNode | null {
       rows.push(
         <ChangeField
           key={`v-${i}`}
-          label={`Variation ${i}`}
+          label={<Trans>Variation {i}</Trans>}
           changed
-          oldNode={preV ? `${preV.name} (${preV.key})` : <em>new</em>}
+          oldNode={
+            preV ? (
+              `${preV.name} (${preV.key})`
+            ) : (
+              <em>
+                <Trans>new</Trans>
+              </em>
+            )
+          }
           newNode={`${v.name} (${v.key})`}
         />,
       );
@@ -483,13 +563,18 @@ export function renderVariations(pre: Pre, post: Post): ReactNode | null {
   });
 
   preVars.slice(postVars.length).forEach((v, i) => {
+    const variationNumber = postVars.length + i;
     rows.push(
       <ChangeField
         key={`v-rm-${i}`}
-        label={`Variation ${postVars.length + i}`}
+        label={<Trans>Variation {variationNumber}</Trans>}
         changed
         oldNode={`${v.name} (${v.key})`}
-        newNode={<em>removed</em>}
+        newNode={
+          <em>
+            <Trans>removed</Trans>
+          </em>
+        }
       />,
     );
   });
@@ -499,7 +584,7 @@ export function renderVariations(pre: Pre, post: Post): ReactNode | null {
 
 function ActivationMetricName({ id }: { id: string | undefined | null }) {
   const { getExperimentMetricById } = useDefinitions();
-  if (!id) return <em>unset</em>;
+  if (!id) return <UnsetLabel />;
   const exists = !!getExperimentMetricById(id);
   return exists ? (
     <Link href={getMetricLink(id)} target="_blank">
@@ -529,7 +614,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <MetricDiff
         key="goal"
-        label="Goal metrics"
+        label={msg`Goal metrics`}
         preArr={pre?.goalMetrics}
         postArr={post.goalMetrics}
       />,
@@ -540,7 +625,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <MetricDiff
         key="sec"
-        label="Secondary metrics"
+        label={msg`Secondary metrics`}
         preArr={pre?.secondaryMetrics}
         postArr={post.secondaryMetrics}
       />,
@@ -551,7 +636,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <MetricDiff
         key="gr"
-        label="Guardrail metrics"
+        label={msg`Guardrail metrics`}
         preArr={pre?.guardrailMetrics}
         postArr={post.guardrailMetrics}
       />,
@@ -565,7 +650,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="act"
-        label="Activation metric"
+        label={<Trans>Activation metric</Trans>}
         changed
         oldNode={<ActivationMetricName id={pre?.activationMetric} />}
         newNode={<ActivationMetricName id={post.activationMetric} />}
@@ -575,7 +660,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
 
   // ── Bandit schedule / burn-in ──────────────────────────────────────────────
   const fmtBandit = (val: number | undefined, unit: string | undefined) =>
-    val !== undefined ? `${val} ${unit ?? ""}`.trim() : <em>unset</em>;
+    val !== undefined ? `${val} ${unit ?? ""}`.trim() : <UnsetLabel />;
 
   const banditBurnChanged =
     !isEqual(pre?.banditBurnInValue, post.banditBurnInValue) ||
@@ -584,7 +669,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="banditBurnIn"
-        label="Bandit burn-in period"
+        label={<Trans>Bandit burn-in period</Trans>}
         changed
         oldNode={fmtBandit(pre?.banditBurnInValue, pre?.banditBurnInUnit)}
         newNode={fmtBandit(post.banditBurnInValue, post.banditBurnInUnit)}
@@ -599,7 +684,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="banditSchedule"
-        label="Bandit schedule"
+        label={<Trans>Bandit schedule</Trans>}
         changed
         oldNode={fmtBandit(pre?.banditScheduleValue, pre?.banditScheduleUnit)}
         newNode={fmtBandit(post.banditScheduleValue, post.banditScheduleUnit)}
@@ -613,9 +698,9 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     post.queryFilter !== undefined
   ) {
     rows.push(
-      <TextChangedField
+      <TranslatedTextChangedField
         key="queryFilter"
-        label="Query filter"
+        label={msg`Query filter`}
         pre={pre?.queryFilter}
         post={post.queryFilter}
       />,
@@ -664,7 +749,7 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
         <div key="tags" className="mb-2">
           <div className="mb-1">
             <Text size="md" weight="medium" color="text-mid">
-              Tags
+              <Trans>Tags</Trans>
             </Text>
           </div>
           <div className="d-flex flex-wrap" style={{ gap: 4 }}>
@@ -685,9 +770,9 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     post.hypothesis !== undefined
   ) {
     rows.push(
-      <TextChangedField
+      <TranslatedTextChangedField
         key="hyp"
-        label="Hypothesis"
+        label={msg`Hypothesis`}
         pre={pre?.hypothesis}
         post={post.hypothesis}
       />,
@@ -699,9 +784,9 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     post.description !== undefined
   ) {
     rows.push(
-      <TextChangedField
+      <TranslatedTextChangedField
         key="desc"
-        label="Description"
+        label={msg`Description`}
         pre={pre?.description}
         post={post.description}
       />,
@@ -712,13 +797,13 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="project"
-        label="Project"
+        label={<Trans>Project</Trans>}
         changed
         oldNode={
-          pre?.project ? <ProjectName id={pre.project} /> : <em>None</em>
+          pre?.project ? <ProjectName id={pre.project} /> : <NoneLabel />
         }
         newNode={
-          post.project ? <ProjectName id={post.project} /> : <em>None</em>
+          post.project ? <ProjectName id={post.project} /> : <NoneLabel />
         }
       />,
     );
@@ -739,7 +824,13 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
 // ─── Badge getters ────────────────────────────────────────────────────────────
 
 export function getExperimentTargetingBadges(): DiffBadge[] {
-  return [{ label: "Edit targeting", action: "edit targeting" }];
+  return [
+    {
+      label: "Edit targeting",
+      action: "edit targeting",
+      displayLabel: msg`Edit targeting`,
+    },
+  ];
 }
 
 export function getExperimentPhaseInfoBadges(
@@ -749,14 +840,35 @@ export function getExperimentPhaseInfoBadges(
   const prePhases = (pre?.phases ?? []) as { dateEnded?: string | null }[];
   const postPhases = (post.phases ?? []) as { dateEnded?: string | null }[];
   if (postPhases.length > prePhases.length)
-    return [{ label: "New phase", action: "new phase" }];
+    return [
+      { label: "New phase", action: "new phase", displayLabel: msg`New phase` },
+    ];
   if (postPhases.length < prePhases.length)
-    return [{ label: "Phase deleted", action: "delete phase" }];
+    return [
+      {
+        label: "Phase deleted",
+        action: "delete phase",
+        displayLabel: msg`Phase deleted`,
+      },
+    ];
   const wasEnded = postPhases.some(
     (p, i) => p.dateEnded && !prePhases[i]?.dateEnded,
   );
-  if (wasEnded) return [{ label: "Phase ended", action: "end phase" }];
-  return [{ label: "Edit phase", action: "edit phase" }];
+  if (wasEnded)
+    return [
+      {
+        label: "Phase ended",
+        action: "end phase",
+        displayLabel: msg`Phase ended`,
+      },
+    ];
+  return [
+    {
+      label: "Edit phase",
+      action: "edit phase",
+      displayLabel: msg`Edit phase`,
+    },
+  ];
 }
 
 export function getExperimentVariationsBadges(
@@ -767,11 +879,16 @@ export function getExperimentVariationsBadges(
   const preCount = pre?.variations?.length ?? 0;
   const postCount = (post.variations as unknown[]).length;
   const diff = postCount - preCount;
+  const removedCount = Math.abs(diff);
   if (diff > 0)
     return [
       {
         label: `+${diff} variation${diff !== 1 ? "s" : ""}`,
         action: "add variation",
+        displayLabel: msg`${plural(diff, {
+          one: "+# variation",
+          other: "+# variations",
+        })}`,
       },
     ];
   if (diff < 0)
@@ -779,9 +896,19 @@ export function getExperimentVariationsBadges(
       {
         label: `−${Math.abs(diff)} variation${Math.abs(diff) !== 1 ? "s" : ""}`,
         action: "remove variation",
+        displayLabel: msg`${plural(removedCount, {
+          one: "−# variation",
+          other: "−# variations",
+        })}`,
       },
     ];
-  return [{ label: "Edit variation", action: "edit variation" }];
+  return [
+    {
+      label: "Edit variation",
+      action: "edit variation",
+      displayLabel: msg`Edit variation`,
+    },
+  ];
 }
 
 export function getExperimentAnalysisBadges(pre: Pre, post: Post): DiffBadge[] {
@@ -794,18 +921,31 @@ export function getExperimentAnalysisBadges(pre: Pre, post: Post): DiffBadge[] {
     const preGoals = (pre?.goalMetrics ?? []) as string[];
     const postGoals = post.goalMetrics as string[];
     const diff = postGoals.length - preGoals.length;
+    const removedCount = Math.abs(diff);
     if (diff > 0)
       badges.push({
         label: `+${diff} goal metric${diff !== 1 ? "s" : ""}`,
         action: "add goal metric",
+        displayLabel: msg`${plural(diff, {
+          one: "+# goal metric",
+          other: "+# goal metrics",
+        })}`,
       });
     else if (diff < 0)
       badges.push({
         label: `−${Math.abs(diff)} goal metric${Math.abs(diff) !== 1 ? "s" : ""}`,
         action: "remove goal metric",
+        displayLabel: msg`${plural(removedCount, {
+          one: "−# goal metric",
+          other: "−# goal metrics",
+        })}`,
       });
     else
-      badges.push({ label: "Edit goal metrics", action: "edit goal metrics" });
+      badges.push({
+        label: "Edit goal metrics",
+        action: "edit goal metrics",
+        displayLabel: msg`Edit goal metrics`,
+      });
   }
 
   const otherMetricsChanged =
@@ -816,7 +956,11 @@ export function getExperimentAnalysisBadges(pre: Pre, post: Post): DiffBadge[] {
     (!isEqual(pre?.activationMetric, post.activationMetric) &&
       post.activationMetric !== undefined);
   if (otherMetricsChanged)
-    badges.push({ label: "Edit metrics", action: "edit metrics" });
+    badges.push({
+      label: "Edit metrics",
+      action: "edit metrics",
+      displayLabel: msg`Edit metrics`,
+    });
 
   return badges;
 }
@@ -824,17 +968,37 @@ export function getExperimentAnalysisBadges(pre: Pre, post: Post): DiffBadge[] {
 export function getExperimentMetadataBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   if (!isEqual(pre?.name, post.name) && post.name !== undefined)
-    badges.push({ label: "Edit name", action: "edit name" });
+    badges.push({
+      label: "Edit name",
+      action: "edit name",
+      displayLabel: msg`Edit name`,
+    });
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined)
-    badges.push({ label: "Edit tags", action: "edit tags" });
+    badges.push({
+      label: "Edit tags",
+      action: "edit tags",
+      displayLabel: msg`Edit tags`,
+    });
   if (!isEqual(pre?.project, post.project) && post.project !== undefined)
-    badges.push({ label: "Edit project", action: "edit project" });
+    badges.push({
+      label: "Edit project",
+      action: "edit project",
+      displayLabel: msg`Edit project`,
+    });
   if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
-    badges.push({ label: "Edit owner", action: "edit owner" });
+    badges.push({
+      label: "Edit owner",
+      action: "edit owner",
+      displayLabel: msg`Edit owner`,
+    });
   if (
     !isEqual(pre?.description, post.description) &&
     post.description !== undefined
   )
-    badges.push({ label: "Edit description", action: "edit description" });
+    badges.push({
+      label: "Edit description",
+      action: "edit description",
+      displayLabel: msg`Edit description`,
+    });
   return badges;
 }

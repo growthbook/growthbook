@@ -8,6 +8,7 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { Fragment, ReactNode, useEffect, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -22,8 +23,6 @@ import Text from "@/ui/Text";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import TruncatedText from "@/ui/TruncatedText";
 import TargetingForm from "./TargetingForm";
-
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 export type ChangeType =
   | "targeting"
@@ -69,6 +68,8 @@ export default function MakeChangesFlow({
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: MakeChangesFlowProps) {
+  const { t, i18n } = useLingui();
+  const listFormat = new Intl.ListFormat(i18n.locale, { type: "conjunction" });
   const [step, setStep] = useState(0);
   const [changeType, setChangeType] = useState<ChangeType | undefined>();
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
@@ -77,24 +78,42 @@ export default function MakeChangesFlow({
   const isBandit = experiment.type === "multi-armed-bandit";
   // What serves the experiment, so it takes the change once it's published.
   const linkedFlags = experiment.linkedFeatures ?? [];
+  const linkedFlagCount = linkedFlags.length;
   const servedBy: ReactNode[] = [
     ...(linkedFlags.length === 1
       ? [
           <Fragment key="flag">
-            the linked Feature Flag{" "}
-            <TruncatedText
-              weight="semibold"
-              maxWidth={240}
-              text={linkedFlags[0]}
-            />
+            <Trans>
+              the linked Feature Flag{" "}
+              <TruncatedText
+                weight="semibold"
+                maxWidth={240}
+                text={linkedFlags[0]}
+              />
+            </Trans>
           </Fragment>,
         ]
       : linkedFlags.length
-        ? [`the ${linkedFlags.length} linked Feature Flags`]
+        ? [t`the ${linkedFlagCount} linked Feature Flags`]
         : []),
-    ...(experiment.hasVisualChangesets ? ["the AI Visual Editor changes"] : []),
-    ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
+    ...(experiment.hasVisualChangesets
+      ? [t`the AI Visual Editor changes`]
+      : []),
+    ...(experiment.hasURLRedirects ? [t`the URL Redirects`] : []),
   ];
+  const servedByList = (
+    <>
+      {listFormat
+        .formatToParts(servedBy.map((_, i) => String(i)))
+        .map((part, i) =>
+          part.type === "element" ? (
+            <Fragment key={i}>{servedBy[Number(part.value)]}</Fragment>
+          ) : (
+            part.value
+          ),
+        )}
+    </>
+  );
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
@@ -141,29 +160,29 @@ export default function MakeChangesFlow({
     });
   };
 
-  let cta = "Publish changes";
+  let cta = t`Publish changes`;
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
   let blockSteps: number[] = [];
   if (!changeType) {
-    cta = "Select a change type";
+    cta = t`Select a change type`;
     ctaEnabled = false;
     blockSteps = [1, 2];
   } else {
     if (changeType !== "phase" && !hasChanges) {
       if (step === 1) {
-        cta = "No changes";
+        cta = t`No changes`;
         ctaEnabled = false;
       }
       blockSteps = [lastStepNumber];
     }
     if (!releasePlan && step === lastStepNumber) {
-      cta = "Select a release plan";
+      cta = t`Select a release plan`;
       ctaEnabled = false;
     }
     if (step === lastStepNumber && !changesConfirmed) {
       // Only name the confirm gate when it's the sole remaining blocker.
-      if (ctaEnabled) disabledMessage = 'Check "Confirm" to publish';
+      if (ctaEnabled) disabledMessage = t`Check "Confirm" to publish`;
       ctaEnabled = false;
     }
   }
@@ -172,7 +191,7 @@ export default function MakeChangesFlow({
     <PagedModal
       trackingEventModalType="make-changes"
       close={close}
-      header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
+      header={isBandit ? t`Make Bandit Changes` : t`Make Experiment Changes`}
       submit={submit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}
@@ -193,7 +212,7 @@ export default function MakeChangesFlow({
                 <Checkbox
                   value={changesConfirmed}
                   setValue={setChangesConfirmed}
-                  label="Confirm"
+                  label={t`Confirm`}
                   weight="medium"
                   align="center"
                 />
@@ -201,29 +220,15 @@ export default function MakeChangesFlow({
             }
           >
             {servedBy.length ? (
-              <>
-                Publishing applies immediately to{" "}
-                {listFormat
-                  .formatToParts(servedBy.map((_, i) => String(i)))
-                  .map((part, i) =>
-                    part.type === "element" ? (
-                      <Fragment key={i}>
-                        {servedBy[Number(part.value)]}
-                      </Fragment>
-                    ) : (
-                      part.value
-                    ),
-                  )}
-                .
-              </>
+              <Trans>Publishing applies immediately to {servedByList}.</Trans>
             ) : (
-              "Publishing applies immediately."
+              <Trans>Publishing applies immediately.</Trans>
             )}
           </ModalWarningBanner>
         ) : undefined
       }
     >
-      <Page display="Type of Changes">
+      <Page display={t`Type of Changes`}>
         <Box py="2">
           <ChangeTypeSelector
             experiment={experiment}
@@ -233,7 +238,7 @@ export default function MakeChangesFlow({
 
           <Box mt="4">
             <Text as="div" weight="semibold" mb="2">
-              Current targeting and traffic (for reference)
+              <Trans>Current targeting and traffic (for reference)</Trans>
             </Text>
             <TargetingInfo experiment={experiment} />
           </Box>
@@ -241,7 +246,7 @@ export default function MakeChangesFlow({
       </Page>
 
       {changeType !== "phase" && (
-        <Page display="Make Changes">
+        <Page display={t`Make Changes`}>
           <div>
             <TargetingForm
               experiment={experiment}
@@ -257,7 +262,7 @@ export default function MakeChangesFlow({
         </Page>
       )}
 
-      <Page display="Review & Deploy">
+      <Page display={t`Review & Deploy`}>
         <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
@@ -281,6 +286,7 @@ function ChangeTypeSelector({
   changeType?: ChangeType;
   setChangeType: (changeType: ChangeType) => void;
 }) {
+  const { t } = useLingui();
   const { namespaces } = useOrgSettings();
 
   const weights =
@@ -289,28 +295,29 @@ function ChangeTypeSelector({
     experiment.type !== "multi-armed-bandit" &&
     !!weights &&
     !areVariationWeightsValid(weights);
+  const totalPercent = weights ? variationWeightsTotalPercent(weights) : 0;
 
   const options: RadioOptions = [
-    { label: "Start a new phase", value: "phase" },
+    { label: t`Start a new phase`, value: "phase" },
     {
-      label: "Saved Group, attribute, and prerequisite targeting",
+      label: t`Saved Group, attribute, and prerequisite targeting`,
       value: "targeting",
     },
     {
-      label: "Namespace targeting",
+      label: t`Namespace targeting`,
       value: "namespace",
       disabled: !namespaces?.length,
     },
-    { label: "Traffic percent", value: "traffic" },
+    { label: t`Traffic percent`, value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
-      ? [{ label: "Variation weights", value: "weights" }]
+      ? [{ label: t`Variation weights`, value: "weights" }]
       : []),
     {
-      label: "Advanced: multiple changes at once",
+      label: t`Advanced: multiple changes at once`,
       value: "advanced",
       ...(experiment.type !== "multi-armed-bandit"
         ? {
-            error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
+            error: t`When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
               The risk of introducing experimental bias increases. Proceed with caution.`,
             errorLevel: "warning",
           }
@@ -322,12 +329,16 @@ function ChangeTypeSelector({
     <div>
       {invalidWeights && (
         <Callout status="warning" mb="4">
-          The current variation weights add up to{" "}
-          {variationWeightsTotalPercent(weights)}%, so SDKs ignore them and
-          split traffic equally. Fix the weights to make other changes.
+          <Trans>
+            The current variation weights add up to {totalPercent}%, so SDKs
+            ignore them and split traffic equally. Fix the weights to make other
+            changes.
+          </Trans>
         </Callout>
       )}
-      <h5>What do you want to change?</h5>
+      <h5>
+        <Trans>What do you want to change?</Trans>
+      </h5>
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
@@ -340,7 +351,7 @@ function ChangeTypeSelector({
                 : {
                     ...o,
                     disabled: true,
-                    disabledReason: "Fix the variation weights first.",
+                    disabledReason: t`Fix the variation weights first.`,
                   },
             )}
         />

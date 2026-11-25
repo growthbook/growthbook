@@ -8,6 +8,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AssignmentQueryCopySource } from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
@@ -55,6 +56,7 @@ const TemplateForm: FC<Props> = ({
   msg,
   isNewTemplate,
 }) => {
+  const { t } = useLingui();
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -166,7 +168,7 @@ const TemplateForm: FC<Props> = ({
     // Make sure there's an experiment name
     if ((value.templateMetadata?.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Template Name must not be empty");
+      throw new Error(t`Template Name must not be empty`);
     }
 
     // A duplicate whose identifier no query declares is left for the user to
@@ -177,7 +179,7 @@ const TemplateForm: FC<Props> = ({
       !value.exposureQueryIdentifierType
     ) {
       setStep(3);
-      throw new Error("Choose an identifier type for the assignment query");
+      throw new Error(t`Choose an identifier type for the assignment query`);
     }
 
     // Turn phase dates into proper UTC timestamps
@@ -189,7 +191,7 @@ const TemplateForm: FC<Props> = ({
     });
 
     if (prerequisiteTargetingSdkIssues) {
-      throw new Error("Prerequisite targeting issues must be resolved");
+      throw new Error(t`Prerequisite targeting issues must be resolved`);
     }
 
     const body = JSON.stringify(value);
@@ -241,13 +243,18 @@ const TemplateForm: FC<Props> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
-  let header = isNewTemplate
+  // The English header names the tracked modal type.
+  let trackingHeader = isNewTemplate
     ? "Create Experiment Template"
     : "Edit Experiment Template";
+  let header = isNewTemplate
+    ? t`Create Experiment Template`
+    : t`Edit Experiment Template`;
   if (duplicate) {
-    header = "Duplicate Experiment Template";
+    trackingHeader = "Duplicate Experiment Template";
+    header = t`Duplicate Experiment Template`;
   }
-  const trackingEventModalType = kebabCase(header);
+  const trackingEventModalType = kebabCase(trackingHeader);
 
   const nameFieldHandlers = form.register("templateMetadata.name", {
     setValueAs: (s) => s?.trim(),
@@ -261,16 +268,16 @@ const TemplateForm: FC<Props> = ({
         header={header}
         close={onClose}
         submit={onSubmit}
-        cta={"Save"}
+        cta={t`Save`}
         ctaEnabled={canSubmit && hasProjectPermission}
         disabledMessage={
           !hasProjectPermission
             ? !selectedProject && availableProjects.length > 0
-              ? "Select a project to continue."
-              : "You don't have permission to create experiment templates."
+              ? t`Select a project to continue.`
+              : t`You don't have permission to create experiment templates.`
             : undefined
         }
-        closeCta="Cancel"
+        closeCta={t`Cancel`}
         size="lg"
         step={step}
         setStep={setStep}
@@ -278,21 +285,25 @@ const TemplateForm: FC<Props> = ({
         bodyClassName="px-4"
         navFill
       >
-        <Page display="Overview">
+        <Page display={t`Overview`}>
           <div>
             {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a template in the Sample Data Project.
+                <Trans>
+                  You are creating a template in the Sample Data Project.
+                </Trans>
               </Callout>
             )}
 
-            <h4 className="mb-3">Template Details</h4>
+            <h4 className="mb-3">
+              <Trans>Template Details</Trans>
+            </h4>
 
             <Field
               size="legacy"
-              label="Template Name"
+              label={t`Template Name`}
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -300,7 +311,9 @@ const TemplateForm: FC<Props> = ({
 
             {projects.length >= 1 && (
               <div className="form-group">
-                <label>Available in Project</label>
+                <label>
+                  <Trans>Available in Project</Trans>
+                </label>
                 <SelectField
                   size="legacy"
                   value={form.watch("project") ?? ""}
@@ -308,7 +321,7 @@ const TemplateForm: FC<Props> = ({
                     form.setValue("project", p);
                   }}
                   name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                  initialOption={allowAllProjects ? t`All Projects` : undefined}
                   options={availableProjects}
                 />
               </div>
@@ -316,38 +329,42 @@ const TemplateForm: FC<Props> = ({
 
             <Field
               size="legacy"
-              label="Template Description"
+              label={t`Template Description`}
               textarea
               minRows={1}
               {...form.register("templateMetadata.description")}
-              placeholder={"Short human-readable description of the template"}
+              placeholder={t`Short human-readable description of the template`}
             />
 
             <hr />
 
-            <h4 className="my-3">Experiment Details</h4>
+            <h4 className="my-3">
+              <Trans>Experiment Details</Trans>
+            </h4>
 
             <Field
               size="legacy"
-              label="Experiment Hypothesis"
+              label={t`Experiment Hypothesis`}
               textarea
               minRows={1}
-              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+              placeholder={t`e.g. Making the signup button bigger will increase clicks and ultimately improve revenue`}
               {...form.register("hypothesis")}
             />
 
             <Field
               size="legacy"
-              label="Experiment Description"
+              label={t`Experiment Description`}
               textarea
               minRows={1}
               maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
-              placeholder={"Short human-readable description of the experiment"}
+              placeholder={t`Short human-readable description of the experiment`}
             />
 
             <div className="form-group">
-              <label>Experiment Tags</label>
+              <label>
+                <Trans>Experiment Tags</Trans>
+              </label>
               <TagsInput
                 value={form.watch("tags") ?? []}
                 onChange={(tags) => form.setValue("tags", tags)}
@@ -366,7 +383,7 @@ const TemplateForm: FC<Props> = ({
           </div>
         </Page>
 
-        {["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+        {[t`Overview`, t`Traffic`, t`Targeting`, t`Metrics`].map((p, i) => {
           // skip, custom overview page above
           if (i === 0) return null;
           return (

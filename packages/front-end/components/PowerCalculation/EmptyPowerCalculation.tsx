@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 export default function EmptyPowerCalculation({
   showModal,
 }: {
@@ -8,7 +10,9 @@ export default function EmptyPowerCalculation({
       <div className="row mb-4" style={{ alignItems: "center" }}>
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
-            <h1>Power Calculator</h1>
+            <h1>
+              <Trans>Power Calculator</Trans>
+            </h1>
           </div>
         </div>
         <div className="col-auto">
@@ -17,24 +21,26 @@ export default function EmptyPowerCalculation({
             onClick={() => showModal()}
             type="button"
           >
-            New Calculation
+            <Trans>New Calculation</Trans>
           </button>
         </div>
       </div>
       <div className="appbox mb-3">
         <div className="text-center m-5">
           <div className="card-title mb-1">
-            <h3>Calculate Experiment Power</h3>
+            <h3>
+              <Trans>Calculate Experiment Power</Trans>
+            </h3>
           </div>
           <div className="card-text mb-4">
-            Plan the duration of your next experiment.
+            <Trans>Plan the duration of your next experiment.</Trans>
           </div>
           <button
             className="btn action-link mr-3 btn-primary mt-3"
             onClick={() => showModal()}
             type="button"
           >
-            New Calculation
+            <Trans>New Calculation</Trans>
           </button>
         </div>
       </div>

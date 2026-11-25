@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiInfoFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -17,7 +18,7 @@ function SubmitButton() {
   const { loading } = useModalForm();
   return (
     <Button type="submit" loading={loading}>
-      Start now
+      <Trans>Start now</Trans>
     </Button>
   );
 }
@@ -27,6 +28,7 @@ export default function StartHoldoutModal({
   close,
   startExperiment,
 }: Props) {
+  const { t } = useLingui();
   return (
     <Modal.Root
       open={true}
@@ -44,15 +46,19 @@ export default function StartHoldoutModal({
         }}
       >
         <Modal.Header>
-          <Modal.Title>Start Holdout</Modal.Title>
+          <Modal.Title>
+            <Trans>Start Holdout</Trans>
+          </Modal.Title>
         </Modal.Header>
         <Modal.Description>
-          Once started, experiments and features can be added to the holdout.
+          <Trans>
+            Once started, experiments and features can be added to the holdout.
+          </Trans>
         </Modal.Description>
         <Modal.Body>
           {experiment.phases.length ? (
             <StartModalSection
-              title="Summary"
+              title={t`Summary`}
               icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
             >
               <StartSummary experiment={experiment} />
@@ -62,7 +68,7 @@ export default function StartHoldoutModal({
         <Modal.Footer justify="between">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
           </Modal.Close>
           <SubmitButton />

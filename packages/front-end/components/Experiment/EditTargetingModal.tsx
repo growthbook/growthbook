@@ -10,6 +10,7 @@ import {
   hasAttributeCondition,
 } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
@@ -75,6 +76,7 @@ export default function EditTargetingModal({
   stageChanges,
   draft,
 }: Props) {
+  const { t } = useLingui();
   const makesChanges = section === "changes";
   const stage = makesChanges ? undefined : stageChanges;
   // Null until the list is edited.
@@ -161,6 +163,11 @@ export default function EditTargetingModal({
           identifierType: experiment.exposureQueryIdentifierType ?? "",
         })
       : null;
+  const followedQueryName = followed
+    ? (getExposureQuery(datasource?.settings, followed.exposureQueryId)?.name ??
+      followed.exposureQueryId)
+    : "";
+  const followedIdentifierType = followed?.identifierType;
 
   const settings = useOrgSettings();
 
@@ -172,10 +179,10 @@ export default function EditTargetingModal({
         trackingEventModalType="edit-namespace-modal"
         open={true}
         close={close}
-        header="Edit Namespace"
-        subheader="Run mutually exclusive experiments within a shared namespace."
+        header={t`Edit Namespace`}
+        subheader={t`Run mutually exclusive experiments within a shared namespace.`}
         ctaEnabled={canSubmit}
-        cta={stageChanges ? "Confirm" : "Save"}
+        cta={stageChanges ? t`Confirm` : t`Save`}
         submit={onSubmit(mutate, "namespace", stageChanges)}
         size="lg"
       >
@@ -199,9 +206,9 @@ export default function EditTargetingModal({
         }
         open={true}
         close={close}
-        header={makesChanges ? "Make Experiment Changes" : "Edit Targeting"}
+        header={makesChanges ? t`Make Experiment Changes` : t`Edit Targeting`}
         ctaEnabled={canSubmit}
-        cta={stage ? "Confirm" : "Save"}
+        cta={stage ? t`Confirm` : t`Save`}
         submit={async () => {
           await onSubmit(
             mutate,
@@ -225,18 +232,20 @@ export default function EditTargetingModal({
         <div className="pt-2">
           {makesChanges && (
             <Callout status="info" mb="5">
-              This experiment has no linked Feature Flags, visual changes, or
-              URL redirects. These edits update the experiment&apos;s record
-              only and don&apos;t change what users are served.
+              <Trans>
+                This experiment has no linked Feature Flags, visual changes, or
+                URL redirects. These edits update the experiment&apos;s record
+                only and don&apos;t change what users are served.
+              </Trans>
             </Callout>
           )}
           {experiment.hashVersion === 1 && (
             <SDKCapabilityWarning
               capability="bucketingV2"
               project={experiment.project}
-              someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
-              noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
-              popoverTriggerText="Show incompatible SDKs"
+              someMessage={t`Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing.`}
+              noneMessage={t`Using V1 hashing algorithm as none of your SDK Connections support V2 hashing.`}
+              popoverTriggerText={t`Show incompatible SDKs`}
               size="medium"
               mb="6"
             />
@@ -244,7 +253,7 @@ export default function EditTargetingModal({
           <SelectField
             withRadixThemedPortal
             containerClassName="flex-1"
-            label="Assignment Attribute"
+            label={t`Assignment Attribute`}
             labelClassName="font-weight-bold"
             extraIndicator={attributeScopeToggle}
             options={hashAttributeOptions}
@@ -259,25 +268,22 @@ export default function EditTargetingModal({
               }
             }}
             formatOptionLabel={formatAttributeOptionLabel}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
+            helpText={t`Will be hashed together with the Tracking Key to determine which variation to assign`}
           />
           {followed ? (
             <HelperText status="warning" size="sm" mt="2">
               {followed.exposureQueryId !== experiment.exposureQueryId ? (
-                <>
-                  The experiment assignment table changes to{" "}
-                  {getExposureQuery(
-                    datasource?.settings,
-                    followed.exposureQueryId,
-                  )?.name ?? followed.exposureQueryId}{" "}
+                <Trans>
+                  The experiment assignment table changes to {followedQueryName}{" "}
                   and the identifier type to{" "}
-                </>
+                  <code>{followedIdentifierType}</code> to match.
+                </Trans>
               ) : (
-                "The identifier type changes to "
+                <Trans>
+                  The identifier type changes to{" "}
+                  <code>{followedIdentifierType}</code> to match.
+                </Trans>
               )}
-              <code>{followed.identifierType}</code> to match.
             </HelperText>
           ) : null}
           <LinkHashAttributeCallout
@@ -293,7 +299,7 @@ export default function EditTargetingModal({
               setDisableStickyBucketing={(v) =>
                 form.setValue("disableStickyBucketing", v)
               }
-              description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
+              description={t`Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change.`}
             />
           ) : null}
           {!disableStickyBucketing && (

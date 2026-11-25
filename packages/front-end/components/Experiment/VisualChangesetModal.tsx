@@ -1,5 +1,6 @@
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FC, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaInfoCircle } from "react-icons/fa";
@@ -64,6 +65,7 @@ type Props = {
 );
 
 const VisualChangesetModal: FC<Props> = (props) => {
+  const { t } = useLingui();
   const { mode, visualChangeset, close, source } = props;
   const { apiCall } = useAuth();
 
@@ -143,14 +145,23 @@ const VisualChangesetModal: FC<Props> = (props) => {
   });
 
   const editorUrlLabel = !showAdvanced
-    ? "Target URL"
-    : "URL to edit with AI Visual Editor";
+    ? t`Target URL`
+    : t`URL to edit with AI Visual Editor`;
   const editorUrlHelpText = !showAdvanced ? undefined : (
-    <>
+    <Trans>
       Clicking the <strong>Open AI Visual Editor</strong> button will open this
       URL
-    </>
+    </Trans>
   );
+  // Examples stay out of the messages, so translators can't alter them.
+  const httpsPricingUrl = "https://www.example.com/pricing";
+  const httpPricingUrl = "http://example.com/pricing/";
+  const fullUrlRegex = (
+    <code style={{ whiteSpace: "nowrap" }}>
+      https?:\/\/(www\.)?example\.com\/pricing\/?
+    </code>
+  );
+  const pathRegex = <code style={{ whiteSpace: "nowrap" }}>\/pricing\/?</code>;
 
   const patternsMatchUrl =
     !showAdvanced ||
@@ -166,11 +177,13 @@ const VisualChangesetModal: FC<Props> = (props) => {
       open
       close={close}
       size="lg"
-      header={`${
-        mode === "add" ? "Add" : "Modify"
-      } Visual Changes URL targeting`}
+      header={
+        mode === "add"
+          ? t`Add Visual Changes URL targeting`
+          : t`Modify Visual Changes URL targeting`
+      }
       submit={onSubmit}
-      cta={props.mode === "edit" && props.stage ? "Apply" : props.cta}
+      cta={props.mode === "edit" && props.stage ? t`Apply` : props.cta}
     >
       <Field
         size="legacy"
@@ -195,7 +208,13 @@ const VisualChangesetModal: FC<Props> = (props) => {
             className="btn-link cursor-pointer"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            <small>{showAdvanced ? "Hide" : "Show"} advanced options</small>
+            <small>
+              {showAdvanced ? (
+                <Trans>Hide advanced options</Trans>
+              ) : (
+                <Trans>Show advanced options</Trans>
+              )}
+            </small>
           </span>
         </div>
       )}
@@ -204,7 +223,9 @@ const VisualChangesetModal: FC<Props> = (props) => {
         className="mt-4"
         style={{ display: showAdvanced ? "block" : "none" }}
       >
-        <label>URL Targeting</label>
+        <label>
+          <Trans>URL Targeting</Trans>
+        </label>
         {urlPatterns.fields.map((p, i) => (
           <div key={i} className="mb-2">
             <div className="row">
@@ -215,8 +236,8 @@ const VisualChangesetModal: FC<Props> = (props) => {
                     !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
                   }
                   options={[
-                    { label: "Include", value: "true" },
-                    { label: "Exclude", value: "false" },
+                    { label: t`Include`, value: "true" },
+                    { label: t`Exclude`, value: "false" },
                   ]}
                   onChange={(v) =>
                     form.setValue(`urlPatterns.${i}.include`, v !== "false")
@@ -234,8 +255,8 @@ const VisualChangesetModal: FC<Props> = (props) => {
                   size="legacy"
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
-                    { label: "Simple", value: "simple" },
-                    { label: "Regex", value: "regex" },
+                    { label: t`Simple`, value: "simple" },
+                    { label: t`Regex`, value: "regex" },
                   ]}
                   sort={false}
                   onChange={(v) => form.setValue(`urlPatterns.${i}.type`, v)}
@@ -264,7 +285,7 @@ const VisualChangesetModal: FC<Props> = (props) => {
                     <Tooltip
                       body={
                         <>
-                          Example Patterns:
+                          <Trans>Example Patterns:</Trans>
                           <ul className="px-4">
                             <li>
                               <code>https://www.example.com/pricing</code>
@@ -279,8 +300,11 @@ const VisualChangesetModal: FC<Props> = (props) => {
                         </>
                       }
                     >
-                      <strong>Simple</strong>: Matches a full URL or path.
-                      Supports <code>*</code> as a wildcard <FaInfoCircle />
+                      <Trans>
+                        <strong>Simple</strong>: Matches a full URL or path.
+                        Supports <code>*</code> as a wildcard
+                      </Trans>{" "}
+                      <FaInfoCircle />
                     </Tooltip>
                   ) : form.watch(`urlPatterns.${i}.type`) === "regex" ? (
                     <Tooltip
@@ -289,28 +313,28 @@ const VisualChangesetModal: FC<Props> = (props) => {
                         <>
                           <ul className="px-4">
                             <li>
-                              <code style={{ whiteSpace: "nowrap" }}>
-                                https?:\/\/(www\.)?example\.com\/pricing\/?
-                              </code>{" "}
-                              will match both
-                              &quot;https://www.example.com/pricing&quot; and
-                              &quot;http://example.com/pricing/&quot;
+                              <Trans>
+                                {fullUrlRegex} will match both &quot;
+                                {httpsPricingUrl}&quot; and &quot;
+                                {httpPricingUrl}&quot;
+                              </Trans>
                             </li>
                             <li>
-                              <code style={{ whiteSpace: "nowrap" }}>
-                                \/pricing\/?
-                              </code>{" "}
-                              will <em>also</em> match both
-                              &quot;https://www.example.com/pricing&quot; and
-                              &quot;http://example.com/pricing/&quot; (matching
-                              by path)
+                              <Trans>
+                                {pathRegex} will <em>also</em> match both &quot;
+                                {httpsPricingUrl}&quot; and &quot;
+                                {httpPricingUrl}&quot; (matching by path)
+                              </Trans>
                             </li>
                           </ul>
                         </>
                       }
                     >
-                      <strong>Regex</strong>: Matches a URL or path via regular
-                      expression <FaInfoCircle />
+                      <Trans>
+                        <strong>Regex</strong>: Matches a URL or path via
+                        regular expression
+                      </Trans>{" "}
+                      <FaInfoCircle />
                     </Tooltip>
                   ) : null}
                 </div>
@@ -331,13 +355,13 @@ const VisualChangesetModal: FC<Props> = (props) => {
           }}
         >
           <GBAddCircle className="mr-1" />
-          Add URL Target
+          <Trans>Add URL Target</Trans>
         </button>
       </div>
 
       {!patternsMatchUrl && (
         <Callout status="warning">
-          Your URL patterns do not match the target URL
+          <Trans>Your URL patterns do not match the target URL</Trans>
         </Callout>
       )}
     </ModalStandard>

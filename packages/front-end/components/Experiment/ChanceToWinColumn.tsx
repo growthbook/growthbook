@@ -5,6 +5,7 @@ import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
@@ -70,7 +71,11 @@ export default function ChanceToWinColumn({
 
   const renderContent = () => {
     if (!baseline?.value || !stats?.value) {
-      return <em className="text-muted small">No data</em>;
+      return (
+        <em className="text-muted small">
+          <Trans>No data</Trans>
+        </em>
+      );
     }
 
     if (hideScaledImpact) {

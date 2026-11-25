@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import { PiX } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -31,6 +32,7 @@ export default function ResultsVariationsFilter({
   showVariationsFilter: boolean;
   setShowVariationsFilter: (show: boolean) => void;
 }) {
+  const { t } = useLingui();
   const [filterVariations, setFilterVariations] =
     useState<FilterVariations>("all");
   // Portals the Select into the popover, so picking an option isn't an
@@ -71,13 +73,13 @@ export default function ResultsVariationsFilter({
             variant="ghost"
             color={filteringApplied ? "violet" : "gray"}
             size="1"
-            aria-label="Variation filters"
+            aria-label={t`Variation filters`}
           >
             <Tooltip
               content={
                 filteringApplied
-                  ? "Variation filters applied"
-                  : "No variation filters applied"
+                  ? t`Variation filters applied`
+                  : t`No variation filters applied`
               }
             >
               <span style={{ display: "inline-flex" }}>
@@ -99,15 +101,15 @@ export default function ResultsVariationsFilter({
           >
             <Box>
               <Text as="div" weight="semibold" mb="2">
-                Order variations
+                <Trans>Order variations</Trans>
               </Text>
               <RadioGroup
                 gap="0"
                 value={variationsSort}
                 setValue={(v) => setVariationsSort(v as VariationsSort)}
                 options={[
-                  { value: "default", label: "Default order" },
-                  { value: "ranked", label: "By probability" },
+                  { value: "default", label: t`Default order` },
+                  { value: "ranked", label: t`By probability` },
                 ]}
               />
             </Box>
@@ -115,16 +117,22 @@ export default function ResultsVariationsFilter({
             {/* Top 3 is every variation until there are more. */}
             {variationNames.length > 3 ? (
               <Select
-                label="Filter variations"
+                label={t`Filter variations`}
                 value={filterVariations}
                 setValue={(v) => setFilterVariations(v as FilterVariations)}
                 container={contentEl}
               >
-                <SelectItem value="all">All variations</SelectItem>
+                <SelectItem value="all">
+                  <Trans>All variations</Trans>
+                </SelectItem>
                 {variationNames.length > 5 ? (
-                  <SelectItem value="5">Top 5</SelectItem>
+                  <SelectItem value="5">
+                    <Trans>Top 5</Trans>
+                  </SelectItem>
                 ) : null}
-                <SelectItem value="3">Top 3</SelectItem>
+                <SelectItem value="3">
+                  <Trans>Top 3</Trans>
+                </SelectItem>
               </Select>
             ) : null}
 
@@ -141,7 +149,7 @@ export default function ResultsVariationsFilter({
                     setShowVariationsFilter(false);
                   }}
                 >
-                  Clear filters
+                  <Trans>Clear filters</Trans>
                 </Button>
               ) : (
                 <Box />
@@ -151,7 +159,7 @@ export default function ResultsVariationsFilter({
                 size="sm"
                 onClick={() => setShowVariationsFilter(false)}
               >
-                Close
+                <Trans>Close</Trans>
               </Button>
             </Flex>
           </Flex>

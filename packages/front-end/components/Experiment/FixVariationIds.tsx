@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import uniq from "lodash/uniq";
 import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -19,6 +20,7 @@ export default function FixVariationIds({
   setVariationIds,
   close,
 }: Props) {
+  const { t } = useLingui();
   const form = useForm({
     defaultValues: {
       ids: new Array(expected.length).fill(""),
@@ -33,16 +35,18 @@ export default function FixVariationIds({
         const ids = value.ids.map((id, i) => (id ? id : expected[i]));
 
         if (uniq(ids).length !== ids.length) {
-          throw new Error("Variation Ids must all be unique");
+          throw new Error(t`Variation Ids must all be unique`);
         }
 
         await setVariationIds(ids);
       })}
-      cta="Save"
+      cta={t`Save`}
       close={close}
-      header="Fix Variation Ids"
+      header={t`Fix Variation Ids`}
     >
-      <h3>Variation Ids</h3>
+      <h3>
+        <Trans>Variation Ids</Trans>
+      </h3>
       {names.map((name, i) => (
         <SelectField
           size="legacy"

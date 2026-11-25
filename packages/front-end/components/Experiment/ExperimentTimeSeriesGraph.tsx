@@ -13,6 +13,7 @@ import { datetime, getValidDate } from "shared/dates";
 import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
+import { Trans } from "@lingui/react/macro";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -112,7 +113,7 @@ function renderCiTooltipCell(
         </Text>
         <Text as="span" size="1" color="gray">
           {" "}
-          (upper)
+          <Trans>(upper)</Trans>
         </Text>
       </>
     );
@@ -125,7 +126,7 @@ function renderCiTooltipCell(
         </Text>
         <Text as="span" size="1" color="gray">
           {" "}
-          (lower)
+          <Trans>(lower)</Trans>
         </Text>
       </>
     );
@@ -143,7 +144,7 @@ const getTooltipContents = (
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
   hasStats: boolean = true,
-  unitsLabel: string = "Users",
+  unitsLabel?: string,
   subUnitsLabel?: string,
 ) => {
   const { d, yaxis } = data;
@@ -179,15 +180,23 @@ const getTooltipContents = (
       <Table size="sm">
         <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
-            <TableColumnHeader pl="0">Variation</TableColumnHeader>
-            <TableColumnHeader justify="center">{unitsLabel}</TableColumnHeader>
+            <TableColumnHeader pl="0">
+              <Trans>Variation</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="center">
+              {unitsLabel ?? <Trans>Users</Trans>}
+            </TableColumnHeader>
             {subUnitsLabel ? (
               <TableColumnHeader justify="center">
                 {subUnitsLabel}
               </TableColumnHeader>
             ) : null}
-            <TableColumnHeader justify="center">Value</TableColumnHeader>
-            <TableColumnHeader justify="center">Change</TableColumnHeader>
+            <TableColumnHeader justify="center">
+              <Trans>Value</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="center">
+              <Trans>Change</Trans>
+            </TableColumnHeader>
             {hasStats && (
               <>
                 <TableColumnHeader justify="center">
@@ -195,9 +204,11 @@ const getTooltipContents = (
                   {showAdjustmentNote ? "*" : null}
                 </TableColumnHeader>
                 <TableColumnHeader justify="center">
-                  {usedStatsEngine === "frequentist"
-                    ? "P-val"
-                    : "Chance to Win"}
+                  {usedStatsEngine === "frequentist" ? (
+                    <Trans>P-val</Trans>
+                  ) : (
+                    <Trans>Chance to Win</Trans>
+                  )}
                   {showAdjustmentNote ? "*" : null}
                 </TableColumnHeader>
               </>
@@ -311,7 +322,9 @@ const getTooltipContents = (
       {showAdjustmentNote ? (
         <Box>
           <Text size="1" my="2">
-            * P-values and CIs not adjusted for multiple comparisons.
+            <Trans>
+              * P-values and CIs not adjusted for multiple comparisons.
+            </Trans>
           </Text>
         </Box>
       ) : null}

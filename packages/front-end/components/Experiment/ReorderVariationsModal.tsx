@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { RiDraggable } from "react-icons/ri";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -16,6 +17,7 @@ import useSortableItem from "@/hooks/useSortableItem";
 type Row = SortableVariation & Pick<Variation, "description" | "screenshots">;
 
 function SortableRow({ row, i }: { row: Row; i: number }) {
+  const { t } = useLingui();
   const { setNodeRef, style, isDragging, handle } = useSortableItem(row.id);
   return (
     <Flex
@@ -34,7 +36,7 @@ function SortableRow({ row, i }: { row: Row; i: number }) {
     >
       <Flex
         {...handle}
-        title="Drag and drop to re-order variations"
+        title={t`Drag and drop to re-order variations`}
         align="center"
         style={{ cursor: "grab", color: "var(--color-text-low)" }}
       >
@@ -59,6 +61,7 @@ export default function ReorderVariationsModal({
   close: () => void;
   stage: (variations: Variation[], weights: number[]) => void;
 }) {
+  const { t } = useLingui();
   const [rows, setRows] = useState<Row[]>(() =>
     getStorableVariations(experiment).map(({ key, ...v }, i) => ({
       ...v,
@@ -72,10 +75,10 @@ export default function ReorderVariationsModal({
   return (
     <ModalStandard
       trackingEventModalType="reorder-variations"
-      header="Reorder variations"
+      header={t`Reorder variations`}
       open={true}
       close={close}
-      cta="Apply"
+      cta={t`Apply`}
       submit={() =>
         stage(
           rows.map(({ id, value, name, description, screenshots }) => ({

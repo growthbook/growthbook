@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { FeatureValueType } from "shared/types/feature";
 import {
   expandSparseToFull,
@@ -62,8 +64,12 @@ export function getDuplicateRows(
 
 type LabeledVariation = { id: string; name?: string; index: number };
 
-export const variationLabel = (v: LabeledVariation) =>
-  v.name || `Variation ${v.index}`;
+// Without `i18n` the fallback name is English, for keys and stored text.
+export const variationLabel = (v: LabeledVariation, i18n?: I18n) => {
+  if (v.name) return v.name;
+  const index = v.index;
+  return i18n ? i18n._(msg`Variation ${index}`) : `Variation ${index}`;
+};
 
 /**
  * Every variation's value as it would be stored, and the ones that had to be
@@ -73,7 +79,7 @@ export function repairVariationValues(
   feature: Parameters<typeof validateFeatureValue>[0],
   variations: LabeledVariation[],
   valueFor: (variationId: string) => string | undefined,
-  label: (v: LabeledVariation) => string = variationLabel,
+  label: (v: LabeledVariation) => string = (v) => variationLabel(v),
 ) {
   const repaired: Record<string, string> = {};
   const checked = variations.map((v) => {

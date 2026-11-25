@@ -8,6 +8,7 @@ import {
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -46,6 +47,7 @@ export default function EditPhasesModal({
   editTargeting,
   source,
 }: Props) {
+  const { t } = useLingui();
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
@@ -94,7 +96,7 @@ export default function EditPhasesModal({
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
-      header="Edit Phases"
+      header={t`Edit Phases`}
       close={close}
       size="lg"
     >
@@ -103,77 +105,86 @@ export default function EditPhasesModal({
           <TableHeader>
             <TableRow>
               <TableColumnHeader></TableColumnHeader>
-              <TableColumnHeader>Name</TableColumnHeader>
-              <TableColumnHeader>Dates (UTC)</TableColumnHeader>
-              <TableColumnHeader>Traffic</TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Name</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Dates (UTC)</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Traffic</Trans>
+              </TableColumnHeader>
               {hasStoppedPhases ? (
-                <TableColumnHeader>Reason for Stopping</TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Reason for Stopping</Trans>
+                </TableColumnHeader>
               ) : null}
               <TableColumnHeader></TableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {experiment.phases.map((phase, i) => (
-              <TableRow key={i}>
-                <TableCell>{i + 1}</TableCell>
-                <TableCell>{phase.name}</TableCell>
-                <TableCell>
-                  <strong
-                    title={`${datetime(phase.dateStarted ?? "", "UTC")} UTC`}
-                  >
-                    {date(phase.dateStarted ?? "", "UTC")}
-                  </strong>{" "}
-                  to{" "}
-                  <strong
-                    title={
-                      phase.dateEnded
-                        ? `${datetime(phase.dateEnded, "UTC")} UTC`
-                        : undefined
-                    }
-                  >
-                    {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
-                  </strong>
-                </TableCell>
-                <TableCell>{phaseSummary(phase)}</TableCell>
-                {hasStoppedPhases ? (
+            {experiment.phases.map((phase, i) => {
+              const startTitle = `${datetime(phase.dateStarted ?? "", "UTC")} UTC`;
+              const startDate = date(phase.dateStarted ?? "", "UTC");
+              const endTitle = phase.dateEnded
+                ? `${datetime(phase.dateEnded, "UTC")} UTC`
+                : undefined;
+              const endDate = phase.dateEnded
+                ? date(phase.dateEnded, "UTC")
+                : t`now`;
+              return (
+                <TableRow key={i}>
+                  <TableCell>{i + 1}</TableCell>
+                  <TableCell>{phase.name}</TableCell>
                   <TableCell>
-                    {phase.dateEnded ? (
-                      phase.reason
-                    ) : (
-                      <em className="text-muted">not applicable</em>
-                    )}
+                    <Trans>
+                      <strong title={startTitle}>{startDate}</strong> to{" "}
+                      <strong title={endTitle}>{endDate}</strong>
+                    </Trans>
                   </TableCell>
-                ) : null}
-                <TableCell justify="end" style={{ width: 125 }}>
-                  <Flex gap="2" justify="end" align="center">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditPhase(i);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    {(experiment.status !== "running" || !hasLinkedChanges) &&
-                      experiment.phases.length > 1 && (
-                        <DeleteButton
-                          text="Delete"
-                          displayName="phase"
-                          onClick={async () => {
-                            await apiCall(
-                              `/experiment/${experiment.id}/phase/${i}`,
-                              {
-                                method: "DELETE",
-                              },
-                            );
-                            mutateExperiment();
-                          }}
-                        />
+                  <TableCell>{phaseSummary(phase)}</TableCell>
+                  {hasStoppedPhases ? (
+                    <TableCell>
+                      {phase.dateEnded ? (
+                        phase.reason
+                      ) : (
+                        <em className="text-muted">
+                          <Trans>not applicable</Trans>
+                        </em>
                       )}
-                  </Flex>
-                </TableCell>
-              </TableRow>
-            ))}
+                    </TableCell>
+                  ) : null}
+                  <TableCell justify="end" style={{ width: 125 }}>
+                    <Flex gap="2" justify="end" align="center">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditPhase(i);
+                        }}
+                      >
+                        <Trans>Edit</Trans>
+                      </Button>
+                      {(experiment.status !== "running" || !hasLinkedChanges) &&
+                        experiment.phases.length > 1 && (
+                          <DeleteButton
+                            text={t`Delete`}
+                            displayName={t`phase`}
+                            onClick={async () => {
+                              await apiCall(
+                                `/experiment/${experiment.id}/phase/${i}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                              mutateExperiment();
+                            }}
+                          />
+                        )}
+                    </Flex>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Box>
@@ -185,7 +196,7 @@ export default function EditPhasesModal({
             setEditPhase(-1);
           }}
         >
-          New Phase
+          <Trans>New Phase</Trans>
         </Button>
       )}
     </ModalStandard>
@@ -205,6 +216,7 @@ function EditPhaseStep({
   mutate: () => void;
   onMakeChanges: () => void;
 }) {
+  const { t } = useLingui();
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
@@ -219,6 +231,7 @@ function EditPhaseStep({
 
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
+  const phaseNumber = i + 1;
 
   return (
     <ModalStandard
@@ -226,7 +239,7 @@ function EditPhaseStep({
       trackingEventModalSource="edit-phases-modal"
       open={true}
       close={close}
-      header={`Edit Analysis Phase #${i + 1}`}
+      header={t`Edit Analysis Phase #${phaseNumber}`}
       submit={validatedSubmit(form, async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
 
@@ -240,12 +253,12 @@ function EditPhaseStep({
     >
       <Field
         size="legacy"
-        label="Phase Name"
+        label={t`Phase Name`}
         {...form.register("name")}
         required
       />
       <DatePicker
-        label="Start time"
+        label={t`Start time`}
         timeZone="utc"
         date={form.watch("dateStarted")}
         setDate={(v) => {
@@ -257,7 +270,7 @@ function EditPhaseStep({
       {!(isDraft && !isMultiPhase) ? (
         <>
           <DatePicker
-            label="End time"
+            label={t`End time`}
             timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {
@@ -269,15 +282,15 @@ function EditPhaseStep({
             clearButton
           />
           <Text as="div" size="sm" color="text-mid" mt="1" mb="3">
-            Leave blank if still running.
+            <Trans>Leave blank if still running.</Trans>
           </Text>
           {form.watch("dateEnded") && (
             <Field
               size="legacy"
-              label="Reason for Stopping"
+              label={t`Reason for Stopping`}
               textarea
               {...form.register("reason")}
-              placeholder="(optional)"
+              placeholder={t`(optional)`}
             />
           )}
         </>
@@ -285,26 +298,28 @@ function EditPhaseStep({
 
       {!isDraft ? (
         <Callout status="info" mt="4">
-          Trying to change targeting rules, traffic allocation, or start a new
-          phase? Use the{" "}
-          <a role="button" className="a" onClick={onMakeChanges}>
-            Make Changes
-          </a>{" "}
-          button instead.
+          <Trans>
+            Trying to change targeting rules, traffic allocation, or start a new
+            phase? Use the{" "}
+            <a role="button" className="a" onClick={onMakeChanges}>
+              Make Changes
+            </a>{" "}
+            button instead.
+          </Trans>
         </Callout>
       ) : null}
 
       {advancedOptionsOpen && (
         <Field
           size="legacy"
-          label="Seed"
+          label={t`Seed`}
           type="input"
           {...form.register("seed")}
           helpText={
-            <>
+            <Trans>
               <strong className="text-danger">Warning:</strong> Changing this
               will re-randomize experiment traffic.
-            </>
+            </Trans>
           }
         />
       )}
@@ -315,7 +330,7 @@ function EditPhaseStep({
           setAdvancedOptionsOpen(!advancedOptionsOpen);
         }}
       >
-        Advanced Options{" "}
+        <Trans>Advanced Options</Trans>{" "}
         {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
       </span>
     </ModalStandard>

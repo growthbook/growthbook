@@ -1,4 +1,5 @@
 import React from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
@@ -172,6 +173,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
   fullRefreshRequired: boolean;
   fullRefreshReasons: string[];
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { submitUpdate, notice, fullRefreshConfirm } =
     useExperimentSnapshotUpdate({
@@ -213,7 +215,7 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
     }
   };
 
-  const ctaLabel = fullRefreshRequired ? "Full Refresh" : "Update";
+  const ctaLabel = fullRefreshRequired ? t`Full Refresh` : t`Update`;
   const handleSubmit =
     entityType === "safe-rollout"
       ? runSafeRolloutUpdate

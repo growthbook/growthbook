@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -143,6 +144,7 @@ export default function AnalysisSettingsSummary({
   sortDirection,
   onSnapshotSuccessfulUpdate,
 }: Props) {
+  const { t } = useLingui();
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -743,6 +745,10 @@ export default function AnalysisSettingsSummary({
   // Render if filters are active OR at least one filter type is available
   const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
 
+  const latestError = latest?.error;
+  const filteredMetricCount = filteredMetrics.length;
+  const allMetricCount = allMetrics.length;
+
   return (
     <Box px="3" pt="3" mb="3">
       <Flex
@@ -800,8 +806,8 @@ export default function AnalysisSettingsSummary({
                 autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
-                  latest && !latest.queries.length && latest.error
-                    ? `Snapshot update failed: ${latest.error}`
+                  latest && !latest.queries.length && latestError
+                    ? t`Snapshot update failed: ${latestError}`
                     : undefined
                 }
                 queries={
@@ -822,7 +828,7 @@ export default function AnalysisSettingsSummary({
               hideOutdatedBadge ||
               offerNewMetricsUpdate ? null : outdatedReasons.length > 0 ? (
                 <OutdatedBadge
-                  label={`These results are outdated. Click "Update" to re-run the analysis.`}
+                  label={t`These results are outdated. Click "Update" to re-run the analysis.`}
                   reasons={outdatedReasons.map(getResultsOutdatedReasonLabel)}
                   hasData={hasData && hasValidStatsEngine}
                 />
@@ -994,7 +1000,9 @@ export default function AnalysisSettingsSummary({
       {filteredMetrics.length < allMetrics.length && (
         <Box mt="2">
           <Text>
-            Showing {filteredMetrics.length} of {allMetrics.length} metrics
+            <Trans>
+              Showing {filteredMetricCount} of {allMetricCount} metrics
+            </Trans>
           </Text>
         </Box>
       )}
@@ -1004,7 +1012,7 @@ export default function AnalysisSettingsSummary({
           nothing to rescan, and Results already shows "Add at least 1 metric". */}
       {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
         <Callout status="warning" contentAlign="center" mt="2">
-          Updates will rescan the full experiment data.{" "}
+          <Trans>Updates will rescan the full experiment data.</Trans>{" "}
           {incrementalPipelineUnsupportedReason}
         </Callout>
       )}
@@ -1028,15 +1036,25 @@ export default function AnalysisSettingsSummary({
           mt="2"
           action={
             <Button variant="outline" size="sm" onClick={goToOverallResults}>
-              {overallNeedsFullRefresh
-                ? "Refresh overall results"
-                : "Run overall results"}
+              {overallNeedsFullRefresh ? (
+                <Trans>Refresh overall results</Trans>
+              ) : (
+                <Trans>Run overall results</Trans>
+              )}
             </Button>
           }
         >
-          {overallNeedsFullRefresh
-            ? "Overall results need a full refresh first. Dimension results are computed from them and would be inaccurate."
-            : "Run overall results first. Dimension results are computed from them."}
+          {overallNeedsFullRefresh ? (
+            <Trans>
+              Overall results need a full refresh first. Dimension results are
+              computed from them and would be inaccurate.
+            </Trans>
+          ) : (
+            <Trans>
+              Run overall results first. Dimension results are computed from
+              them.
+            </Trans>
+          )}
         </Callout>
       ) : null}
 
@@ -1061,15 +1079,21 @@ export default function AnalysisSettingsSummary({
                 size="sm"
                 onClick={handleDisableIncrementalRefresh}
               >
-                Disable incremental refresh
+                <Trans>Disable incremental refresh</Trans>
               </Button>
             ) : null
           }
         >
-          Error updating data: {refreshError}
-          {isExperimentIncludedInIncrementalRefresh
-            ? " If it persists, try disabling incremental refresh for this experiment."
-            : null}
+          <Trans>Error updating data: {refreshError}</Trans>
+          {isExperimentIncludedInIncrementalRefresh ? (
+            <>
+              {" "}
+              <Trans>
+                If it persists, try disabling incremental refresh for this
+                experiment.
+              </Trans>
+            </>
+          ) : null}
         </Callout>
       )}
       {queriesModalOpen &&

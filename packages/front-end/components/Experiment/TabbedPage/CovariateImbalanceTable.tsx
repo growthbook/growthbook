@@ -5,6 +5,7 @@ import {
 } from "shared/health";
 import { useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { pValueFormatter } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
@@ -134,34 +135,41 @@ function CovariateImbalanceTableSection({
         <TableHeader>
           <TableRow>
             <TableColumnHeader width={covariateImbalanceColumnWidths.metric}>
-              {type} Metrics <Text weight="regular">({rows.length})</Text>
+              {type === "Goal" ? (
+                <Trans>Goal Metrics</Trans>
+              ) : type === "Secondary" ? (
+                <Trans>Secondary Metrics</Trans>
+              ) : (
+                <Trans>Guardrail Metrics</Trans>
+              )}{" "}
+              <Text weight="regular">({rows.length})</Text>
             </TableColumnHeader>
             <TableColumnHeader width={covariateImbalanceColumnWidths.variation}>
-              Variation
+              <Trans>Variation</Trans>
             </TableColumnHeader>
             <TableColumnHeader
               width={covariateImbalanceColumnWidths.pValue}
               justify="end"
             >
-              p-value
+              <Trans>p-value</Trans>
             </TableColumnHeader>
             <TableColumnHeader
               width={covariateImbalanceColumnWidths.baselineMean}
               justify="end"
             >
-              Baseline mean (std)
+              <Trans>Baseline mean (std)</Trans>
             </TableColumnHeader>
             <TableColumnHeader
               width={covariateImbalanceColumnWidths.variationMean}
               justify="end"
             >
-              Variation mean (std)
+              <Trans>Variation mean (std)</Trans>
             </TableColumnHeader>
             <TableColumnHeader
               width={covariateImbalanceColumnWidths.pctChange}
               justify="end"
             >
-              % Change
+              <Trans>% Change</Trans>
             </TableColumnHeader>
           </TableRow>
         </TableHeader>
@@ -189,7 +197,9 @@ function CovariateImbalanceTableSection({
                     />
                   ) : (
                     <Text as="span" color="text-low">
-                      <i>No data</i>
+                      <i>
+                        <Trans>No data</Trans>
+                      </i>
                     </Text>
                   )}
                 </TableCell>
@@ -205,7 +215,9 @@ function CovariateImbalanceTableSection({
                     pValueFormatter(row.pValue)
                   ) : (
                     <Text as="span" color="text-low">
-                      <i>No data</i>
+                      <i>
+                        <Trans>No data</Trans>
+                      </i>
                     </Text>
                   )}
                 </TableCell>
@@ -225,7 +237,9 @@ function CovariateImbalanceTableSection({
                     </>
                   ) : (
                     <Text as="span" color="text-low">
-                      <i>No data</i>
+                      <i>
+                        <Trans>No data</Trans>
+                      </i>
                     </Text>
                   )}
                 </TableCell>
@@ -245,7 +259,9 @@ function CovariateImbalanceTableSection({
                     </>
                   ) : (
                     <Text as="span" color="text-low">
-                      <i>No data</i>
+                      <i>
+                        <Trans>No data</Trans>
+                      </i>
                     </Text>
                   )}
                 </TableCell>
@@ -264,7 +280,9 @@ function CovariateImbalanceTableSection({
                     )
                   ) : (
                     <Text as="span" color="text-low">
-                      <i>No data</i>
+                      <i>
+                        <Trans>No data</Trans>
+                      </i>
                     </Text>
                   )}
                 </TableCell>
@@ -284,7 +302,7 @@ function CovariateImbalanceTableSection({
               )
             }
           >
-            Show more...
+            <Trans>Show more...</Trans>
           </Button>
         </Box>
       )}

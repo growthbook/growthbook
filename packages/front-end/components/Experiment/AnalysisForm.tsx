@@ -21,6 +21,9 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -47,7 +50,9 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeMessage, {
+  OVERRIDE_METRICS_UPGRADE,
+} from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
@@ -84,27 +89,35 @@ import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 
-export const DATASOURCE_CHANGE_NOTE =
-  "Metrics and segments that aren't from the new Data Source are removed.";
+export const DATASOURCE_CHANGE_NOTE = msg`Metrics and segments that aren't from the new Data Source are removed.`;
 
-export const getIneligibleGroupsMessage = (groupNames: string[]) =>
-  `Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${groupNames.join(", ")}.`;
+export const getIneligibleGroupsMessage = (
+  groupNames: string[],
+  i18n: I18n,
+) => {
+  const names = groupNames.join(", ");
+  return i18n._(
+    msg`Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${names}.`,
+  );
+};
 
 export function IneligibleClusterMetricsCallouts({
   ineligible,
 }: {
   ineligible: ReturnType<typeof getIneligibleClusterMetrics>;
 }) {
+  const { t, i18n } = useLingui();
+  const droppedNames = ineligible.droppedNames.join(", ");
   return (
     <>
       {ineligible.droppedNames.length > 0 && (
         <Callout status="warning" mb="3">
-          {`Saving will remove metrics that cluster experiments can't analyze: ${ineligible.droppedNames.join(", ")}.`}
+          {t`Saving will remove metrics that cluster experiments can't analyze: ${droppedNames}.`}
         </Callout>
       )}
       {ineligible.groupNames.length > 0 && (
         <Callout status="warning" mb="3">
-          {getIneligibleGroupsMessage(ineligible.groupNames)}
+          {getIneligibleGroupsMessage(ineligible.groupNames, i18n)}
         </Callout>
       )}
     </>
@@ -140,6 +153,7 @@ const AnalysisForm: FC<{
   editMetrics = false,
   focus = null,
 }) => {
+  const { t, i18n } = useLingui();
   const {
     segments,
     getProjectById,
@@ -485,7 +499,7 @@ const AnalysisForm: FC<{
       tooltip:
         precomputedUnitDimensionLimitReached &&
         !selectedPrecomputedUnitDimensionIds.includes(option.value)
-          ? `You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`
+          ? t`You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`
           : undefined,
     }));
 
@@ -516,7 +530,7 @@ const AnalysisForm: FC<{
     <ModalStandard
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
-      header={"Analysis Settings"}
+      header={t`Analysis Settings`}
       open={true}
       close={cancel}
       size="lg"
@@ -538,7 +552,7 @@ const AnalysisForm: FC<{
 
         const { droppedIds, groupNames } = ineligibleClusterMetrics;
         if (groupNames.length) {
-          throw new Error(getIneligibleGroupsMessage(groupNames));
+          throw new Error(getIneligibleGroupsMessage(groupNames, i18n));
         }
         if (droppedIds.size) {
           const keep = (ids?: string[]) =>
@@ -570,16 +584,16 @@ const AnalysisForm: FC<{
           body.type === "multi-armed-bandit" &&
           !hasCommercialFeature("multi-armed-bandits")
         ) {
-          throw new Error("Bandits are a premium feature");
+          throw new Error(t`Bandits are a premium feature`);
         }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";
           body.precomputedUnitDimensionIds = [];
           if (!body.datasource) {
-            throw new Error("You must select a datasource");
+            throw new Error(t`You must select a datasource`);
           }
           if ((body.goalMetrics?.length ?? 0) !== 1) {
-            throw new Error("You must select 1 decision metric");
+            throw new Error(t`You must select 1 decision metric`);
           }
           const phaseId = (body.phases?.length ?? 0) - 1;
           if (body.phases?.[phaseId] && body.variations) {
@@ -591,7 +605,7 @@ const AnalysisForm: FC<{
             (body.banditScheduleValue ?? 0) *
             (body.banditScheduleUnit === "days" ? 24 : 1);
           if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
-            throw new Error("Invalid Bandit schedule");
+            throw new Error(t`Invalid Bandit schedule`);
           }
           if (disableBanditConversionWindow) {
             body.banditConversionWindowValue = null;
@@ -601,7 +615,7 @@ const AnalysisForm: FC<{
             !body.banditConversionWindowUnit
           ) {
             throw new Error(
-              "Enter a conversion window override or disable the conversion window override",
+              t`Enter a conversion window override or disable the conversion window override`,
             );
           }
         }
@@ -612,7 +626,7 @@ const AnalysisForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta={t`Save`}
     >
       <Box>
         {isBandit && (
@@ -625,8 +639,10 @@ const AnalysisForm: FC<{
             <hr className="my-3" />
             {experiment.status === "running" && (
               <HelperText status="info" mb="4">
-                The following settings cannot be modified because the Bandit is
-                already live
+                <Trans>
+                  The following settings cannot be modified because the Bandit
+                  is already live
+                </Trans>
               </HelperText>
             )}
           </FormProvider>
@@ -635,35 +651,51 @@ const AnalysisForm: FC<{
         {!editingDataSource ? (
           <SetupFieldGroup>
             <QuickEditRow
-              label="Edit data settings"
+              label={t`Edit data settings`}
               onEdit={!isBandit ? () => setEditingDataSource(true) : null}
             >
               <Box flexGrow="1">
-                <SetupFieldRow label="Data Source" content="text">
+                <SetupFieldRow label={t`Data Source`} content="text">
                   <Text color="text-high">
-                    {datasource?.name || <em>None</em>}
+                    {datasource?.name || (
+                      <em>
+                        <Trans>None</Trans>
+                      </em>
+                    )}
                   </Text>
                 </SetupFieldRow>
                 {datasource?.properties?.exposureQueries && (
                   <>
-                    <SetupFieldRow label="Identifier type" content="text">
+                    <SetupFieldRow label={t`Identifier type`} content="text">
                       <Text color="text-high">
-                        {exposureQueryIdentifierType || <em>Choose...</em>}
+                        {exposureQueryIdentifierType || (
+                          <em>
+                            <Trans>Choose...</Trans>
+                          </em>
+                        )}
                       </Text>
                     </SetupFieldRow>
                     {isClusterExperiment && (
                       <SetupFieldRow
-                        label="Subunit identifier type"
+                        label={t`Subunit identifier type`}
                         content="text"
                       >
                         <Text color="text-high">
-                          {clusterSubUnitIdentifier || <em>Choose...</em>}
+                          {clusterSubUnitIdentifier || (
+                            <em>
+                              <Trans>Choose...</Trans>
+                            </em>
+                          )}
                         </Text>
                       </SetupFieldRow>
                     )}
-                    <SetupFieldRow label="Assignment query" content="text">
+                    <SetupFieldRow label={t`Assignment query`} content="text">
                       <Text color="text-high">
-                        {exposureQuery?.name || <em>Choose...</em>}
+                        {exposureQuery?.name || (
+                          <em>
+                            <Trans>Choose...</Trans>
+                          </em>
+                        )}
                       </Text>
                       <AssignmentQueryDriftWarning
                         selection={assignmentQuerySelection}
@@ -673,9 +705,13 @@ const AnalysisForm: FC<{
                   </>
                 )}
                 {datasource && !isHoldout && (
-                  <SetupFieldRow label="Experiment key" content="text">
+                  <SetupFieldRow label={t`Experiment key`} content="text">
                     <Text color="text-high">
-                      {form.watch("trackingKey") || <em>None</em>}
+                      {form.watch("trackingKey") || (
+                        <em>
+                          <Trans>None</Trans>
+                        </em>
+                      )}
                     </Text>
                   </SetupFieldRow>
                 )}
@@ -684,7 +720,7 @@ const AnalysisForm: FC<{
           </SetupFieldGroup>
         ) : (
           <>
-            <SetupFieldRow label="Data Source">
+            <SetupFieldRow label={t`Data Source`}>
               <SelectField
                 value={datasource?.id || ""}
                 autoFocus={focus === "datasource"}
@@ -779,14 +815,16 @@ const AnalysisForm: FC<{
                   }))}
                 className="portal-overflow-ellipsis"
                 helpText={
-                  experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
+                  experiment.datasource
+                    ? i18n._(DATASOURCE_CHANGE_NOTE)
+                    : undefined
                 }
               />
               {experiment.isClusterExperiment &&
               datasource &&
               !supportsClusterExperiments ? (
                 <HelperText status="warning" size="sm" mt="2">
-                  {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
+                  {i18n._(CLUSTER_OFF_FOR_DATASOURCE_MESSAGE)}
                 </HelperText>
               ) : null}
             </SetupFieldRow>
@@ -794,7 +832,7 @@ const AnalysisForm: FC<{
               <AssignmentQueryFields
                 asRows
                 selection={assignmentQuerySelection}
-                placeholder="Choose..."
+                placeholder={t`Choose...`}
                 autoFocus={focus === "exposureQuery"}
                 disabled={isBandit && experiment.status !== "draft"}
               />
@@ -827,15 +865,15 @@ const AnalysisForm: FC<{
               />
             )}
             {datasource && !isHoldout && (
-              <SetupFieldRow label="Experiment key">
+              <SetupFieldRow label={t`Experiment key`}>
                 <Field
                   {...form.register("trackingKey")}
                   helpText={
-                    <>
+                    <Trans>
                       Unique identifier for this experiment, used to track
                       impressions and analyze results. Will match against the{" "}
                       <code>experiment_id</code> column in your data source.
-                    </>
+                    </Trans>
                   }
                   disabled={
                     !canRunExperiment ||
@@ -848,8 +886,8 @@ const AnalysisForm: FC<{
         )}
         {editVariationIds && (
           <SetupFieldRow
-            label="Variation IDs"
-            tooltip="Matched against the variation_id column in your Data Source."
+            label={t`Variation IDs`}
+            tooltip={t`Matched against the variation_id column in your Data Source.`}
           >
             <Flex gap="3" wrap="wrap">
               {variations.fields.map((v, i) => (
@@ -873,8 +911,8 @@ const AnalysisForm: FC<{
           experiment.status !== "draft" && (
             <>
               <SetupFieldRow
-                label="Start time"
-                tooltip="Only include users who entered the experiment on or after this date."
+                label={t`Start time`}
+                tooltip={t`Only include users who entered the experiment on or after this date.`}
               >
                 <DatePicker
                   timeZone="utc"
@@ -888,8 +926,8 @@ const AnalysisForm: FC<{
               </SetupFieldRow>
               {experiment.status === "stopped" && (
                 <SetupFieldRow
-                  label="End time"
-                  tooltip="Only include users who entered the experiment on or before this date."
+                  label={t`End time`}
+                  tooltip={t`Only include users who entered the experiment on or before this date.`}
                 >
                   <DatePicker
                     timeZone="utc"
@@ -904,7 +942,7 @@ const AnalysisForm: FC<{
               )}
             </>
           )}
-        <SetupFieldRow label="Stats engine">
+        <SetupFieldRow label={t`Stats engine`}>
           <Box maxWidth="300px">
             <StatsEngineSelect
               label={null}
@@ -921,7 +959,7 @@ const AnalysisForm: FC<{
           </Box>
         </SetupFieldRow>
         {!isHoldout && (
-          <SetupFieldRow label="Variance reduction" content="text">
+          <SetupFieldRow label={t`Variance reduction`} content="text">
             <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
@@ -947,10 +985,10 @@ const AnalysisForm: FC<{
                   label={
                     // Upgrading wouldn't enable it, so only the cluster reason shows.
                     isClusterExperiment ? (
-                      "Post-stratification"
+                      t`Post-stratification`
                     ) : (
                       <PremiumTooltip commercialFeature="post-stratification">
-                        Post-stratification
+                        <Trans>Post-stratification</Trans>
                       </PremiumTooltip>
                     )
                   }
@@ -970,7 +1008,7 @@ const AnalysisForm: FC<{
                   }
                   disabledMessage={
                     isClusterExperiment
-                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      ? i18n._(POST_STRATIFICATION_CLUSTER_MESSAGE)
                       : undefined
                   }
                 />
@@ -982,12 +1020,12 @@ const AnalysisForm: FC<{
           "frequentist" &&
           !isBandit &&
           !isHoldout && (
-            <SetupFieldRow label="Corrections" content="text">
+            <SetupFieldRow label={t`Corrections`} content="text">
               <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
-                      Sequential testing
+                      <Trans>Sequential testing</Trans>
                     </PremiumTooltip>
                   }
                   weight="regular"
@@ -997,7 +1035,9 @@ const AnalysisForm: FC<{
                 />
                 {form.watch("sequentialTestingEnabled") ? (
                   <Flex align="center" gap="3" pl="5">
-                    <Text>Tuning parameter</Text>
+                    <Text>
+                      <Trans>Tuning parameter</Trans>
+                    </Text>
                     <Box width="120px">
                       <Field
                         type="number"
@@ -1106,18 +1146,18 @@ const AnalysisForm: FC<{
                 <Separator size="4" my="5" />
                 <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
                   {hasExposureSettings && (
-                    <SettingsCard title="Exposures">
+                    <SettingsCard title={t`Exposures`}>
                       {showSegments && (
                         <SetupFieldRow
-                          label="Segment"
-                          tooltip="Only users in this segment will be included."
+                          label={t`Segment`}
+                          tooltip={t`Only users in this segment will be included.`}
                         >
                           <SelectField
                             value={form.watch("segment")}
                             onChange={(value) =>
                               form.setValue("segment", value || "")
                             }
-                            initialOption="None (all users)"
+                            initialOption={t`None (all users)`}
                             options={filteredSegments.map((s) => ({
                               label: s.name,
                               value: s.id,
@@ -1126,7 +1166,7 @@ const AnalysisForm: FC<{
                         </SetupFieldRow>
                       )}
                       {datasourceProperties?.queryLanguage === "sql" && (
-                        <SetupFieldRow label="Custom SQL filter">
+                        <SetupFieldRow label={t`Custom SQL filter`}>
                           <Field
                             textarea
                             {...form.register("queryFilter")}
@@ -1139,7 +1179,7 @@ const AnalysisForm: FC<{
                     </SettingsCard>
                   )}
                   {hasMetricSettings && (
-                    <SettingsCard title="Metrics">
+                    <SettingsCard title={t`Metrics`}>
                       {datasourceProperties?.separateExperimentResultQueries && (
                         <>
                           <ConversionWindowsRow
@@ -1155,8 +1195,8 @@ const AnalysisForm: FC<{
                             }
                           />
                           <SetupFieldRow
-                            label="Metric windows"
-                            tooltip="Apply custom metric window behavior in this experiment."
+                            label={t`Metric windows`}
+                            tooltip={t`Apply custom metric window behavior in this experiment.`}
                           >
                             <MetricAnalysisWindowSelector
                               bare
@@ -1186,8 +1226,8 @@ const AnalysisForm: FC<{
                       )}
                       {hasEligiblePrecomputedUnitDimensions && (
                         <SetupFieldRow
-                          label="Unit dimensions"
-                          tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                          label={t`Unit dimensions`}
+                          tooltip={t`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
                         >
                           <MultiSelectField
                             value={selectedPrecomputedUnitDimensionIds}
@@ -1212,8 +1252,8 @@ const AnalysisForm: FC<{
                       )}
                       {hasMetrics && (
                         <SetupFieldRow
-                          label="Metric overrides"
-                          tooltip="Override metric behaviors within this experiment."
+                          label={t`Metric overrides`}
+                          tooltip={t`Override metric behaviors within this experiment.`}
                           stacked
                         >
                           <MetricsOverridesSelector
@@ -1236,7 +1276,7 @@ const AnalysisForm: FC<{
                             <UpgradeMessage
                               showUpgradeModal={() => setUpgradeModal(true)}
                               commercialFeature="override-metrics"
-                              upgradeMessage="override metrics"
+                              upgradeMessage={OVERRIDE_METRICS_UPGRADE}
                             />
                           )}
                         </SetupFieldRow>

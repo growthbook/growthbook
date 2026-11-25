@@ -13,6 +13,7 @@ import {
 import { ExperimentSortBy } from "shared/experiments";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import cronstrue from "cronstrue";
+import { Trans, useLingui } from "@lingui/react/macro";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -102,6 +103,7 @@ export default function MigrateResultsToDashboardModal({
   sortDirection,
   differenceType,
 }: MigrateResultsToDashboardModalProps) {
+  const { t } = useLingui();
   const { getDimensionById, metricGroups } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const {
@@ -217,19 +219,19 @@ export default function MigrateResultsToDashboardModal({
   const canGoBack = step < confirmationStep;
 
   const refreshInterval = useMemo(() => {
-    if (!updateSchedule) return `every ${defaultRefreshInterval} hours`;
+    if (!updateSchedule) return t`every ${defaultRefreshInterval} hours`;
     if (updateSchedule.type === "never") return;
-    if (updateSchedule.type === "stale")
-      return updateSchedule.hours
-        ? `every ${updateSchedule.hours} hours`
-        : undefined;
+    if (updateSchedule.type === "stale") {
+      const hours = updateSchedule.hours;
+      return hours ? t`every ${hours} hours` : undefined;
+    }
     if (updateSchedule.cron) {
       const cronString = cronstrue.toString(updateSchedule.cron, {
         verbose: false,
       });
       return cronString.charAt(0).toLowerCase() + cronString.slice(1);
     }
-  }, [updateSchedule, defaultRefreshInterval]);
+  }, [updateSchedule, defaultRefreshInterval, t]);
 
   // Initialize dashboardId with default or first available
   useEffect(() => {
@@ -352,13 +354,13 @@ export default function MigrateResultsToDashboardModal({
           if (step === 0) {
             // Page 1: Validate dashboard selection and dashboard name if creating new
             if (dashboardId !== "__create__" && !dashboardId) {
-              setError("Please select a dashboard");
+              setError(t`Please select a dashboard`);
               return;
             }
             if (dashboardId === "__create__") {
               // Validate dashboard name is required when creating new
               if (!form.watch("newDashboardTitle").trim()) {
-                setError("Dashboard name is required");
+                setError(t`Dashboard name is required`);
                 return;
               }
             }
@@ -431,7 +433,7 @@ export default function MigrateResultsToDashboardModal({
                 (d) => d.id === dashboardId,
               );
               if (!selectedDashboard) {
-                setError("Dashboard not found");
+                setError(t`Dashboard not found`);
                 setIsSubmitting(false);
                 return;
               }
@@ -460,13 +462,13 @@ export default function MigrateResultsToDashboardModal({
               // Advance to confirmation page
               setStep(1);
             } else {
-              setError("Failed to add block to dashboard");
+              setError(t`Failed to add block to dashboard`);
             }
           } catch (error) {
             setError(
               error instanceof Error
                 ? error.message
-                : "Failed to add block to dashboard",
+                : t`Failed to add block to dashboard`,
             );
             setHasSubmitted(false);
           } finally {
@@ -480,7 +482,7 @@ export default function MigrateResultsToDashboardModal({
     if (step === confirmationStep) return undefined; // Confirmation page
     return (
       <>
-        Save & Continue{" "}
+        <Trans>Save & Continue</Trans>{" "}
         <PiCaretRight className="position-relative" style={{ top: -1 }} />
       </>
     );
@@ -513,7 +515,7 @@ export default function MigrateResultsToDashboardModal({
         href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
         external={true}
       >
-        View Dashboard <PiArrowSquareOut />
+        <Trans>View Dashboard</Trans> <PiArrowSquareOut />
       </LinkButton>
     );
   };
@@ -531,17 +533,17 @@ export default function MigrateResultsToDashboardModal({
         <PagedModal
           header={
             savedDashboardId ? (
-              <>
+              <Trans>
                 Block added to <i>{savedDashboardName}</i>
-              </>
+              </Trans>
             ) : (
-              "Add Results View to Dashboard"
+              t`Add Results View to Dashboard`
             )
           }
           subHeader={
             savedDashboardId
               ? undefined
-              : "Capture the current settings of this Experiment Results view to use in a Dashboard"
+              : t`Capture the current settings of this Experiment Results view to use in a Dashboard`
           }
           close={close}
           submit={handleSubmit}
@@ -553,13 +555,13 @@ export default function MigrateResultsToDashboardModal({
           step={step}
           setStep={setStep}
           backButton={canGoBack}
-          closeCta={savedDashboardId ? "Close" : "Cancel"}
+          closeCta={savedDashboardId ? t`Close` : t`Cancel`}
           hideNav={true}
           autoCloseOnSubmit={false}
           trackingEventModalType="migrate-results-to-dashboard"
           trackingEventModalSource="experiment-results"
         >
-          <Page display="Select Dashboard & Block">
+          <Page display={t`Select Dashboard & Block`}>
             <SelectDashboardAndBlockPage
               experiment={experiment}
               dimension={dimension}
@@ -588,7 +590,7 @@ export default function MigrateResultsToDashboardModal({
             />
           </Page>
 
-          <Page display="Confirmation" enabled={!!savedDashboardId}>
+          <Page display={t`Confirmation`} enabled={!!savedDashboardId}>
             {savedDashboardId ? (
               <ConfirmationPage
                 isNewDashboard={isCreatingNew}

@@ -10,6 +10,7 @@ import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { phaseSummary } from "@/services/utils";
 import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -31,6 +32,7 @@ export default function ExperimentList({
   localStorageKey: string;
   as?: "list" | "table";
 }): React.ReactElement {
+  const { t } = useLingui();
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
       // filter to only those experiments that match the status
@@ -54,13 +56,27 @@ export default function ExperimentList({
       <table className="table experiment-table gbtable">
         <thead>
           <tr>
-            <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="projectName">Project</SortableTH>
-            <th>Type</th>
-            <th>Tags</th>
-            <SortableTH field="date">Date Started</SortableTH>
-            <SortableTH field="ownerName">Owner</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
+            <SortableTH field="name">
+              <Trans>Experiment</Trans>
+            </SortableTH>
+            <SortableTH field="projectName">
+              <Trans>Project</Trans>
+            </SortableTH>
+            <th>
+              <Trans>Type</Trans>
+            </th>
+            <th>
+              <Trans>Tags</Trans>
+            </th>
+            <SortableTH field="date">
+              <Trans>Date Started</Trans>
+            </SortableTH>
+            <SortableTH field="ownerName">
+              <Trans>Owner</Trans>
+            </SortableTH>
+            <SortableTH field="status">
+              <Trans>Status</Trans>
+            </SortableTH>
           </tr>
         </thead>
         <tbody>
@@ -77,7 +93,7 @@ export default function ExperimentList({
                     {test.hasVisualChangesets ? (
                       <Tooltip
                         className="d-flex align-items-center"
-                        body="Visual experiment"
+                        body={t`Visual experiment`}
                       >
                         <RxDesktop className="text-blue" />
                       </Tooltip>
@@ -85,7 +101,7 @@ export default function ExperimentList({
                     {(test.linkedFeatures || []).length > 0 ? (
                       <Tooltip
                         className="d-flex align-items-center"
-                        body="Linked Feature Flag"
+                        body={t`Linked Feature Flag`}
                       >
                         <BsFlag className="text-blue" />
                       </Tooltip>
@@ -93,7 +109,7 @@ export default function ExperimentList({
                     {test.hasURLRedirects ? (
                       <Tooltip
                         className="d-flex align-items-center"
-                        body="URL Redirect experiment"
+                        body={t`URL Redirect experiment`}
                       >
                         <PiShuffle className="text-blue" />
                       </Tooltip>
@@ -127,7 +143,17 @@ export default function ExperimentList({
   } else {
     let exps = experiments.filter((e) => e.status === status);
     if (!exps.length) {
-      return <div>no {status} experiments</div>;
+      return (
+        <div>
+          {status === "draft" ? (
+            <Trans>no draft experiments</Trans>
+          ) : status === "running" ? (
+            <Trans>no running experiments</Trans>
+          ) : (
+            <Trans>no stopped experiments</Trans>
+          )}
+        </div>
+      );
     }
     if (exps.length > num) {
       exps = exps.slice(0, num);
@@ -153,6 +179,8 @@ export default function ExperimentList({
               endDate = p.dateEnded;
           });
           const currentPhase = test.phases[test.phases.length - 1];
+          const phaseName = currentPhase?.name;
+          const variationCount = test.variations.length;
           return (
             <li key={i} className="w-100 px-1 hover-highlight">
               <div key={test.id} className="d-flex">
@@ -181,7 +209,9 @@ export default function ExperimentList({
                     <div style={{ flex: 1 }} />
                     <div>
                       {" "}
-                      {currentPhase?.name} ({test.variations.length} variations)
+                      <Trans>
+                        {phaseName} ({variationCount} variations)
+                      </Trans>
                     </div>
                   </div>
                 </NextLink>

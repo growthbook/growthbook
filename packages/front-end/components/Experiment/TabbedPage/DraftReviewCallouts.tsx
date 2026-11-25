@@ -6,6 +6,7 @@ import {
 import { startBypassCovers } from "shared/util";
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowSquareOut } from "react-icons/pi";
 import StatusDot from "@/components/Experiment/StatusDot";
 import {
@@ -34,23 +35,29 @@ type DraftInReview = {
 
 const READY_STATES: DraftReviewState[] = ["approved", "ready"];
 
-function listHeading(states: DraftReviewState[]): string {
+function listHeading(states: DraftReviewState[]): ReactNode {
   const ready = states.filter((state) => READY_STATES.includes(state)).length;
   if (ready === states.length) {
-    return "The following Feature Flags are ready to publish:";
+    return <Trans>The following Feature Flags are ready to publish:</Trans>;
   }
   if (states.every((state) => state === "changes-requested")) {
-    return "Changes were requested on the following Feature Flags:";
+    return (
+      <Trans>Changes were requested on the following Feature Flags:</Trans>
+    );
   }
-  return ready
-    ? "The following Feature Flags need approval or publishing:"
-    : "The following Feature Flags need approval:";
+  return ready ? (
+    <Trans>The following Feature Flags need approval or publishing:</Trans>
+  ) : (
+    <Trans>The following Feature Flags need approval:</Trans>
+  );
 }
 
 function DraftLink({
   featureId,
   draft,
 }: Omit<DraftInReview, "publishesAtStart">) {
+  const { i18n } = useLingui();
+  const version = draft.version;
   return (
     <Link
       href={revisionHref(featureId, draft.version)}
@@ -59,50 +66,72 @@ function DraftLink({
       underline="hover"
     >
       <strong>{featureId}</strong>
-      <Tooltip content={revisionStatusLabel(draft.status)}>
+      <Tooltip content={revisionStatusLabel(draft.status, i18n)}>
         <StatusDot
           inline
           color={draftStatusDotColor(draft.status)}
           style={{ marginLeft: "var(--space-2)" }}
         />
       </Tooltip>{" "}
-      Revision {draft.version}
+      <Trans>Revision {version}</Trans>
     </Link>
   );
 }
 
 function reviewSentence({ featureId, draft }: DraftInReview): ReactNode {
-  const subject = (
-    <>
-      Feature Flag <DraftLink featureId={featureId} draft={draft} />
-    </>
-  );
   switch (draftReviewState(draft)) {
     case "changes-requested":
-      return <>Changes were requested on {subject}.</>;
+      return (
+        <Trans>
+          Changes were requested on Feature Flag{" "}
+          <DraftLink featureId={featureId} draft={draft} />.
+        </Trans>
+      );
     case "approved":
-      return <>{subject} is approved.</>;
+      return (
+        <Trans>
+          Feature Flag <DraftLink featureId={featureId} draft={draft} /> is
+          approved.
+        </Trans>
+      );
     case "ready":
-      return <>{subject} is ready to publish.</>;
+      return (
+        <Trans>
+          Feature Flag <DraftLink featureId={featureId} draft={draft} /> is
+          ready to publish.
+        </Trans>
+      );
     case "needs-approval":
-      return <>{subject} needs approval.</>;
+      return (
+        <Trans>
+          Feature Flag <DraftLink featureId={featureId} draft={draft} /> needs
+          approval.
+        </Trans>
+      );
     case "in-review":
-      return <>{subject} is in review.</>;
+      return (
+        <Trans>
+          Feature Flag <DraftLink featureId={featureId} draft={draft} /> is in
+          review.
+        </Trans>
+      );
   }
 }
 
-function startSentence({ draft, publishesAtStart }: DraftInReview) {
+function startSentence({ draft, publishesAtStart }: DraftInReview): ReactNode {
   const state = draftReviewState(draft);
   if (READY_STATES.includes(state)) {
-    return publishesAtStart
-      ? "It publishes when the experiment starts, or you can publish it now."
-      : state === "approved"
-        ? "It's ready to publish."
-        : null;
+    return publishesAtStart ? (
+      <Trans>
+        It publishes when the experiment starts, or you can publish it now.
+      </Trans>
+    ) : state === "approved" ? (
+      <Trans>It&apos;s ready to publish.</Trans>
+    ) : null;
   }
-  return state === "needs-approval" && publishesAtStart
-    ? "Once approved, it publishes when the experiment starts."
-    : null;
+  return state === "needs-approval" && publishesAtStart ? (
+    <Trans>Once approved, it publishes when the experiment starts.</Trans>
+  ) : null;
 }
 
 // A draft that publishes when the experiment starts needs nothing until then,
@@ -114,6 +143,7 @@ export default function DraftReviewCallouts({
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
 }) {
+  const { i18n } = useLingui();
   const inReview = linkedFeatures.flatMap((info): DraftInReview[] =>
     flagDrafts(info).flatMap((draft, i) => {
       // Only the newest draft that changes the rule publishes at start.
@@ -156,12 +186,12 @@ export default function DraftReviewCallouts({
             icon={<PiArrowSquareOut />}
             iconPosition="right"
           >
-            {draftNextStep(only.draft)}
+            {i18n._(draftNextStep(only.draft))}
           </LinkButton>
         }
       >
         {reviewSentence(only)}
-        {start ? ` ${start}` : null}
+        {start ? <> {start}</> : null}
       </Callout>
     );
   }
@@ -185,7 +215,9 @@ export default function DraftReviewCallouts({
                 <DraftLink featureId={item.featureId} draft={item.draft} />
               </Text>
               {item.publishesAtStart ? (
-                <Text color="text-low">Publishes at start</Text>
+                <Text color="text-low">
+                  <Trans>Publishes at start</Trans>
+                </Text>
               ) : null}
             </Flex>
             <Text whiteSpace="nowrap">
@@ -195,7 +227,7 @@ export default function DraftReviewCallouts({
                 color="violet"
                 underline="hover"
               >
-                {draftNextStep(item.draft)}
+                {i18n._(draftNextStep(item.draft))}
                 <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
               </Link>
             </Text>

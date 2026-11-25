@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
@@ -19,6 +20,7 @@ export default function PublicExperimentOverview({
   experiment: ExperimentInterfaceStringDates;
   ssrPolyfills: SSRPolyfills;
 }) {
+  const { i18n } = useLingui();
   // As on the experiment's Setup tab, where a Bandit has no hypothesis.
   const textRow = (
     field: ExperimentTextFieldKey,
@@ -26,7 +28,7 @@ export default function PublicExperimentOverview({
   ) => (
     <>
       <SetupFieldRow
-        label={EXPERIMENT_TEXT_FIELDS[field].label}
+        label={i18n._(EXPERIMENT_TEXT_FIELDS[field].label)}
         labelSize="lg"
         content="text"
         labelAlign={value ? "top" : "center"}
@@ -50,7 +52,7 @@ export default function PublicExperimentOverview({
 
       <Box my="4">
         <Heading as="h4" size="sm" color="text-high" mb="3">
-          Variations
+          <Trans>Variations</Trans>
         </Heading>
         <VariationsTable
           experiment={experiment}

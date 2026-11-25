@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import {
   ExperimentSnapshotSettings,
   SnapshotMetric,
@@ -1056,14 +1058,17 @@ export function getRowResults({
   };
 }
 
-export function getEffectLabel(differenceType: DifferenceType): string {
+export function getEffectLabel(
+  differenceType: DifferenceType,
+  i18n: I18n,
+): string {
   if (differenceType === "absolute") {
-    return "Change";
+    return i18n._(msg`Change`);
   }
   if (differenceType === "scaled") {
-    return "Scaled Impact";
+    return i18n._(msg`Scaled Impact`);
   }
-  return "% Change";
+  return i18n._(msg`% Change`);
 }
 
 export function convertTemplateToExperiment(

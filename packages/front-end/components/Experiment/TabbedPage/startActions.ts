@@ -1,4 +1,6 @@
 import { format } from "date-fns-tz";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasPendingScheduledStart } from "shared/util";
 import type { ApiErrorDetails } from "shared/validators";
@@ -24,6 +26,7 @@ export function getStartTitle(
     "type" | "statusUpdateSchedule" | "nextScheduledStatusUpdate"
   >,
   now: Date,
+  i18n: I18n,
   heading = false,
 ): string {
   const startAt = experiment.statusUpdateSchedule?.startAt;
@@ -32,11 +35,15 @@ export function getStartTitle(
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
   ) {
-    return heading ? "Schedule Start" : "Schedule start";
+    return heading ? i18n._(msg`Schedule Start`) : i18n._(msg`Schedule start`);
   }
   // Bandit is a named resource; experiment is a common noun.
-  if (experiment.type === "multi-armed-bandit") return "Start Bandit";
-  return heading ? "Start Experiment" : "Start experiment";
+  if (experiment.type === "multi-armed-bandit") {
+    return i18n._(msg`Start Bandit`);
+  }
+  return heading
+    ? i18n._(msg`Start Experiment`)
+    : i18n._(msg`Start experiment`);
 }
 
 type StartChecklist = {
@@ -81,20 +88,35 @@ export type StartActions = {
   disabled: boolean;
 };
 
-function bypassLabel({
-  review,
-  todo,
-  then,
-}: {
-  review: boolean;
-  todo: boolean;
-  then: string;
-}): string {
-  const skipped = [
-    review ? "approvals" : null,
-    todo ? "remaining To Do items" : null,
-  ].filter(Boolean);
-  return `Bypass ${skipped.join(" and ")} and ${then}`;
+// What the bypass skips, then what it does: one whole sentence per case.
+function bypassLabel(
+  {
+    review,
+    todo,
+    schedule,
+  }: {
+    review: boolean;
+    todo: boolean;
+    // Schedules the start instead of starting now.
+    schedule: boolean;
+  },
+  i18n: I18n,
+): string {
+  if (review && todo) {
+    return schedule
+      ? i18n._(
+          msg`Bypass approvals and remaining To Do items and schedule start`,
+        )
+      : i18n._(msg`Bypass approvals and remaining To Do items and start now`);
+  }
+  if (review) {
+    return schedule
+      ? i18n._(msg`Bypass approvals and schedule start`)
+      : i18n._(msg`Bypass approvals and start now`);
+  }
+  return schedule
+    ? i18n._(msg`Bypass remaining To Do items and schedule start`)
+    : i18n._(msg`Bypass remaining To Do items and start now`);
 }
 
 // Anyone who can start may skip soft items; an admin who may bypass flag
@@ -106,6 +128,7 @@ export function getStartActions({
   canBypassApproval,
   needsUpgrade,
   bypassed,
+  i18n,
 }: {
   scheduledStartAt: Date | null;
   now: Date;
@@ -113,6 +136,7 @@ export function getStartActions({
   canBypassApproval: boolean;
   needsUpgrade: boolean;
   bypassed: boolean;
+  i18n: I18n;
 }): StartActions {
   const futureStart =
     getStartSchedule(scheduledStartAt, now) === "future"
@@ -127,14 +151,17 @@ export function getStartActions({
   return {
     action: futureStart ? "approve-schedule" : "start",
     label: futureStart
-      ? scheduleToStartLabel(format(futureStart, "MMM d"))
-      : "Start now",
+      ? scheduleToStartLabel(format(futureStart, "MMM d"), i18n)
+      : i18n._(msg`Start now`),
     bypassLabel: bypassable
-      ? bypassLabel({
-          review: waivesApproval,
-          todo: checklist.remaining > checklist.blocking,
-          then: futureStart ? "schedule start" : "start now",
-        })
+      ? bypassLabel(
+          {
+            review: waivesApproval,
+            todo: checklist.remaining > checklist.blocking,
+            schedule: !!futureStart,
+          },
+          i18n,
+        )
       : null,
     waivesApproval,
     hardBlocked,

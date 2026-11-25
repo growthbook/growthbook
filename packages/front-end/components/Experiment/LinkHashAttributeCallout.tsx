@@ -1,4 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { Trans } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import track from "@/services/track";
@@ -30,6 +31,8 @@ export default function LinkHashAttributeCallout({
     return null;
   }
 
+  const datasourceName = datasource.name;
+
   return (
     <Callout
       status="info"
@@ -37,23 +40,25 @@ export default function LinkHashAttributeCallout({
       dismissible
       id={`link-hash-attribute-${experimentId}`}
     >
-      Link the <strong>{hashAttribute}</strong> attribute to an identifier type
-      in{" "}
-      <Link
-        href={`/datasources/${datasource.id}`}
-        target="_blank"
-        rel="noreferrer"
-        onClick={() =>
-          track("Link Hash Attribute to Identifier Type", {
-            source,
-            datasource: datasource.id,
-            hashAttribute,
-          })
-        }
-      >
-        {datasource.name}
-      </Link>{" "}
-      to automatically select an assignment query when creating an experiment.
+      <Trans>
+        Link the <strong>{hashAttribute}</strong> attribute to an identifier
+        type in{" "}
+        <Link
+          href={`/datasources/${datasource.id}`}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() =>
+            track("Link Hash Attribute to Identifier Type", {
+              source,
+              datasource: datasource.id,
+              hashAttribute,
+            })
+          }
+        >
+          {datasourceName}
+        </Link>{" "}
+        to automatically select an assignment query when creating an experiment.
+      </Trans>
     </Callout>
   );
 }

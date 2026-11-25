@@ -11,6 +11,9 @@ import {
   isManagedWarehouse,
 } from "shared/util";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AssignmentQueryNotice,
   getDefaultIdentifierType,
@@ -283,19 +286,24 @@ function getDriftNotice({
   identifierUndeclared,
   identifierType,
   holdoutProjects,
-}: DriftState): { status: "warning" | "info"; message: string } | null {
+}: DriftState): {
+  status: "warning" | "info";
+  message: MessageDescriptor;
+} | null {
   if (identifierUndeclared) {
+    // Set whenever the identifier is undeclared.
+    const undeclaredIdentifier = identifierType ?? "";
     return {
       status: "warning",
-      message: `This assignment query no longer declares "${identifierType}", so results can't update.`,
+      message: msg`This assignment query no longer declares "${undeclaredIdentifier}", so results can't update.`,
     };
   }
   if (outOfScope) {
     return {
       status: "info",
       message: holdoutProjects
-        ? "This assignment query isn't available to every Project in this Holdout. Results still update."
-        : "This assignment query isn't scoped to this Project. Results still update.",
+        ? msg`This assignment query isn't available to every Project in this Holdout. Results still update.`
+        : msg`This assignment query isn't scoped to this Project. Results still update.`,
     };
   }
   return null;
@@ -309,21 +317,39 @@ export function IdentifierCode({ children }: { children: ReactNode }) {
 }
 
 /** Why no identifier type can be chosen. */
-export function getNoAssignmentQueriesMessage({
-  hasExposureQueries,
-  holdoutProjects,
-}: Pick<Selection, "hasExposureQueries" | "holdoutProjects">): string {
+// Without `i18n` the message is English, for callers not translated yet.
+export function getNoAssignmentQueriesMessage(
+  {
+    hasExposureQueries,
+    holdoutProjects,
+  }: Pick<Selection, "hasExposureQueries" | "holdoutProjects">,
+  i18n?: I18n,
+): string {
+  const text = (message: MessageDescriptor, english: string) =>
+    i18n ? i18n._(message) : english;
   if (!hasExposureQueries) {
-    return "This Data Source has no assignment queries. Add one in the Data Source settings.";
+    return text(
+      msg`This Data Source has no assignment queries. Add one in the Data Source settings.`,
+      "This Data Source has no assignment queries. Add one in the Data Source settings.",
+    );
   }
   if (!holdoutProjects) {
-    return "No assignment queries are scoped to this Project. Add one in the Data Source settings.";
+    return text(
+      msg`No assignment queries are scoped to this Project. Add one in the Data Source settings.`,
+      "No assignment queries are scoped to this Project. Add one in the Data Source settings.",
+    );
   }
   // Only a query with no Project limit, its own or its Data Source's, fits.
   if (!holdoutProjects.length) {
-    return "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.";
+    return text(
+      msg`No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.`,
+      "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.",
+    );
   }
-  return "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.";
+  return text(
+    msg`No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.`,
+    "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.",
+  );
 }
 
 export function AssignmentQueryDriftWarning({
@@ -334,15 +360,16 @@ export function AssignmentQueryDriftWarning({
   // Under the assignment query field rather than above the form.
   as?: "callout" | "helperText";
 }) {
+  const { i18n } = useLingui();
   const drift = getDriftNotice(selection);
   if (!drift) return null;
   return as === "helperText" ? (
     <HelperText status={drift.status} size="sm" mt="2">
-      {drift.message}
+      {i18n._(drift.message)}
     </HelperText>
   ) : (
     <Callout status={drift.status} size="sm" mb="3">
-      {drift.message}
+      {i18n._(drift.message)}
     </Callout>
   );
 }
@@ -352,10 +379,11 @@ export function AssignmentQueryDriftIcon({
 }: {
   selection: DriftState;
 }) {
+  const { i18n } = useLingui();
   const drift = getDriftNotice(selection);
   if (!drift) return null;
   return (
-    <Tooltip body={drift.message}>
+    <Tooltip body={i18n._(drift.message)}>
       {drift.status === "warning" ? (
         <PiWarningFill style={{ color: "var(--amber-11)" }} />
       ) : (
@@ -365,10 +393,8 @@ export function AssignmentQueryDriftIcon({
   );
 }
 
-const IDENTIFIER_TYPE_TIP =
-  "The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment.";
-const ASSIGNMENT_TABLE_TIP =
-  "The query that records which units saw which variation.";
+const IDENTIFIER_TYPE_TIP = msg`The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment.`;
+const ASSIGNMENT_TABLE_TIP = msg`The query that records which units saw which variation.`;
 
 export default function AssignmentQueryFields({
   selection,
@@ -394,6 +420,9 @@ export default function AssignmentQueryFields({
   /** Each field beside its label, as on the experiment's setup page. */
   asRows?: boolean;
 }) {
+  const { t, i18n } = useLingui();
+  const identifierTypeTip = i18n._(IDENTIFIER_TYPE_TIP);
+  const assignmentTableTip = i18n._(ASSIGNMENT_TABLE_TIP);
   const {
     exposureQueryId,
     identifierType,
@@ -426,21 +455,22 @@ export default function AssignmentQueryFields({
         </Callout>
       ) : null}
       {field(
-        "Identifier type",
-        IDENTIFIER_TYPE_TIP,
+        t`Identifier type`,
+        identifierTypeTip,
         <SelectField
           size={size}
           label={
             asRows ? undefined : (
               <>
-                Identifier Type <Tooltip body={IDENTIFIER_TYPE_TIP} />
+                <Trans>Identifier Type</Trans>{" "}
+                <Tooltip body={identifierTypeTip} />
               </>
             )
           }
           labelClassName="font-weight-bold"
           helpText={
             identifierTypes.length === 0
-              ? getNoAssignmentQueriesMessage(selection)
+              ? getNoAssignmentQueriesMessage(selection, i18n)
               : undefined
           }
           value={identifierType ?? ""}
@@ -456,22 +486,22 @@ export default function AssignmentQueryFields({
       {progressive && !identifierType
         ? null
         : field(
-            "Assignment query",
-            ASSIGNMENT_TABLE_TIP,
+            t`Assignment query`,
+            assignmentTableTip,
             <SelectField
               size={size}
               label={
                 asRows ? undefined : (
                   <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body={ASSIGNMENT_TABLE_TIP} />
+                    <Trans>Experiment Assignment Table</Trans>{" "}
+                    <Tooltip body={assignmentTableTip} />
                   </>
                 )
               }
               labelClassName="font-weight-bold"
               helpText={
                 identifierType && exposureQueryOptions.length === 0
-                  ? `No assignment queries declare the "${identifierType}" identifier type.`
+                  ? t`No assignment queries declare the "${identifierType}" identifier type.`
                   : undefined
               }
               value={exposureQueryId ?? ""}
@@ -493,8 +523,7 @@ export default function AssignmentQueryFields({
   );
 }
 
-export const POST_STRATIFICATION_CLUSTER_MESSAGE =
-  "Post-stratification isn't supported for cluster experiments.";
+export const POST_STRATIFICATION_CLUSTER_MESSAGE = msg`Post-stratification isn't supported for cluster experiments.`;
 
 export function useClusterSubUnitOptions(
   datasource: DataSourceInterfaceWithParams | null | undefined,
@@ -514,11 +543,9 @@ export function useClusterSubUnitOptions(
   );
 }
 
-export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
-  "This Data Source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.";
+export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE = msg`This Data Source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.`;
 
-const CLUSTER_MODE_CHANGE_MESSAGE =
-  "This experiment has already started. Turning Cluster experiment on or off changes how results are analyzed, so make sure it still matches how traffic was randomized.";
+const CLUSTER_MODE_CHANGE_MESSAGE = msg`This experiment has already started. Turning Cluster experiment on or off changes how results are analyzed, so make sure it still matches how traffic was randomized.`;
 
 export type ClusterChangeAfterLaunch = "mode" | "subunit" | null;
 
@@ -566,6 +593,7 @@ export function ClusterExperimentFields({
   // Each field beside its label, as on the experiment's setup page.
   asRows?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { hasCommercialFeature } = useUser();
   const subUnitOptions = useClusterSubUnitOptions(
     datasource,
@@ -591,10 +619,10 @@ export function ClusterExperimentFields({
   if (!subUnitOptions.length && !isClusterExperiment) return null;
 
   const explanation = (
-    <>
+    <Trans>
       Every unit in a <IdentifierCode>{identifierType}</IdentifierCode> gets the
       same variation, and metrics are analyzed on a smaller unit inside it.
-    </>
+    </Trans>
   );
   const premiumLabel = (label: ReactNode) => (
     <PremiumTooltip commercialFeature="cluster-experiments">
@@ -608,7 +636,7 @@ export function ClusterExperimentFields({
           ? // PremiumTooltip lays its children out in a row, so the sentence
             // goes in as one piece to wrap as text.
             premiumLabel(<span>{explanation}</span>)
-          : premiumLabel("Cluster experiment")
+          : premiumLabel(t`Cluster experiment`)
       }
       weight={asRows ? "regular" : undefined}
       description={asRows ? undefined : explanation}
@@ -626,22 +654,26 @@ export function ClusterExperimentFields({
         {message}
       </HelperText>
     ) : null;
-  const modeWarning = launchWarning("mode", CLUSTER_MODE_CHANGE_MESSAGE);
+  const modeWarning = launchWarning(
+    "mode",
+    i18n._(CLUSTER_MODE_CHANGE_MESSAGE),
+  );
   const subUnitWarning = launchWarning(
     "subunit",
-    <>
+    <Trans>
       This experiment has already started. Changing the subunit identifier type
       changes which unit its metrics are analyzed on, so check that they can be
       analyzed per <IdentifierCode>{subUnitIdentifier}</IdentifierCode>.
-    </>,
+    </Trans>,
   );
+  const exposureQueryName = exposureQuery?.name ?? "";
   const subUnitSelect = (
     <SelectField
-      label={asRows ? undefined : "Subunit identifier type"}
+      label={asRows ? undefined : t`Subunit identifier type`}
       labelClassName={asRows ? undefined : "font-weight-bold"}
       value={subUnitIdentifier}
       onChange={setSubUnitIdentifier}
-      placeholder="Choose..."
+      placeholder={t`Choose...`}
       required
       disabled={disabled}
       sort={false}
@@ -651,17 +683,17 @@ export function ClusterExperimentFields({
       }))}
       helpText={
         subUnitOptions.length ? (
-          <>
+          <Trans>
             Metrics are analyzed per{" "}
             <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
             can be.
-          </>
+          </Trans>
         ) : datasource && isManagedWarehouse(datasource) ? (
-          "This Data Source has no other identifier type to analyze on."
+          t`This Data Source has no other identifier type to analyze on.`
         ) : exposureQuery ? (
-          `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
+          t`${exposureQueryName} doesn't declare another identifier type to analyze on.`
         ) : (
-          "Choose an assignment query to pick a subunit."
+          t`Choose an assignment query to pick a subunit.`
         )
       }
     />
@@ -670,12 +702,12 @@ export function ClusterExperimentFields({
   if (asRows) {
     return (
       <>
-        <SetupFieldRow label="Cluster experiment" content="text">
+        <SetupFieldRow label={t`Cluster experiment`} content="text">
           {checkbox}
           {modeWarning}
         </SetupFieldRow>
         {isClusterExperiment && (
-          <SetupFieldRow label="Subunit identifier type">
+          <SetupFieldRow label={t`Subunit identifier type`}>
             {subUnitSelect}
             {subUnitWarning}
           </SetupFieldRow>

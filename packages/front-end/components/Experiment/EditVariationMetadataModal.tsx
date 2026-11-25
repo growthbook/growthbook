@@ -6,6 +6,7 @@ import {
 } from "shared/types/experiment";
 import { getStorableVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -31,6 +32,7 @@ const EditVariationMetadataModal: FC<Props> = ({
   stage,
   source,
 }) => {
+  const { t } = useLingui();
   const variations = getStorableVariations(experiment);
   const variation = variations[variationIndex];
 
@@ -50,7 +52,7 @@ const EditVariationMetadataModal: FC<Props> = ({
     <ModalStandard
       trackingEventModalType="edit-variation-metadata"
       trackingEventModalSource={source}
-      header="Edit Variation"
+      header={t`Edit Variation`}
       open={true}
       close={close}
       size="lg"
@@ -69,20 +71,20 @@ const EditVariationMetadataModal: FC<Props> = ({
         stage(updatedVariations);
         track("edited-variation-metadata");
       })}
-      cta={uploading > 0 ? "Uploading…" : "Apply"}
+      cta={uploading > 0 ? t`Uploading…` : t`Apply`}
       ctaEnabled={uploading === 0}
     >
       <Flex direction="row" gap="3" align="start">
         <FieldAlignedVariationNumber number={variationIndex} />
         <Flex direction="column" gap="3" style={{ flex: 1, minWidth: 0 }}>
           <Field
-            label="Name"
+            label={t`Name`}
             required
             containerClassName="mb-0"
             {...form.register("name")}
           />
           <Field
-            label="Description"
+            label={t`Description`}
             textarea
             containerClassName="mb-0"
             {...form.register("description")}

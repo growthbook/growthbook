@@ -7,6 +7,8 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { PopulationDataInterface } from "shared/types/population-data";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import { AuthContextValue } from "@/services/auth";
 
@@ -14,13 +16,15 @@ export async function setMetricDataFromExperiment({
   form,
   experiment,
   apiCall,
+  i18n,
 }: {
   form: PowerCalculationForm;
   experiment?: ExperimentInterfaceStringDates;
   apiCall: AuthContextValue["apiCall"];
+  i18n: I18n;
 }) {
   if (!experiment) {
-    form.setValue("metricValuesData.error", `Experiment not found.`);
+    form.setValue("metricValuesData.error", i18n._(msg`Experiment not found.`));
     return;
   }
 
@@ -42,7 +46,7 @@ export async function setMetricDataFromExperiment({
       } else {
         form.setValue(
           "metricValuesData.error",
-          `No data found for the experiment.`,
+          i18n._(msg`No data found for the experiment.`),
         );
         return;
       }

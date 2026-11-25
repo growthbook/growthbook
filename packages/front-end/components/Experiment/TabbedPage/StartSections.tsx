@@ -3,6 +3,9 @@ import { hasAttributeCondition } from "shared/experiments";
 import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -22,13 +25,12 @@ import { PendingDraftFailure } from "./useStartExperiment";
 
 const PENDING_DRAFT_FAILURE_LABELS: Record<
   PendingDraftFailure["reason"],
-  string
+  MessageDescriptor
 > = {
-  "merge-conflict":
-    "Merge conflict with live — open the draft to fix conflicts",
-  "needs-rebase": "Behind live, no conflicts — open the draft and rebase",
-  "needs-approval": "Awaiting approval",
-  "publish-error": "Publish failed unexpectedly",
+  "merge-conflict": msg`Merge conflict with live — open the draft to fix conflicts`,
+  "needs-rebase": msg`Behind live, no conflicts — open the draft and rebase`,
+  "needs-approval": msg`Awaiting approval`,
+  "publish-error": msg`Publish failed unexpectedly`,
 };
 
 /** Label/value rows, such as when an experiment starts and ends. */
@@ -69,11 +71,12 @@ export function StartFailures({
 }: {
   failures: PendingDraftFailure[];
 }) {
+  const { i18n } = useLingui();
   if (!failures.length) return null;
   return (
     <Callout status="error" size="sm">
       <Text size="sm" weight="semibold" color="text-high">
-        Linked Feature Flag drafts that could not be published
+        <Trans>Linked Feature Flag drafts that could not be published</Trans>
       </Text>
       <Flex direction="column" gap="2" mt="2">
         {failures.map((failure) => (
@@ -93,7 +96,7 @@ export function StartFailures({
               <PiArrowSquareOut className="ml-1" />
             </Link>
             <Text size="sm" color="text-mid">
-              {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
+              {i18n._(PENDING_DRAFT_FAILURE_LABELS[failure.reason])}
             </Text>
           </Flex>
         ))}
@@ -108,12 +111,13 @@ export function StartChecklistFailures({
 }: {
   items: ServerChecklistItem[];
 }) {
+  const { t } = useLingui();
   if (!items.length) return null;
   const blocking = items.some((item) => item.hardBlock);
   return (
     <Callout status={blocking ? "error" : "warning"} size="sm">
       <Text size="sm" weight="semibold" color="text-high">
-        {blocking ? "Must resolve" : "Incomplete To Do items"}
+        {blocking ? t`Must resolve` : t`Incomplete To Do items`}
       </Text>
       <Flex direction="column" gap="2" mt="2">
         {items.map((item, i) => (
@@ -156,31 +160,35 @@ export function StartSummary({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
+  const { t } = useLingui();
   const { namespaces } = useOrgSettings();
   const latestPhase = experiment.phases.at(-1);
   if (!latestPhase) return null;
   const { coverage: namespaceCoverage, name: namespaceName } =
     getNamespaceDisplayData(latestPhase.namespace, namespaces);
+  const coveragePercent = percentFormatter.format(namespaceCoverage);
 
   return (
     <Flex direction="column" gap="4">
       {latestPhase.namespace?.enabled ? (
-        <TargetingSummaryRow label="Namespace" inline>
+        <TargetingSummaryRow label={t`Namespace`} inline>
           <Text>
-            {percentFormatter.format(namespaceCoverage)} of {namespaceName}
+            <Trans>
+              {coveragePercent} of {namespaceName}
+            </Trans>
           </Text>
         </TargetingSummaryRow>
       ) : null}
-      <TargetingSummaryRow label="Traffic">
+      <TargetingSummaryRow label={t`Traffic`}>
         <HoldoutTrafficBreakdown phase={latestPhase} />
       </TargetingSummaryRow>
       {hasAttributeCondition(latestPhase.condition) ? (
-        <TargetingSummaryRow label="Attribute targeting">
+        <TargetingSummaryRow label={t`Attribute targeting`}>
           <ConditionDisplay condition={latestPhase.condition} />
         </TargetingSummaryRow>
       ) : null}
       {latestPhase.savedGroups?.length ? (
-        <TargetingSummaryRow label="Saved Group targeting">
+        <TargetingSummaryRow label={t`Saved Group targeting`}>
           <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
         </TargetingSummaryRow>
       ) : null}
@@ -188,11 +196,9 @@ export function StartSummary({
   );
 }
 
-const UPGRADE_REASONS: Record<StartUpgrade, string> = {
-  "visual-editor":
-    "This experiment contains AI Visual Editor changes, which require a paid plan.",
-  redirects:
-    "This experiment contains URL redirects, which require a paid plan.",
+const UPGRADE_REASONS: Record<StartUpgrade, MessageDescriptor> = {
+  "visual-editor": msg`This experiment contains AI Visual Editor changes, which require a paid plan.`,
+  redirects: msg`This experiment contains URL redirects, which require a paid plan.`,
 };
 
 export function StartUpgradeCallout({
@@ -200,6 +206,7 @@ export function StartUpgradeCallout({
 }: {
   upgrade: StartUpgrade | null;
 }) {
+  const { i18n } = useLingui();
   if (!upgrade) return null;
   return (
     <PremiumCallout
@@ -207,7 +214,7 @@ export function StartUpgradeCallout({
       id="start-experiment-modal"
       size="sm"
     >
-      {UPGRADE_REASONS[upgrade]}
+      {i18n._(UPGRADE_REASONS[upgrade])}
     </PremiumCallout>
   );
 }
@@ -220,14 +227,15 @@ export function StartBlockers({
   items: CheckListItem[];
   upgrade: StartUpgrade | null;
 }) {
+  const { i18n } = useLingui();
   return (
     <Flex direction="column" gap="2">
       <Text size="sm" weight="semibold" color="text-high">
-        Resolve before starting
+        <Trans>Resolve before starting</Trans>
       </Text>
       {upgrade ? (
         <Text size="sm" color="text-mid">
-          {UPGRADE_REASONS[upgrade]}
+          {i18n._(UPGRADE_REASONS[upgrade])}
         </Text>
       ) : null}
       <ReadOnlyChecklistRows items={items} />

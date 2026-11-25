@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { PiLockSimple } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
@@ -23,7 +24,10 @@ import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import {
+  useExperimentStatusIndicator,
+  useStatusIndicatorText,
+} from "@/hooks/useExperimentStatusIndicator";
 import ProjectBadges from "@/components/ProjectBadges";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useStagedState } from "./ExperimentEdits";
@@ -37,8 +41,11 @@ type FieldAction = ((field: QuickEditField) => ReactNode) | null;
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
 export function RestrictedValue() {
+  const { t } = useLingui();
   return (
-    <UITooltip content="This Data Source is in a Project you don't have access to.">
+    <UITooltip
+      content={t`This Data Source is in a Project you don't have access to.`}
+    >
       {/* Focusable, so the reason reaches the keyboard too. */}
       <Flex
         as="span"
@@ -48,7 +55,9 @@ export function RestrictedValue() {
         style={{ display: "inline-flex" }}
       >
         <PiLockSimple />
-        <em>Restricted</em>
+        <em>
+          <Trans>Restricted</Trans>
+        </em>
       </Flex>
     </UITooltip>
   );
@@ -66,6 +75,7 @@ export function ExperimentDataFields({
   stagedHoldoutId?: string | null;
   fieldAction?: FieldAction;
 }) {
+  const { t } = useLingui();
   const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
   // Only needed to name the holdout this experiment belongs to.
   const { holdoutsMap } = useHoldouts(undefined, false, {
@@ -101,6 +111,8 @@ export function ExperimentDataFields({
     (q) => q.id === exposureQueryId,
   );
   const isHoldout = experiment.type === "holdout";
+  const hashAttribute = experiment.hashAttribute;
+  const fallbackAttribute = experiment.fallbackAttribute;
 
   return (
     <Flex direction="column" gap="3">
@@ -108,7 +120,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Experiment key"
+          label={t`Experiment key`}
           action={fieldAction?.("trackingKey")}
           value={
             experiment.trackingKey ? (
@@ -122,11 +134,17 @@ export function ExperimentDataFields({
       <Metadata
         size="sm"
         stacked
-        label="Data Source"
+        label={t`Data Source`}
         value={
           datasourceId ? (
             datasource?.name ||
-            (deletedDatasource ? <em>Deleted</em> : <RestrictedValue />)
+            (deletedDatasource ? (
+              <em>
+                <Trans>Deleted</Trans>
+              </em>
+            ) : (
+              <RestrictedValue />
+            ))
           ) : (
             <EmptyValue />
           )
@@ -136,12 +154,14 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Assignment query"
+          label={t`Assignment query`}
           value={
             exposureQueryId ? (
               (exposureQuery?.name ??
               (datasource || deletedDatasource ? (
-                <em>Not found</em>
+                <em>
+                  <Trans>Not found</Trans>
+                </em>
               ) : (
                 <RestrictedValue />
               )))
@@ -157,7 +177,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Identifier type"
+          label={t`Identifier type`}
           value={resolveAnalysisIdentifierType(
             exposureQuery,
             identifierType || undefined,
@@ -168,7 +188,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Subunit identifier type"
+          label={t`Subunit identifier type`}
           value={clusterSubUnitIdentifier || <EmptyValue />}
         />
       ) : null}
@@ -176,7 +196,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Holdout"
+          label={t`Holdout`}
           value={
             <Link href={`/holdout/${holdoutId}`}>
               {holdoutsMap.get(holdoutId)?.name}
@@ -187,19 +207,19 @@ export function ExperimentDataFields({
       <Metadata
         size="sm"
         stacked
-        label="Assignment attribute"
+        label={t`Assignment attribute`}
         value={
-          experiment.fallbackAttribute
-            ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
-            : experiment.hashAttribute || "id"
+          fallbackAttribute
+            ? t`${hashAttribute}, falling back to ${fallbackAttribute}`
+            : hashAttribute || "id"
         }
       />
       {!isHoldout && useStickyBucketing ? (
         <Metadata
           size="sm"
           stacked
-          label="Sticky bucketing"
-          value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
+          label={t`Sticky bucketing`}
+          value={experiment.disableStickyBucketing ? t`Disabled` : t`Enabled`}
         />
       ) : null}
     </Flex>
@@ -215,6 +235,7 @@ export default function ProjectTagBar({
   holdout?: HoldoutInterfaceStringDates;
   fieldAction?: FieldAction;
 }) {
+  const { t } = useLingui();
   return (
     <Flex direction="column" gap="3">
       <OwnerField owner={experiment.owner} action={fieldAction?.("owner")} />
@@ -222,7 +243,7 @@ export default function ProjectTagBar({
         <Metadata
           size="sm"
           stacked
-          label="Projects"
+          label={t`Projects`}
           action={fieldAction?.("project")}
           value={
             holdout.projects.length > 0 ? (
@@ -255,8 +276,10 @@ export function ExperimentStatusField({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
+  const { t } = useLingui();
   const statusIndicator = useExperimentStatusIndicator()(experiment);
-  const statusDetail = statusIndicator.detailedStatus;
+  const shownStatus = useStatusIndicatorText()(statusIndicator);
+  const statusDetail = shownStatus.detailedStatus;
   const result =
     experiment.status === "stopped" && statusDetail
       ? experiment.results
@@ -266,11 +289,11 @@ export function ExperimentStatusField({
     <Metadata
       size="sm"
       stacked
-      label="Status"
+      label={t`Status`}
       value={
         <Flex align="baseline" gap={result ? "2" : "1"}>
           <Text size="sm" color="text-high">
-            {statusIndicator.status}
+            {shownStatus.status}
           </Text>
           {result ? (
             <ResultsIndicator results={result} size="xs" />
@@ -290,6 +313,7 @@ export function ExperimentDates({
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
+  const { t, i18n } = useLingui();
   const phases = experiment.phases || [];
   const lastPhase = phases[phases.length - 1];
   const started =
@@ -299,14 +323,16 @@ export function ExperimentDates({
   const created = toUTCDate(experiment.dateCreated);
 
   if (experiment.status === "draft" || !started) {
-    return <Metadata size="sm" stacked label="Created" value={created} />;
+    return <Metadata size="sm" stacked label={t`Created`} value={created} />;
   }
 
   const running = experiment.status === "running";
   // Stopped experiments usually have an end date; older ones may not.
   const ended = running ? null : lastPhase?.dateEnded;
-  const duration = runLength(started, ended || new Date());
+  const duration = runLength(started, ended || new Date(), i18n);
   const latest = phases.length > 1 && experiment.type !== "holdout";
+  const startedOn = toUTCDate(started);
+  const endedOn = ended ? toUTCDate(ended) : null;
   return (
     <Metadata
       size="sm"
@@ -314,20 +340,20 @@ export function ExperimentDates({
       label={
         ended
           ? latest
-            ? "Latest phase ran"
-            : "Ran"
+            ? t`Latest phase ran`
+            : t`Ran`
           : latest
-            ? "Latest phase started"
-            : "Started"
+            ? t`Latest phase started`
+            : t`Started`
       }
       value={
-        <Tooltip body={`Created ${created}`}>
+        <Tooltip body={t`Created ${created}`}>
           <Text weight="regular" color="text-high" size="sm">
-            {ended
-              ? `${toUTCDate(started)} – ${toUTCDate(ended)} · ${duration}`
+            {endedOn
+              ? `${startedOn} – ${endedOn} · ${duration}`
               : running
-                ? `${toUTCDate(started)} · ${duration} so far`
-                : toUTCDate(started)}
+                ? t`${startedOn} · ${duration} so far`
+                : startedOn}
           </Text>
         </Tooltip>
       }

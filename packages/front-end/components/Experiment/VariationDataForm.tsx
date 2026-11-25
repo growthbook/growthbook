@@ -1,4 +1,5 @@
 import { FC, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FaTrash, FaPlus } from "react-icons/fa";
 
 const VariationDataForm: FC<{
@@ -7,6 +8,7 @@ const VariationDataForm: FC<{
   featureFlag?: boolean;
   setData: (data: string) => void;
 }> = ({ variationNames, data, setData, featureFlag = false }) => {
+  const { t } = useLingui();
   const [newKey, setNewKey] = useState("");
 
   const parsed: {
@@ -41,13 +43,13 @@ const VariationDataForm: FC<{
   return (
     <div>
       <div className="mb-2">
-        {featureFlag ? "Set Feature Flags" : "Variation Data (optional)"}
+        {featureFlag ? t`Set Feature Flags` : t`Variation Data (optional)`}
       </div>
       {Object.keys(parsed).length > 0 && (
         <table className="table table-condensed table-bordered">
           <thead>
             <tr>
-              <th>{featureFlag ? "Flag" : "Key"}</th>
+              <th>{featureFlag ? t`Flag` : t`Key`}</th>
               {variationNames.map((name) => (
                 <th key={name}>{name}</th>
               ))}
@@ -92,7 +94,7 @@ const VariationDataForm: FC<{
           <div className="input-group">
             <div className="input-group-prepend">
               <div className="input-group-text">
-                {featureFlag ? "Flag" : "New Key"}:
+                {featureFlag ? t`Flag:` : t`New Key:`}
               </div>
             </div>
             <input
@@ -101,7 +103,9 @@ const VariationDataForm: FC<{
               onChange={(e) => setNewKey(e.target.value)}
               className="form-control"
               placeholder={
-                featureFlag ? "e.g. homepage.button.color" : "e.g. buttonColor"
+                featureFlag
+                  ? t`e.g. homepage.button.color`
+                  : t`e.g. buttonColor`
               }
             />
             <div className="input-group-append">
@@ -113,7 +117,7 @@ const VariationDataForm: FC<{
                   setNewKey("");
                 }}
               >
-                <FaPlus /> Add
+                <FaPlus /> <Trans>Add</Trans>
               </button>
             </div>
           </div>

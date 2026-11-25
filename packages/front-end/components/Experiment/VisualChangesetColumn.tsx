@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -176,6 +177,7 @@ function RuleChip({
 }: {
   rule: { include: boolean; type: "simple" | "regex"; pattern: string };
 }) {
+  const { t } = useLingui();
   const inc = rule.include;
   return (
     <span
@@ -190,7 +192,7 @@ function RuleChip({
         {rule.pattern}
       </code>
       {rule.type === "regex" && (
-        <span className={styles.regexBadge} title="Regular expression">
+        <span className={styles.regexBadge} title={t`Regular expression`}>
           .*
         </span>
       )}
@@ -206,6 +208,7 @@ function ChangeRow({
   // Stages the removal; omitted where the row is read-only.
   onDelete?: () => void;
 }) {
+  const { t } = useLingui();
   const [showCode, setShowCode] = useState(false);
   const [imageError, setImageError] = useState(false);
   // Only while open; most rows stay closed.
@@ -235,7 +238,7 @@ function ChangeRow({
           type="button"
           className={`${styles.codeToggle}${showCode ? " " + styles.codeToggleOpen : ""}`}
           onClick={() => setShowCode((s) => !s)}
-          title={showCode ? "Hide raw values" : "Show raw values"}
+          title={showCode ? t`Hide raw values` : t`Show raw values`}
           aria-pressed={showCode}
         >
           <PiCodeBold size={13} />
@@ -245,8 +248,8 @@ function ChangeRow({
             type="button"
             className={styles.deleteRowBtn}
             onClick={onDelete}
-            title="Delete this change"
-            aria-label="Delete this change"
+            title={t`Delete this change`}
+            aria-label={t`Delete this change`}
           >
             <PiTrashBold size={13} />
           </button>
@@ -256,7 +259,9 @@ function ChangeRow({
         <Box className={styles.codePanel}>
           {/* A selector isn't human-readable, so it sits with the raw values. */}
           <div className={styles.appliesTo}>
-            <span className={styles.appliesToLabel}>Applies to:</span>
+            <span className={styles.appliesToLabel}>
+              <Trans>Applies to:</Trans>
+            </span>
             <code className={styles.selectorChip}>{h.selectorLabel}</code>
           </div>
           {h.imageUrl && !imageError && (
@@ -337,12 +342,14 @@ function MorePatterns({
     <Tooltip
       content={
         <Flex direction="column" gap="1">
-          {patterns.map((p, i) => (
-            <span key={i}>
-              {p.include ? "" : "Except "}
-              {p.pattern}
-            </span>
-          ))}
+          {patterns.map((p, i) => {
+            const pattern = p.pattern;
+            return (
+              <span key={i}>
+                {p.include ? pattern : <Trans>Except {pattern}</Trans>}
+              </span>
+            );
+          })}
         </Flex>
       }
     >
@@ -369,7 +376,11 @@ function AppliesTo({
   return (
     <Flex as="span" align="center" gap="2" minWidth="0" wrap="wrap">
       <Text color="text-low">
-        {includes.length ? "Applies to" : "Applies everywhere except"}
+        {includes.length ? (
+          <Trans>Applies to</Trans>
+        ) : (
+          <Trans>Applies everywhere except</Trans>
+        )}
       </Text>
       <RuleChip rule={first} />
       <MorePatterns patterns={rest} />
@@ -392,6 +403,8 @@ function VariationChangesModal({
   onEdit: (() => void) | null;
   close: () => void;
 }) {
+  const { t } = useLingui();
+  const variationName = variation.name;
   // Previews force the variation by its saved index; a staged-only variation
   // has none yet.
   const base = normalizeVisualEditorUrl(vc.editorUrl);
@@ -408,7 +421,7 @@ function VariationChangesModal({
     <ModalStandard
       trackingEventModalType="visual-changes"
       open
-      header={`Visual Changes: ${variation.name}`}
+      header={t`Visual Changes: ${variationName}`}
       subheader={
         vc.urlPatterns?.length ? (
           <AppliesTo urlPatterns={vc.urlPatterns} />
@@ -418,7 +431,7 @@ function VariationChangesModal({
         previewUrl ? (
           <Link href={previewUrl} external>
             <Flex align="center" gap="1">
-              Preview <PiArrowSquareOut />
+              <Trans>Preview</Trans> <PiArrowSquareOut />
             </Flex>
           </Link>
         ) : null
@@ -426,11 +439,11 @@ function VariationChangesModal({
       secondaryAction={
         onEdit ? (
           <Button variant="ghost" onClick={onEdit}>
-            Edit changes
+            <Trans>Edit changes</Trans>
           </Button>
         ) : null
       }
-      closeCta="Close"
+      closeCta={t`Close`}
       close={close}
       size="lg"
     >
@@ -446,8 +459,12 @@ function VariationChangesModal({
         </Flex>
       ) : (
         <Flex direction="column" align="center" gap="1" py="6">
-          <Text weight="semibold">No changes on {variation.name}</Text>
-          <Text color="text-low">This variation shows the page as it is.</Text>
+          <Text weight="semibold">
+            <Trans>No changes on {variationName}</Trans>
+          </Text>
+          <Text color="text-low">
+            <Trans>This variation shows the page as it is.</Trans>
+          </Text>
         </Flex>
       )}
     </ModalStandard>
@@ -485,6 +502,7 @@ export default function VisualChangesetColumn({
   onRemove: (id: string) => void;
   onUndo: (id: string) => void;
 }) {
+  const { t } = useLingui();
   const { variations } = layout;
   const edits = useExperimentEdits();
   const vc = shown.changeset;
@@ -522,10 +540,10 @@ export default function VisualChangesetColumn({
     !experiment.excludeFromPayload;
   const stagedNote =
     experiment.status === "running"
-      ? "Serves to this experiment's traffic as soon as you save."
+      ? t`Serves to this experiment's traffic as soon as you save.`
       : releasing
-        ? "Changes to the released variation serve to all traffic as soon as you save."
-        : "Changed when you save.";
+        ? t`Changes to the released variation serve to all traffic as soon as you save.`
+        : t`Changed when you save.`;
   const launchable = canEdit && canLaunch;
   const firstInclude = vc.urlPatterns?.find((p) => p.include);
   const target = firstInclude
@@ -547,7 +565,7 @@ export default function VisualChangesetColumn({
             });
           }}
         >
-          Edit URL targeting
+          <Trans>Edit URL targeting</Trans>
         </DropdownMenuItem>,
         <DropdownMenuSeparator key="separator" />,
         <DropdownMenuItem
@@ -560,7 +578,7 @@ export default function VisualChangesetColumn({
             track("Delete visual changeset", { source: "visual-editor-ui" });
           }}
         >
-          Remove from experiment
+          <Trans>Remove from experiment</Trans>
         </DropdownMenuItem>,
       ]
     : [];
@@ -609,7 +627,9 @@ export default function VisualChangesetColumn({
         layout={layout}
         title={
           <>
-            <HeaderText>Visual changes</HeaderText>
+            <HeaderText>
+              <Trans>Visual changes</Trans>
+            </HeaderText>
             {target ? (
               <Flex minWidth="0">
                 <HeaderText muted>(</HeaderText>
@@ -627,17 +647,17 @@ export default function VisualChangesetColumn({
               visualChangeset={vc}
               size="sm"
               beforeLeave={edits?.allowUnload}
-              button="Open editor"
+              button={t`Open editor`}
             />
           ) : (
-            "AI Visual Editor"
+            t`AI Visual Editor`
           )
         }
         problem={
-          hasChanges ? null : { text: "No changes yet", status: "warning" }
+          hasChanges ? null : { text: t`No changes yet`, status: "warning" }
         }
         menu={menu}
-        menuLabel="AI Visual Editor changes actions"
+        menuLabel={t`AI Visual Editor changes actions`}
       />
       {variations.map((v, i) => {
         const rows = rowsByVariation.get(v.id) ?? [];
@@ -656,7 +676,7 @@ export default function VisualChangesetColumn({
                   }`
                 ) : (
                   <Text color="text-low" weight="regular">
-                    No visual changes
+                    <Trans>No visual changes</Trans>
                   </Text>
                 )}
               </span>

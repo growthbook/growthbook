@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import isEqual from "lodash/isEqual";
 import { datasourceChangeDrops, getClusterSubUnit } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -135,6 +136,7 @@ export default function AnalysisPlan({
   mutate,
   envs,
 }: Props) {
+  const { t, i18n } = useLingui();
   const {
     datasources,
     getDatasourceById,
@@ -471,7 +473,7 @@ export default function AnalysisPlan({
   );
 
   useExperimentFieldEdit("analysis-plan", dirty, experiment, {
-    label: "Analysis plan",
+    label: t`Analysis plan`,
     fields: () => {
       const { droppedIds } = ineligibleClusterMetrics;
       // Lists holding a metric cluster experiments can't analyze go too, so
@@ -675,8 +677,8 @@ export default function AnalysisPlan({
   ) => (
     <SetupFieldRow
       id={`analysis-plan-${field}`}
-      label={METRIC_ROWS[field].label}
-      tooltip={METRIC_ROWS[field].tooltip}
+      label={i18n._(METRIC_ROWS[field].label)}
+      tooltip={i18n._(METRIC_ROWS[field].tooltip)}
     >
       <MetricsSelector
         selected={selected}
@@ -706,6 +708,9 @@ export default function AnalysisPlan({
       />
     </SetupFieldRow>
   );
+
+  const followedIdentifierType = followed?.identifierType;
+  const resolutionAttribute = resolution.attribute;
 
   return (
     <>
@@ -764,22 +769,30 @@ export default function AnalysisPlan({
       <Separator size="4" my="2" />
       <Box py="4">
         <Heading color="text-high" as="h4" size="sm" mb="1">
-          Analysis Plan
+          <Trans>Analysis Plan</Trans>
         </Heading>
 
         {/* The assignment query reads back in the details panel. */}
         <SetupFieldRow
           id="analysis-plan-datasource"
-          label="Data Source"
+          label={t`Data Source`}
           content="text"
         >
-          <QuickEditRow label="Edit Data Source" onEdit={editDatasource}>
+          <QuickEditRow label={t`Edit Data Source`} onEdit={editDatasource}>
             <Text color="text-high">
               {hiddenDatasource ? (
                 <RestrictedValue />
               ) : (
                 (selectedDatasource?.name ??
-                (deletedDatasource ? <em>Deleted</em> : <em>None</em>))
+                (deletedDatasource ? (
+                  <em>
+                    <Trans>Deleted</Trans>
+                  </em>
+                ) : (
+                  <em>
+                    <Trans>None</Trans>
+                  </em>
+                )))
               )}
             </Text>
           </QuickEditRow>
@@ -792,7 +805,7 @@ export default function AnalysisPlan({
                 <Link
                   onClick={() => changeSelection({ datasource, ...followed })}
                 >
-                  Analyze per {followed.identifierType}
+                  <Trans>Analyze per {followedIdentifierType}</Trans>
                 </Link>
               ) : null}
               {stageHashAttribute && resolution.attribute ? (
@@ -802,11 +815,13 @@ export default function AnalysisPlan({
                     stageHashAttribute(resolution.attribute)
                   }
                 >
-                  Assign by {resolution.attribute}
+                  <Trans>Assign by {resolutionAttribute}</Trans>
                 </Link>
               ) : null}
               {editDatasource ? (
-                <Link onClick={editDatasource}>Choose another</Link>
+                <Link onClick={editDatasource}>
+                  <Trans>Choose another</Trans>
+                </Link>
               ) : null}
             </AttributeConflict>
           ) : resolution.choose &&
@@ -814,10 +829,14 @@ export default function AnalysisPlan({
             // Left unset, the table's first identifier is the one analyzed.
             <HelperText status="info" size="sm" mt="1">
               <span>
-                The assignment query has several identifier types, and the
-                assignment attribute doesn&apos;t settle which.{" "}
+                <Trans>
+                  The assignment query has several identifier types, and the
+                  assignment attribute doesn&apos;t settle which.
+                </Trans>{" "}
                 {editDatasource ? (
-                  <Link onClick={editDatasource}>Choose one</Link>
+                  <Link onClick={editDatasource}>
+                    <Trans>Choose one</Trans>
+                  </Link>
                 ) : null}
               </span>
             </HelperText>
@@ -892,6 +911,7 @@ function DataSourceModal({
   close: () => void;
   change: (next: AssignmentSelection, cluster: ClusterSelection) => void;
 }) {
+  const { t, i18n } = useLingui();
   const { getDatasourceById } = useDefinitions();
   // An experiment saved before identifiers were stored shows the one it uses.
   const storedQuery = getDatasourceById(
@@ -931,6 +951,7 @@ function DataSourceModal({
     identifierType,
     hashAttribute,
   );
+  const { attribute } = resolution;
   const exposureQuery = selected?.settings?.queries?.exposure?.find(
     (q) => q.id === exposureQueryId,
   );
@@ -959,9 +980,9 @@ function DataSourceModal({
   return (
     <ModalStandard
       open
-      header="Data Source"
+      header={t`Data Source`}
       close={close}
-      cta="Confirm"
+      cta={t`Confirm`}
       ctaEnabled={
         changed &&
         (!isClusterExperiment ||
@@ -981,20 +1002,22 @@ function DataSourceModal({
       }}
     >
       <SelectField
-        label="Data Source"
+        label={t`Data Source`}
         labelClassName="font-weight-bold"
         value={datasource}
         onChange={setDatasource}
-        initialOption="None"
+        initialOption={t`None`}
         options={options}
         helpText={
-          !sameSource && value.datasource ? DATASOURCE_CHANGE_NOTE : undefined
+          !sameSource && value.datasource
+            ? i18n._(DATASOURCE_CHANGE_NOTE)
+            : undefined
         }
       />
       {selected?.properties?.exposureQueries ? (
         <AssignmentQueryFields
           selection={selection}
-          placeholder="Choose..."
+          placeholder={t`Choose...`}
           progressive
         />
       ) : null}
@@ -1011,13 +1034,15 @@ function DataSourceModal({
         />
       ) : selected && cluster.isClusterExperiment ? (
         <HelperText status="warning" size="sm">
-          {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
+          {i18n._(CLUSTER_OFF_FOR_DATASOURCE_MESSAGE)}
         </HelperText>
       ) : null}
       {stagesAttribute && resolution.attribute ? (
         <HelperText status="info" size="sm">
-          The assignment attribute changes to{" "}
-          <code>{resolution.attribute}</code> to match.
+          <Trans>
+            The assignment attribute changes to <code>{attribute}</code> to
+            match.
+          </Trans>
         </HelperText>
       ) : resolution.conflict && resolution.identifierType ? (
         <AttributeConflict
@@ -1058,9 +1083,11 @@ function AttributeConflict({
   return (
     <HelperText status="warning" size="sm" mt="1">
       <span>
-        This experiment assigns by <code>{hashAttribute}</code> but is analyzed
-        per <code>{identifierType}</code>, which the assignment attribute
-        isn&apos;t linked to.{" "}
+        <Trans>
+          This experiment assigns by <code>{hashAttribute}</code> but is
+          analyzed per <code>{identifierType}</code>, which the assignment
+          attribute isn&apos;t linked to.
+        </Trans>{" "}
         <Flex as="span" gap="3" display="inline-flex">
           {children}
         </Flex>

@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -28,8 +30,7 @@ type StartRefusal = {
 
 export type StartExperiment = ReturnType<typeof useStartExperiment>;
 
-export const RUN_PERMISSION_REASON =
-  "Requires permission to start and stop experiments in this experiment's environments.";
+export const RUN_PERMISSION_REASON = msg`Requires permission to start and stop experiments in this experiment's environments.`;
 
 export default function useStartExperiment({
   experiment,
@@ -48,6 +49,7 @@ export default function useStartExperiment({
   newPhase?: (() => void) | null;
   onStarted: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -95,7 +97,7 @@ export default function useStartExperiment({
   const banditBlockedReason =
     !isBandit || experimentHasLiveLinkedChanges(experiment, linkedFeatures)
       ? null
-      : "Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting.";
+      : t`Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting.`;
 
   async function startExperiment(opts?: {
     bypassApproval?: boolean;
@@ -105,10 +107,10 @@ export default function useStartExperiment({
     // its targeting row, a hard block while it has none.
     if (!experiment.phases.length) {
       if (!isHoldout) {
-        throw new Error("Set up targeting before starting this experiment.");
+        throw new Error(t`Set up targeting before starting this experiment.`);
       }
       if (!newPhase) {
-        throw new Error("You do not have permission to start this experiment");
+        throw new Error(t`You do not have permission to start this experiment`);
       }
       newPhase();
       return;
@@ -116,7 +118,7 @@ export default function useStartExperiment({
 
     clearStartFailures();
     if (isHoldout) {
-      if (!holdout) throw new Error("This holdout is still loading.");
+      if (!holdout) throw new Error(t`This holdout is still loading.`);
       await apiCall(`/holdout/${holdout.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({

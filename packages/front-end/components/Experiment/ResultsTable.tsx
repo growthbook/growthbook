@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import { ExperimentReportVariation } from "shared/types/report";
 import { ExperimentStatus } from "shared/types/experiment";
@@ -229,6 +230,7 @@ export default function ResultsTable({
   oneSided = false,
   sampleSizeFrom,
 }: ResultsTableProps) {
+  const { t, i18n } = useLingui();
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
@@ -282,10 +284,20 @@ export default function ResultsTable({
     };
 
     const getTooltipText = () => {
-      if (isActive) {
-        return `Sorted by ${column} ${sortDirection === "desc" ? "(desc)" : "(asc)"}`;
+      if (column === "significance") {
+        if (isActive) {
+          return sortDirection === "desc"
+            ? t`Sorted by significance (desc)`
+            : t`Sorted by significance (asc)`;
+        }
+        return t`Sort by significance`;
       }
-      return `Sort by ${column}`;
+      if (isActive) {
+        return sortDirection === "desc"
+          ? t`Sorted by change (desc)`
+          : t`Sorted by change (asc)`;
+      }
+      return t`Sort by change`;
     };
 
     const getIcon = () => {
@@ -551,7 +563,7 @@ export default function ResultsTable({
   const noRows = rows.length === 0;
   const hasUnfilteredMetrics = (totalMetricsCount ?? 0) > 0;
 
-  const changeTitle = getEffectLabel(differenceType);
+  const changeTitle = getEffectLabel(differenceType, i18n);
 
   const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
   const appliedPValueCorrection = hasGoalMetrics
@@ -600,7 +612,7 @@ export default function ResultsTable({
                           {editMetrics ? (
                             <div className="col d-flex align-items-end px-0">
                               <QuickEditButton
-                                label="Edit metrics"
+                                label={t`Edit metrics`}
                                 onClick={editMetrics}
                                 labelTooltip={false}
                                 dimmed
@@ -666,7 +678,7 @@ export default function ResultsTable({
                           >
                             {statsEngine === "bayesian" ? (
                               <Flex align="center">
-                                Chance to Win
+                                <Trans>Chance to Win</Trans>
                                 <SortButton column="significance" />
                               </Flex>
                             ) : sequentialTestingEnabled ||
@@ -687,14 +699,17 @@ export default function ResultsTable({
                                 }
                               >
                                 <Flex align="center">
-                                  {appliedPValueCorrection ? "Adj. " : ""}
-                                  P-value
+                                  {appliedPValueCorrection ? (
+                                    <Trans>Adj. P-value</Trans>
+                                  ) : (
+                                    <Trans>P-value</Trans>
+                                  )}
                                   <SortButton column="significance" />
                                 </Flex>
                               </Tooltip>
                             ) : (
                               <Flex align="center">
-                                P-value
+                                <Trans>P-value</Trans>
                                 <SortButton column="significance" />
                               </Flex>
                             )}
@@ -1042,8 +1057,8 @@ export default function ResultsTable({
                                             mx="2"
                                           >
                                             {isQueryError
-                                              ? "Query error"
-                                              : "Quantile metrics not available for pre-computed dimensions. Use a custom report instead."}
+                                              ? t`Query error`
+                                              : t`Quantile metrics not available for pre-computed dimensions. Use a custom report instead.`}
                                           </HelperText>
                                         </>
                                       ),
@@ -1146,7 +1161,7 @@ export default function ResultsTable({
                                   differenceType === "scaled";
                                 const scaledImpactMessage =
                                   scaledImpactUnavailable
-                                    ? "Scaled impact unavailable. Try updating results."
+                                    ? t`Scaled impact unavailable. Try updating results.`
                                     : undefined;
 
                                 const resultsHighlightClassname = clsx(
@@ -1529,13 +1544,19 @@ export default function ResultsTable({
               {noRows ? (
                 <div className="text-muted ml-2 pl-1 py-2">
                   {hasUnfilteredMetrics ? (
-                    <em>Some metrics are hidden by filters.</em>
+                    <em>
+                      <Trans>Some metrics are hidden by filters.</Trans>
+                    </em>
                   ) : (
                     <>
-                      <em>No metrics yet</em>
+                      <em>
+                        <Trans>No metrics yet</Trans>
+                      </em>
                       <div className="small">
-                        Add metrics to start tracking the performance of your
-                        experiment.
+                        <Trans>
+                          Add metrics to start tracking the performance of your
+                          experiment.
+                        </Trans>
                       </div>
                     </>
                   )}
@@ -1669,22 +1690,31 @@ function getPValueTooltip(
     <>
       {sequentialTestingEnabled && (
         <div className={pValueCorrection ? "mb-3" : ""}>
-          Sequential testing is enabled. These are &apos;always valid
-          p-values&apos; and robust to peeking. They have a slightly different
-          interpretation to normal p-values and can often be 1.000. Nonetheless,
-          the interpretation remains that the result is still statistically
-          significant if it drops below your threshold ({pValueThreshold}).
+          <Trans>
+            Sequential testing is enabled. These are &apos;always valid
+            p-values&apos; and robust to peeking. They have a slightly different
+            interpretation to normal p-values and can often be 1.000.
+            Nonetheless, the interpretation remains that the result is still
+            statistically significant if it drops below your threshold (
+            {pValueThreshold}).
+          </Trans>
         </div>
       )}
       {pValueCorrection && (
         <div>
-          The p-values presented below are adjusted for multiple comparisons
-          using the {pValueCorrection} method. P-values were adjusted across
-          tests for
-          {tableRowAxis === "dimension"
-            ? " all dimension values, goal metrics, and variations"
-            : " all goal metrics and variations"}
-          .
+          {tableRowAxis === "dimension" ? (
+            <Trans>
+              The p-values presented below are adjusted for multiple comparisons
+              using the {pValueCorrection} method. P-values were adjusted across
+              tests for all dimension values, goal metrics, and variations.
+            </Trans>
+          ) : (
+            <Trans>
+              The p-values presented below are adjusted for multiple comparisons
+              using the {pValueCorrection} method. P-values were adjusted across
+              tests for all goal metrics and variations.
+            </Trans>
+          )}
         </div>
       )}
     </>

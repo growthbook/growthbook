@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
+import { Trans } from "@lingui/react/macro";
 import ImportExperimentList from "@/components/Experiment/ImportExperimentList";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
@@ -24,7 +25,9 @@ const ImportPage: FC = () => {
           source="import"
         />
       )}
-      <h2>Import Experiments</h2>
+      <h2>
+        <Trans>Import Experiments</Trans>
+      </h2>
       {importId && (
         <ImportExperimentList
           key={importId}

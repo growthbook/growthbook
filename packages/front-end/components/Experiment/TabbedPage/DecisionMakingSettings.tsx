@@ -8,6 +8,7 @@ import {
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -18,6 +19,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import VariationLabel from "@/ui/VariationLabel";
+import { decisionCriteriaText } from "@/components/DecisionCriteria/decisionCriteriaText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -58,6 +60,7 @@ export function useDecisionMakingSummary(
   experiment: ExperimentInterfaceStringDates,
   ssrPolyfills?: SSRPolyfills,
 ) {
+  const { t } = useLingui();
   const { getExperimentMetricById, getMetricById, metricGroups } =
     useDefinitions();
   const { organization } = useUser();
@@ -104,10 +107,12 @@ export function useDecisionMakingSummary(
 
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   // A phrase ending in the variation it ships, labelled as variations are.
-  const shipping = (phrase: string, id?: string) => {
+  // `anyVariation` is the whole phrase when no variation is picked; `phrase`
+  // comes before the variation's label.
+  const shipping = (anyVariation: string, phrase: string, id?: string) => {
     const index = experiment.variations.findIndex((v) => v.id === id);
     return index < 0 ? (
-      `${phrase} a variation`
+      anyVariation
     ) : (
       <Flex as="span" align="center" gap="1" minWidth="0">
         <Box as="span" flexShrink="0">
@@ -115,7 +120,7 @@ export function useDecisionMakingSummary(
         </Box>
         <VariationLabel
           number={index}
-          name={experiment.variations[index].name || `Variation ${index}`}
+          name={experiment.variations[index].name || t`Variation ${index}`}
         />
       </Flex>
     );
@@ -127,24 +132,32 @@ export function useDecisionMakingSummary(
     return metricById(plan.tiebreakerMetricId)?.name ?? plan.tiebreakerMetricId;
   };
   if (plan?.mode === "auto-ship") {
-    endSummary = "Ship the winning variation";
+    endSummary = t`Ship the winning variation`;
     const tb = tiebreakerName();
-    if (tb) endDetails.push(`Tiebreaker: ${tb}`);
+    if (tb) endDetails.push(t`Tiebreaker: ${tb}`);
     endDetails.push(
       plan.fallback === "force-ship"
-        ? shipping("No clear winner: ship", plan.fallbackVariationId)
-        : "No clear winner: keep running",
+        ? shipping(
+            t`No clear winner: ship a variation`,
+            t`No clear winner: ship`,
+            plan.fallbackVariationId,
+          )
+        : t`No clear winner: keep running`,
     );
   } else if (plan?.mode === "force-ship") {
-    endSummary = shipping("Ship", plan.fallbackVariationId);
+    endSummary = shipping(
+      t`Ship a variation`,
+      t`Ship`,
+      plan.fallbackVariationId,
+    );
     const tb = tiebreakerName();
-    if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
+    if (tb) endDetails.push(t`Verdict tiebreaker: ${tb}`);
   } else if (plan?.mode === "stop") {
-    endSummary = "Stop the experiment (no rollout)";
+    endSummary = t`Stop the experiment (no rollout)`;
     const tb = tiebreakerName();
-    if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
+    if (tb) endDetails.push(t`Verdict tiebreaker: ${tb}`);
   } else {
-    endSummary = "Notify only — keep running";
+    endSummary = t`Notify only — keep running`;
   }
 
   return {
@@ -162,11 +175,13 @@ export default function DecisionMakingSettings({
   experiment,
   ssrPolyfills,
 }: Props) {
+  const { i18n } = useLingui();
   const summary = useDecisionMakingSummary(experiment, ssrPolyfills);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   if (!summary) return null;
   const { goalsWithTargetMDE, decisionCriteria, endSummary, endDetails } =
     summary;
+  const criteriaText = decisionCriteriaText(decisionCriteria, i18n);
 
   return (
     <>
@@ -182,18 +197,20 @@ export default function DecisionMakingSettings({
       <Frame>
         <Flex direction="column" gap="1" mb="5">
           <Heading color="text-high" as="h4" size="sm" mb="0">
-            Decision-making Settings
+            <Trans>Decision-making Settings</Trans>
           </Heading>
           <Text color="text-mid">
-            Define the criteria and end-of-experiment automation that drive
-            quick, precise rollouts for winning variations.
+            <Trans>
+              Define the criteria and end-of-experiment automation that drive
+              quick, precise rollouts for winning variations.
+            </Trans>
           </Text>
         </Flex>
 
         <Grid columns="3" gap="4">
           <Box>
             <Text color="text-high" weight="semibold" mb="1">
-              Target MDE
+              <Trans>Target MDE</Trans>
             </Text>
             <Box>
               {goalsWithTargetMDE.length ? (
@@ -214,19 +231,21 @@ export default function DecisionMakingSettings({
           </Box>
           <Box>
             <Text color="text-high" weight="semibold" mb="1">
-              Decision Criteria
+              <Trans>Decision Criteria</Trans>
             </Text>
             <Box>
-              <Text color="text-mid">{decisionCriteria.name}</Text>
-              <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
+              <Text color="text-mid">{criteriaText.name}</Text>
+              <Text color="text-mid">{`: ${criteriaText.description}`}</Text>
             </Box>
             <Box mt="1">
-              <Link onClick={() => setCriteriaOpen(true)}>View</Link>
+              <Link onClick={() => setCriteriaOpen(true)}>
+                <Trans>View</Trans>
+              </Link>
             </Box>
           </Box>
           <Box>
             <Text color="text-high" weight="semibold" mb="1">
-              End of Experiment
+              <Trans>End of Experiment</Trans>
             </Text>
             <Box>
               <Text as="div" color="text-mid">

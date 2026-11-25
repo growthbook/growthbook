@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiClock, PiPencilSimple } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { getAllVariations } from "shared/experiments";
 import {
@@ -36,6 +37,7 @@ export default function StoppedExperimentBanner({
   editResult,
   ...margin
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const [confirmingStop, setConfirmingStop] = useState(false);
 
@@ -58,7 +60,7 @@ export default function StoppedExperimentBanner({
   const variationLabel = (i: number, size: "md" | "lg" = "md") => (
     <VariationLabel
       number={i}
-      name={variations[i]?.name || `Variation ${i}`}
+      name={variations[i]?.name || t`Variation ${i}`}
       maxWidth="240px"
       size={size}
     />
@@ -67,21 +69,23 @@ export default function StoppedExperimentBanner({
   const temporaryRollout = hasLiveLinkedChanges && !isHoldout;
   const winner = !isHoldout && !!variations[winningIndex];
   const headline = isHoldout
-    ? "Holdout stopped"
+    ? t`Holdout stopped`
     : result === "inconclusive" || result === "dnf"
-      ? RESULT_LABELS[result]
-      : "Experiment stopped";
+      ? i18n._(RESULT_LABELS[result])
+      : t`Experiment stopped`;
   const dateEnded = experiment.phases.at(-1)?.dateEnded;
   const stoppedOn = dateEnded ? date(dateEnded) : null;
   const analysis = experiment.analysis;
+  const releasedLabel =
+    releasedIndex >= 0 ? variationLabel(releasedIndex) : null;
 
   return (
     <>
       {confirmingStop ? (
         <ConfirmDialog
-          title="Stop temporary rollout?"
-          content="This completely stops serving traffic to the rolled-out variation."
-          yesText="Stop rollout"
+          title={t`Stop temporary rollout?`}
+          content={t`This completely stops serving traffic to the rolled-out variation.`}
+          yesText={t`Stop rollout`}
           color="red"
           onConfirm={async () => {
             await apiCall(`/experiment/${experiment.id}`, {
@@ -114,7 +118,9 @@ export default function StoppedExperimentBanner({
               {stoppedOn ? (
                 <>
                   <Text color="text-low">·</Text>
-                  <Text color="text-low">Stopped {stoppedOn}</Text>
+                  <Text color="text-low">
+                    <Trans>Stopped {stoppedOn}</Trans>
+                  </Text>
                 </>
               ) : null}
             </>
@@ -127,7 +133,7 @@ export default function StoppedExperimentBanner({
                 icon={<PiPencilSimple />}
                 onClick={editResult}
               >
-                Edit result
+                <Trans>Edit result</Trans>
               </Button>
             ) : null
           }
@@ -145,26 +151,32 @@ export default function StoppedExperimentBanner({
                 size="sm"
                 onClick={() => setConfirmingStop(true)}
               >
-                Stop temporary rollout
+                <Trans>Stop temporary rollout</Trans>
               </Button>
             }
           >
-            {releasedIndex >= 0 ? (
+            {releasedLabel ? (
               <Flex align="center" gap="1" wrap="wrap">
-                <Text weight="semibold">Temporary rollout:</Text>
-                {variationLabel(releasedIndex)}
-                <span>to 100% of users</span>
+                <Trans>
+                  <Text weight="semibold">Temporary rollout:</Text>
+                  {releasedLabel}
+                  <span>to 100% of users</span>
+                </Trans>
               </Flex>
             ) : (
               <Text as="div" weight="semibold">
-                Temporary rollout enabled
+                <Trans>Temporary rollout enabled</Trans>
               </Text>
             )}
             <Box mt="2">
-              Changes stay live until you implement them in code. Stop the
-              rollout once you&apos;re done to improve performance.{" "}
+              <Trans>
+                Changes stay live until you implement them in code. Stop the
+                rollout once you&apos;re done to improve performance.
+              </Trans>{" "}
               <span style={{ whiteSpace: "nowrap" }}>
-                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+                <DocLink docSection="temporaryRollout">
+                  <Trans>Learn more</Trans>
+                </DocLink>
               </span>
             </Box>
           </Callout>

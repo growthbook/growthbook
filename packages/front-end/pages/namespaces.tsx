@@ -1,5 +1,6 @@
 import { useState, FC } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -25,6 +26,7 @@ export type NamespaceApiResponse = {
 };
 
 const NamespacesPage: FC = () => {
+  const { t } = useLingui();
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
   );
@@ -42,7 +44,12 @@ const NamespacesPage: FC = () => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -65,27 +72,37 @@ const NamespacesPage: FC = () => {
       )}
       <Flex align="center" justify="between" mb="1">
         <Heading as="h1" size="xl" mb="2">
-          Experiment Namespaces
+          <Trans>Experiment Namespaces</Trans>
         </Heading>
         {canCreate && (
-          <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Trans>Add Namespace</Trans>
+          </Button>
         )}
       </Flex>
       <Text as="div" color="text-mid" mt="3" mb="6">
-        Namespaces allow you to run mutually exclusive experiments.{" "}
+        <Trans>
+          Namespaces allow you to run mutually exclusive experiments.
+        </Trans>{" "}
         {namespaces.length > 0 &&
-          "Click a namespace below to see more details about its current usage."}
+          t`Click a namespace below to see more details about its current usage.`}
       </Text>
       {namespaces.length > 0 && (
         <Table variant="list">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Namespace</TableColumnHeader>
-              <TableColumnHeader>Description</TableColumnHeader>
-              <TableColumnHeader justify="end">
-                Active Experiments
+              <TableColumnHeader>
+                <Trans>Namespace</Trans>
               </TableColumnHeader>
-              <TableColumnHeader justify="end">Available</TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Description</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader justify="end">
+                <Trans>Active Experiments</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader justify="end">
+                <Trans>Available</Trans>
+              </TableColumnHeader>
               <TableColumnHeader style={{ width: 30 }} />
             </TableRow>
           </TableHeader>

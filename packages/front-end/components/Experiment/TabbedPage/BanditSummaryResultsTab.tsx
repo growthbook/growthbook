@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
@@ -39,6 +40,7 @@ export default function BanditSummaryResultsTab({
   ssrPolyfills,
   isPublic,
 }: Props) {
+  const { t } = useLingui();
   const { getExperimentMetricById } = useDefinitions();
 
   const [chartMode, setChartMode] = useLocalStorage<
@@ -87,7 +89,7 @@ export default function BanditSummaryResultsTab({
   if (!metric) {
     return (
       <Callout status="warning" mx="3" mb="2">
-        No metric was set for this Bandit.
+        <Trans>No metric was set for this Bandit.</Trans>
       </Callout>
     );
   }
@@ -95,13 +97,17 @@ export default function BanditSummaryResultsTab({
   return (
     <>
       <div className="d-flex mt-2 mb-3 align-items-end">
-        <h3 className="mb-0">Bandit Leaderboard</h3>
+        <h3 className="mb-0">
+          <Trans>Bandit Leaderboard</Trans>
+        </h3>
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
           <Callout status="info" mx="3" mb="4">
-            Your experiment is still in a <strong>draft</strong> state. You must
-            start the experiment first before seeing results.
+            <Trans>
+              Your experiment is still in a <strong>draft</strong> state. You
+              must start the experiment first before seeing results.
+            </Trans>
           </Callout>
         )}
 
@@ -109,20 +115,22 @@ export default function BanditSummaryResultsTab({
         experiment.status === "running" &&
         experiment.banditStage === "explore" ? (
           <Callout status="info" mx="3" mb="2">
-            This Bandit is still in its <strong>Exploratory</strong> stage.
-            Please wait a little while longer before variation weights update.
+            <Trans>
+              This Bandit is still in its <strong>Exploratory</strong> stage.
+              Please wait a little while longer before variation weights update.
+            </Trans>
           </Callout>
         ) : null}
         {isCurrentPhase &&
         experiment.status === "running" &&
         !phaseObj?.banditEvents?.length ? (
           <Callout status="info" mx="3" mb="4">
-            No data yet.
+            <Trans>No data yet.</Trans>
           </Callout>
         ) : null}
         {!isCurrentPhase && !phaseObj?.banditEvents?.length ? (
           <Callout status="info" mx="3" mb="4">
-            No data available for this phase.
+            <Trans>No data available for this phase.</Trans>
           </Callout>
         ) : null}
 
@@ -161,7 +169,7 @@ export default function BanditSummaryResultsTab({
                     <Text size="inherit" weight="semibold">
                       CUPED:
                     </Text>{" "}
-                    Enabled
+                    <Trans>Enabled</Trans>
                   </Text>
                 </Flex>
               )}
@@ -186,43 +194,51 @@ export default function BanditSummaryResultsTab({
 
       {showVisualizations && (
         <>
-          <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
+          <h3 className="mt-4 mb-3">
+            <Trans>Variation Performance over Time</Trans>
+          </h3>
           <div className="box px-3 py-2">
             <Flex gap="5" mb="4" wrap="wrap" align="start">
               <Flex direction="column" gap="1">
                 <Text size="sm" weight="medium" color="text-mid">
-                  Chart
+                  <Trans>Chart</Trans>
                 </Text>
                 <SegmentedControl
                   wrap
-                  aria-label="Chart"
+                  aria-label={t`Chart`}
                   value={chartMode}
                   setValue={setChartMode}
                   options={[
-                    { value: "values", label: "Cumulative variation means" },
-                    { value: "probabilities", label: "Probability of winning" },
-                    { value: "weights", label: "Variation weights" },
+                    {
+                      value: "values",
+                      label: t`Cumulative variation means`,
+                    },
+                    {
+                      value: "probabilities",
+                      label: t`Probability of winning`,
+                    },
+                    { value: "weights", label: t`Variation weights` },
                   ]}
                 />
               </Flex>
               {chartMode !== "values" && (
                 <Flex direction="column" gap="1">
                   <Text size="sm" weight="medium" color="text-mid">
-                    Chart type
+                    <Trans>Chart type</Trans>
                   </Text>
                   <SegmentedControl
-                    aria-label="Chart type"
+                    aria-label={t`Chart type`}
                     value={chartType}
                     setValue={setChartType}
                     options={[
                       {
                         value: "area",
-                        ariaLabel: "Area",
+                        ariaLabel: t`Area`,
                         label: <TbChartAreaLineFilled size={18} />,
                       },
                       {
                         value: "line",
-                        ariaLabel: "Line",
+                        ariaLabel: t`Line`,
                         label: <LiaChartLineSolid size={18} />,
                       },
                     ]}
@@ -238,8 +254,8 @@ export default function BanditSummaryResultsTab({
                 chartMode === "values"
                   ? undefined
                   : chartMode === "probabilities"
-                    ? "Probability of Winning"
-                    : "Variation Weight"
+                    ? t`Probability of Winning`
+                    : t`Variation Weight`
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}

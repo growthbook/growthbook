@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { useForm, UseFormReturn } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import {
@@ -72,6 +73,7 @@ export function useExperimentTargetingForm(
   attributeScopeProjects?: string[] | null,
   draft?: ExperimentTargetingData | null,
 ): UseExperimentTargetingFormResult {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
   // Unfiltered so the pre-flight can distinguish unknown vs out-of-project.
@@ -111,7 +113,7 @@ export function useExperimentTargetingForm(
         variations &&
         new Set(variations.map((v) => v.key)).size !== variations.length
       ) {
-        throw new Error("Each variation needs its own key.");
+        throw new Error(t`Each variation needs its own key.`);
       }
 
       // Targeting fields (saved groups, condition, prerequisites) are only
@@ -131,13 +133,13 @@ export function useExperimentTargetingForm(
 
         if (value.prerequisites) {
           if (value.prerequisites.some((p) => !p.id)) {
-            throw new Error("Cannot have empty prerequisites");
+            throw new Error(t`Cannot have empty prerequisites`);
           }
         }
       }
 
       if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
+        throw new Error(t`Prerequisite targeting issues must be resolved`);
       }
 
       if (
@@ -146,7 +148,7 @@ export function useExperimentTargetingForm(
           !isEqual(value.variationWeights, lastPhase?.variationWeights)) &&
         !areVariationWeightsValid(value.variationWeights)
       ) {
-        throw new Error("Variation weights must add up to 100%.");
+        throw new Error(t`Variation weights must add up to 100%.`);
       }
 
       // Existing persisted attribute values. Passed as `existingParts` so the

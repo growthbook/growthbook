@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Trans } from "@lingui/react/macro";
 import clsx from "clsx";
 import { ExperimentStatus } from "shared/types/experiment";
 import { FaArchive, FaPlay, FaStop } from "react-icons/fa";
@@ -14,7 +15,7 @@ const StatusIndicator: FC<{
     return (
       <div className={clsx(styles.container, className, "text-muted")}>
         <FaArchive className="mr-1" />
-        Archived
+        <Trans>Archived</Trans>
       </div>
     );
   }
@@ -25,21 +26,21 @@ const StatusIndicator: FC<{
           className={clsx(styles.container, className, "text-warning-orange")}
         >
           <BsConeStriped className="mr-1" />
-          Draft
+          <Trans>Draft</Trans>
         </div>
       );
     case "running":
       return (
         <div className={clsx(styles.container, className, "text-info")}>
           <FaPlay className="mr-1" />
-          Running
+          <Trans>Running</Trans>
         </div>
       );
     case "stopped":
       return (
         <div className={clsx(styles.container, className, "text-secondary")}>
           <FaStop className="mr-1" />
-          Stopped
+          <Trans>Stopped</Trans>
         </div>
       );
   }

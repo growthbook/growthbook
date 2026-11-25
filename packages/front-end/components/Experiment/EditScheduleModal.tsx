@@ -10,6 +10,7 @@ import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { scheduleStagesStatusChange } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -33,6 +34,7 @@ import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteri
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import { RUN_PERMISSION_REASON } from "@/components/Experiment/TabbedPage/useStartExperiment";
+import { decisionCriteriaText } from "@/components/DecisionCriteria/decisionCriteriaText";
 import styles from "./EditScheduleModal.module.scss";
 
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
@@ -92,6 +94,7 @@ export default function EditScheduleModal({
   // only offered to viewers who could run the experiment there.
   envs?: string[];
 }) {
+  const { t, i18n } = useLingui();
   const { hasCommercialFeature } = useUser();
   const { getExperimentMetricById } = useDefinitions();
   const { decisionFrameworkEnabled } = useOrgSettings();
@@ -128,8 +131,8 @@ export default function EditScheduleModal({
     hasDecisionFrameworkFeature &&
     (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
   const autoShipDisabledReason = !hasDecisionFrameworkFeature
-    ? "Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)"
-    : "Enable the Decision Framework in your organization settings to ship the winning variation.";
+    ? t`Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)`
+    : t`Enable the Decision Framework in your organization settings to ship the winning variation.`;
 
   const defaultValues = {
     startAt: experiment.statusUpdateSchedule?.startAt ?? "",
@@ -179,7 +182,7 @@ export default function EditScheduleModal({
   }));
   const variationOptions = experiment.variations.map((v, i) => ({
     value: v.id,
-    label: v.name || `Variation ${i}`,
+    label: v.name || t`Variation ${i}`,
   }));
   // A tiebreaker only matters when 2+ variations can qualify as winners (i.e.
   // there's more than one non-control variation to break a tie between). With a
@@ -191,7 +194,7 @@ export default function EditScheduleModal({
     return (
       <VariationLabel
         number={index}
-        name={experiment.variations[index].name || `Variation ${index}`}
+        name={experiment.variations[index].name || t`Variation ${index}`}
         disableTooltip
       />
     );
@@ -201,7 +204,7 @@ export default function EditScheduleModal({
       label={
         <>
           <Text color="text-high" weight="semibold" mb="0">
-            Tiebreaker metric
+            <Trans>Tiebreaker metric</Trans>
           </Text>
           <Text as="div" color="text-mid" mb="0" size="sm">
             {helper}
@@ -210,7 +213,7 @@ export default function EditScheduleModal({
       }
       value={form.watch("tiebreakerMetricId")}
       options={metricOptions}
-      initialOption="None"
+      initialOption={t`None`}
       onChange={(v) => form.setValue("tiebreakerMetricId", v)}
     />
   );
@@ -233,37 +236,43 @@ export default function EditScheduleModal({
   const renderVerdictSection = () => (
     <Callout status="info" icon={null} mt="4">
       <Text as="div" size="md" weight="semibold" color="text-high" mb="1">
-        Record a result
+        <Trans>Record a result</Trans>
       </Text>
       <Text as="div" color="text-mid" size="md" mb="3">
-        Even though you have selected a forced fallback or shipped variation,
-        the Decision Framework will still record metadata about whether this
-        experiment was won/lost/inconclusive.
+        <Trans>
+          Even though you have selected a forced fallback or shipped variation,
+          the Decision Framework will still record metadata about whether this
+          experiment was won/lost/inconclusive.
+        </Trans>
       </Text>
       {showTiebreaker && (
         <>
           <Text as="div" color="text-mid" size="md" mb="3">
-            The tiebreaker metric will break ties when multiple variations
-            qualify.
+            <Trans>
+              The tiebreaker metric will break ties when multiple variations
+              qualify.
+            </Trans>
           </Text>
           <SelectField
             label={
               <Text color="text-high" weight="semibold" mb="0">
-                Tiebreaker metric
+                <Trans>Tiebreaker metric</Trans>
               </Text>
             }
             value={
               decisionFrameworkAvailable ? form.watch("tiebreakerMetricId") : ""
             }
             options={metricOptions}
-            initialOption="None"
+            initialOption={t`None`}
             disabled={!decisionFrameworkAvailable}
             onChange={(v) => form.setValue("tiebreakerMetricId", v)}
           />
           {!decisionFrameworkAvailable && (
             <Text as="div" color="text-mid" size="sm" mt="1">
-              Enable the Decision Framework in your organization settings to
-              record a verdict.
+              <Trans>
+                Enable the Decision Framework in your organization settings to
+                record a verdict.
+              </Trans>
             </Text>
           )}
         </>
@@ -387,15 +396,15 @@ export default function EditScheduleModal({
   const modeHelpText = () => {
     switch (mode) {
       case "notify":
-        return `The experiment keeps running past the end date — you'll be notified${
-          decisionFrameworkAvailable ? ", with a recommendation to review" : ""
-        }.`;
+        return decisionFrameworkAvailable
+          ? t`The experiment keeps running past the end date — you'll be notified, with a recommendation to review.`
+          : t`The experiment keeps running past the end date — you'll be notified.`;
       case "auto-ship":
-        return "Stops the experiment and rolls out the winning variation to linked features.";
+        return t`Stops the experiment and rolls out the winning variation to linked features.`;
       case "force-ship":
-        return "Stops the experiment and rolls out this variation to linked features, regardless of results.";
+        return t`Stops the experiment and rolls out this variation to linked features, regardless of results.`;
       case "stop":
-        return "Stops the experiment and reverts to any default feature flag values, regardless of results.";
+        return t`Stops the experiment and reverts to any default feature flag values, regardless of results.`;
       default: {
         const exhaustiveCheck: never = mode;
         return exhaustiveCheck;
@@ -418,9 +427,9 @@ export default function EditScheduleModal({
         trackingEventModalSource="eid"
         open={true}
         close={close}
-        header={hasSchedule ? "Edit Schedule" : "Add Schedule"}
-        subheader="Schedule when this experiment starts and ends, and choose what happens automatically at the end date."
-        cta={stageChanges ? "Confirm" : hasSchedule ? "Update" : "Done"}
+        header={hasSchedule ? t`Edit Schedule` : t`Add Schedule`}
+        subheader={t`Schedule when this experiment starts and ends, and choose what happens automatically at the end date.`}
+        cta={stageChanges ? t`Confirm` : hasSchedule ? t`Update` : t`Done`}
         ctaColor="violet"
         ctaEnabled={
           (scheduleChanged || criteriaChanged) &&
@@ -456,7 +465,7 @@ export default function EditScheduleModal({
                 close();
               }}
             >
-              Unschedule start
+              <Trans>Unschedule start</Trans>
             </Button>
           ) : undefined
         }
@@ -489,14 +498,14 @@ export default function EditScheduleModal({
       >
         <Flex direction="column" gap="4">
           <Flex direction="column" gap="1">
-            <ScheduleRow label="Start" labelColor="text-high">
+            <ScheduleRow label={t`Start`} labelColor="text-high">
               <SelectField
                 label=""
                 value={startMode}
                 sort={false}
                 options={[
-                  { value: "immediately", label: "Immediately" },
-                  { value: "on-date", label: "On date" },
+                  { value: "immediately", label: t`Immediately` },
+                  { value: "on-date", label: t`On date` },
                 ]}
                 onChange={(v) => {
                   const next = v === "on-date" ? "on-date" : "immediately";
@@ -510,14 +519,14 @@ export default function EditScheduleModal({
                 }
                 helpText={
                   experiment.status === "draft" && !canScheduleStatusChange
-                    ? RUN_PERMISSION_REASON
+                    ? i18n._(RUN_PERMISSION_REASON)
                     : undefined
                 }
               />
               {startMode === "on-date" && (
                 <DatePicker
                   label=""
-                  placeholder="Choose a date..."
+                  placeholder={t`Choose a date...`}
                   date={startAt || undefined}
                   setDate={(d) =>
                     form.setValue("startAt", d ? d.toISOString() : "")
@@ -534,15 +543,15 @@ export default function EditScheduleModal({
 
             <Separator size="4" my="3" />
 
-            <ScheduleRow label="End" labelColor="text-high">
+            <ScheduleRow label={t`End`} labelColor="text-high">
               <SelectField
                 label=""
                 value={endMode}
                 sort={false}
                 options={[
-                  { value: "manual", label: "When stopped" },
-                  { value: "after", label: "After" },
-                  { value: "on-date", label: "On date" },
+                  { value: "manual", label: t`When stopped` },
+                  { value: "after", label: t`After` },
+                  { value: "on-date", label: t`On date` },
                 ]}
                 onChange={(v) => {
                   const next = v as EndMode;
@@ -563,7 +572,7 @@ export default function EditScheduleModal({
               {endMode === "on-date" && (
                 <DatePicker
                   label=""
-                  placeholder="Choose a date..."
+                  placeholder={t`Choose a date...`}
                   date={stopAt || undefined}
                   setDate={(d) =>
                     form.setValue("stopAt", d ? d.toISOString() : "")
@@ -599,14 +608,14 @@ export default function EditScheduleModal({
                     value={endAfterUnit}
                     sort={false}
                     options={[
-                      { value: "hours", label: "hours" },
-                      { value: "days", label: "days" },
+                      { value: "hours", label: t`hours` },
+                      { value: "days", label: t`days` },
                     ]}
                     onChange={(v) => setEndAfterUnit(v as "days" | "hours")}
                     containerStyle={{ width: 110 }}
                   />
                   <Text color="text-mid" size="sm">
-                    from start
+                    <Trans>from start</Trans>
                   </Text>
                 </Flex>
               )}
@@ -615,38 +624,52 @@ export default function EditScheduleModal({
 
           {isApproved && experiment.status === "draft" && (
             <Helpertext status="info">
-              Changing the schedule cancels the scheduled start until it&apos;s
-              approved again.
+              <Trans>
+                Changing the schedule cancels the scheduled start until
+                it&apos;s approved again.
+              </Trans>
             </Helpertext>
           )}
           {scheduleIsInThePast && experiment.status === "draft" && (
-            <Helpertext status="warning">Scheduled start has passed</Helpertext>
+            <Helpertext status="warning">
+              <Trans>Scheduled start has passed</Trans>
+            </Helpertext>
           )}
           {statusChangeLocked && (
-            <Helpertext status="warning">{RUN_PERMISSION_REASON}</Helpertext>
+            <Helpertext status="warning">
+              {i18n._(RUN_PERMISSION_REASON)}
+            </Helpertext>
           )}
           {stopBeforeStart && (
             <Helpertext status="warning">
-              End date must be after the start date
+              <Trans>End date must be after the start date</Trans>
             </Helpertext>
           )}
           {startDateMissing && (
-            <Helpertext status="warning">Select a start date</Helpertext>
+            <Helpertext status="warning">
+              <Trans>Select a start date</Trans>
+            </Helpertext>
           )}
           {endDateMissing && (
-            <Helpertext status="warning">Select an end date</Helpertext>
+            <Helpertext status="warning">
+              <Trans>Select an end date</Trans>
+            </Helpertext>
           )}
           {stopInThePast && (
             <Helpertext status="warning">
-              The end date has passed — choose a future end date, or stop the
-              experiment manually
+              <Trans>
+                The end date has passed — choose a future end date, or stop the
+                experiment manually
+              </Trans>
             </Helpertext>
           )}
           {stopAfterInThePast && (
             <Helpertext status="warning">
-              This duration from the phase start has already elapsed — choose a
-              longer duration or a future end date, or stop the experiment
-              manually
+              <Trans>
+                This duration from the phase start has already elapsed — choose
+                a longer duration or a future end date, or stop the experiment
+                manually
+              </Trans>
             </Helpertext>
           )}
         </Flex>
@@ -657,24 +680,24 @@ export default function EditScheduleModal({
               <SelectField
                 label={
                   <Text color="text-high" weight="semibold" mb="0">
-                    When the experiment ends
+                    <Trans>When the experiment ends</Trans>
                   </Text>
                 }
                 value={mode}
                 sort={false}
                 options={[
-                  { value: "notify", label: "Notify only — keep running" },
+                  { value: "notify", label: t`Notify only — keep running` },
                   {
                     value: "auto-ship",
-                    label: "Ship the winning variation",
+                    label: t`Ship the winning variation`,
                   },
                   {
                     value: "force-ship",
-                    label: "Ship a specific variation",
+                    label: t`Ship a specific variation`,
                   },
                   {
                     value: "stop",
-                    label: "Stop the experiment (no rollout)",
+                    label: t`Stop the experiment (no rollout)`,
                   },
                 ]}
                 isOptionDisabled={(o) =>
@@ -688,7 +711,7 @@ export default function EditScheduleModal({
                 formatOptionLabel={(o) => {
                   if (o.value !== "notify" && !canScheduleStatusChange) {
                     return (
-                      <Tooltip content={RUN_PERMISSION_REASON}>
+                      <Tooltip content={i18n._(RUN_PERMISSION_REASON)}>
                         <Box>
                           <Text color="text-disabled">{o.label}</Text>
                         </Box>
@@ -731,14 +754,14 @@ export default function EditScheduleModal({
                 <SelectField
                   label={
                     <Text color="text-high" weight="semibold" mb="0">
-                      Decision criteria
+                      <Trans>Decision criteria</Trans>
                     </Text>
                   }
                   value={criteriaId}
                   onChange={setCriteriaId}
                   options={criteriaOptions.map((c) => ({
                     value: c.id,
-                    label: c.name,
+                    label: decisionCriteriaText(c, i18n).name,
                   }))}
                   // Each links to its rules; the menu describes them too.
                   formatOptionLabel={({ value, label }, { context }) => {
@@ -767,7 +790,7 @@ export default function EditScheduleModal({
                         underline="hover"
                         style={{ whiteSpace: "nowrap" }}
                       >
-                        View rules
+                        <Trans>View rules</Trans>
                       </Link>
                     ) : null;
                     return (
@@ -776,7 +799,7 @@ export default function EditScheduleModal({
                           {label}
                           {context === "menu" && criteria?.description ? (
                             <Text as="div" size="sm" color="text-mid">
-                              {criteria.description}
+                              {decisionCriteriaText(criteria, i18n).description}
                             </Text>
                           ) : null}
                         </Box>
@@ -791,7 +814,7 @@ export default function EditScheduleModal({
                 {selectedCriteria.description ? (
                   <Box mt="2">
                     <Helpertext status="info" size="sm">
-                      {selectedCriteria.description}
+                      {decisionCriteriaText(selectedCriteria, i18n).description}
                     </Helpertext>
                   </Box>
                 ) : null}
@@ -802,21 +825,23 @@ export default function EditScheduleModal({
               <>
                 {showTiebreaker &&
                   renderTiebreakerField(
-                    "If two variations both qualify, ship the one with the higher lift on this goal metric.",
+                    t`If two variations both qualify, ship the one with the higher lift on this goal metric.`,
                   )}
 
                 <SelectField
                   label={
                     <Text color="text-high" weight="semibold" mb="0">
-                      If there&apos;s no clear winner or failing health checks
+                      <Trans>
+                        If there&apos;s no clear winner or failing health checks
+                      </Trans>
                     </Text>
                   }
                   value={fallback}
                   options={[
-                    { value: "notify", label: "Keep running — notify me" },
+                    { value: "notify", label: t`Keep running — notify me` },
                     {
                       value: "force-ship",
-                      label: "Ship a specific variation",
+                      label: t`Ship a specific variation`,
                     },
                   ]}
                   onChange={(v) =>
@@ -825,13 +850,13 @@ export default function EditScheduleModal({
                 />
 
                 {fallback === "force-ship" &&
-                  renderVariationPicker("Variation to ship")}
+                  renderVariationPicker(t`Variation to ship`)}
               </>
             )}
 
             {mode === "force-ship" && (
               <>
-                {renderVariationPicker("Variation to ship")}
+                {renderVariationPicker(t`Variation to ship`)}
                 {decisionFrameworkAvailable && renderVerdictSection()}
               </>
             )}

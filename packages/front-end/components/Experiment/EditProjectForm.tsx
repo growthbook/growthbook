@@ -1,5 +1,6 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -26,6 +27,7 @@ const EditProjectForm: FC<{
   label,
   source,
 }) => {
+  const { t } = useLingui();
   const form = useForm({
     defaultValues: {
       project: current || "",
@@ -33,20 +35,20 @@ const EditProjectForm: FC<{
   });
 
   // If user has the permission required globally (E.G. canCreateFeature), show the "None" option, otherwise, don't show initial option
-  const initialOption = permissionRequired("") ? "None" : "";
+  const initialOption = permissionRequired("") ? t`None` : "";
 
   return (
     <ModalStandard
       trackingEventModalType="edit-project-form"
       trackingEventModalSource={source}
-      header="Edit Project"
+      header={t`Edit Project`}
       open={true}
       close={cancel}
       submit={validatedSubmit(form, async (data) => {
         await save(data.project);
         mutate();
       })}
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={ctaEnabled}
     >
       {additionalMessage}

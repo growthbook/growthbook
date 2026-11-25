@@ -14,6 +14,7 @@ import {
   getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
+import { Trans } from "@lingui/react/macro";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -127,11 +128,15 @@ export default function PublicExperimentResults({
       <div className="appbox pt-3 mb-5">
         {snapshotError ? (
           <div className="mx-3 mb-3">
-            <Callout status="error">Experiment snapshot error</Callout>
+            <Callout status="error">
+              <Trans>Experiment snapshot error</Trans>
+            </Callout>
           </div>
         ) : snapshot && !analysis ? (
           <div className="mx-3 mb-3">
-            <Callout status="error">Missing analysis</Callout>
+            <Callout status="error">
+              <Trans>Missing analysis</Trans>
+            </Callout>
           </div>
         ) : !snapshot ? (
           <div className="d-flex justify-content-center my-4">

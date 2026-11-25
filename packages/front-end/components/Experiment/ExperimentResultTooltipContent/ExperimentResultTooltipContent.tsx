@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { formatDistance } from "date-fns";
 import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
@@ -75,6 +76,7 @@ export default function ExperimentResultTooltipContent({
   pValueAdjustmentEnabled,
   statusLabels,
 }: ExperimentResultTooltipContentProps) {
+  const { t } = useLingui();
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
@@ -108,8 +110,10 @@ export default function ExperimentResultTooltipContent({
 
   const ciLabel =
     statsEngine === "bayesian"
-      ? "95% CI"
-      : `${frequentistCIWidthDisplay} CI${pValueAdjustmentEnabled ? " (adj.)" : ""}`;
+      ? t`95% CI`
+      : pValueAdjustmentEnabled
+        ? t`${frequentistCIWidthDisplay} CI (adj.)`
+        : t`${frequentistCIWidthDisplay} CI`;
 
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";
@@ -117,13 +121,13 @@ export default function ExperimentResultTooltipContent({
     notEnoughData || suspiciousChange || resultsStatus === "draw";
 
   const getBadgeText = () => {
-    if (notEnoughData) return statusLabels?.notEnoughData ?? "Not enough data";
+    if (notEnoughData) return statusLabels?.notEnoughData ?? t`Not enough data`;
     if (significant) {
-      if (resultsStatus === "won") return statusLabels?.won ?? "Won";
-      if (resultsStatus === "lost") return statusLabels?.lost ?? "Lost";
-      if (resultsStatus === "draw") return statusLabels?.draw ?? "Draw";
+      if (resultsStatus === "won") return statusLabels?.won ?? t`Won`;
+      if (resultsStatus === "lost") return statusLabels?.lost ?? t`Lost`;
+      if (resultsStatus === "draw") return statusLabels?.draw ?? t`Draw`;
     }
-    return statusLabels?.insignificant ?? "Insignificant";
+    return statusLabels?.insignificant ?? t`Insignificant`;
   };
 
   const renderBadge = () => (
@@ -152,51 +156,61 @@ export default function ExperimentResultTooltipContent({
     </Flex>
   );
 
-  const renderNotEnoughDataContent = () => (
-    <Flex direction="column" gap="1">
-      <Text size="1" style={{ color: "var(--color-text-high)" }}>
-        Minimum{" "}
-        {numeratorFormatter(minSampleSize, { currency: displayCurrency })} not
-        met
-      </Text>
-      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-        Current metric total is{" "}
-        {numeratorFormatter(currentMetricTotal, {
-          currency: displayCurrency,
-        })}
-        {timeRemainingMs !== undefined && (
-          <>
-            <br />
-            {timeRemainingMs > 0 ? (
-              <>About {formatDistance(0, timeRemainingMs)} remaining</>
-            ) : (
-              "Try updating now"
-            )}
-          </>
-        )}
-      </Text>
-    </Flex>
-  );
+  const renderNotEnoughDataContent = () => {
+    const minSampleSizeText = numeratorFormatter(minSampleSize, {
+      currency: displayCurrency,
+    });
+    const currentMetricTotalText = numeratorFormatter(currentMetricTotal, {
+      currency: displayCurrency,
+    });
+    const timeRemaining =
+      timeRemainingMs !== undefined && timeRemainingMs > 0
+        ? formatDistance(0, timeRemainingMs)
+        : "";
+    return (
+      <Flex direction="column" gap="1">
+        <Text size="1" style={{ color: "var(--color-text-high)" }}>
+          <Trans>Minimum {minSampleSizeText} not met</Trans>
+        </Text>
+        <Text size="1" style={{ color: "var(--color-text-mid)" }}>
+          <Trans>Current metric total is {currentMetricTotalText}</Trans>
+          {timeRemainingMs !== undefined && (
+            <>
+              <br />
+              {timeRemainingMs > 0 ? (
+                <Trans>About {timeRemaining} remaining</Trans>
+              ) : (
+                t`Try updating now`
+              )}
+            </>
+          )}
+        </Text>
+      </Flex>
+    );
+  };
 
   const maybeRenderDrawDescription = () => {
     if (resultsStatus !== "draw" || minPercentChange === undefined) return null;
+    const minChangeText = percentFormatter.format(minPercentChange);
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Draw:</b>
-        {" this occurs when the % Change is smaller than the "}
-        metric&apos;s min change ({percentFormatter.format(minPercentChange)})
+        <Trans>
+          <b>Draw:</b> this occurs when the % Change is smaller than the
+          metric&apos;s min change ({minChangeText})
+        </Trans>
       </Text>
     );
   };
 
   const maybeRenderSuspiciousDescription = () => {
     if (!suspiciousChange) return null;
+    const maxChangeText = percentFormatter.format(suspiciousThreshold);
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Suspicious:</b>
-        {" this occurs when the % Change is above the "}
-        metric&apos;s max change ({percentFormatter.format(suspiciousThreshold)}
-        )
+        <Trans>
+          <b>Suspicious:</b> this occurs when the % Change is above the
+          metric&apos;s max change ({maxChangeText})
+        </Trans>
       </Text>
     );
   };
@@ -222,7 +236,7 @@ export default function ExperimentResultTooltipContent({
               {formatter(ci[1], formatterOptions)}]
             </>
           ) : (
-            "Unknown"
+            t`Unknown`
           )}
         </Text>
       </Flex>

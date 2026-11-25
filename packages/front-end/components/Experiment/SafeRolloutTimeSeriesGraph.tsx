@@ -1,4 +1,5 @@
 import React, { ReactNode, useMemo } from "react";
+import { Trans } from "@lingui/react/macro";
 import { extent } from "@visx/vendor/d3-array";
 import { Group } from "@visx/group";
 import { Line, LinePath } from "@visx/shape";
@@ -451,19 +452,35 @@ function getTooltipContent(
   const getStatusInfo = () => {
     if (isRegression) {
       return {
-        status: "Failing",
+        status: <Trans>Failing</Trans>,
         color: "var(--red-11)",
-        description: `The Metric Boundary ${
-          ci.isUpperBound ? "is below" : "is above"
-        } the Threshold, and we are confident this is a regression.`,
+        description: ci.isUpperBound ? (
+          <Trans>
+            The Metric Boundary is below the Threshold, and we are confident
+            this is a regression.
+          </Trans>
+        ) : (
+          <Trans>
+            The Metric Boundary is above the Threshold, and we are confident
+            this is a regression.
+          </Trans>
+        ),
       };
     } else {
       return {
-        status: "Within bounds",
+        status: <Trans>Within bounds</Trans>,
         color: "var(--blue-9)",
-        description: `No regression detected. If the Metric Boundary ${
-          ci.isUpperBound ? "goes below" : "goes above"
-        } the Threshold we will consider it as failing.`,
+        description: ci.isUpperBound ? (
+          <Trans>
+            No regression detected. If the Metric Boundary goes below the
+            Threshold we will consider it as failing.
+          </Trans>
+        ) : (
+          <Trans>
+            No regression detected. If the Metric Boundary goes above the
+            Threshold we will consider it as failing.
+          </Trans>
+        ),
       };
     }
   };
@@ -505,17 +522,23 @@ function getTooltipContent(
           <TableRow
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
-            <TableRowHeaderCell pl="0">Metric Boundary</TableRowHeaderCell>
+            <TableRowHeaderCell pl="0">
+              <Trans>Metric Boundary</Trans>
+            </TableRowHeaderCell>
             <TableRowHeaderCell style={{ textAlign: "right" }}>
-              {ci.value !== null
-                ? formatter(ci.value, formatterOptions)
-                : "N/A"}
+              {ci.value !== null ? (
+                formatter(ci.value, formatterOptions)
+              ) : (
+                <Trans>N/A</Trans>
+              )}
             </TableRowHeaderCell>
           </TableRow>
           <TableRow
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
-            <TableRowHeaderCell pl="0">Threshold</TableRowHeaderCell>
+            <TableRowHeaderCell pl="0">
+              <Trans>Threshold</Trans>
+            </TableRowHeaderCell>
             <TableRowHeaderCell style={{ textAlign: "right" }}>
               0
             </TableRowHeaderCell>

@@ -17,6 +17,7 @@ import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
+import { Trans } from "@lingui/react/macro";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
@@ -90,19 +91,27 @@ const getTooltipContents = (
         <thead>
           <tr>
             <td></td>
-            <td>Units</td>
+            <td>
+              <Trans>Units</Trans>
+            </td>
 
             {yaxis === "effect" && (
               <>
-                <td>Value</td>
-                <td>Change</td>
+                <td>
+                  <Trans>Value</Trans>
+                </td>
+                <td>
+                  <Trans>Change</Trans>
+                </td>
                 {hasStats && (
                   <>
                     <td>CI</td>
                     <td>
-                      {statsEngine === "frequentist"
-                        ? "P-val"
-                        : "Chance to Win"}
+                      {statsEngine === "frequentist" ? (
+                        <Trans>P-val</Trans>
+                      ) : (
+                        <Trans>Chance to Win</Trans>
+                      )}
                     </td>
                   </>
                 )}
@@ -451,7 +460,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   ) : (
                     <BiCheckbox size={24} />
                   )}
-                  Show all
+                  <Trans>Show all</Trans>
                 </div>
                 {variations.map((v, i) => {
                   if (i === 0 && yaxis === "effect") return null;

@@ -2,6 +2,7 @@ import React, { ReactNode, useState, useMemo } from "react";
 import clsx from "clsx";
 import { PiPlus, PiX, PiStackBold, PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   isFactMetric,
   expandMetricGroups,
@@ -60,6 +61,7 @@ export default function CustomMetricSlicesSelector({
   asRow = false,
   disabled = false,
 }: CustomMetricSlicesSelectorProps) {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -256,17 +258,21 @@ export default function CustomMetricSlicesSelector({
           <div className={asRow ? undefined : className}>
             {asRow ? null : (
               <label className="font-weight-bold mb-1">
-                Custom Metric Slices
+                <Trans>Custom Metric Slices</Trans>
               </label>
             )}
 
             {disabled && !customMetricSlices.length ? (
-              <Text color="text-mid">None</Text>
+              <Text color="text-mid">
+                <Trans>None</Trans>
+              </Text>
             ) : (
               <Text as="p" mb="2" color="text-mid">
-                Define custom slices to analyze across all experiment metrics.{" "}
+                <Trans>
+                  Define custom slices to analyze across all experiment metrics.
+                </Trans>{" "}
                 <DocLink useRadix={false} docSection="customSlices">
-                  Learn more <PiArrowSquareOut />
+                  <Trans>Learn more</Trans> <PiArrowSquareOut />
                 </DocLink>
               </Text>
             )}
@@ -319,7 +325,11 @@ export default function CustomMetricSlicesSelector({
 
                           return (
                             <React.Fragment key={comboIndex}>
-                              {comboIndex > 0 && <Text size="sm">AND</Text>}
+                              {comboIndex > 0 && (
+                                <Text size="sm">
+                                  <Trans>AND</Trans>
+                                </Text>
+                              )}
                               <Flex
                                 align="center"
                                 px="2"
@@ -359,14 +369,14 @@ export default function CustomMetricSlicesSelector({
                         // Spaced as a field's own indicators are.
                         <Flex align="center" gap="1px">
                           <QuickEditButton
-                            label="Edit custom slice"
+                            label={t`Edit custom slice`}
                             onClick={() => startEditing(levelsIndex)}
                             labelTooltip={false}
                             fillsRow
                           />
                           <span className={revealedByQuickEdit}>
                             <FieldIndicator
-                              label="Remove custom slice"
+                              label={t`Remove custom slice`}
                               onClick={() =>
                                 removeMetricSliceLevels(levelsIndex)
                               }
@@ -385,7 +395,7 @@ export default function CustomMetricSlicesSelector({
             {disabled ? null : editState === null ? (
               <Box mt="1">
                 <Link onClick={() => startEditing(-1)}>
-                  <PiPlus /> Add custom slice
+                  <PiPlus /> <Trans>Add custom slice</Trans>
                 </Link>
               </Box>
             ) : editState === "adding" ? (
@@ -418,8 +428,9 @@ function SlicesRow({
   asRow: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useLingui();
   return asRow ? (
-    <SetupFieldRow label="Custom slices" content="text">
+    <SetupFieldRow label={t`Custom slices`} content="text">
       {children}
     </SetupFieldRow>
   ) : (
@@ -488,6 +499,7 @@ function SliceSelector({
   setEditingSliceLevels: (value: SliceLevelsData[]) => void;
   metricsWithSlices: MetricWithStringColumns[];
 }) {
+  const { t } = useLingui();
   // Check if the last slice-level pair is complete before showing + AND
   const lastPairIndex = editingSliceLevels.length - 1;
   const lastPairIsComplete =
@@ -608,14 +620,14 @@ function SliceSelector({
             <Text>{option.label}</Text>
           </Flex>
         )}
-        placeholder="Column"
+        placeholder={t`Column`}
         className="mb-0"
         autoFocus
       />
     ) : null
   ) : shouldShowAndButton ? (
     <Link onClick={() => setAddingSlice(true)}>
-      <PiPlus /> AND
+      <PiPlus /> <Trans>AND</Trans>
     </Link>
   ) : null;
 }
@@ -646,6 +658,7 @@ function EditingInterface({
   cancelEditing: () => void;
   metricsWithSlices: MetricWithStringColumns[];
 }) {
+  const { t } = useLingui();
   return (
     <Flex
       direction="column"
@@ -711,7 +724,7 @@ function EditingInterface({
           const value = sliceLevel.levels[0] || "";
           const valueInput =
             sliceColumn.datatype === "boolean" ? (
-              <FitToValue text={value.toUpperCase() || "Select..."}>
+              <FitToValue text={value.toUpperCase() || t`Select...`}>
                 <SelectField
                   size="sm"
                   value={sliceLevel.levels[0] || ""}
@@ -724,7 +737,7 @@ function EditingInterface({
                     { label: "NULL", value: "null" },
                   ]}
                   className="mb-0"
-                  placeholder="Select..."
+                  placeholder={t`Select...`}
                   autoFocus={!sliceLevel.levels[0]}
                   sort={false}
                   containerStyles={FIT_MENU}
@@ -751,7 +764,7 @@ function EditingInterface({
                 />
               </FitToValue>
             ) : (
-              <FitToValue text={value || "Column value..."} input>
+              <FitToValue text={value || t`Column value...`} input>
                 <Field
                   size="sm"
                   value={sliceLevel.levels[0] || ""}
@@ -759,7 +772,7 @@ function EditingInterface({
                     updateSliceLevel(levelIndex, "level", e.target.value)
                   }
                   containerClassName="mb-0"
-                  placeholder="Column value..."
+                  placeholder={t`Column value...`}
                   autoFocus={!sliceLevel.levels[0]}
                 />
               </FitToValue>
@@ -768,7 +781,11 @@ function EditingInterface({
           // AND wraps with its chip, so a line never ends on it.
           return (
             <Flex key={levelIndex} align="center" gap="3">
-              {levelIndex > 0 ? <Text size="sm">AND</Text> : null}
+              {levelIndex > 0 ? (
+                <Text size="sm">
+                  <Trans>AND</Trans>
+                </Text>
+              ) : null}
               <Flex
                 align="center"
                 py="1"
@@ -785,7 +802,7 @@ function EditingInterface({
                 {valueInput}
                 <button
                   type="button"
-                  aria-label={`Remove ${name}`}
+                  aria-label={t`Remove ${name}`}
                   className="gb-multi-select__multi-value__remove"
                   onClick={() => removeSliceLevel(levelIndex)}
                   style={{
@@ -817,7 +834,7 @@ function EditingInterface({
 
       <Flex justify="end" align="center" gap="3">
         <Button size="sm" variant="ghost" onClick={cancelEditing}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
         <Button
           size="sm"
@@ -829,7 +846,7 @@ function EditingInterface({
             )
           }
         >
-          Done
+          <Trans>Done</Trans>
         </Button>
       </Flex>
     </Flex>

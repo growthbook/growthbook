@@ -11,6 +11,8 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
@@ -37,8 +39,7 @@ import {
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
 
-const noExposureQueryMessage =
-  "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
+const noExposureQueryMessage = msg`The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.`;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -55,6 +56,7 @@ export default function HealthTab({
   resetResultsSettings,
   isTabActive,
 }: Props) {
+  const { i18n } = useLingui();
   const {
     error,
     dimensionless: snapshot,
@@ -151,19 +153,30 @@ export default function HealthTab({
       if (!datasource || !exposureQuery) {
         return (
           <Callout status="info" mt="3">
-            {noExposureQueryMessage}
+            {i18n._(noExposureQueryMessage)}
           </Callout>
         );
       }
+      const welcome = runHealthTrafficQuery === undefined;
       return (
         <Callout status="info" mt="3">
           <Flex gap="4">
-            {runHealthTrafficQuery === undefined
-              ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-              : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
             {hasPermissionToConfigHealthTag ? (
               <>
-                click the button on the right.
+                {welcome ? (
+                  <Trans>
+                    Welcome to the new health tab! You can use this tab to view
+                    experiment traffic over time, perform balance checks, and
+                    check for multiple exposures. To get started, click the
+                    button on the right.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Health queries are disabled in your Organization Settings.
+                    To enable them and set up the health tab, click the button
+                    on the right.
+                  </Trans>
+                )}
                 <Button
                   color="inherit"
                   ml="2"
@@ -175,7 +188,7 @@ export default function HealthTab({
                     setSetupModalOpen(true);
                   }}
                 >
-                  Set up Health Tab
+                  <Trans>Set up Health Tab</Trans>
                 </Button>
                 {setupModalOpen ? (
                   <HealthTabOnboardingModal
@@ -188,8 +201,21 @@ export default function HealthTab({
                   />
                 ) : null}
               </>
+            ) : welcome ? (
+              <Trans>
+                Welcome to the new health tab! You can use this tab to view
+                experiment traffic over time, perform balance checks, and check
+                for multiple exposures. To get started, ask an admin in your
+                organization to navigate to any experiment health tab and follow
+                the onboarding process.
+              </Trans>
             ) : (
-              "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
+              <Trans>
+                Health queries are disabled in your Organization Settings. To
+                enable them and set up the health tab, ask an admin in your
+                organization to navigate to any experiment health tab and follow
+                the onboarding process.
+              </Trans>
             )}
           </Flex>
         </Callout>
@@ -208,20 +234,24 @@ export default function HealthTab({
       return (
         <Callout status="error" mt="3">
           <div className="mb-2">
-            Please update your{" "}
-            <Link href={`/datasources/${experiment.datasource}`}>
-              Datasource Settings
-            </Link>{" "}
-            to return fewer dimension slices per dimension or select fewer
-            dimensions to use in traffic breakdowns.
+            <Trans>
+              Please update your{" "}
+              <Link href={`/datasources/${experiment.datasource}`}>
+                Datasource Settings
+              </Link>{" "}
+              to return fewer dimension slices per dimension or select fewer
+              dimensions to use in traffic breakdowns.
+            </Trans>
           </div>
 
           <div>
-            For more advice, see the documentation on the Health Tab{" "}
-            <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-              here
-            </a>
-            .
+            <Trans>
+              For more advice, see the documentation on the Health Tab{" "}
+              <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+                here
+              </a>
+              .
+            </Trans>
           </div>
         </Callout>
       );
@@ -238,21 +268,26 @@ export default function HealthTab({
         <>
           {hasClusterIssue ? (
             <Callout status="warning" mt="3">
-              No units remain after the cluster checks below removed every
-              inconsistent{" "}
               {clusterId ? (
-                <>
-                  <IdentifierCode>{clusterId}</IdentifierCode> value
-                </>
+                <Trans>
+                  No units remain after the cluster checks below removed every
+                  inconsistent <IdentifierCode>{clusterId}</IdentifierCode>{" "}
+                  value. Fix the issues below, then refresh results.
+                </Trans>
               ) : (
-                "cluster"
+                <Trans>
+                  No units remain after the cluster checks below removed every
+                  inconsistent cluster. Fix the issues below, then refresh
+                  results.
+                </Trans>
               )}
-              . Fix the issues below, then refresh results.
             </Callout>
           ) : (
             <Callout status="info" mt="3">
-              No data found. It is likely there are no units in your experiment
-              yet.
+              <Trans>
+                No data found. It is likely there are no units in your
+                experiment yet.
+              </Trans>
             </Callout>
           )}
           {hasClusterIssue ? (
@@ -265,11 +300,13 @@ export default function HealthTab({
       );
     }
 
-    if (snapshot?.health?.traffic.error) {
+    const trafficError = snapshot?.health?.traffic.error;
+    if (trafficError) {
       return (
         <Callout status="info" mt="3">
-          There was an error running the query for health tab:{" "}
-          {snapshot?.health?.traffic.error}.
+          <Trans>
+            There was an error running the query for health tab: {trafficError}.
+          </Trans>
         </Callout>
       );
     }
@@ -278,15 +315,18 @@ export default function HealthTab({
       if (loading) {
         return (
           <Callout status="info" mt="3" icon={<LoadingSpinner />}>
-            Snapshot refreshing, health data loading...
+            <Trans>Snapshot refreshing, health data loading...</Trans>
           </Callout>
         );
       }
       if (!datasource || !exposureQuery) {
         return (
           <Callout status="info" mt="3">
-            {noExposureQueryMessage} Then, next time you update results, the
-            health tab will be available.
+            {i18n._(noExposureQueryMessage)}{" "}
+            <Trans>
+              Then, next time you update results, the health tab will be
+              available.
+            </Trans>
           </Callout>
         );
       }
@@ -294,21 +334,26 @@ export default function HealthTab({
         if (experiment.status === "draft") {
           return (
             <Callout status="info" mt="3">
-              Start the Bandit to see health data.
+              <Trans>Start the Bandit to see health data.</Trans>
             </Callout>
           );
         } else {
           return (
             <Callout status="info" mt="3">
-              No updates yet. Traffic and health results will appear after a
-              successful refresh of the results.
+              <Trans>
+                No updates yet. Traffic and health results will appear after a
+                successful refresh of the results.
+              </Trans>
             </Callout>
           );
         }
       }
       return (
         <Callout status="info" mt="3">
-          Please return to the results page and run a query to see health data.
+          <Trans>
+            Please return to the results page and run a query to see health
+            data.
+          </Trans>
         </Callout>
       );
     }
@@ -366,6 +411,7 @@ function ClusterIssueCards({
   snapshot: ExperimentSnapshotInterface;
   onNotify: (issue: IssueValue) => void;
 }) {
+  const { t } = useLingui();
   const clusterId = snapshot.settings.exposureQueryIdentifierType;
   const subUnitId = snapshot.settings.clusterSubUnitIdentifier;
   const clusterIds =
@@ -377,13 +423,16 @@ function ClusterIssueCards({
   if (!clusterIds || (!clusterAssignment && !clusterSubUnitMapping)) {
     return null;
   }
-  const oneMixedCluster = clusterAssignment?.mixedClusters === 1;
-  const oneMultiClusterUnit = clusterSubUnitMapping?.multiClusterUnits === 1;
   // "1 of 25 region_id values": the noun follows the total, the verb the count.
-  const clusterNoun =
-    clusterAssignment?.totalClusters === 1 ? "value" : "values";
-  const subUnitNoun =
-    clusterSubUnitMapping?.totalUnits === 1 ? "value" : "values";
+  const { cluster, subUnit } = clusterIds;
+  const mixedClusters = clusterAssignment?.mixedClusters ?? 0;
+  const totalClusters = clusterAssignment?.totalClusters ?? 0;
+  const multiClusterUnits = clusterSubUnitMapping?.multiClusterUnits ?? 0;
+  const totalUnits = clusterSubUnitMapping?.totalUnits ?? 0;
+  const mixedClustersText = numberFormatter.format(mixedClusters);
+  const totalClustersText = numberFormatter.format(totalClusters);
+  const multiClusterUnitsText = numberFormatter.format(multiClusterUnits);
+  const totalUnitsText = numberFormatter.format(totalUnits);
 
   return (
     <>
@@ -391,53 +440,47 @@ function ClusterIssueCards({
         <div id="clusterMapping" style={{ scrollMarginTop: "100px" }}>
           <ClusterIssueCard
             id="clusterMapping"
-            title="Cluster Mapping Check"
+            title={t`Cluster Mapping Check`}
             description={
-              <>
-                Detects whether each{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> belongs to
-                only one <IdentifierCode>{clusterIds.cluster}</IdentifierCode>
-              </>
+              <Trans>
+                Detects whether each <IdentifierCode>{subUnit}</IdentifierCode>{" "}
+                belongs to only one <IdentifierCode>{cluster}</IdentifierCode>
+              </Trans>
             }
             affectedCount={clusterSubUnitMapping.multiClusterUnits}
             totalCount={clusterSubUnitMapping.totalUnits}
             error={clusterSubUnitMapping.error}
             onNotify={onNotify}
             healthyMessage={
-              <>
-                Every <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
-                mapped to one{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
-              </>
+              <Trans>
+                Every <IdentifierCode>{subUnit}</IdentifierCode> mapped to one{" "}
+                <IdentifierCode>{cluster}</IdentifierCode>.
+              </Trans>
             }
             belowThresholdMessage={(threshold, share) => (
-              <>
-                {numberFormatter.format(
-                  clusterSubUnitMapping.multiClusterUnits,
-                )}{" "}
-                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
-                {subUnitNoun} ({share}) appeared in more than one{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
-                {oneMultiClusterUnit ? "was" : "were"} removed from results, but
-                that is below your threshold of {threshold}.
-              </>
+              <Trans>
+                {multiClusterUnitsText} of {totalUnitsText}{" "}
+                <IdentifierCode>{subUnit}</IdentifierCode>{" "}
+                <Plural value={totalUnits} one="value" other="values" /> (
+                {share}) appeared in more than one{" "}
+                <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+                <Plural value={multiClusterUnits} one="was" other="were" />{" "}
+                removed from results, but that is below your threshold of{" "}
+                {threshold}.
+              </Trans>
             )}
             warningMessage={(share) => (
-              <>
-                {numberFormatter.format(
-                  clusterSubUnitMapping.multiClusterUnits,
-                )}{" "}
-                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
-                {subUnitNoun} ({share}) appeared in more than one{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
-                {oneMultiClusterUnit ? "was" : "were"} automatically removed
-                from results. Check that{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> is a
-                stable grouping for each{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>.
-              </>
+              <Trans>
+                {multiClusterUnitsText} of {totalUnitsText}{" "}
+                <IdentifierCode>{subUnit}</IdentifierCode>{" "}
+                <Plural value={totalUnits} one="value" other="values" /> (
+                {share}) appeared in more than one{" "}
+                <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+                <Plural value={multiClusterUnits} one="was" other="were" />{" "}
+                automatically removed from results. Check that{" "}
+                <IdentifierCode>{cluster}</IdentifierCode> is a stable grouping
+                for each <IdentifierCode>{subUnit}</IdentifierCode>.
+              </Trans>
             )}
           />
         </div>
@@ -446,49 +489,47 @@ function ClusterIssueCards({
         <div id="clusterAssignment" style={{ scrollMarginTop: "100px" }}>
           <ClusterIssueCard
             id="clusterAssignment"
-            title="Cluster Assignment Check"
+            title={t`Cluster Assignment Check`}
             description={
-              <>
-                Detects whether every{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> in a{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> saw the
-                same variation
-              </>
+              <Trans>
+                Detects whether every <IdentifierCode>{subUnit}</IdentifierCode>{" "}
+                in a <IdentifierCode>{cluster}</IdentifierCode> saw the same
+                variation
+              </Trans>
             }
             affectedCount={clusterAssignment.mixedClusters}
             totalCount={clusterAssignment.totalClusters}
             error={clusterAssignment.error}
             onNotify={onNotify}
             healthyMessage={
-              <>
-                Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
-                a single variation.
-              </>
+              <Trans>
+                Every <IdentifierCode>{cluster}</IdentifierCode> had a single
+                variation.
+              </Trans>
             }
             belowThresholdMessage={(threshold, share) => (
-              <>
-                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
-                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {clusterNoun} ({share}) had{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
-                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
-                removed from results, but that is below your threshold of{" "}
-                {threshold}.
-              </>
+              <Trans>
+                {mixedClustersText} of {totalClustersText}{" "}
+                <IdentifierCode>{cluster}</IdentifierCode>{" "}
+                <Plural value={totalClusters} one="value" other="values" /> (
+                {share}) had <IdentifierCode>{subUnit}</IdentifierCode> values
+                in more than one variation and{" "}
+                <Plural value={mixedClusters} one="was" other="were" /> removed
+                from results, but that is below your threshold of {threshold}.
+              </Trans>
             )}
             warningMessage={(share) => (
-              <>
-                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
-                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {clusterNoun} ({share}) had{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
-                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+              <Trans>
+                {mixedClustersText} of {totalClustersText}{" "}
+                <IdentifierCode>{cluster}</IdentifierCode>{" "}
+                <Plural value={totalClusters} one="value" other="values" /> (
+                {share}) had <IdentifierCode>{subUnit}</IdentifierCode> values
+                in more than one variation and{" "}
+                <Plural value={mixedClusters} one="was" other="were" />{" "}
                 automatically removed from results. Check that the{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
-                assignment query matches the attribute the SDK hashes on.
-              </>
+                <IdentifierCode>{cluster}</IdentifierCode> in your assignment
+                query matches the attribute the SDK hashes on.
+              </Trans>
             )}
           />
         </div>
@@ -555,6 +596,7 @@ function HealthSnapshotCards({
     srmTraffic?.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
   const phaseObj = experiment.phases?.[phase];
+  const exposureIdentifierType = snapshot.settings.exposureQueryIdentifierType;
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
@@ -611,11 +653,11 @@ function HealthSnapshotCards({
           />
         ) : (
           <Callout status="info" my="4">
-            The balance check per{" "}
-            <IdentifierCode>
-              {snapshot.settings.exposureQueryIdentifierType}
-            </IdentifierCode>{" "}
-            isn&apos;t available for this experiment yet.
+            <Trans>
+              The balance check per{" "}
+              <IdentifierCode>{exposureIdentifierType}</IdentifierCode>{" "}
+              isn&apos;t available for this experiment yet.
+            </Trans>
           </Callout>
         )}
       </div>

@@ -2,6 +2,8 @@ import { ReactNode, useState, useMemo } from "react";
 import { resolveAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   expandMetricGroups,
   quantileMetricType,
@@ -59,16 +61,16 @@ export interface Props {
 /** Each metric list as a setup row reads it. */
 export const METRIC_ROWS = {
   goalMetrics: {
-    label: "Goal metrics",
-    tooltip: "What this experiment is trying to improve.",
+    label: msg`Goal metrics`,
+    tooltip: msg`What this experiment is trying to improve.`,
   },
   secondaryMetrics: {
-    label: "Secondary metrics",
-    tooltip: "Extra metrics to learn from, but not the objective.",
+    label: msg`Secondary metrics`,
+    tooltip: msg`Extra metrics to learn from, but not the objective.`,
   },
   guardrailMetrics: {
-    label: "Guardrail metrics",
-    tooltip: "Metrics to watch for harm, not to improve.",
+    label: msg`Guardrail metrics`,
+    tooltip: msg`Metrics to watch for harm, not to improve.`,
   },
 };
 
@@ -83,6 +85,7 @@ export function useMetricDisabledInfo(
     exposureQueryIdentifierType?: string;
   },
 ) {
+  const { t } = useLingui();
   const {
     getExperimentMetricById,
     getDatasourceById,
@@ -135,7 +138,7 @@ export function useMetricDisabledInfo(
         if (hasFunnelMetric) {
           return {
             disabled: true,
-            reason: "Funnel metrics are not supported in Bandit experiments",
+            reason: t`Funnel metrics are not supported in Bandit experiments`,
           };
         }
       }
@@ -157,10 +160,12 @@ export function useMetricDisabledInfo(
             datasourceSettings: datasourceObj?.settings,
           });
           if (!eligibility.allowed) {
+            const metricName = metric.name;
+            const eligibilityReason = eligibility.reason;
             return {
               disabled: true,
               reason: isGroup
-                ? `"${metric.name}" can't be used in cluster experiments. ${eligibility.reason}`
+                ? t`"${metricName}" can't be used in cluster experiments. ${eligibilityReason}`
                 : eligibility.reason,
             };
           }
@@ -194,8 +199,7 @@ export function useMetricDisabledInfo(
         if (hasUnsupportedEventQuantileMetrics) {
           return {
             disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
+            reason: t`Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.`,
           };
         }
 
@@ -208,7 +212,7 @@ export function useMetricDisabledInfo(
         if (hasLegacyMetrics) {
           return {
             disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
+            reason: t`Only fact metrics are supported with Incremental Refresh`,
           };
         }
       } else {
@@ -222,8 +226,7 @@ export function useMetricDisabledInfo(
         ) {
           return {
             disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
+            reason: t`Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.`,
           };
         }
 
@@ -231,7 +234,7 @@ export function useMetricDisabledInfo(
         if (metric && !isFactMetric(metric)) {
           return {
             disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
+            reason: t`Only fact metrics are supported with Incremental Refresh`,
           };
         }
       }
@@ -247,6 +250,7 @@ export function useMetricDisabledInfo(
       getFactTableById,
       getExperimentMetricById,
       metricGroups,
+      t,
     ],
   );
   return getMetricDisabledInfo;
@@ -282,6 +286,7 @@ export default function ExperimentMetricsSelector({
   clusterSubUnitIdentifier,
   asRows = false,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { getExperimentMetricById, getDatasourceById, factTables } =
     useDefinitions();
 
@@ -382,18 +387,18 @@ export default function ExperimentMetricsSelector({
         section(
           asRows
             ? !forceSingleGoalMetric
-              ? METRIC_ROWS.goalMetrics.label
-              : "Decision metric"
+              ? i18n._(METRIC_ROWS.goalMetrics.label)
+              : t`Decision metric`
             : !forceSingleGoalMetric
-              ? "Goal Metrics"
-              : "Decision Metric",
+              ? t`Goal Metrics`
+              : t`Decision Metric`,
           goalMetricsDescription
             ? goalMetricsDescription
             : !forceSingleGoalMetric
               ? asRows
-                ? METRIC_ROWS.goalMetrics.tooltip
-                : "The primary metrics you are trying to improve with this experiment. "
-              : "Choose the goal metric that will be used to update variation weights. ",
+                ? i18n._(METRIC_ROWS.goalMetrics.tooltip)
+                : t`The primary metrics you are trying to improve with this experiment. `
+              : t`Choose the goal metric that will be used to update variation weights. `,
           <>
             <MetricsSelector
               selected={goalMetrics}
@@ -418,9 +423,11 @@ export default function ExperimentMetricsSelector({
             />
             {hasIdentifierTypeMismatch && (
               <Callout status="warning" my="4">
-                Mismatch between the randomization unit and the Decision Metric
-                identifier type can lead to double counting if the randomization
-                unit has multiple exposures.
+                <Trans>
+                  Mismatch between the randomization unit and the Decision
+                  Metric identifier type can lead to double counting if the
+                  randomization unit has multiple exposures.
+                </Trans>
               </Callout>
             )}
           </>,
@@ -435,17 +442,19 @@ export default function ExperimentMetricsSelector({
               onClick={() => setSecondaryCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
-              Add Secondary Metrics
+              <Trans>Add Secondary Metrics</Trans>
             </a>
           </div>
         ) : (
           section(
-            asRows ? METRIC_ROWS.secondaryMetrics.label : "Secondary Metrics",
             asRows
-              ? METRIC_ROWS.secondaryMetrics.tooltip
+              ? i18n._(METRIC_ROWS.secondaryMetrics.label)
+              : t`Secondary Metrics`,
+            asRows
+              ? i18n._(METRIC_ROWS.secondaryMetrics.tooltip)
               : !forceSingleGoalMetric
-                ? "Additional metrics to learn about experiment impacts, but not primary objectives."
-                : "Additional metrics to learn about experiment impacts. ",
+                ? t`Additional metrics to learn about experiment impacts, but not primary objectives.`
+                : t`Additional metrics to learn about experiment impacts. `,
             <MetricsSelector
               selected={secondaryMetrics}
               onChange={setSecondaryMetrics}
@@ -474,15 +483,17 @@ export default function ExperimentMetricsSelector({
               onClick={() => setGuardrailCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
-              Add Guardrail Metrics
+              <Trans>Add Guardrail Metrics</Trans>
             </a>
           </div>
         ) : (
           section(
-            asRows ? METRIC_ROWS.guardrailMetrics.label : "Guardrail Metrics",
             asRows
-              ? METRIC_ROWS.guardrailMetrics.tooltip
-              : "Metrics you want to monitor, but are NOT specifically trying to improve.",
+              ? i18n._(METRIC_ROWS.guardrailMetrics.label)
+              : t`Guardrail Metrics`,
+            asRows
+              ? i18n._(METRIC_ROWS.guardrailMetrics.tooltip)
+              : t`Metrics you want to monitor, but are NOT specifically trying to improve.`,
             <MetricsSelector
               selected={guardrailMetrics}
               onChange={setGuardrailMetrics}

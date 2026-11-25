@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Frame from "@/ui/Frame";
@@ -31,6 +32,7 @@ export default function SetupTabOverview({
   disableEditing,
   editSchedule,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { canEdit: canEditExperiment, editInline } = useExperimentEditing(
     experiment,
@@ -60,15 +62,15 @@ export default function SetupTabOverview({
         >
           <Flex align="center" justify="between" className="text-dark">
             <Heading color="text-high" mb="0" as="h4" size="sm">
-              Holdout Schedule
+              <Trans>Holdout Schedule</Trans>
             </Heading>
             <Flex align="center" gap="2">
               {canEditExperiment ? (
                 <>
                   <DeleteButton
-                    text="Delete"
-                    displayName="Schedule"
-                    deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
+                    text={t`Delete`}
+                    displayName={t`Schedule`}
+                    deleteMessage={t`Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set.`}
                     onClick={async () => {
                       await apiCall<HoldoutInterfaceStringDates>(
                         `/holdout/${holdout.id}`,
@@ -90,7 +92,9 @@ export default function SetupTabOverview({
                       editSchedule();
                     }}
                   >
-                    <Text weight="semibold">Edit</Text>
+                    <Text weight="semibold">
+                      <Trans>Edit</Trans>
+                    </Text>
                   </Link>
                 </>
               ) : null}

@@ -1,4 +1,7 @@
 import { Box } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
@@ -24,30 +27,44 @@ type NonDecisiveStatusData = Exclude<
   { status: DecisiveStatus }
 >;
 
-function getReasonText(statusData: NonDecisiveStatusData): string {
+function getReasonText(statusData: NonDecisiveStatusData, i18n: I18n): string {
   switch (statusData.status) {
-    case "unhealthy":
-      return `Results are unhealthy${
-        statusData.tooltip ? ` (${statusData.tooltip})` : ""
-      }.`;
+    case "unhealthy": {
+      const tooltip = statusData.tooltip;
+      return tooltip
+        ? i18n._(msg`Results are unhealthy (${tooltip}).`)
+        : i18n._(msg`Results are unhealthy.`);
+    }
     case "no-data":
       return statusData.tooltip
         ? `${statusData.tooltip}.`
-        : "There is no data yet.";
+        : i18n._(msg`There is no data yet.`);
     case "data-incomplete":
-      return "One or more goal or guardrail metrics could not be computed, so no decision recommendation is available.";
+      return i18n._(
+        msg`One or more goal or guardrail metrics could not be computed, so no decision recommendation is available.`,
+      );
     case "scheduled-end-review":
-      return statusData.tooltip ?? "No decision recommendation is available.";
-    case "days-left":
-      return statusData.tooltip
-        ? statusData.tooltip
-        : `More data is needed — about ${statusData.daysLeft} more ${
-            statusData.daysLeft === 1 ? "day" : "days"
-          } to reach the targeted statistical power.`;
+      return (
+        statusData.tooltip ??
+        i18n._(msg`No decision recommendation is available.`)
+      );
+    case "days-left": {
+      if (statusData.tooltip) return statusData.tooltip;
+      const daysLeft = statusData.daysLeft;
+      return daysLeft === 1
+        ? i18n._(
+            msg`More data is needed — about ${daysLeft} more day to reach the targeted statistical power.`,
+          )
+        : i18n._(
+            msg`More data is needed — about ${daysLeft} more days to reach the targeted statistical power.`,
+          );
+    }
     case "before-min-duration":
-      return "The minimum experiment duration has not been reached yet.";
+      return i18n._(
+        msg`The minimum experiment duration has not been reached yet.`,
+      );
     default:
-      return "No decision recommendation is available.";
+      return i18n._(msg`No decision recommendation is available.`);
   }
 }
 
@@ -57,6 +74,7 @@ export default function ScheduledEndPassedBanner({
   editSchedule,
   ...margin
 }: Props) {
+  const { i18n } = useLingui();
   const stopAt = experiment.statusUpdateSchedule?.stopAt;
   const scheduledEndPassed =
     experiment.status === "running" &&
@@ -74,6 +92,8 @@ export default function ScheduledEndPassedBanner({
     return null;
   }
 
+  const endDate = date(stopAt);
+
   return (
     <ExperimentBanner
       headline={
@@ -82,23 +102,31 @@ export default function ScheduledEndPassedBanner({
             size={16}
             style={{ color: "var(--amber-11)", flexShrink: 0 }}
           />
-          <Text color="text-mid">Past its scheduled end, {date(stopAt)}</Text>
+          <Text color="text-mid">
+            <Trans>Past its scheduled end, {endDate}</Trans>
+          </Text>
           <Text color="text-low">·</Text>
-          <Text color="text-low">No clear recommendation</Text>
+          <Text color="text-low">
+            <Trans>No clear recommendation</Trans>
+          </Text>
         </>
       }
       details={
         <>
           <Text as="div" mb="2">
-            The experiment kept running past its scheduled end, as its schedule
-            asks. There&apos;s no clear recommendation because:
+            <Trans>
+              The experiment kept running past its scheduled end, as its
+              schedule asks. There&apos;s no clear recommendation because:
+            </Trans>
           </Text>
           <Reason color="amber" icon={<PiWarningCircleBold />}>
-            {getReasonText(runningExperimentStatus)}
+            {getReasonText(runningExperimentStatus, i18n)}
           </Reason>
           {editSchedule ? (
             <Box mt="3" mb="1">
-              <Link onClick={editSchedule}>Edit schedule</Link>
+              <Link onClick={editSchedule}>
+                <Trans>Edit schedule</Trans>
+              </Link>
             </Box>
           ) : null}
         </>

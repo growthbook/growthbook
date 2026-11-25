@@ -24,6 +24,7 @@ import { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import cloneDeep from "lodash/cloneDeep";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -114,14 +115,18 @@ const getTooltipContents = (
             <tr>
               <td></td>
               <td>
-                {mode === "values"
-                  ? "Variation Mean"
-                  : mode === "probabilities"
-                    ? "Probability of Winning"
-                    : "Variation Weight"}
+                {mode === "values" ? (
+                  <Trans>Variation Mean</Trans>
+                ) : mode === "probabilities" ? (
+                  <Trans>Probability of Winning</Trans>
+                ) : (
+                  <Trans>Variation Weight</Trans>
+                )}
               </td>
               {mode === "values" && <td>CI</td>}
-              <td>Users</td>
+              <td>
+                <Trans>Users</Trans>
+              </td>
             </tr>
           </thead>
           <tbody>
@@ -178,7 +183,9 @@ const getTooltipContents = (
         </table>
       ) : !isPublic ? (
         <div className="my-2" style={{ minWidth: 300 }}>
-          <em>Bandit update failed</em>
+          <em>
+            <Trans>Bandit update failed</Trans>
+          </em>
         </div>
       ) : null}
 
@@ -186,12 +193,12 @@ const getTooltipContents = (
         <div style={{ maxWidth: 330 }}>
           {!!d.reweight && !!d.weightsWereUpdated && (
             <HelperText status="info" my="2" size="md">
-              Variation weights were recalculated
+              <Trans>Variation weights were recalculated</Trans>
             </HelperText>
           )}
           {!!d.reweight && !d.weightsWereUpdated && (
             <HelperText status="warning" my="2" size="md">
-              Variation weights were unable to update
+              <Trans>Variation weights were unable to update</Trans>
             </HelperText>
           )}
 
@@ -212,7 +219,9 @@ const getTooltipContents = (
       <div className="text-sm-right mt-1 mr-1">
         {datetime(d.date as Date)}
         {d?.meta?.type === "today" ? (
-          <small className="text-info ml-1">(today)</small>
+          <small className="text-info ml-1">
+            <Trans>(today)</Trans>
+          </small>
         ) : null}
       </div>
     </>
@@ -287,6 +296,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   ssrPolyfills,
   isPublic,
 }) => {
+  const { t } = useLingui();
   const formatter = formatNumber;
 
   const _displayCurrency = useCurrency();
@@ -647,6 +657,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               />
             </mask>
           ) : null;
+        // One message, so translators choose where the label breaks.
+        const [exploreTickLine1, exploreTickLine2 = ""] = t`Exploratory
+stage end`.split("\n");
+        const selectedCount = showVariations.filter((sv) => sv).length;
         const exploreTick = exploitDate ? (
           <g>
             <text
@@ -658,10 +672,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               fontStyle={"italic"}
             >
               <tspan x={xScale(exploitDate)} dy="0">
-                Exploratory
+                {exploreTickLine1}
               </tspan>
               <tspan x={xScale(exploitDate)} dy="1em">
-                stage end
+                {exploreTickLine2}
               </tspan>
             </text>
           </g>
@@ -689,7 +703,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               </TooltipWithBounds>
             )}
             <Text as="div" size="sm" weight="semibold">
-              Filter variations
+              <Trans>Filter variations</Trans>
             </Text>
             {/* Legend rows match the dropdown's height, so the first stays level with it. */}
             <Flex align="start" gap="4" mb="2">
@@ -699,17 +713,25 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 setValue={setFilterVariations}
                 style={{ width: 160, flexShrink: 0 }}
               >
-                <SelectItem value="all">All variations</SelectItem>
+                <SelectItem value="all">
+                  <Trans>All variations</Trans>
+                </SelectItem>
                 {variations.length > 5 ? (
-                  <SelectItem value="5">Top 5</SelectItem>
+                  <SelectItem value="5">
+                    <Trans>Top 5</Trans>
+                  </SelectItem>
                 ) : null}
                 {variations.length > 3 ? (
-                  <SelectItem value="3">Top 3</SelectItem>
+                  <SelectItem value="3">
+                    <Trans>Top 3</Trans>
+                  </SelectItem>
                 ) : null}
-                <SelectItem value="1">Winning variation</SelectItem>
+                <SelectItem value="1">
+                  <Trans>Winning variation</Trans>
+                </SelectItem>
                 {filterVariations === "picked" ? (
                   <SelectItem value="picked">
-                    {`Selected (${showVariations.filter((sv) => sv).length})`}
+                    <Trans>Selected ({selectedCount})</Trans>
                   </SelectItem>
                 ) : null}
               </Select>

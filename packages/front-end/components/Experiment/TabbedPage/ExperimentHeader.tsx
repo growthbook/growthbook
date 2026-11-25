@@ -33,6 +33,8 @@ import {
   PiRocketLaunch,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -136,12 +138,6 @@ export interface Props {
   editSchedule?: (() => void) | null;
 }
 
-const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
-  start: "Holdout starts ",
-  startAnalysisPeriod: "Analysis starts ",
-  stop: "Analysis ends ",
-};
-
 // Beside the title, centred on its line.
 const titleInline: CSSProperties = {
   verticalAlign: "top",
@@ -150,14 +146,10 @@ const titleInline: CSSProperties = {
 };
 
 const HEALTH_TAB_DISABLED_REASONS = {
-  NO_DATASOURCE:
-    "Choose a Data Source on the Setup tab to see Experiment Health.",
-  UNSUPPORTED_DATASOURCE:
-    "Experiment Health isn't available for Mixpanel or legacy Google Analytics Data Sources.",
-  RESTRICTED_DATASOURCE:
-    "This experiment's Data Source is in a Project you don't have access to.",
-  DELETED_DATASOURCE:
-    "This experiment's Data Source was deleted. Choose another on the Setup tab.",
+  NO_DATASOURCE: msg`Choose a Data Source on the Setup tab to see Experiment Health.`,
+  UNSUPPORTED_DATASOURCE: msg`Experiment Health isn't available for Mixpanel or legacy Google Analytics Data Sources.`,
+  RESTRICTED_DATASOURCE: msg`This experiment's Data Source is in a Project you don't have access to.`,
+  DELETED_DATASOURCE: msg`This experiment's Data Source was deleted. Choose another on the Setup tab.`,
 };
 
 const DisabledHealthTabTooltip = ({
@@ -167,8 +159,11 @@ const DisabledHealthTabTooltip = ({
   reason: keyof typeof HEALTH_TAB_DISABLED_REASONS;
   children: ReactNode;
 }) => {
+  const { i18n } = useLingui();
   return (
-    <Tooltip content={HEALTH_TAB_DISABLED_REASONS[reason]}>{children}</Tooltip>
+    <Tooltip content={i18n._(HEALTH_TAB_DISABLED_REASONS[reason])}>
+      {children}
+    </Tooltip>
   );
 };
 
@@ -228,6 +223,7 @@ export default function ExperimentHeader({
   showDashboardView,
   editSchedule,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { apiCall } = useAuth();
   const { hasCommercialFeature, settings } = useUser();
   const publicSharingDisabled = !!settings?.disablePublicSharing;
@@ -276,21 +272,19 @@ export default function ExperimentHeader({
       options={[
         {
           value: "materialize",
-          label: "Keep serving the released variation",
-          description:
-            "Each linked Feature Flag gets a permanent rule with this experiment's targeting.",
+          label: t`Keep serving the released variation`,
+          description: t`Each linked Feature Flag gets a permanent rule with this experiment's targeting.`,
         },
         {
           value: "remove",
-          label: "Stop serving it",
-          description:
-            "Users go back to the Feature Flags' other rules and defaults.",
+          label: t`Stop serving it`,
+          description: t`Users go back to the Feature Flags' other rules and defaults.`,
         },
       ]}
     />
   ) : (
     <Checkbox
-      label="I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults"
+      label={t`I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults`}
       weight="regular"
       value={deleteAcknowledged}
       setValue={(v) => setDeleteAcknowledged(!!v)}
@@ -306,25 +300,46 @@ export default function ExperimentHeader({
   const deleteConsequences = [
     ...linkedFlagIds.map((id) => (
       <li key={id}>
-        {materializing
-          ? "A permanent rule replaces the experiment rule on Feature Flag "
-          : "The experiment rule will be removed from Feature Flag "}
-        <strong>{id}</strong>.
+        {materializing ? (
+          <Trans>
+            A permanent rule replaces the experiment rule on Feature Flag{" "}
+            <strong>{id}</strong>.
+          </Trans>
+        ) : (
+          <Trans>
+            The experiment rule will be removed from Feature Flag{" "}
+            <strong>{id}</strong>.
+          </Trans>
+        )}
       </li>
     )),
     ...(visualCount || experiment.hasVisualChangesets
       ? [
           <li key="visual">
-            {visualCount || "Its"} AI Visual Editor change
-            {visualCount === 1 ? "" : "s"} will be deleted.
+            {visualCount ? (
+              <Plural
+                value={visualCount}
+                one="# AI Visual Editor change will be deleted."
+                other="# AI Visual Editor changes will be deleted."
+              />
+            ) : (
+              <Trans>Its AI Visual Editor changes will be deleted.</Trans>
+            )}
           </li>,
         ]
       : []),
     ...(redirectCount || experiment.hasURLRedirects
       ? [
           <li key="redirects">
-            {redirectCount || "Its"} URL Redirect
-            {redirectCount === 1 ? "" : "s"} will stop serving.
+            {redirectCount ? (
+              <Plural
+                value={redirectCount}
+                one="# URL Redirect will stop serving."
+                other="# URL Redirects will stop serving."
+              />
+            ) : (
+              <Trans>Its URL Redirects will stop serving.</Trans>
+            )}
           </li>,
         ]
       : []),
@@ -470,7 +485,7 @@ export default function ExperimentHeader({
     experiment.shareLevel !== "public" ||
     publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
-        Link copied
+        <Trans>Link copied</Trans>
       </Button>
     ) : (
       <Button
@@ -485,7 +500,7 @@ export default function ExperimentHeader({
         }}
         style={{ width: 130 }}
       >
-        Copy Link
+        <Trans>Copy Link</Trans>
       </Button>
     );
 
@@ -530,15 +545,18 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
+  const nextStartTime = nextScheduledStartDate
+    ? scheduledTime(nextScheduledStartDate)
+    : null;
   const now = new Date();
-  const shownDates = headerDates(experiment, now);
-  const everyDate = allDates(experiment, now);
-  const details = headerDetails(experiment, now);
+  const shownDates = headerDates(experiment, now, i18n);
+  const everyDate = allDates(experiment, now, i18n);
+  const details = headerDetails(experiment, now, i18n);
   const dateList = (dates: LabeledDate[], lead?: string | null) => (
     <Flex direction="column" gap="1">
       {lead ? <span>{lead}</span> : null}
-      {dates.map(({ label, value }) => (
-        <span key={label}>
+      {dates.map(({ key, label, value }) => (
+        <span key={key}>
           <Text size="inherit" weight="semibold">
             {label}:
           </Text>{" "}
@@ -566,6 +584,7 @@ export default function ExperimentHeader({
           index < experiment.phases.length - 1 ? "stopped" : experiment.status,
       },
       now,
+      i18n,
     );
     return runtime || dates.length ? dateList(dates, runtime) : null;
   };
@@ -636,10 +655,35 @@ export default function ExperimentHeader({
       {futureStart
         ? startGate.actions.label
         : isHoldout
-          ? "Start holdout"
-          : getStartTitle(experiment, new Date())}
+          ? t`Start holdout`
+          : getStartTitle(experiment, new Date(), i18n)}
     </Button>
   );
+
+  const holdoutUpdate = holdout?.nextScheduledStatusUpdate;
+  const holdoutUpdateDate = holdoutUpdate
+    ? format(new Date(holdoutUpdate.date), "MMM d, yyyy 'at' h:mm a")
+    : "";
+  const holdoutUpdateText = !holdoutUpdate
+    ? null
+    : holdoutUpdate.type === "start"
+      ? t`Holdout starts ${holdoutUpdateDate}`
+      : holdoutUpdate.type === "startAnalysisPeriod"
+        ? t`Analysis starts ${holdoutUpdateDate}`
+        : t`Analysis ends ${holdoutUpdateDate}`;
+  const nextStartDay = nextScheduledStartDate
+    ? format(nextScheduledStartDate, "MMM d")
+    : "";
+  const experimentName = experiment.name;
+  const equalWeights = (() => {
+    const variations = getLatestPhaseVariations(experiment);
+    return variations
+      .map((_, i) =>
+        i < 3 ? formatPercent(1 / variations.length) : i === 3 ? "..." : null,
+      )
+      .filter(Boolean)
+      .join(", ");
+  })();
 
   const startPopover = (
     <StartExperimentPopover
@@ -662,7 +706,7 @@ export default function ExperimentHeader({
           trackingEventModalType=""
           size="lg"
           trackingEventModalSource="experiment-more-menu"
-          header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+          header={isBandit ? t`Convert to Experiment` : t`Convert to Bandit`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
             if (clusterBlocksBandit) return;
@@ -680,14 +724,14 @@ export default function ExperimentHeader({
           }}
           cta={
             isBandit ? (
-              "Convert"
+              t`Convert`
             ) : (
               <PremiumTooltip
                 body={null}
                 commercialFeature="multi-armed-bandits"
                 usePortal={true}
               >
-                Convert
+                <Trans>Convert</Trans>
               </PremiumTooltip>
             )
           }
@@ -698,23 +742,35 @@ export default function ExperimentHeader({
           <div>
             {clusterBlocksBandit ? (
               <Callout status="warning">
-                {
-                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
-                }
+                <Trans>
+                  Cluster experiments can&apos;t be run as Bandits. To convert
+                  this one, first turn off cluster experiment in the Analysis
+                  Plan&apos;s Data Source settings.
+                </Trans>
               </Callout>
             ) : (
               <>
                 <p>
-                  Are you sure you want to convert this{" "}
-                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                  {isBandit ? (
+                    <Trans>
+                      Are you sure you want to convert this Bandit to a{" "}
+                      <strong>Experiment</strong>?
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      Are you sure you want to convert this Experiment to a{" "}
+                      <strong>Bandit</strong>?
+                    </Trans>
+                  )}
                 </p>
                 {!isBandit && experiment.goalMetrics.length > 0 && (
                   <Callout status="warning">
                     <Collapsible
                       trigger={
                         <Flex justify="between" gap="1">
-                          Some of your experiment settings may be altered.{" "}
+                          <Trans>
+                            Some of your experiment settings may be altered.
+                          </Trans>{" "}
                           <Box>
                             <FaAngleRight className="chevron" />
                           </Box>
@@ -724,39 +780,32 @@ export default function ExperimentHeader({
                     >
                       <ul className="ml-0 pl-3 mt-3">
                         <li>
-                          A <strong>single decision metric</strong> will be
-                          automatically assigned. You may change this before
-                          running the experiment.
+                          <Trans>
+                            A <strong>single decision metric</strong> will be
+                            automatically assigned. You may change this before
+                            running the experiment.
+                          </Trans>
                         </li>
                         <li>
-                          Experiment variations will begin with{" "}
-                          <strong>equal weights</strong> (
-                          {(() => {
-                            const variations =
-                              getLatestPhaseVariations(experiment);
-                            return variations
-                              .map((_, i) =>
-                                i < 3
-                                  ? formatPercent(1 / variations.length)
-                                  : i === 3
-                                    ? "..."
-                                    : null,
-                              )
-                              .filter(Boolean)
-                              .join(", ");
-                          })()}
-                          ).
+                          <Trans>
+                            Experiment variations will begin with{" "}
+                            <strong>equal weights</strong> ({equalWeights}).
+                          </Trans>
                         </li>
                         <li>
-                          The stats engine will be locked to{" "}
-                          <strong>Bayesian</strong>.
+                          <Trans>
+                            The stats engine will be locked to{" "}
+                            <strong>Bayesian</strong>.
+                          </Trans>
                         </li>
                         <li>
-                          Any <strong>Activation Metric</strong>,{" "}
-                          <strong>Segments</strong>,{" "}
-                          <strong>Conversion Window overrides</strong>,{" "}
-                          <strong>Custom SQL Filters</strong>, or{" "}
-                          <strong>Metric Overrides</strong> will be removed.
+                          <Trans>
+                            Any <strong>Activation Metric</strong>,{" "}
+                            <strong>Segments</strong>,{" "}
+                            <strong>Conversion Window overrides</strong>,{" "}
+                            <strong>Custom SQL Filters</strong>, or{" "}
+                            <strong>Metric Overrides</strong> will be removed.
+                          </Trans>
                         </li>
                       </ul>
                     </Collapsible>
@@ -769,7 +818,7 @@ export default function ExperimentHeader({
       ) : null}
       {showDeleteModal ? (
         <ModalStandard
-          header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
+          header={isHoldout ? t`Delete Holdout` : t`Delete Experiment`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
@@ -777,7 +826,7 @@ export default function ExperimentHeader({
             setShowDeleteModal(false);
             resetLinkageChoices();
           }}
-          cta="Delete"
+          cta={t`Delete`}
           ctaColor="red"
           ctaEnabled={
             linkageResolved &&
@@ -805,13 +854,19 @@ export default function ExperimentHeader({
         >
           <Box>
             <Text as="p">
-              Are you sure you want to delete this{" "}
-              {isHoldout ? "holdout" : "experiment"}?
+              {isHoldout ? (
+                <Trans>Are you sure you want to delete this holdout?</Trans>
+              ) : (
+                <Trans>Are you sure you want to delete this experiment?</Trans>
+              )}
             </Text>
             {linkageBlocker === "temporary-rollout" && (
               <Callout status="warning" mb="3">
                 <Text as="p" mb="2" weight="semibold">
-                  Its temporary rollout is still serving the released variation.
+                  <Trans>
+                    Its temporary rollout is still serving the released
+                    variation.
+                  </Trans>
                 </Text>
                 {linkageChoice}
               </Callout>
@@ -819,9 +874,19 @@ export default function ExperimentHeader({
             {deleteConsequences.length > 0 && (
               <Callout status={materializing ? "info" : "warning"}>
                 <Text as="p" mb="2" weight="semibold">
-                  {linkageBlocker === "running"
-                    ? `This ${isHoldout ? "holdout" : "experiment"} is running. Deleting it takes effect immediately:`
-                    : "Linked implementations:"}
+                  {linkageBlocker !== "running" ? (
+                    <Trans>Linked implementations:</Trans>
+                  ) : isHoldout ? (
+                    <Trans>
+                      This holdout is running. Deleting it takes effect
+                      immediately:
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      This experiment is running. Deleting it takes effect
+                      immediately:
+                    </Trans>
+                  )}
                 </Text>
                 <ul
                   style={{
@@ -836,7 +901,7 @@ export default function ExperimentHeader({
                 </ul>
                 {linkageBlocker !== "temporary-rollout" && (
                   <Checkbox
-                    label="I understand the linked implementations will be changed"
+                    label={t`I understand the linked implementations will be changed`}
                     weight="regular"
                     value={deleteAcknowledged}
                     setValue={(v) => setDeleteAcknowledged(!!v)}
@@ -849,13 +914,19 @@ export default function ExperimentHeader({
       ) : null}
       {showArchiveModal ? (
         <ModalStandard
-          header={`${experiment.archived ? "Unarchive" : "Archive"} ${
-            isHoldout ? "Holdout" : "Experiment"
-          }`}
+          header={
+            experiment.archived
+              ? isHoldout
+                ? t`Unarchive Holdout`
+                : t`Unarchive Experiment`
+              : isHoldout
+                ? t`Archive Holdout`
+                : t`Archive Experiment`
+          }
           trackingEventModalType="archive-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
-          cta={experiment.archived ? "Unarchive" : "Archive"}
+          cta={experiment.archived ? t`Unarchive` : t`Archive`}
           ctaColor={experiment.archived ? "violet" : "red"}
           ctaEnabled={experiment.archived || linkageResolved}
           close={() => {
@@ -880,14 +951,22 @@ export default function ExperimentHeader({
           }}
         >
           <Box>
-            <Text as="p">{`Are you sure you want to ${
-              experiment.archived ? "unarchive" : "archive"
-            } this ${isHoldout ? "holdout" : "experiment"}?`}</Text>
+            <Text as="p">
+              {experiment.archived
+                ? isHoldout
+                  ? t`Are you sure you want to unarchive this holdout?`
+                  : t`Are you sure you want to unarchive this experiment?`
+                : isHoldout
+                  ? t`Are you sure you want to archive this holdout?`
+                  : t`Are you sure you want to archive this experiment?`}
+            </Text>
             {!experiment.archived && linkageBlocker === "temporary-rollout" && (
               <Callout status="warning">
                 <Text as="p" mb="2" weight="semibold">
-                  Its temporary rollout is still serving the released variation.
-                  Archived experiments leave the SDK payload.
+                  <Trans>
+                    Its temporary rollout is still serving the released
+                    variation. Archived experiments leave the SDK payload.
+                  </Trans>
                 </Text>
                 {linkageChoice}
               </Callout>
@@ -895,13 +974,22 @@ export default function ExperimentHeader({
             {!experiment.archived && linkageBlocker === "running" && (
               <Callout status="warning">
                 <Text as="p" mb="2">
-                  This {isHoldout ? "holdout" : "experiment"} is running.
-                  Archiving takes it out of the SDK payload immediately, so its
-                  linked Feature Flags, AI Visual Editor changes and URL
-                  Redirects stop serving.
+                  {isHoldout ? (
+                    <Trans>
+                      This holdout is running. Archiving takes it out of the SDK
+                      payload immediately, so its linked Feature Flags, AI
+                      Visual Editor changes and URL Redirects stop serving.
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      This experiment is running. Archiving takes it out of the
+                      SDK payload immediately, so its linked Feature Flags, AI
+                      Visual Editor changes and URL Redirects stop serving.
+                    </Trans>
+                  )}
                 </Text>
                 <Checkbox
-                  label="I understand the linked changes stop serving"
+                  label={t`I understand the linked changes stop serving`}
                   weight="regular"
                   value={deleteAcknowledged}
                   setValue={(v) => setDeleteAcknowledged(!!v)}
@@ -931,27 +1019,38 @@ export default function ExperimentHeader({
           open={true}
           trackingEventModalType="share-experiment-settings"
           close={() => setShareModalOpen(false)}
-          closeCta="Close"
-          header={`Share "${experiment.name}"`}
+          closeCta={t`Close`}
+          header={t`Share "${experimentName}"`}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
             {shareLevel === "organization" ? (
               <Callout status="info" size="sm">
-                This {isBandit ? "Bandit" : "Experiment"} is only viewable
-                within your organization.
+                {isBandit ? (
+                  <Trans>
+                    This Bandit is only viewable within your organization.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    This Experiment is only viewable within your organization.
+                  </Trans>
+                )}
               </Callout>
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
                   {publicSharingDisabled ? (
-                    'Public sharing is turned off for your organization, so this link doesn\'t work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members".'
+                    t`Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members".`
+                  ) : isBandit ? (
+                    <Trans>
+                      Anyone with the link can view this Bandit, even those
+                      outside your organization.
+                    </Trans>
                   ) : (
-                    <>
-                      Anyone with the link can view this{" "}
-                      {isBandit ? "Bandit" : "Experiment"}, even those outside
-                      your organization.
-                    </>
+                    <Trans>
+                      Anyone with the link can view this Experiment, even those
+                      outside your organization.
+                    </Trans>
                   )}
                 </Callout>
               </>
@@ -960,17 +1059,17 @@ export default function ExperimentHeader({
 
           <SelectField
             size="legacy"
-            label="View access"
+            label={t`View access`}
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
             containerClassName="mb-2"
             sort={false}
             disabled={!hasUpdatePermissions}
             options={[
-              { value: "organization", label: "Only organization members" },
+              { value: "organization", label: t`Only organization members` },
               ...(publicSharingDisabled && experiment.shareLevel !== "public"
                 ? []
-                : [{ value: "public", label: "Anyone with the link" }]),
+                : [{ value: "public", label: t`Anyone with the link` }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -980,11 +1079,11 @@ export default function ExperimentHeader({
               </div>
             ) : saveShareLevelStatus === "success" ? (
               <HelperText status="success" size="sm">
-                Sharing status has been updated
+                <Trans>Sharing status has been updated</Trans>
               </HelperText>
             ) : saveShareLevelStatus === "fail" ? (
               <HelperText status="error" size="sm">
-                Unable to update sharing status
+                <Trans>Unable to update sharing status</Trans>
               </HelperText>
             ) : null}
           </div>
@@ -1024,7 +1123,7 @@ export default function ExperimentHeader({
                     style={titleInline}
                   >
                     <QuickEditButton
-                      label="Edit name"
+                      label={t`Edit name`}
                       onClick={() => setEditingName(true)}
                       blockedReason={editsBlocked}
                     />
@@ -1073,20 +1172,12 @@ export default function ExperimentHeader({
                 minHeight="var(--space-6)"
                 style={{ whiteSpace: "nowrap" }}
               >
-                {isHoldout && holdout?.nextScheduledStatusUpdate ? (
+                {isHoldout && holdoutUpdate ? (
                   <Button
                     variant="ghost"
                     onClick={() => setTab("overview", "holdout-schedule")}
                   >
-                    {
-                      HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
-                        holdout.nextScheduledStatusUpdate.type
-                      ]
-                    }
-                    {format(
-                      new Date(holdout.nextScheduledStatusUpdate.date),
-                      "MMM d, yyyy 'at' h:mm a",
-                    )}
+                    {holdoutUpdateText}
                   </Button>
                 ) : (
                   <div>
@@ -1109,8 +1200,8 @@ export default function ExperimentHeader({
                         content={
                           editsBlocked ??
                           (canRunExperiment
-                            ? scheduledTime(nextScheduledStartDate)
-                            : `${scheduledTime(nextScheduledStartDate)}. ${RUN_PERMISSION_REASON}`)
+                            ? nextStartTime
+                            : t`${nextStartTime}. Requires permission to start and stop experiments in this experiment's environments.`)
                         }
                       >
                         <Button
@@ -1118,14 +1209,14 @@ export default function ExperimentHeader({
                           disabled={!canRunExperiment || !!editsBlocked}
                           onClick={() => editSchedule?.()}
                         >
-                          Starts {format(nextScheduledStartDate, "MMM d")}{" "}
+                          <Trans>Starts {nextStartDay}</Trans>{" "}
                           {editSchedule && <PiPencilSimple className="ml-1" />}
                         </Button>
                       </Tooltip>
                     ) : experiment.status === "draft" &&
                       !experiment.archived &&
                       !canRunExperiment ? (
-                      <Tooltip content={RUN_PERMISSION_REASON}>
+                      <Tooltip content={i18n._(RUN_PERMISSION_REASON)}>
                         {startButton}
                       </Tooltip>
                     ) : experiment.status === "draft" && canRunExperiment ? (
@@ -1168,7 +1259,7 @@ export default function ExperimentHeader({
                       <>
                         {showShareButton ? (
                           <Button onClick={() => setShareModalOpen(true)}>
-                            Share...
+                            <Trans>Share...</Trans>
                           </Button>
                         ) : shareLevel === "public" ? (
                           shareLinkButton
@@ -1185,7 +1276,7 @@ export default function ExperimentHeader({
               <DropdownMenu
                 trigger={
                   <MoreMenuTrigger
-                    label="More actions"
+                    label={t`More actions`}
                     size="lg"
                     // Above the details toggle, past the row's end. Inline,
                     // not margin props: a ghost button adds its own offset to
@@ -1208,7 +1299,7 @@ export default function ExperimentHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        Edit status
+                        <Trans>Edit status</Trans>
                       </StoredActionItem>
                     )}
                     {showEditPhase && (
@@ -1218,7 +1309,7 @@ export default function ExperimentHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        Edit phase
+                        <Trans>Edit phase</Trans>
                       </StoredActionItem>
                     )}
                     {showMakeChanges && (
@@ -1228,7 +1319,7 @@ export default function ExperimentHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        Make changes
+                        <Trans>Make changes</Trans>
                       </StoredActionItem>
                     )}
                     {showScheduleItem && (
@@ -1238,7 +1329,11 @@ export default function ExperimentHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        {hasAnySchedule ? "Edit schedule" : "Add schedule"}
+                        {hasAnySchedule ? (
+                          <Trans>Edit schedule</Trans>
+                        ) : (
+                          <Trans>Add schedule</Trans>
+                        )}
                       </StoredActionItem>
                     )}
                   </DropdownMenuGroup>
@@ -1257,13 +1352,19 @@ export default function ExperimentHeader({
                             disabled={!!editsBlocked}
                           >
                             <Tooltip
-                              content={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
+                              content={
+                                holdoutStage === "running"
+                                  ? t`Override Holdout schedule and manually start next phase now`
+                                  : t`Override Holdout schedule and manually stop Holdout now`
+                              }
                               side="left"
                             >
                               <span>
-                                {holdoutStage === "running"
-                                  ? "Start Analysis Phase"
-                                  : "Stop Holdout"}
+                                {holdoutStage === "running" ? (
+                                  <Trans>Start Analysis Phase</Trans>
+                                ) : (
+                                  <Trans>Stop Holdout</Trans>
+                                )}
                               </span>
                             </Tooltip>
                           </DropdownMenuItem>
@@ -1276,10 +1377,12 @@ export default function ExperimentHeader({
                             disabled={!!editsBlocked}
                           >
                             <Tooltip
-                              content="Override Holdout schedule and manually start Holdout now"
+                              content={t`Override Holdout schedule and manually start Holdout now`}
                               side="left"
                             >
-                              <span>Start holdout</span>
+                              <span>
+                                <Trans>Start holdout</Trans>
+                              </span>
                             </Tooltip>
                           </DropdownMenuItem>
                         ))}
@@ -1290,7 +1393,7 @@ export default function ExperimentHeader({
                             setDropdownOpen(false);
                           }}
                         >
-                          Force Status Change
+                          <Trans>Force Status Change</Trans>
                         </StoredActionItem>
                       )}
                     </DropdownMenuGroup>
@@ -1310,7 +1413,11 @@ export default function ExperimentHeader({
                           >
                             <PiEye style={{ marginRight: "5px" }} size={18} />
                             <span className="pr-5">
-                              {isWatching ? "Watching" : "Not watching"}
+                              {isWatching ? (
+                                <Trans>Watching</Trans>
+                              ) : (
+                                <Trans>Not watching</Trans>
+                              )}
                             </span>
                           </Flex>
                         }
@@ -1320,7 +1427,11 @@ export default function ExperimentHeader({
                             await handleWatchUpdates(!isWatching);
                           }}
                         >
-                          {isWatching ? "Stop watching" : "Start watching"}
+                          {isWatching ? (
+                            <Trans>Stop watching</Trans>
+                          ) : (
+                            <Trans>Start watching</Trans>
+                          )}
                         </DropdownMenuItem>
                       </DropdownSubMenu>
                       <DropdownMenuItem
@@ -1344,9 +1455,11 @@ export default function ExperimentHeader({
                           >
                             {usersWatching.length || 0}
                           </IconButton>
-                          {usersWatching.length > 0
-                            ? "View watchers"
-                            : "No watchers"}
+                          {usersWatching.length > 0 ? (
+                            <Trans>View watchers</Trans>
+                          ) : (
+                            <Trans>No watchers</Trans>
+                          )}
                         </Flex>
                       </DropdownMenuItem>
                     </>
@@ -1357,7 +1470,7 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Audit history
+                    <Trans>Audit history</Trans>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 {/* Only show the separator if one of the following cases is true to avoid double separators */}
@@ -1375,7 +1488,7 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Save as template...
+                    <Trans>Save as template...</Trans>
                   </StoredActionItem>
                 )}
                 {showShareButton && !isHoldout && (
@@ -1385,7 +1498,11 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Share {isBandit ? "Bandit" : "Experiment"}
+                    {isBandit ? (
+                      <Trans>Share Bandit</Trans>
+                    ) : (
+                      <Trans>Share Experiment</Trans>
+                    )}
                   </StoredActionItem>
                 )}
                 {showShareableReportButton && !isHoldout && (
@@ -1409,7 +1526,7 @@ export default function ExperimentHeader({
                       await router.push(`/report/${res.report.id}`);
                     }}
                   >
-                    Create shareable report
+                    <Trans>Create shareable report</Trans>
                   </StoredActionItem>
                 )}
                 {showConvertButton && !isHoldout && (
@@ -1421,7 +1538,11 @@ export default function ExperimentHeader({
                           setDropdownOpen(false);
                         }}
                       >
-                        Convert to {isBandit ? "Experiment" : "Bandit"}
+                        {isBandit ? (
+                          <Trans>Convert to Experiment</Trans>
+                        ) : (
+                          <Trans>Convert to Bandit</Trans>
+                        )}
                       </StoredActionItem>
                     </DropdownMenuGroup>
                   </>
@@ -1441,7 +1562,7 @@ export default function ExperimentHeader({
                         duplicate();
                       }}
                     >
-                      Duplicate
+                      <Trans>Duplicate</Trans>
                     </StoredActionItem>
                   )}
                   {canRunExperiment && (
@@ -1451,7 +1572,7 @@ export default function ExperimentHeader({
                         setDropdownOpen(false);
                       }}
                     >
-                      Archive
+                      <Trans>Archive</Trans>
                     </StoredActionItem>
                   )}
                   {hasUpdatePermissions && experiment.archived && (
@@ -1461,7 +1582,7 @@ export default function ExperimentHeader({
                         setDropdownOpen(false);
                       }}
                     >
-                      Unarchive
+                      <Trans>Unarchive</Trans>
                     </StoredActionItem>
                   )}
                   {canDeleteExperiment && (
@@ -1472,7 +1593,7 @@ export default function ExperimentHeader({
                         setDropdownOpen(false);
                       }}
                     >
-                      Delete
+                      <Trans>Delete</Trans>
                     </StoredActionItem>
                   )}
                 </DropdownMenuGroup>
@@ -1515,13 +1636,21 @@ export default function ExperimentHeader({
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1" minWidth="0">
-                      <TabsTrigger value="overview">Setup</TabsTrigger>
-                      <TabsTrigger value="results">Results</TabsTrigger>
+                      <TabsTrigger value="overview">
+                        <Trans>Setup</Trans>
+                      </TabsTrigger>
+                      <TabsTrigger value="results">
+                        <Trans>Results</Trans>
+                      </TabsTrigger>
                       {isBandit ? (
-                        <TabsTrigger value="explore">Explore</TabsTrigger>
+                        <TabsTrigger value="explore">
+                          <Trans>Explore</Trans>
+                        </TabsTrigger>
                       ) : null}
                       {!isBandit && !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
+                        <TabsTrigger value="dashboards">
+                          <Trans>Dashboard</Trans>
+                        </TabsTrigger>
                       )}
                       {disableHealthTab ? (
                         <DisabledHealthTabTooltip
@@ -1536,7 +1665,7 @@ export default function ExperimentHeader({
                           }
                         >
                           <TabsTrigger disabled value="health">
-                            Health
+                            <Trans>Health</Trans>
                           </TabsTrigger>
                         </DisabledHealthTabTooltip>
                       ) : (
@@ -1546,7 +1675,7 @@ export default function ExperimentHeader({
                             track("Open health tab", { source: "tab-click" });
                           }}
                         >
-                          Health
+                          <Trans>Health</Trans>
                           {healthNotificationCount > 0 ? (
                             <Avatar size="sm" ml="2" color="red">
                               {healthNotificationCount}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { expandSparseToFull, stripDefaultsForSparse } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -38,6 +39,7 @@ export default function FlagValuesModal({
   close: () => void;
   apply: (result: FlagValuesResult) => void;
 }) {
+  const { t, i18n } = useLingui();
   // A value stored compact opens expanded in the editor.
   const [formatted] = useState(() =>
     Object.fromEntries(
@@ -95,7 +97,7 @@ export default function FlagValuesModal({
     if (Object.keys(repaired).length) {
       setValues((prev) => ({ ...prev, ...repaired }));
       throw new Error(
-        "We fixed some errors in the values. If they look correct, apply again.",
+        t`We fixed some errors in the values. If they look correct, apply again.`,
       );
     }
     // Untouched values go back as stored, so formatting alone isn't a change.
@@ -110,19 +112,21 @@ export default function FlagValuesModal({
     });
   };
 
+  const featureId = feature.id;
+
   return (
     <ModalStandard
       trackingEventModalType="edit-flag-values"
       open={true}
       close={close}
-      header={`Edit ${feature.id} values`}
+      header={t`Edit ${featureId} values`}
       headerAction={
         sparseEligible ? (
           <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
         ) : undefined
       }
       submit={submit}
-      cta="Apply"
+      cta={t`Apply`}
       size="lg"
     >
       <ValueDiffProvider>
@@ -134,7 +138,7 @@ export default function FlagValuesModal({
                 label={
                   <Flex as="span" align="center" gap="2">
                     <VariationNumber number={v.index} />
-                    <Text weight="medium">{variationLabel(v)}</Text>
+                    <Text weight="medium">{variationLabel(v, i18n)}</Text>
                   </Flex>
                 }
                 id={`flag-values-${feature.id}-${v.id}`}

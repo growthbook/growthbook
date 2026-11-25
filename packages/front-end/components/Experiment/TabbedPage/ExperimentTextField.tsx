@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { computeAIUsageData } from "shared/ai";
 import track from "@/services/track";
@@ -14,8 +15,8 @@ import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import ExperimentTextValue, {
-  EXPERIMENT_TEXT_FIELDS,
   ExperimentTextFieldKey,
+  useExperimentTextFieldCopy,
 } from "./ExperimentTextValue";
 
 export interface Props {
@@ -33,9 +34,10 @@ export default function ExperimentTextField({
   editable: editableHere,
   canEdit,
 }: Props) {
+  const { t } = useLingui();
   const aiSuggestion = useRef<string | null>(null);
-  const { label } = EXPERIMENT_TEXT_FIELDS[field];
-  const placeholder = EXPERIMENT_TEXT_FIELDS[field].placeholder(
+  const { label, placeholder } = useExperimentTextFieldCopy(
+    field,
     experiment.type,
   );
   const isHypothesis = field === "hypothesis";
@@ -82,7 +84,7 @@ export default function ExperimentTextField({
       onChange={setValue}
       placeholder={placeholder}
       aiSuggestFunction={isHypothesis ? suggestHypothesis : undefined}
-      aiButtonText="Check hypothesis"
+      aiButtonText={t`Check hypothesis`}
       onAISuggestionReceived={(result) => {
         aiSuggestion.current = result;
       }}
@@ -109,7 +111,7 @@ export default function ExperimentTextField({
         >
           <Box minWidth="0">{body}</Box>
           <QuickEditButton
-            label={`Edit ${field}`}
+            label={isHypothesis ? t`Edit hypothesis` : t`Edit description`}
             onClick={() => setEditingOnDemand(true)}
           />
         </Flex>

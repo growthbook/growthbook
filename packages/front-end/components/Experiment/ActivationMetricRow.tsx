@@ -1,4 +1,5 @@
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -28,15 +29,16 @@ export default function ActivationMetricRow({
   incrementalRefresh?: boolean;
   isClusterExperiment?: boolean;
 }) {
+  const { t } = useLingui();
   const lockedReason = isClusterExperiment
-    ? "Activation metrics aren't supported for cluster experiments."
+    ? t`Activation metrics aren't supported for cluster experiments.`
     : incrementalRefresh
-      ? "Activation metrics are not yet supported with Incremental Refresh."
+      ? t`Activation metrics are not yet supported with Incremental Refresh.`
       : null;
   return (
     <SetupFieldRow
-      label="Activation metric"
-      tooltip="Users must convert on this metric before being included. Only proportion metrics from this Data Source are listed, not funnels."
+      label={t`Activation metric`}
+      tooltip={t`Users must convert on this metric before being included. Only proportion metrics from this Data Source are listed, not funnels.`}
     >
       <Tooltip content={lockedReason} enabled={!!lockedReason}>
         <Box>
@@ -46,7 +48,7 @@ export default function ActivationMetricRow({
             exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             includeFacts
-            initialOption="None"
+            initialOption={t`None`}
             onlyBinomial
             filterFactFunnelMetrics
             value={value}
@@ -62,7 +64,7 @@ export default function ActivationMetricRow({
           mt="2"
           action={
             <Button variant="outline" size="sm" onClick={() => onChange("")}>
-              Remove
+              <Trans>Remove</Trans>
             </Button>
           }
         >

@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import StagedEditsBar from "@/components/StagedEdits/StagedEditsBar";
@@ -7,6 +8,7 @@ import StagedChanges from "./StagedChanges";
 
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
+  const { t, i18n } = useLingui();
   const edits = useExperimentEdits();
   if (!edits?.dirty) return null;
 
@@ -24,7 +26,7 @@ export default function UnsavedEditsBar() {
                 <Checkbox
                   value={edits.unscopedRule.acknowledged}
                   setValue={edits.unscopedRule.acknowledge}
-                  label="Acknowledge"
+                  label={t`Acknowledge`}
                   weight="medium"
                   align="center"
                 />
@@ -33,12 +35,14 @@ export default function UnsavedEditsBar() {
           ) : null}
           {edits.incompatible.length ? (
             <HelperText status="warning" size="sm">
-              {incompatibleNote(edits.incompatible)}
+              {incompatibleNote(edits.incompatible, i18n)}
             </HelperText>
           ) : edits.conflicts.length ? (
             <HelperText status="warning" size="sm">
-              Someone else saved changes to what you edited. Keep yours or use
-              theirs.
+              <Trans>
+                Someone else saved changes to what you edited. Keep yours or use
+                theirs.
+              </Trans>
             </HelperText>
           ) : null}
           {edits.error ? (

@@ -4,6 +4,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiCameraSlashLight, PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Modal from "@/ui/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Text from "@/ui/Text";
@@ -45,6 +46,7 @@ const ExperimentCarouselModal: FC<{
   close,
   restrictVariation = false,
 }) => {
+  const { t } = useLingui();
   const variants = getLatestPhaseVariations(experiment).filter(
     (v) =>
       v.screenshots.length > 0 &&
@@ -86,6 +88,8 @@ const ExperimentCarouselModal: FC<{
   const variant = variants.find((v) => v.id === current.variantId);
   const screenshot = variant?.screenshots[current.index];
   if (!variant || !screenshot) return null;
+  const currentNumber = position + 1;
+  const totalShots = shots.length;
 
   return (
     // Radix, so it can open above another Radix dialog; the legacy modal
@@ -110,7 +114,9 @@ const ExperimentCarouselModal: FC<{
     >
       {/* Radix labels the dialog by its title; this viewer shows none. */}
       <VisuallyHidden>
-        <Modal.Title>Screenshots</Modal.Title>
+        <Modal.Title>
+          <Trans>Screenshots</Trans>
+        </Modal.Title>
       </VisuallyHidden>
       <Flex direction="column" gap="4" height="100%" minHeight="0">
         {/* Clear of the corner close button. */}
@@ -124,7 +130,9 @@ const ExperimentCarouselModal: FC<{
           </Box>
           {shots.length > 1 ? (
             <Text color="text-mid" whiteSpace="nowrap">
-              {position + 1} of {shots.length}
+              <Trans>
+                {currentNumber} of {totalShots}
+              </Trans>
             </Text>
           ) : null}
         </Flex>
@@ -135,7 +143,7 @@ const ExperimentCarouselModal: FC<{
             {prev ? (
               <button
                 type="button"
-                aria-label="Previous screenshot"
+                aria-label={t`Previous screenshot`}
                 className={styles.nav}
                 onClick={() => setCurrent(prev)}
               >
@@ -164,7 +172,7 @@ const ExperimentCarouselModal: FC<{
             {next ? (
               <button
                 type="button"
-                aria-label="Next screenshot"
+                aria-label={t`Next screenshot`}
                 className={styles.nav}
                 onClick={() => setCurrent(next)}
               >
@@ -184,12 +192,14 @@ const ExperimentCarouselModal: FC<{
                 {v.screenshots.map((s, index) => {
                   const active =
                     v.id === current.variantId && index === current.index;
+                  const variationName = v.name;
+                  const shotNumber = index + 1;
                   return (
                     <button
                       key={s.path}
                       ref={active ? activeThumb : undefined}
                       type="button"
-                      aria-label={`${v.name}, screenshot ${index + 1}`}
+                      aria-label={t`${variationName}, screenshot ${shotNumber}`}
                       aria-current={active || undefined}
                       className={clsx(styles.thumb, active && styles.active)}
                       onClick={() => setCurrent({ variantId: v.id, index })}

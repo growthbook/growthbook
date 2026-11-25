@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -54,6 +55,17 @@ const modalOpen = () =>
   !!document.querySelector(
     '.rt-BaseDialogContent[data-state="open"], [aria-modal="true"]',
   );
+
+// A link to the schedule where it can be edited; plain text otherwise.
+function ScheduleLink({
+  onClick,
+  children,
+}: {
+  onClick: (() => void) | null;
+  children: ReactNode;
+}) {
+  return onClick ? <Link onClick={onClick}>{children}</Link> : <>{children}</>;
+}
 
 /** Starting a draft, or approving its scheduled start: the To Do, then the button. */
 export default function StartExperimentPopover({
@@ -112,6 +124,7 @@ function StartContent({
   close,
   handOff,
 }: ContentProps & { close: () => void; handOff: () => void }) {
+  const { t, i18n } = useLingui();
   const [bypassed, setBypassed] = useState(false);
   // A refusal's items need their own acknowledgment, not an earlier tick.
   useEffect(() => {
@@ -126,7 +139,7 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
-  const end = scheduledEnd(experiment.statusUpdateSchedule);
+  const end = scheduledEnd(experiment.statusUpdateSchedule, i18n);
   const [error, setError] = useState<string | null>(null);
 
   const dateLabel = gate.scheduledStartAt
@@ -140,39 +153,52 @@ function StartContent({
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
 
-  const scheduleLink = (text: string) =>
-    editSchedule ? <Link onClick={editSchedule}>{text}</Link> : text;
+  const actionLabel = gate.actions.label;
 
   return (
     <Flex direction="column" gap="4">
       <Heading as="h4" size="sm" mb="0">
-        {getStartTitle(experiment, new Date(), true)}
+        {getStartTitle(experiment, new Date(), i18n, true)}
       </Heading>
 
       <StartFailures failures={start.pendingDraftFailures} />
       <StartChecklistFailures items={start.checklistFailures} />
       {pastSchedule ? (
         <Callout status="warning" size="sm">
-          The scheduled start date{" "}
-          <Text size="sm" weight="semibold">
-            {dateLabel}
-          </Text>{" "}
-          has passed.{" "}
+          <Trans>
+            The scheduled start date{" "}
+            <Text size="sm" weight="semibold">
+              {dateLabel}
+            </Text>{" "}
+            has passed.
+          </Trans>{" "}
           {gate.checklistLoading || gate.upgrade ? (
-            <>{scheduleLink("Update the schedule")}.</>
+            <Trans>
+              <ScheduleLink onClick={editSchedule}>
+                Update the schedule
+              </ScheduleLink>
+              .
+            </Trans>
           ) : gate.actions.hardBlocked ? (
-            <>
-              Resolve the items below, or {scheduleLink("update the schedule")}.
-            </>
+            <Trans>
+              Resolve the items below, or{" "}
+              <ScheduleLink onClick={editSchedule}>
+                update the schedule
+              </ScheduleLink>
+              .
+            </Trans>
           ) : (
-            <>
+            <Trans>
               Click{" "}
               <Text size="sm" weight="semibold">
-                {gate.actions.label}
+                {actionLabel}
               </Text>{" "}
               to start the experiment immediately, or{" "}
-              {scheduleLink("update the schedule")}.
-            </>
+              <ScheduleLink onClick={editSchedule}>
+                update the schedule
+              </ScheduleLink>
+              .
+            </Trans>
           )}
         </Callout>
       ) : null}
@@ -180,7 +206,7 @@ function StartContent({
 
       <SummaryGrid>
         <SummaryRow
-          label="Start"
+          label={t`Start`}
           action={
             editSchedule ? (
               <Link
@@ -189,15 +215,15 @@ function StartContent({
                 style={{ whiteSpace: "nowrap" }}
               >
                 {hasStatusSchedule(experiment)
-                  ? "Edit schedule"
-                  : "Add schedule"}
+                  ? t`Edit schedule`
+                  : t`Add schedule`}
               </Link>
             ) : null
           }
         >
-          {dateLabel ?? "Immediately"}
+          {dateLabel ?? t`Immediately`}
         </SummaryRow>
-        {end ? <SummaryRow label="Ends">{end}</SummaryRow> : null}
+        {end ? <SummaryRow label={t`Ends`}>{end}</SummaryRow> : null}
       </SummaryGrid>
 
       {showTodo ? (

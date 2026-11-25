@@ -11,6 +11,7 @@ import {
 } from "shared/types/stats";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill, PiCheck } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getSnapshotAnalysis } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
@@ -37,14 +38,28 @@ function getChangeTooltip(
   pValueCorrection: PValueCorrection | null,
   pValueThreshold: number,
 ) {
-  let changeText =
-    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
+  let changeText: React.ReactNode = (
+    <Trans>
+      The uplift comparing the variation to the baseline, in percent change from
+      the baseline value.
+    </Trans>
+  );
   if (differenceType === "absolute") {
-    changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline. Differences in proportion metrics are shown in percentage points (pp).";
+    changeText = (
+      <Trans>
+        The absolute difference between the average values in the variation and
+        the baseline. For non-ratio metrics, this is average difference between
+        users in the variation and the baseline. Differences in proportion
+        metrics are shown in percentage points (pp).
+      </Trans>
+    );
   } else if (differenceType === "scaled") {
-    changeText =
-      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
+    changeText = (
+      <Trans>
+        The total change in the metric per day if 100% of traffic were to have
+        gone to the variation.
+      </Trans>
+    );
   }
 
   const changeElem = (
@@ -58,35 +73,41 @@ function getChangeTooltip(
   let intervalText: React.ReactNode = null;
   if (statsEngine === "bayesian") {
     intervalText = (
-      <>
+      <Trans>
         The interval is a 95% credible interval. The true value is more likely
         to be in the thicker parts of the graph.
-      </>
+      </Trans>
     );
   }
   if (statsEngine === "frequentist") {
     const confidencePct = percentFormatter.format(1 - pValueThreshold);
     intervalText = (
       <>
-        The interval is a {confidencePct} confidence interval. If you re-ran the
-        experiment 100 times, the true value would be in this range{" "}
-        {confidencePct} of the time.
+        <Trans>
+          The interval is a {confidencePct} confidence interval. If you re-ran
+          the experiment 100 times, the true value would be in this range{" "}
+          {confidencePct} of the time.
+        </Trans>
         {sequentialTestingEnabled && (
           <p className="mt-2 mb-0">
-            Because sequential testing is enabled, these confidence intervals
-            are valid no matter how many times you analyze (or peek at) this
-            experiment as it runs.
+            <Trans>
+              Because sequential testing is enabled, these confidence intervals
+              are valid no matter how many times you analyze (or peek at) this
+              experiment as it runs.
+            </Trans>
           </p>
         )}
         {pValueCorrection && (
           <p className="mt-2 mb-0">
-            Because your organization has multiple comparisons corrections
-            enabled, these confidence intervals have been inflated so that they
-            match the adjusted pseudo-p-value. Because confidence intervals do
-            not generally exist for all adjusted p-values, we use a method that
-            recreates the confidence intervals that would have produced these
-            pseudo-p-values. For adjusted pseudo-p-values that are 1.0, the
-            confidence intervals are infinite.
+            <Trans>
+              Because your organization has multiple comparisons corrections
+              enabled, these confidence intervals have been inflated so that
+              they match the adjusted pseudo-p-value. Because confidence
+              intervals do not generally exist for all adjusted p-values, we use
+              a method that recreates the confidence intervals that would have
+              produced these pseudo-p-values. For adjusted pseudo-p-values that
+              are 1.0, the confidence intervals are infinite.
+            </Trans>
           </p>
         )}
       </>
@@ -98,7 +119,10 @@ function getChangeTooltip(
       {changeElem}
       {intervalText && (
         <p className="mt-3">
-          <b>Graph</b> - {intervalText}
+          <b>
+            <Trans>Graph</Trans>
+          </b>{" "}
+          - {intervalText}
         </p>
       )}
     </>
@@ -136,6 +160,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
   setAnalysisSettings,
   mutate,
 }: DifferenceTypeChooserChangeColumnLabelProps) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
@@ -144,9 +169,9 @@ export default function DifferenceTypeChooserChangeColumnLabel({
     useState<DifferenceType>(differenceType);
 
   const differenceTypeMap = new Map<DifferenceType, string>([
-    ["relative", "Relative"],
-    ["absolute", "Absolute"],
-    ["scaled", "Scaled"],
+    ["relative", t`Relative`],
+    ["absolute", t`Absolute`],
+    ["scaled", t`Scaled`],
   ]);
 
   useEffect(() => {
@@ -258,7 +283,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
           textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
-          Difference Type
+          <Trans>Difference Type</Trans>
         </DropdownMenuLabel>
         {[...differenceTypeMap.keys()].map((dt) => (
           <DropdownMenuItem

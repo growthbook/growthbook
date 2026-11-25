@@ -63,7 +63,7 @@ export default function AnalysisResultSummary({
   pValueThreshold,
   ssrPolyfills,
 }: AnalysisResultSummaryProps) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
@@ -83,7 +83,7 @@ export default function AnalysisResultSummary({
     currency: displayCurrency,
     ...(differenceType === "relative" ? { maximumFractionDigits: 2 } : {}),
   };
-  const effectLabel = getEffectLabel(differenceType);
+  const effectLabel = getEffectLabel(differenceType, i18n);
 
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip content={t`Metric is inverse, lower is better`}>

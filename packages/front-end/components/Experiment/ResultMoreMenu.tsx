@@ -1,4 +1,5 @@
 import { Fragment, ReactElement, useState, useCallback, useMemo } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Queries } from "shared/types/query";
 import {
@@ -112,7 +113,7 @@ export default function ResultMoreMenu({
   legacyQueryError,
   onAddToDashboard,
   canEditMetrics,
-  editMetricsLabel = "Add / remove metrics",
+  editMetricsLabel,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -136,6 +137,9 @@ export default function ResultMoreMenu({
   canEditMetrics?: boolean;
   editMetricsLabel?: string;
 }) {
+  const { t } = useLingui();
+  const editMetricsText =
+    editMetricsLabel === undefined ? t`Add / remove metrics` : editMetricsLabel;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { mutateDefinitions } = useDefinitions();
@@ -180,10 +184,10 @@ export default function ResultMoreMenu({
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
   const rerunAllQueriesText = runsIncrementalRefresh
-    ? "Full refresh"
+    ? t`Full refresh`
     : !hasData
-      ? "Force update"
-      : "Re-run all queries";
+      ? t`Force update`
+      : t`Re-run all queries`;
 
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
@@ -371,7 +375,7 @@ export default function ResultMoreMenu({
       items: [
         queryStrings.length > 0 ? (
           <DropdownMenuItem key="view-queries" onClick={handleViewQueries}>
-            View queries
+            <Trans>View queries</Trans>
             <Badge
               variant="soft"
               radius="full"
@@ -397,8 +401,8 @@ export default function ResultMoreMenu({
             confirmation={
               runsIncrementalRefresh
                 ? {
-                    confirmationTitle: "Full Refresh",
-                    cta: "I understand",
+                    confirmationTitle: t`Full Refresh`,
+                    cta: t`I understand`,
                     submit: async () => {
                       if (forceRefresh) {
                         await forceRefresh();
@@ -406,14 +410,14 @@ export default function ResultMoreMenu({
                       }
                     },
                     getConfirmationContent: async () => (
-                      <>
+                      <Trans>
                         This experiment has Pipeline Mode enabled.
                         <br />
                         <br />
                         Fully refreshing the experiment will re-scan the data
                         source from the beginning of the experiment, instead of
                         scanning only new data.
-                      </>
+                      </Trans>
                     ),
                   }
                 : undefined
@@ -434,7 +438,7 @@ export default function ResultMoreMenu({
             key="reenable-incremental-refresh"
             onClick={handleReenableIncrementalRefresh}
           >
-            Re-enable incremental refresh
+            <Trans>Re-enable incremental refresh</Trans>
           </DropdownMenuItem>
         ) : null,
       ],
@@ -450,7 +454,7 @@ export default function ResultMoreMenu({
               setDropdownOpen(false);
             }}
           >
-            {editMetricsLabel}
+            {editMetricsText}
           </DropdownMenuItem>
         ) : null,
       ],
@@ -469,7 +473,7 @@ export default function ResultMoreMenu({
               setDropdownOpen(false);
             }}
           >
-            Add to Dashboard...
+            <Trans>Add to Dashboard...</Trans>
           </DropdownMenuItem>
         ) : null,
         canDownloadJupyterNotebook ? (
@@ -477,12 +481,12 @@ export default function ResultMoreMenu({
             key="download-notebook"
             onClick={handleDownloadNotebook}
           >
-            Download notebook
+            <Trans>Download notebook</Trans>
           </DropdownMenuItem>
         ) : null,
         results ? (
           <DropdownMenuItem key="export-csv" onClick={handleDownloadCSV}>
-            Export CSV
+            <Trans>Export CSV</Trans>
           </DropdownMenuItem>
         ) : null,
       ],
@@ -506,7 +510,7 @@ export default function ResultMoreMenu({
             radius="full"
             size="3"
             highContrast
-            aria-label="More results actions"
+            aria-label={t`More results actions`}
           >
             <BsThreeDotsVertical size={18} />
           </IconButton>

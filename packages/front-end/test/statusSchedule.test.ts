@@ -1,11 +1,20 @@
+import { setupI18n } from "@lingui/core";
+import { messages } from "@/locales/en/messages.po";
 import {
   allDates,
   hasStatusSchedule,
   headerDates,
   headerDetails,
   runLength,
+  LabeledDate,
   scheduleTimes,
 } from "@/components/Experiment/TabbedPage/statusSchedule";
+
+const i18n = setupI18n({ locale: "en", messages: { en: messages } });
+
+// What the dates show; their keys are for code.
+const shown = (dates: LabeledDate[]) =>
+  dates.map(({ label, value }) => ({ label, value }));
 
 const stopPlan = { enabled: true };
 
@@ -103,7 +112,7 @@ describe("scheduleTimes", () => {
       },
     ],
   ])("%j", (experiment, expected) => {
-    expect(scheduleTimes(experiment)).toEqual(expected);
+    expect(scheduleTimes(experiment, i18n)).toEqual(expected);
   });
 });
 
@@ -125,7 +134,7 @@ describe("runLength", () => {
     ["2026-10-26T12:00:00Z", "1 day"],
     ["2026-10-20T12:00:00Z", "7 days"],
   ])("from %s", (start, expected) => {
-    expect(runLength(start, "2026-10-27T12:00:00Z")).toBe(expected);
+    expect(runLength(start, "2026-10-27T12:00:00Z", i18n)).toBe(expected);
   });
 });
 
@@ -193,7 +202,7 @@ describe("headerDates", () => {
       [{ label: "Started", value: "Dec 1, 2025" }],
     ],
   ])("%s", (_, experiment, expected) => {
-    expect(headerDates(experiment, now)).toEqual(expected);
+    expect(shown(headerDates(experiment, now, i18n))).toEqual(expected);
   });
 });
 
@@ -308,7 +317,7 @@ describe("allDates", () => {
       ],
     ],
   ])("%s", (_, experiment, expected) => {
-    expect(allDates(experiment, now)).toEqual(expected);
+    expect(shown(allDates(experiment, now, i18n))).toEqual(expected);
   });
 });
 
@@ -400,6 +409,7 @@ describe("headerDetails", () => {
       },
     ],
   ])("%s", (_, experiment, expected) => {
-    expect(headerDetails(experiment, now)).toEqual(expected);
+    const { runtime, dates } = headerDetails(experiment, now, i18n);
+    expect({ runtime, dates: shown(dates) }).toEqual(expected);
   });
 });

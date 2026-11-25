@@ -2,6 +2,7 @@ import { PiX } from "react-icons/pi";
 import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import FieldIndicator, { FieldIndicatorCorner } from "@/ui/FieldIndicator";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -18,6 +19,7 @@ const EditDOMMutationsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ owner, close, visualChange, onSave }) => {
+  const { t } = useLingui();
   const [newVisualChange, setNewVisualChange] =
     useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
@@ -98,16 +100,18 @@ const EditDOMMutationsModal: FC<{
           insertBeforeSelector?: string;
          */
         if (mutations.selector === undefined) {
-          throw new Error("selector key is required");
+          throw new Error(t`selector key is required`);
         }
         if (mutations.attribute === undefined) {
-          throw new Error("attribute key is required");
+          throw new Error(t`attribute key is required`);
         }
         if (mutations.action === undefined) {
-          throw new Error("action key is required");
+          throw new Error(t`action key is required`);
         }
         if (!["append", "set", "remove"].includes(mutations.action)) {
-          throw new Error("action must be one of 'append', 'set', or 'remove'");
+          throw new Error(
+            t`action must be one of 'append', 'set', or 'remove'`,
+          );
         }
         // check to make sure the object has no non-defined keys
         if (Object.keys(mutations).length > 3) {
@@ -122,7 +126,7 @@ const EditDOMMutationsModal: FC<{
                 "insertBeforeSelector",
               ].includes(key)
             ) {
-              throw new Error(`Invalid key: ${key}`);
+              throw new Error(t`Invalid key: ${key}`);
             }
           });
         }
@@ -135,7 +139,7 @@ const EditDOMMutationsModal: FC<{
         return false;
       }
     },
-    [setDOMMutation, setDOMMutationErrors],
+    [setDOMMutation, setDOMMutationErrors, t],
   );
 
   const checkValidDOMMutations = useCallback(() => {
@@ -159,9 +163,9 @@ const EditDOMMutationsModal: FC<{
                   <Box flexBasis="50%">
                     <Field
                       size="legacy"
-                      label="Selector"
+                      label={t`Selector`}
                       labelClassName="mb-1"
-                      helpText="CSS selector for the element to modify"
+                      helpText={t`CSS selector for the element to modify`}
                       value={domChanges?.selector || ""}
                       onChange={(e) => {
                         const newMutation = {
@@ -175,12 +179,12 @@ const EditDOMMutationsModal: FC<{
                   <Box flexBasis="25%">
                     <SelectField
                       size="legacy"
-                      label="Action"
+                      label={t`Action`}
                       labelClassName="mb-1"
                       options={[
-                        { value: "append", label: "Append" },
-                        { value: "set", label: "Set" },
-                        { value: "remove", label: "Remove" },
+                        { value: "append", label: t`Append` },
+                        { value: "set", label: t`Set` },
+                        { value: "remove", label: t`Remove` },
                       ]}
                       value={domChanges?.action}
                       onChange={(val: "append" | "set" | "remove") => {
@@ -195,13 +199,15 @@ const EditDOMMutationsModal: FC<{
                   <Box flexBasis="25%">
                     <Field
                       size="legacy"
-                      label="Attribute"
+                      label={t`Attribute`}
                       labelClassName="mb-1"
                       value={domChanges?.attribute}
                       helpText={
                         <>
-                          DOM attribute to modify{" "}
-                          <Tooltip body="Use 'html' to set the contents of this DOM element" />
+                          <Trans>DOM attribute to modify</Trans>{" "}
+                          <Tooltip
+                            body={t`Use 'html' to set the contents of this DOM element`}
+                          />
                         </>
                       }
                       onChange={(e) => {
@@ -216,7 +222,7 @@ const EditDOMMutationsModal: FC<{
                 </Flex>
                 <Field
                   size="legacy"
-                  label="Value"
+                  label={t`Value`}
                   labelClassName="mb-1"
                   textarea
                   value={domChanges?.value}
@@ -239,9 +245,11 @@ const EditDOMMutationsModal: FC<{
                   >
                     {useAdvanced ||
                     domChanges?.insertBeforeSelector ||
-                    domChanges?.parentSelector
-                      ? "Hide advanced"
-                      : "Show advanced"}
+                    domChanges?.parentSelector ? (
+                      <Trans>Hide advanced</Trans>
+                    ) : (
+                      <Trans>Show advanced</Trans>
+                    )}
                   </a>
                 </Flex>
                 {(useAdvanced ||
@@ -251,7 +259,7 @@ const EditDOMMutationsModal: FC<{
                     <Box flexBasis="50%">
                       <Field
                         size="legacy"
-                        label="Insert Before Selector"
+                        label={t`Insert Before Selector`}
                         labelClassName="mb-1"
                         value={domChanges?.insertBeforeSelector || ""}
                         onChange={(e) => {
@@ -275,7 +283,7 @@ const EditDOMMutationsModal: FC<{
                     <Box flexBasis="50%">
                       <Field
                         size="legacy"
-                        label="Parent Selector"
+                        label={t`Parent Selector`}
                         labelClassName="mb-1"
                         value={domChanges?.parentSelector || ""}
                         onChange={(e) => {
@@ -306,7 +314,7 @@ const EditDOMMutationsModal: FC<{
                   deleteDOMMutation(i);
                 }}
               >
-                Delete
+                <Trans>Delete</Trans>
               </Button>
             </Flex>
 
@@ -320,13 +328,17 @@ const EditDOMMutationsModal: FC<{
       } catch (e) {
         return (
           <div className="text-danger">
-            <small>Invalid JSON</small>
+            <small>
+              <Trans>Invalid JSON</Trans>
+            </small>
           </div>
         );
       }
     },
-    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced],
+    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced, t],
   );
+
+  const ownerNoun = owner.noun;
 
   const onSubmit = () => {
     // make sure all DOM mutations are valid
@@ -342,26 +354,30 @@ const EditDOMMutationsModal: FC<{
       open
       close={close}
       size="lg"
-      header="Edit Visual Changes"
+      header={t`Edit Visual Changes`}
       submit={onSubmit}
-      cta="Apply"
+      cta={t`Apply`}
       ctaEnabled={!newDOMMutationErrors.some((e) => e)}
       disabledMessage={
         newDOMMutationErrors.some((e) => e)
-          ? "Please fix the errors with DOM mutators"
+          ? t`Please fix the errors with DOM mutators`
           : ""
       }
     >
       <div>
         {owner.status === "running" && (
           <Callout status="warning">
-            <strong>Warning:</strong> This {owner.noun} is currently running.
-            Any changes made here may introduce unpredictable effects in your{" "}
-            {owner.noun} results.
+            <Trans>
+              <strong>Warning:</strong> This {ownerNoun} is currently running.
+              Any changes made here may introduce unpredictable effects in your{" "}
+              {ownerNoun} results.
+            </Trans>
           </Callout>
         )}
         <div className="mb-4">
-          <h4>Global CSS</h4>
+          <h4>
+            <Trans>Global CSS</Trans>
+          </h4>
           <div className="gb-field-indicator-host">
             <Field
               size="legacy"
@@ -377,7 +393,11 @@ const EditDOMMutationsModal: FC<{
             />
             {newVisualChange.css ? (
               <FieldIndicatorCorner>
-                <FieldIndicator label="Clear" onClick={deleteGlobalCSS} reveal>
+                <FieldIndicator
+                  label={t`Clear`}
+                  onClick={deleteGlobalCSS}
+                  reveal
+                >
                   <PiX />
                 </FieldIndicator>
               </FieldIndicatorCorner>
@@ -386,7 +406,9 @@ const EditDOMMutationsModal: FC<{
         </div>
 
         <div className="mb-4">
-          <h4>Custom JS</h4>
+          <h4>
+            <Trans>Custom JS</Trans>
+          </h4>
           <div className="gb-field-indicator-host">
             <Field
               size="legacy"
@@ -402,7 +424,11 @@ const EditDOMMutationsModal: FC<{
             />
             {newVisualChange.js ? (
               <FieldIndicatorCorner>
-                <FieldIndicator label="Clear" onClick={deleteCustomJS} reveal>
+                <FieldIndicator
+                  label={t`Clear`}
+                  onClick={deleteCustomJS}
+                  reveal
+                >
                   <PiX />
                 </FieldIndicator>
               </FieldIndicatorCorner>
@@ -411,7 +437,9 @@ const EditDOMMutationsModal: FC<{
         </div>
 
         <div className="mb-4">
-          <h4>DOM Mutations</h4>
+          <h4>
+            <Trans>DOM Mutations</Trans>
+          </h4>
           <Box>
             <Box>
               {newVisualChange?.domMutations.length ? (
@@ -419,7 +447,9 @@ const EditDOMMutationsModal: FC<{
                   <Box key={i}>{editableDomEditFields(i, dm)}</Box>
                 ))
               ) : (
-                <div className="text-muted">No DOM mutations</div>
+                <div className="text-muted">
+                  <Trans>No DOM mutations</Trans>
+                </div>
               )}
             </Box>
             <Button
@@ -428,7 +458,7 @@ const EditDOMMutationsModal: FC<{
                 addDOMMutation({ selector: "", action: "set", attribute: "" });
               }}
             >
-              Add DOM Mutation
+              <Trans>Add DOM Mutation</Trans>
             </Button>
           </Box>
         </div>

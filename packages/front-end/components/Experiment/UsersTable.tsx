@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import {
   ExperimentReportResultDimension,
@@ -22,6 +23,7 @@ const UsersTable: FC<{
   settings: OrganizationSettings;
   dimensionValuesFilter?: string[];
 }> = ({ results, variations, dimension, settings, dimensionValuesFilter }) => {
+  const { t } = useLingui();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const hasSrm = (results || []).find((row) => row.srm < srmThreshold);
@@ -30,9 +32,11 @@ const UsersTable: FC<{
     <div className="mt-1 overflow-auto">
       {hasSrm && (
         <Callout status="error">
-          One or more dimensions has a Sample Ratio Mismatch (SRM){" "}
+          <Trans>
+            One or more dimensions has a Sample Ratio Mismatch (SRM)
+          </Trans>{" "}
           <Tooltip
-            body={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
+            body={t`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
           >
             <FaQuestionCircle />
           </Tooltip>
@@ -49,11 +53,11 @@ const UsersTable: FC<{
               className="border-0 p-0 text-center"
               colSpan={variations.length || 0}
             >
-              Actual Units
+              <Trans>Actual Units</Trans>
               <hr className="mx-2 my-1" />
             </th>
             <th className="border-0 p-0 text-center" colSpan={2}>
-              Traffic Split
+              <Trans>Traffic Split</Trans>
               <hr className="mx-2 my-1" />
             </th>
           </tr>
@@ -71,13 +75,13 @@ const UsersTable: FC<{
               </th>
             ))}
             <th className="border-top-0 pt-1" style={{ minWidth: 150 }}>
-              Actual
+              <Trans>Actual</Trans>
             </th>
             <th className="border-top-0 pt-1" style={{ minWidth: 150 }}>
-              Expected
+              <Trans>Expected</Trans>
             </th>
             <th className="border-top-0 pt-1" style={{ minWidth: 120 }}>
-              SRM P-Value
+              <Trans>SRM P-Value</Trans>
             </th>
           </tr>
         </thead>
@@ -86,7 +90,13 @@ const UsersTable: FC<{
             if (!includeVariation(r, dimensionValuesFilter)) return null;
             return (
               <tr key={i}>
-                <td className="border-right">{r.name || <em>unknown</em>}</td>
+                <td className="border-right">
+                  {r.name || (
+                    <em>
+                      <Trans>unknown</Trans>
+                    </em>
+                  )}
+                </td>
                 {variations.map((v, i) => (
                   <td key={i} className="pl-4">
                     {numberFormatter.format(r.variations[i]?.users || 0)}

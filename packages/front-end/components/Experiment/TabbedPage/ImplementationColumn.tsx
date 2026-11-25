@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ReactNode } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { DropdownMenu, MoreMenuTrigger } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import HelperText, { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
@@ -241,7 +242,7 @@ export function StagedNote({
       </Box>
       <Box flexShrink="0">
         <Button variant="outline" size="sm" onClick={onUndo}>
-          Undo
+          <Trans>Undo</Trans>
         </Button>
       </Box>
     </Flex>

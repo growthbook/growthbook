@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useLingui } from "@lingui/react/macro";
 import { config, MetricParams, PartialMetricParams } from "shared/power";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
@@ -65,6 +66,7 @@ export const InputField = ({
   disabled?: boolean;
   className?: string;
 }) => {
+  const { t } = useLingui();
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = isNaN(params[entry]) ? undefined : params[entry];
@@ -91,10 +93,10 @@ export const InputField = ({
         : c.maxValue;
 
     if (min !== undefined && max !== undefined)
-      return `Must be greater than ${min} and less than ${max}`;
-    if (min !== undefined) return `Must be greater than ${min}`;
-    if (max !== undefined) return `Must be less than ${max}`;
-    return "Must be a number";
+      return t`Must be greater than ${min} and less than ${max}`;
+    if (min !== undefined) return t`Must be greater than ${min}`;
+    if (max !== undefined) return t`Must be less than ${max}`;
+    return t`Must be a number`;
   })();
 
   const commonOptions = {
@@ -163,6 +165,7 @@ export const MetricParamsInput = ({
   engineType: "bayesian" | "frequentist";
   disableValue: boolean;
 }) => {
+  const { t } = useLingui();
   const metrics = form.watch("metrics");
 
   const { name, ...params } = sortParams(ensureAndReturn(metrics[metricId]));
@@ -204,7 +207,7 @@ export const MetricParamsInput = ({
             <div className="col-auto">
               <Checkbox
                 id={`input-value-${metricId}-overrideMetricLevelSettings`}
-                label="Override metric-level settings"
+                label={t`Override metric-level settings`}
                 value={params.overrideMetricLevelSettings ?? false}
                 setValue={() =>
                   form.setValue(

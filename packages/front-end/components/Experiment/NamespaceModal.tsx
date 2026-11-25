@@ -3,6 +3,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { Namespaces } from "shared/types/organization";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -35,7 +36,9 @@ function MultiRangeNamespaceModal({
     experiments: number;
   } | null;
 }) {
+  const { t } = useLingui();
   const existingNamespace = existing?.namespace;
+  const existingNamespaceName = existingNamespace?.name;
   const hasExperiments = (existing?.experiments ?? 0) > 0;
   const settings = useOrgSettings();
   const attributes = useMemo(
@@ -108,8 +111,8 @@ function MultiRangeNamespaceModal({
       open={true}
       close={close}
       size="md"
-      cta={existing ? "Update" : "Create"}
-      header={existing ? "Edit Namespace" : "Create Namespace"}
+      cta={existing ? t`Update` : t`Create`}
+      header={existing ? t`Edit Namespace` : t`Create Namespace`}
       submit={validatedSubmit(form, async (value) => {
         const isMultiRange = !useLegacyFormat && !!value.hashAttribute;
         const body = {
@@ -139,21 +142,23 @@ function MultiRangeNamespaceModal({
     >
       <Field
         size="legacy"
-        label="Name"
+        label={t`Name`}
         maxLength={60}
         required
         {...form.register("label")}
       />
       {existingNamespace && (
         <Text color="text-mid" size="sm" as="p" mb="5" mt="-1">
-          ID: <strong>{existingNamespace.name}</strong>
-          <br />
-          Used as the namespace hash seed and cannot be changed.
+          <Trans>
+            ID: <strong>{existingNamespaceName}</strong>
+            <br />
+            Used as the namespace hash seed and cannot be changed.
+          </Trans>
         </Text>
       )}
       <Field
         size="legacy"
-        label="Description"
+        label={t`Description`}
         textarea
         {...form.register("description")}
       />
@@ -161,8 +166,8 @@ function MultiRangeNamespaceModal({
       {isNewNamespace && (
         <>
           <Checkbox
-            label="Use legacy format"
-            description="For SDKs that don't support multi-range namespaces"
+            label={t`Use legacy format`}
+            description={t`For SDKs that don't support multi-range namespaces`}
             value={useLegacyFormat}
             setValue={setUseLegacyFormat}
             mb="3"
@@ -170,8 +175,8 @@ function MultiRangeNamespaceModal({
           <SDKCapabilityWarning
             as={useLegacyFormat ? "helperText" : "callout"}
             capability="namespacesV2"
-            someMessage="Some of your SDK Connections may not support multi-range namespaces."
-            noneMessage="None of your SDK Connections support multi-range namespaces."
+            someMessage={t`Some of your SDK Connections may not support multi-range namespaces.`}
+            noneMessage={t`None of your SDK Connections support multi-range namespaces.`}
             mb="3"
           />
         </>
@@ -180,10 +185,10 @@ function MultiRangeNamespaceModal({
       {!useLegacyFormat && (
         <Box mt="4">
           <Text as="label" weight="semibold" mb="1">
-            Hash Attribute
+            <Trans>Hash Attribute</Trans>
           </Text>
           <Text as="div" color="text-mid" mb="2">
-            The user attribute used for namespace allocation.
+            <Trans>The user attribute used for namespace allocation.</Trans>
           </Text>
           <SelectField
             size="legacy"
@@ -197,7 +202,9 @@ function MultiRangeNamespaceModal({
           />
           {hasExperiments && (
             <HelperText status="info" mt="1">
-              Cannot be changed while experiments are using this namespace.
+              <Trans>
+                Cannot be changed while experiments are using this namespace.
+              </Trans>
             </HelperText>
           )}
         </Box>
@@ -218,7 +225,9 @@ function LegacyNamespaceModal({
     experiments: number;
   };
 }) {
+  const { t } = useLingui();
   const existingNamespace = existing.namespace;
+  const existingNamespaceName = existingNamespace.name;
 
   const form = useForm<Omit<NamespaceFormValue, "hashAttribute">>({
     defaultValues: {
@@ -235,8 +244,8 @@ function LegacyNamespaceModal({
       open={true}
       close={close}
       size="md"
-      cta="Update"
-      header="Edit Legacy Namespace"
+      cta={t`Update`}
+      header={t`Edit Legacy Namespace`}
       submit={validatedSubmit(form, async (value) => {
         const body = {
           ...value,
@@ -256,24 +265,28 @@ function LegacyNamespaceModal({
       })}
     >
       <Callout status="info" mb="3">
-        This is a legacy namespace. To use the new multi-range features, create
-        a new namespace.
+        <Trans>
+          This is a legacy namespace. To use the new multi-range features,
+          create a new namespace.
+        </Trans>
       </Callout>
       <Field
         size="legacy"
-        label="Name"
+        label={t`Name`}
         maxLength={60}
         required
         {...form.register("label")}
       />
       <Text color="text-mid" size="sm" as="p" mb="5" mt="-1">
-        ID: <strong>{existingNamespace.name}</strong>
-        <br />
-        Used as the namespace hash seed and cannot be changed.
+        <Trans>
+          ID: <strong>{existingNamespaceName}</strong>
+          <br />
+          Used as the namespace hash seed and cannot be changed.
+        </Trans>
       </Text>
       <Field
         size="legacy"
-        label="Description"
+        label={t`Description`}
         textarea
         {...form.register("description")}
       />

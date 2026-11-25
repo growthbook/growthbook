@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
@@ -43,6 +44,7 @@ const RefreshSnapshotButton: FC<{
   fullRefreshReasons = [],
   disabled = false,
 }) => {
+  const { t } = useLingui();
   const { getDatasourceById } = useDefinitions();
 
   const trackingProps = experimentSnapshotTrackingProps ?? {
@@ -63,7 +65,7 @@ const RefreshSnapshotButton: FC<{
       experimentSnapshotTrackingProps: trackingProps,
     });
 
-  const label = fullRefreshRequired ? "Full Refresh" : "Update";
+  const label = fullRefreshRequired ? t`Full Refresh` : t`Update`;
   const handleClick = fullRefreshRequired
     ? () => submitUpdate({ force: true, fullRefreshReasons })
     : () => submitUpdate();
@@ -73,7 +75,7 @@ const RefreshSnapshotButton: FC<{
       <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
       {loading && longResult && (
         <Text size="1" color="gray" mr="3">
-          this may take several minutes
+          <Trans>this may take several minutes</Trans>
         </Text>
       )}
       <RadixButton

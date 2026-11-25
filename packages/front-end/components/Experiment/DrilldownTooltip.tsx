@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { Text } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 
 /**
@@ -60,9 +61,11 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
       {renderTooltip(
         <div className="rt-TooltipContent">
           <Text as="p" className="rt-TooltipText" size="1">
-            Click anywhere in a row to
-            <br />
-            open the Metric Drilldown.
+            <Trans>
+              Click anywhere in a row to
+              <br />
+              open the Metric Drilldown.
+            </Trans>
           </Text>
         </div>,
       )}

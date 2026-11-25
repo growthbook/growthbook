@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -45,6 +46,7 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 };
 
 const ExperimentsPage = (): React.ReactElement => {
+  const { t } = useLingui();
   const { ready, project, projects, datasources } = useDefinitions();
   const { organization } = useUser();
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
@@ -135,7 +137,12 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [activeTab, items]);
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -151,18 +158,25 @@ const ExperimentsPage = (): React.ReactElement => {
     projects,
   );
 
+  const tabLabels: Record<string, string> = {
+    running: t`Running`,
+    drafts: t`Drafts`,
+    stopped: t`Stopped`,
+    archived: t`Archived`,
+  };
+
   const addExperimentDropdownButton = (
     <DropdownMenu
       trigger={
         <Button icon={<PiCaretDown />} iconPosition="right">
-          &nbsp;Add
+          &nbsp;<Trans>Add</Trans>
         </Button>
       }
       menuPlacement="end"
       disabled={!canAddExperiment}
     >
       <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
-        Create New Experiment
+        <Trans>Create New Experiment</Trans>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
@@ -170,11 +184,11 @@ const ExperimentsPage = (): React.ReactElement => {
         disabled={!hasNonDemoDatasource}
         tooltip={
           !hasNonDemoDatasource
-            ? "Connect a data source to import existing experiments."
+            ? t`Connect a data source to import existing experiments.`
             : undefined
         }
       >
-        Import Existing Experiment
+        <Trans>Import Existing Experiment</Trans>
       </DropdownMenuItem>
     </DropdownMenu>
   );
@@ -187,7 +201,9 @@ const ExperimentsPage = (): React.ReactElement => {
             className={`filters md-form row align-items-center${hasExperiments ? "" : " mb-3"}`}
           >
             <div className="col-auto">
-              <h1>Experiments</h1>
+              <h1>
+                <Trans>Experiments</Trans>
+              </h1>
             </div>
             <div style={{ flex: 1 }} />
             {showViewSampleButton && <ViewSampleDataButton />}
@@ -196,27 +212,27 @@ const ExperimentsPage = (): React.ReactElement => {
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments && analyzeExisting ? (
             <EmptyState
-              title="Analyze Experiment Results"
-              description="Use our powerful query and stats engine to analyze experiment results using data from your warehouse."
+              title={t`Analyze Experiment Results`}
+              description={t`Use our powerful query and stats engine to analyze experiment results using data from your warehouse.`}
               leftButton={
                 <LinkButton
                   href="https://docs.growthbook.io/app/importing-experiments"
                   variant="outline"
                   external
                 >
-                  View docs
+                  <Trans>View docs</Trans>
                 </LinkButton>
               }
               rightButton={
                 <Tooltip
-                  body="You don't have permission to import experiments in this project."
+                  body={t`You don't have permission to import experiments in this project.`}
                   shouldDisplay={!canAddExperiment}
                 >
                   <Button
                     disabled={!canAddExperiment}
                     onClick={() => setOpenImportExperimentModal(true)}
                   >
-                    Import Existing Experiment
+                    <Trans>Import Existing Experiment</Trans>
                   </Button>
                 </Tooltip>
               }
@@ -224,37 +240,39 @@ const ExperimentsPage = (): React.ReactElement => {
           ) : !hasExperiments && !analyzeExisting ? (
             <>
               <EmptyState
-                title="Create Your First Experiment"
-                description="Run unlimited tests with linked feature flags, URL redirects or the Visual Editor."
+                title={t`Create Your First Experiment`}
+                description={t`Run unlimited tests with linked feature flags, URL redirects or the Visual Editor.`}
                 leftButton={
                   <LinkButton
                     href="https://docs.growthbook.io/experiments"
                     variant="outline"
                     external
                   >
-                    View docs
+                    <Trans>View docs</Trans>
                   </LinkButton>
                 }
                 rightButton={
                   <Tooltip
-                    body="You don't have permission to create experiments in this project."
+                    body={t`You don't have permission to create experiments in this project.`}
                     shouldDisplay={!canAddExperiment}
                   >
                     <Button
                       disabled={!canAddExperiment}
                       onClick={() => setOpenNewExperimentModal(true)}
                     >
-                      Create New Experiment
+                      <Trans>Create New Experiment</Trans>
                     </Button>
                   </Tooltip>
                 }
               />
               <Callout status="info">
-                Want to analyze results of an existing experiment that you ran
-                elsewhere?{" "}
-                <Link href="/getstarted/imported-experiment-guide">
-                  Learn More
-                </Link>
+                <Trans>
+                  Want to analyze results of an existing experiment that you ran
+                  elsewhere?{" "}
+                  <Link href="/getstarted/imported-experiment-guide">
+                    Learn More
+                  </Link>
+                </Trans>
               </Callout>
             </>
           ) : (
@@ -270,7 +288,9 @@ const ExperimentsPage = (): React.ReactElement => {
                 >
                   <Box mb="3">
                     <TabsList>
-                      <TabsTrigger value="all">All Experiments</TabsTrigger>
+                      <TabsTrigger value="all">
+                        <Trans>All Experiments</Trans>
+                      </TabsTrigger>
                       {["running", "drafts", "stopped", "archived"].map(
                         (tabValue, i) => {
                           if (tabValue === "archived" && !hasArchived)
@@ -278,8 +298,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
                           return (
                             <TabsTrigger value={tabValue} key={tabValue + i}>
-                              {tabValue.slice(0, 1).toUpperCase()}
-                              {tabValue.slice(1)}
+                              {tabLabels[tabValue]}
                               {tabValue !== "archived" && (
                                 <span
                                   style={{
@@ -311,7 +330,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     <Box flexBasis="300px" flexShrink="0">
                       <Field
                         size="legacy"
-                        placeholder="Search..."
+                        placeholder={t`Search...`}
                         type="search"
                         {...searchInputProps}
                       />

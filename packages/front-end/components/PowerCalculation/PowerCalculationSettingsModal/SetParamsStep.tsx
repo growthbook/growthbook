@@ -2,6 +2,7 @@ import { IconButton } from "@radix-ui/themes";
 import { PopulationDataInterface } from "shared/types/population-data";
 import { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ensureAndReturnPowerCalculationParams,
   FullModalPowerCalculationParams,
@@ -35,6 +36,7 @@ const DataInput = ({
   engineType: "bayesian" | "frequentist";
   metricsEditable: boolean;
 }) => {
+  const { t } = useLingui();
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
 
@@ -49,11 +51,11 @@ const DataInput = ({
           label={
             <div>
               <span className="font-weight-bold mr-1">
-                Estimated Users Per Week
+                <Trans>Estimated Users Per Week</Trans>
               </span>
               <Tooltip
                 popperClassName="text-left"
-                body="Total users across all variations"
+                body={t`Total users across all variations`}
                 tipPosition="right"
               />
             </div>
@@ -66,7 +68,9 @@ const DataInput = ({
           className={isUsersPerDayInvalid ? "border border-danger" : undefined}
           helpText={
             isUsersPerDayInvalid ? (
-              <div className="text-danger">Must be greater than 0</div>
+              <div className="text-danger">
+                <Trans>Must be greater than 0</Trans>
+              </div>
             ) : undefined
           }
         />
@@ -95,11 +99,16 @@ const ResetText = ({
   metricsEditable: boolean;
   setMetricsEditable: (value: boolean) => void;
 }) => {
+  const { t } = useLingui();
   const metrics = form.getValues("metrics");
 
   if (metricsEditable) {
     return (
-      <Tooltip body="Reset to data values" usePortal={true} tipPosition="top">
+      <Tooltip
+        body={t`Reset to data values`}
+        usePortal={true}
+        tipPosition="top"
+      >
         <a
           role="button"
           className="ml-1 mb-0"
@@ -136,7 +145,7 @@ const ResetText = ({
             setMetricsEditable(false);
           }}
         >
-          Reset to data values.
+          <Trans>Reset to data values.</Trans>
         </a>
       </Tooltip>
     );
@@ -151,7 +160,7 @@ const ResetText = ({
         form.setValue("customizedMetrics", true);
       }}
     >
-      Customize values.
+      <Trans>Customize values.</Trans>
     </a>
   );
 };
@@ -163,6 +172,7 @@ const PopulationDataQueryInput = ({
   form: PowerCalculationForm;
   engineType: "bayesian" | "frequentist";
 }) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { permissionsUtil } = useUser();
   const { getDatasourceById } = useDefinitions();
@@ -214,6 +224,8 @@ const PopulationDataQueryInput = ({
 
   if (!metricValuesSourceId) return null;
 
+  const sourceName = form.watch("metricValuesData.sourceName");
+
   // TODO add url sharing and save populationId + metric
   return (
     <>
@@ -227,8 +239,10 @@ const PopulationDataQueryInput = ({
       ) : null}
       <div className="ml-2 row align-items-center">
         <div className="col-auto pl-0">
-          Compute metric values using last 8 weeks of data from{" "}
-          <strong>{form.watch("metricValuesData.sourceName")}</strong>.
+          <Trans>
+            Compute metric values using last 8 weeks of data from{" "}
+            <strong>{sourceName}</strong>.
+          </Trans>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -237,8 +251,8 @@ const PopulationDataQueryInput = ({
               icon="refresh"
               cta={
                 populationData?.status === "success"
-                  ? "Refresh Data"
-                  : "Get Data"
+                  ? t`Refresh Data`
+                  : t`Get Data`
               }
               mutate={mutate}
               model={
@@ -295,7 +309,7 @@ const PopulationDataQueryInput = ({
               }}
               disabled={!populationData?.queries?.length}
             >
-              View Queries
+              <Trans>View Queries</Trans>
             </DropdownMenuItem>
           </DropdownMenu>
         </div>
@@ -304,8 +318,10 @@ const PopulationDataQueryInput = ({
         <>
           {populationData?.status === "error" ? (
             <Callout status={"error"} mt={"2"}>
-              Queries failed. Investigate the issue, pick a different population
-              and/or metric, or enter values manually.
+              <Trans>
+                Queries failed. Investigate the issue, pick a different
+                population and/or metric, or enter values manually.
+              </Trans>
               <br />
               <ViewAsyncQueriesButton
                 queries={populationData?.queries?.map((q) => q.query) ?? []}
@@ -317,8 +333,10 @@ const PopulationDataQueryInput = ({
             </Callout>
           ) : error ? (
             <Callout status={"error"} mt={"2"}>
-              Error starting queries: Try a different population and/or metric
-              or enter values manually.
+              <Trans>
+                Error starting queries: Try a different population and/or metric
+                or enter values manually.
+              </Trans>
               <br />
               {error}
             </Callout>
@@ -335,7 +353,7 @@ const PopulationDataQueryInput = ({
         <>
           <hr />{" "}
           <div className="ml-2 mb-2">
-            Metric values below pre-filled from query data.
+            <Trans>Metric values below pre-filled from query data.</Trans>
             <ResetText
               form={form}
               metricsEditable={metricsEditable}
@@ -361,14 +379,17 @@ const ExperimentDataInput = ({
   engineType: "bayesian" | "frequentist";
 }) => {
   const error = form.watch("metricValuesData.error");
+  const sourceName = form.getValues("metricValuesData.sourceName");
 
   const [metricsEditable, setMetricsEditable] = useState<boolean>(!!error);
 
   return (
     <>
       <div className="ml-2 mb-2">
-        Metric values below pre-filled from experiment:{" "}
-        <strong>{form.getValues("metricValuesData.sourceName")}.</strong>
+        <Trans>
+          Metric values below pre-filled from experiment:{" "}
+          <strong>{sourceName}.</strong>
+        </Trans>
         <ResetText
           form={form}
           metricsEditable={metricsEditable}
@@ -377,8 +398,10 @@ const ExperimentDataInput = ({
       </div>
       {error ? (
         <Callout status={"error"} mt={"2"}>
-          Error populating data: Try a different population and/or metric or
-          enter values manually.
+          <Trans>
+            Error populating data: Try a different population and/or metric or
+            enter values manually.
+          </Trans>
           <br />
           {error}
         </Callout>
@@ -405,6 +428,7 @@ export const SetParamsStep = ({
   onSubmit: (_: FullModalPowerCalculationParams) => void;
   engineType: "bayesian" | "frequentist";
 }) => {
+  const { t } = useLingui();
   const metricValuesSource = form.watch("metricValuesData.source");
 
   let inputModal: JSX.Element | null = null;
@@ -432,13 +456,13 @@ export const SetParamsStep = ({
       }}
       open
       size="lg"
-      header="New Calculation"
+      header={t`New Calculation`}
       close={close}
       includeCloseCta={false}
-      cta="Submit"
+      cta={t`Submit`}
       secondaryCTA={
         <button className="btn btn-link" onClick={onBack}>
-          &lt; Back
+          <Trans>&lt; Back</Trans>
         </button>
       }
       tertiaryCTA={
@@ -456,7 +480,7 @@ export const SetParamsStep = ({
             )
           }
         >
-          Submit
+          <Trans>Submit</Trans>
         </button>
       }
     >

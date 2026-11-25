@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -16,6 +17,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 
 const TemplatePage: FC = () => {
+  const { t } = useLingui();
   const router = useRouter();
   const { tid } = router.query;
   const { templatesMap, templateExperimentMap } = useTemplates();
@@ -37,7 +39,11 @@ const TemplatePage: FC = () => {
   });
 
   if (!template) {
-    return <div>Template not found</div>;
+    return (
+      <div>
+        <Trans>Template not found</Trans>
+      </div>
+    );
   }
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
@@ -73,7 +79,7 @@ const TemplatePage: FC = () => {
       <PageHead
         breadcrumb={[
           {
-            display: "Templates",
+            display: t`Templates`,
             href: `/experiments/templates`,
           },
           { display: template.templateMetadata.name },
@@ -89,28 +95,36 @@ const TemplatePage: FC = () => {
                   onClick={() => setOpenTemplateModal(template)}
                   variant="outline"
                 >
-                  Edit Template
+                  <Trans>Edit Template</Trans>
                 </Button>
               )}
               {canCreate && (
                 <Button onClick={() => setOpenNewExperimentModal(true)} ml="3">
-                  Create Experiment
+                  <Trans>Create Experiment</Trans>
                 </Button>
               )}
             </div>
           </Flex>
           <Text as="p">
-            The experiments listed below are using this template. Some fields
-            may have been overridden by users and differ from the template.
+            <Trans>
+              The experiments listed below are using this template. Some fields
+              may have been overridden by users and differ from the template.
+            </Trans>
           </Text>
         </Box>
         {experiments.length ? (
           <table className="appbox table gbtable">
             <thead>
               <tr>
-                <th>Experiment Name</th>
-                <SortableTH field="status">Status</SortableTH>
-                <SortableTH field="dateCreated">Created</SortableTH>
+                <th>
+                  <Trans>Experiment Name</Trans>
+                </th>
+                <SortableTH field="status">
+                  <Trans>Status</Trans>
+                </SortableTH>
+                <SortableTH field="dateCreated">
+                  <Trans>Created</Trans>
+                </SortableTH>
               </tr>
             </thead>
             <tbody>
@@ -145,10 +159,14 @@ const TemplatePage: FC = () => {
               />
             )}
             <div className="appbox p-5 text-center">
-              <h1>Create an Experiment from this Template</h1>
+              <h1>
+                <Trans>Create an Experiment from this Template</Trans>
+              </h1>
               <Text size="3">
-                Save time configuring experiment details, and ensure consistency
-                across your team and projects.
+                <Trans>
+                  Save time configuring experiment details, and ensure
+                  consistency across your team and projects.
+                </Trans>
               </Text>
               <div className="mt-3">
                 <LinkButton
@@ -157,11 +175,11 @@ const TemplatePage: FC = () => {
                   mr="3"
                   external={true}
                 >
-                  View docs
+                  <Trans>View docs</Trans>
                 </LinkButton>
                 {canCreate ? (
                   <Button onClick={() => setOpenNewExperimentModal(true)}>
-                    Create Experiment
+                    <Trans>Create Experiment</Trans>
                   </Button>
                 ) : (
                   <Button
@@ -169,7 +187,7 @@ const TemplatePage: FC = () => {
                       setShowUpgradeModal(true);
                     }}
                   >
-                    Upgrade Plan
+                    <Trans>Upgrade Plan</Trans>
                   </Button>
                 )}
               </div>

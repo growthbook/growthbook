@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction, useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -42,10 +43,11 @@ function UploadTile({
 }: {
   upload: ReturnType<typeof useScreenshotUpload>;
 }) {
+  const { t } = useLingui();
   return (
     <Flex
       {...upload.getRootProps()}
-      aria-label="Upload image"
+      aria-label={t`Upload image`}
       onPaste={upload.onPaste}
       align="center"
       justify="center"
@@ -60,7 +62,9 @@ function UploadTile({
     >
       <input {...upload.getInputProps()} />
       <PiCameraPlusLight size={32} />
-      <span className={styles.uploadHint}>Upload image</span>
+      <span className={styles.uploadHint}>
+        <Trans>Upload image</Trans>
+      </span>
       <ScreenshotUploadOverlay
         dragging={upload.isDragActive}
         rejecting={upload.isDragReject}
@@ -79,6 +83,7 @@ function ScreenshotTile({
   onDelete: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useLingui();
   const { setNodeRef, style, isDragging, handle } = useSortableItem(
     screenshot.path,
   );
@@ -112,7 +117,7 @@ function ScreenshotTile({
       />
       {/* Always mounted so touch and keyboard users can reach it. */}
       <Box position="absolute" top="2" right="2" className={styles.deleteSlot}>
-        <Tooltip content="Remove image" side="top">
+        <Tooltip content={t`Remove image`} side="top">
           <IconButton
             type="button"
             size="2"
@@ -120,7 +125,7 @@ function ScreenshotTile({
             variant="solid"
             radius="full"
             className={styles.deleteButton}
-            aria-label="Remove image"
+            aria-label={t`Remove image`}
             // The tile itself is the drag handle, so the button has to opt out.
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -184,7 +189,9 @@ export default function VariationScreenshotManager({
 
   return (
     <Box>
-      <label style={{ fontWeight: 600 }}>Screenshots</label>
+      <label style={{ fontWeight: 600 }}>
+        <Trans>Screenshots</Trans>
+      </label>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

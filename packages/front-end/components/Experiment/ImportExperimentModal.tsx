@@ -1,6 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,6 +24,7 @@ const ImportExperimentModal: FC<{
   source,
   fromFeature = false,
 }) => {
+  const { t } = useLingui();
   const settings = useOrgSettings();
   const { datasources, project } = useDefinitions();
   const [selected, setSelected] =
@@ -67,7 +69,7 @@ const ImportExperimentModal: FC<{
         }
       } catch (e) {
         setError(
-          e.message ?? "An error occurred. Please refresh and try again.",
+          e.message ?? t`An error occurred. Please refresh and try again.`,
         );
         console.error(e);
       }
@@ -92,25 +94,29 @@ const ImportExperimentModal: FC<{
   return (
     <Modal
       trackingEventModalType="import-experiment"
-      header="Import Experiment"
+      header={t`Import Experiment`}
       open={true}
       size="max"
       close={() => onClose()}
     >
       <Callout status="info" mb="3">
-        Don&apos;t see your experiment listed below?{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
-          Create From Scratch
-        </a>
+        <Trans>
+          Don&apos;t see your experiment listed below?{" "}
+          <a
+            role="button"
+            className="link"
+            onClick={(e) => {
+              e.preventDefault();
+              setImportModal(false);
+            }}
+          >
+            Create From Scratch
+          </a>
+        </Trans>
       </Callout>
-      <h2>Import from Data source</h2>
+      <h2>
+        <Trans>Import from Data source</Trans>
+      </h2>
       {importId && (
         <ImportExperimentList
           key={importId}
@@ -128,7 +134,7 @@ const ImportExperimentModal: FC<{
           </Callout>
           <SelectField
             size="legacy"
-            label="Choose a Data Source"
+            label={t`Choose a Data Source`}
             value={datasourceId}
             onChange={(value) => setDatasourceId(value)}
             options={validDatasources.map((d) => ({

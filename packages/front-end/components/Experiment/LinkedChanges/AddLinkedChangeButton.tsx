@@ -3,6 +3,9 @@ import { PiCaretDownFill } from "react-icons/pi";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import SplitButton from "@/ui/SplitButton";
@@ -25,15 +28,15 @@ import {
   type LinkedChangeTarget,
 } from "./AddLinkedChanges";
 
-const MENU_ITEM_DESCRIPTIONS: Record<LinkedChange, string> = {
-  "feature-flag": "Make code changes in your app",
-  "visual-editor": "No-code browser extension",
-  redirects: "A/B test URL redirects",
+const MENU_ITEM_DESCRIPTIONS: Record<LinkedChange, MessageDescriptor> = {
+  "feature-flag": msg`Make code changes in your app`,
+  "visual-editor": msg`No-code browser extension`,
+  redirects: msg`A/B test URL redirects`,
 };
-const MENU_ITEM_HEADERS: Record<LinkedChange, string> = {
-  "feature-flag": "Feature Flag",
-  "visual-editor": "AI Visual Editor",
-  redirects: "URL Redirect",
+const MENU_ITEM_HEADERS: Record<LinkedChange, MessageDescriptor> = {
+  "feature-flag": msg`Feature Flag`,
+  "visual-editor": msg`AI Visual Editor`,
+  redirects: msg`URL Redirect`,
 };
 
 const LinkedChangeMenuItemContent = ({
@@ -73,8 +76,10 @@ const LinkedChangeMenuItem = ({
   target: LinkedChangeTarget;
   onClick: () => void;
 }) => {
+  const { i18n } = useLingui();
   const { radixColor, component: Icon } = ICON_PROPERTIES[type];
-  const description = MENU_ITEM_DESCRIPTIONS[type];
+  const description = i18n._(MENU_ITEM_DESCRIPTIONS[type]);
+  const header = i18n._(MENU_ITEM_HEADERS[type]);
   const { commercialFeature } = LINKED_CHANGES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -99,13 +104,13 @@ const LinkedChangeMenuItem = ({
         commercialFeature && !hasFeature ? (
           <PremiumTooltip
             commercialFeature={commercialFeature}
-            body={linkedChangePremiumCopy(target)}
+            body={linkedChangePremiumCopy(target, i18n)}
             tipPosition="left"
           >
             <LinkedChangeMenuItemContent
               icon={<Icon />}
               iconColor={radixColor as AvatarProps["color"]}
-              header={MENU_ITEM_HEADERS[type]}
+              header={header}
               description={description}
               textColor={textColor}
             />
@@ -114,21 +119,21 @@ const LinkedChangeMenuItem = ({
           <LinkedChangeMenuItemContent
             icon={<Icon />}
             iconColor={radixColor as AvatarProps["color"]}
-            header={MENU_ITEM_HEADERS[type]}
+            header={header}
             description={description}
             textColor={textColor}
           />
         )
       ) : (
         <Tooltip
-          body={linkedChangeSdkUnsupportedCopy(type, target)}
+          body={linkedChangeSdkUnsupportedCopy(type, target, i18n)}
           tipPosition="left"
           shouldDisplay={!isCTAClickable}
         >
           <LinkedChangeMenuItemContent
             icon={<Icon />}
             iconColor={radixColor as AvatarProps["color"]}
-            header={MENU_ITEM_HEADERS[type]}
+            header={header}
             description={description}
             textColor={textColor}
           />
@@ -198,6 +203,7 @@ export default function AddLinkedChangeButton({
   onUrlRedirect,
   target,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { data: sdkConnectionsData } = useSDKConnections();
   const handlers: Handlers = {
     "feature-flag": onFeatureFlag,
@@ -209,14 +215,14 @@ export default function AddLinkedChangeButton({
     "visual-editor": visualChangesets.length,
     redirects: urlRedirects.length,
   };
-  const inUse = target.types.filter((t) => counts[t] > 0);
+  const inUse = target.types.filter((type) => counts[type] > 0);
   const single = inUse.length === 1 ? inUse[0] : null;
   const singleHandler = single ? handlers[single] : undefined;
 
   if (!single || !singleHandler) {
     return (
       <LinkedChangesDropdown
-        cta="Add Implementation"
+        cta={t`Add Implementation`}
         target={target}
         handlers={handlers}
       />
@@ -230,7 +236,7 @@ export default function AddLinkedChangeButton({
   );
   const cta = (
     <Button onClick={singleHandler} disabled={!singleSupported}>
-      {LINKED_CHANGE_CONTAINER_PROPERTIES[single].addButtonCopy}
+      {i18n._(LINKED_CHANGE_CONTAINER_PROPERTIES[single].addButtonCopy)}
     </Button>
   );
 
@@ -242,7 +248,7 @@ export default function AddLinkedChangeButton({
         cta
       ) : (
         <Tooltip
-          body={linkedChangeSdkUnsupportedCopy(single, target)}
+          body={linkedChangeSdkUnsupportedCopy(single, target, i18n)}
           tipPosition="top"
         >
           {cta}

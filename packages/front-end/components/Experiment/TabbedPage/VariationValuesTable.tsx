@@ -24,6 +24,7 @@ import {
   startBypassCovers,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowSquareOut,
   PiCaretDownFill,
@@ -185,6 +186,7 @@ export default function VariationValuesTable({
   implementationColumns,
   addImplementation,
 }: Props) {
+  const { t } = useLingui();
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
   // Per flag rather than per column, so every column of one flag agrees.
@@ -291,8 +293,8 @@ export default function VariationValuesTable({
   const duplicateNote = !duplicateRows.length
     ? null
     : duplicateRows[0].length === variations.length
-      ? "Some variations serve the same set of values. This will cause the experiment to run as an A/A test."
-      : "Some variations serve the same set of values.";
+      ? t`Some variations serve the same set of values. This will cause the experiment to run as an A/A test.`
+      : t`Some variations serve the same set of values.`;
 
   if (!variations.length) return null;
 
@@ -340,14 +342,14 @@ export default function VariationValuesTable({
               style={{ gridRow: 1, gridColumn: 1 }}
             >
               <Heading as="h4" size="sm" color="text-high" mb="0">
-                Variations
+                <Trans>Variations</Trans>
               </Heading>
               {hasMenu ? (
                 <Flex ml="auto">
                   <DropdownMenu
                     trigger={
                       <MoreMenuTrigger
-                        label="Variation actions"
+                        label={t`Variation actions`}
                         className={styles.revealOnHover}
                       />
                     }
@@ -356,16 +358,16 @@ export default function VariationValuesTable({
                   >
                     {onReorder ? (
                       <DropdownMenuItem onClick={onReorder}>
-                        Reorder variations
+                        <Trans>Reorder variations</Trans>
                       </DropdownMenuItem>
                     ) : null}
                     {onEditKeys ? (
                       <DropdownMenuItem onClick={onEditKeys}>
-                        Change variation keys
+                        <Trans>Change variation keys</Trans>
                       </DropdownMenuItem>
                     ) : null}
                     {onRemoveVariation ? (
-                      <DropdownSubMenu trigger="Remove variation">
+                      <DropdownSubMenu trigger={t`Remove variation`}>
                         {variations.map((v, i) => (
                           <DropdownMenuItem
                             key={v.id}
@@ -409,7 +411,9 @@ export default function VariationValuesTable({
                       style={{ whiteSpace: "nowrap" }}
                     >
                       <PiPlus />
-                      <span className={styles.baselineText}>Add variation</span>
+                      <span className={styles.baselineText}>
+                        <Trans>Add variation</Trans>
+                      </span>
                     </Flex>
                   </Link>
                 </div>
@@ -487,6 +491,7 @@ function SplitColumn({
   onChange: ((split: number[]) => void) | null;
   note: string | null;
 }) {
+  const { t, i18n } = useLingui();
   const { variations } = layout;
   const equal = isEqualSplit(split);
   const edits = useExperimentEdits();
@@ -497,27 +502,30 @@ function SplitColumn({
         style={{ gridRow: 1, gridColumn: layout.column }}
       >
         <Text weight="medium" color="text-high">
-          Split
+          <Trans>Split</Trans>
         </Text>
       </div>
-      {variations.map((v, i) => (
-        <ColumnCell key={v.id} layout={layout} row={i}>
-          <div className={clsx(styles.fieldLine, styles.splitField)}>
-            {onChange ? (
-              <PercentField
-                value={split[i] ?? 0}
-                commitOn="blur"
-                decimals={VARIATION_WEIGHT_DECIMALS}
-                onChange={(weight) => onChange(rebalance(split, i, weight))}
-                ariaLabel={`${variationLabel(v)} split`}
-                form={edits?.formId}
-              />
-            ) : (
-              <Text>{decimalToPercent(split[i] ?? 0)}%</Text>
-            )}
-          </div>
-        </ColumnCell>
-      ))}
+      {variations.map((v, i) => {
+        const name = variationLabel(v, i18n);
+        return (
+          <ColumnCell key={v.id} layout={layout} row={i}>
+            <div className={clsx(styles.fieldLine, styles.splitField)}>
+              {onChange ? (
+                <PercentField
+                  value={split[i] ?? 0}
+                  commitOn="blur"
+                  decimals={VARIATION_WEIGHT_DECIMALS}
+                  onChange={(weight) => onChange(rebalance(split, i, weight))}
+                  ariaLabel={t`${name} split`}
+                  form={edits?.formId}
+                />
+              ) : (
+                <Text>{decimalToPercent(split[i] ?? 0)}%</Text>
+              )}
+            </div>
+          </ColumnCell>
+        );
+      })}
       {/* Not a ColumnFooter, which is never :empty, so an empty row collapses. */}
       <div
         className={clsx(styles.detailsCell, layout.last && styles.lastColumn)}
@@ -535,7 +543,7 @@ function SplitColumn({
               size="sm"
               onClick={() => onChange(getEqualWeights(variations.length))}
             >
-              Set equal
+              <Trans>Set equal</Trans>
             </Link>
           </div>
         ) : null}
@@ -567,8 +575,9 @@ function StagedUnlink({
   featureId: string;
   discard: () => void;
 }) {
+  const { t } = useLingui();
   useRegisterExperimentEdit(linkEditId(featureId), true, {
-    label: `Remove ${featureId}`,
+    label: t`Remove ${featureId}`,
     statusBound: true,
     changes: () => ({ unlinkFeatures: [featureId] }),
     discard,
@@ -605,6 +614,7 @@ function FlagColumn({
   setLinkAction: (action: LinkAction | null) => void;
   onLinkSaved: (() => void) | null;
 }) {
+  const { t, i18n } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
@@ -613,6 +623,7 @@ function FlagColumn({
   // Past a draft, a flag's values and environments edit on its own page.
   const showingLive = experiment.status !== "draft";
   const { feature } = info;
+  const flagId = feature.id;
   const valuesEditId = `flag:${feature.id}${
     group ? `:${group.ruleIds.join(",")}` : ""
   }`;
@@ -662,7 +673,7 @@ function FlagColumn({
     : feature.defaultValue;
 
   const groupEnvironments = group
-    ? group.environments.join(", ") || "no environments"
+    ? group.environments.join(", ") || t`no environments`
     : null;
   // Values staged for a draft since published or discarded stay, aimed at
   // what's open now; the save's conflict check says that draft moved.
@@ -795,7 +806,7 @@ function FlagColumn({
     if (!dryRun && Object.keys(repaired).length) {
       stage({ values: repaired });
       throw new Error(
-        `We fixed some errors in the ${feature.id} values. If they look correct, save again.`,
+        t`We fixed some errors in the ${flagId} values. If they look correct, save again.`,
       );
     }
     return checked;
@@ -813,7 +824,9 @@ function FlagColumn({
     loadedRevision,
   );
   useRegisterExperimentEdit(valuesEditId, stagesValues, {
-    label: `${feature.id} values${groupEnvironments ? ` (${groupEnvironments})` : ""}`,
+    label: groupEnvironments
+      ? t`${flagId} values (${groupEnvironments})`
+      : t`${flagId} values`,
     statusBound: true,
     rebase: rebaseRevision,
     review: () => ({
@@ -856,10 +869,10 @@ function FlagColumn({
     {
       label:
         linkAction === "keep"
-          ? `Keep ${feature.id}`
+          ? t`Keep ${flagId}`
           : added?.newFlag
-            ? `Create ${feature.id}`
-            : `Link ${feature.id}`,
+            ? t`Create ${flagId}`
+            : t`Link ${flagId}`,
       statusBound: true,
       changes: (options) =>
         linkAction === "keep"
@@ -890,7 +903,8 @@ function FlagColumn({
     },
   );
 
-  const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
+  const draftVersion = pendingDraft?.version;
+  const draftMention = pendingDraft ? t`Revision ${draftVersion}` : null;
   const canStartNew = canStartSeparateDraft(info) && canEdit;
   const canChooseTarget = !!pendingDraft && (drafts.length > 1 || canStartNew);
   const launches = experiment.status === "draft";
@@ -906,15 +920,18 @@ function FlagColumn({
   const archivedServing =
     info.state === "archived" && (experiment.status === "running" || launches);
   const problem: ColumnProblem | null = shownDraft?.hasMergeConflict
-    ? { text: "Merge conflict", status: "error" }
+    ? { text: t`Merge conflict`, status: "error" }
     : shownDraft?.rebaseRequired
-      ? { text: "Needs rebase", status: "warning" }
+      ? { text: t`Needs rebase`, status: "warning" }
       : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
-        ? { text: "Changes beyond this experiment", status: "error" }
+        ? { text: t`Changes beyond this experiment`, status: "error" }
         : orphaned
-          ? { text: "Rule missing", status: "warning" }
+          ? { text: t`Rule missing`, status: "warning" }
           : info.state === "archived"
-            ? { text: "Archived", status: archivedServing ? "warning" : "info" }
+            ? {
+                text: t`Archived`,
+                status: archivedServing ? "warning" : "info",
+              }
             : null;
   const needsApproval =
     !!shownDraft?.pendingApproval && !pendingDraftApproved(shownDraft);
@@ -945,74 +962,77 @@ function FlagColumn({
       status: "warning",
       text:
         experiment.status === "running"
-          ? "Archived, so it isn't serving. Unarchive it to serve again."
-          : "Archived, so it won't serve when the experiment starts. Unarchive it first.",
+          ? t`Archived, so it isn't serving. Unarchive it to serve again.`
+          : t`Archived, so it won't serve when the experiment starts. Unarchive it first.`,
     });
   }
   if (shownDraft?.hasMergeConflict) {
     notices.push({
       status: "error",
-      text: "Draft conflicts with live.",
-      action: draftLink("Fix conflicts"),
+      text: t`Draft conflicts with live.`,
+      action: draftLink(t`Fix conflicts`),
     });
   } else if (shownDraft?.rebaseRequired) {
     notices.push({
       status: "warning",
-      text: "Draft is behind live.",
-      action: draftLink("Review draft"),
+      text: t`Draft is behind live.`,
+      action: draftLink(t`Review draft`),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
     unrelatedChangesBlock = true;
     notices.push({
       status: "error",
-      text: "Draft has unrelated changes, which block experiment start.",
-      action: draftLink("Review draft"),
+      text: t`Draft has unrelated changes, which block experiment start.`,
+      action: draftLink(t`Review draft`),
     });
   } else if (shownDraft && !lockedBySchedule && !cannotPublishLaunch) {
+    const launchVersion = launchDraft?.version;
     draftNotes.push(
       !isLaunchDraft && launchDraft
-        ? `Only Revision ${launchDraft.version} publishes when the experiment starts. Publish ${draftMention} from the Feature Flag.`
+        ? t`Only Revision ${launchVersion} publishes when the experiment starts. Publish Revision ${draftVersion} from the Feature Flag.`
         : needsApproval
           ? approvalBypassed
-            ? `${draftMention} publishes when the experiment starts, without approval. If you edit it, it needs approval before it can publish.`
-            : `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
-          : `${draftMention} publishes when the experiment starts, or publish it from the Feature Flag.`,
+            ? t`Revision ${draftVersion} publishes when the experiment starts, without approval. If you edit it, it needs approval before it can publish.`
+            : t`Revision ${draftVersion} needs approval. Once approved, it publishes when the experiment starts.`
+          : t`Revision ${draftVersion} publishes when the experiment starts, or publish it from the Feature Flag.`,
     );
   }
   if (cannotPublishLaunch) {
     notices.push({
       status: "error",
       text: hasPendingScheduledStart(experiment)
-        ? "Whoever scheduled the start can't publish this draft. Reschedule it."
-        : "You can't publish this draft, so starting won't publish it.",
-      action: draftLink("Review draft"),
+        ? t`Whoever scheduled the start can't publish this draft. Reschedule it.`
+        : t`You can't publish this draft, so starting won't publish it.`,
+      action: draftLink(t`Review draft`),
     });
   }
   if (lockedBySchedule) {
-    draftNotes.push("Locked until its scheduled publish.");
+    draftNotes.push(t`Locked until its scheduled publish.`);
   }
   const describesShown = showsDraft
     ? info.state === "draft" && pendingDraft.version === drafts[0]?.version
     : info.state === "live";
   if (!group && onFlag && describesShown && info.inconsistentValues) {
+    const valuesFrom = info.valuesFrom;
     notices.push({
       status: "warning",
-      text: `This experiment has more than one rule here, with different values. Showing the ones from ${info.valuesFrom}.`,
+      text: t`This experiment has more than one rule here, with different values. Showing the ones from ${valuesFrom}.`,
     });
   }
   // Rules above the experiment's are among the unrelated changes that error names.
   if (onFlag && describesShown && info.rulesAbove && !unrelatedChangesBlock) {
     notices.push({
       status: "info",
-      text: "Feature Flag has rules above the experiment's rule.",
+      text: t`Feature Flag has rules above the experiment's rule.`,
     });
   }
+  const removalVersion = pendingRemoval?.version;
   if (pendingRemoval && !linkAction) {
     notices.push({
       status: "warning",
-      text: `Revision ${pendingRemoval.version} removes this experiment's rule.`,
+      text: t`Revision ${removalVersion} removes this experiment's rule.`,
       action: draftLink(
-        "Review draft",
+        t`Review draft`,
         draftReviewHref(feature.id, pendingRemoval.version),
       ),
     });
@@ -1047,20 +1067,22 @@ function FlagColumn({
         input.rule !== (live?.rule ?? "missing")
       );
     });
+  const takesEffect = draftLaunches
+    ? t`Takes effect when it's published, or when the experiment starts.`
+    : t`Takes effect when it's published.`;
+  const fromRevision = t`From Revision ${draftVersion}.`;
   const environmentsTiming = !environmentsChanged
     ? null
-    : `${showsDraft ? `From ${draftMention}. ` : ""}${
-        draftLaunches
-          ? "Takes effect when it's published, or when the experiment starts."
-          : "Takes effect when it's published."
-      }`;
+    : showsDraft
+      ? `${fromRevision} ${takesEffect}`
+      : takesEffect;
 
   const linkActionNote =
     linkAction === "keep"
-      ? `Saving puts the rule back into Revision ${pendingRemoval?.version}.`
+      ? t`Saving puts the rule back into Revision ${removalVersion}.`
       : added?.newFlag
-        ? "Saving creates the Feature Flag with the rule in a new draft, published when the experiment starts."
-        : "Saving adds the rule to a new draft, published when the experiment starts.";
+        ? t`Saving creates the Feature Flag with the rule in a new draft, published when the experiment starts.`
+        : t`Saving adds the rule to a new draft, published when the experiment starts.`;
 
   const notLive = showingLive && !info.liveHasMatchingRule;
   const noValues = (orphaned && !relinking) || notLive;
@@ -1070,11 +1092,11 @@ function FlagColumn({
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
   // Its title waits for the hover.
-  const revisionName = (showsDraft && draftMention) || "New draft";
+  const revisionName = (showsDraft && draftMention) || t`New draft`;
   const revisionStatus = showsDraft ? pendingDraft.status : "draft";
   const revisionNotes = showsDraft
     ? draftNotes
-    : ["Saving starts a new draft of this Feature Flag."];
+    : [t`Saving starts a new draft of this Feature Flag.`];
   const inReview = !!shownDraft && draftReviewState(shownDraft) !== "ready";
   const revisionDot = <StatusDot color={draftStatusDotColor(revisionStatus)} />;
   const revisionPicker =
@@ -1094,7 +1116,7 @@ function FlagColumn({
         ))}
         {canStartNew ? (
           <DropdownMenuItem onClick={() => chooseTarget("new")}>
-            New draft
+            <Trans>New draft</Trans>
           </DropdownMenuItem>
         ) : null}
       </DropdownMenu>
@@ -1111,7 +1133,9 @@ function FlagColumn({
           <Flex align="center" gap="2">
             {revisionDot}
             <Text size="sm" weight="medium">
-              {showsDraft ? revisionStatusLabel(revisionStatus) : revisionName}
+              {showsDraft
+                ? revisionStatusLabel(revisionStatus, i18n)
+                : revisionName}
             </Text>
           </Flex>
           {showsDraft && pendingDraft.title ? (
@@ -1157,7 +1181,7 @@ function FlagColumn({
         }}
       >
         <Flex align="center" gap="1">
-          Review draft
+          <Trans>Review draft</Trans>
           <PiArrowSquareOut />
         </Flex>
       </DropdownMenuItem>
@@ -1165,7 +1189,7 @@ function FlagColumn({
   const editItems = [
     canEditEnvironments ? (
       <DropdownMenuItem key="env" onClick={() => setEditEnvironments(true)}>
-        Edit environments
+        <Trans>Edit environments</Trans>
       </DropdownMenuItem>
     ) : null,
     canEditFlagLinks && !linkAction && !pendingRemoval && !orphaned ? (
@@ -1174,7 +1198,7 @@ function FlagColumn({
         color="red"
         onClick={() => stageLinkAction("remove")}
       >
-        Remove from experiment
+        <Trans>Remove from experiment</Trans>
       </DropdownMenuItem>
     ) : null,
   ].filter(Boolean);
@@ -1185,7 +1209,7 @@ function FlagColumn({
     <Flex align="center" gap="3">
       <Box flexGrow="1" minWidth="0">
         <HelperText status="warning" size="sm">
-          Feature Flag has no experiment rule.
+          <Trans>Feature Flag has no experiment rule.</Trans>
         </HelperText>
       </Box>
       {canEditFlagLinks ? (
@@ -1198,7 +1222,7 @@ function FlagColumn({
               size="sm"
               onClick={() => stageLinkAction("relink")}
             >
-              Re-link
+              <Trans>Re-link</Trans>
             </Button>
           ) : null}
           <Button
@@ -1207,7 +1231,7 @@ function FlagColumn({
             color="red"
             onClick={() => stageLinkAction("remove")}
           >
-            Remove
+            <Trans>Remove</Trans>
           </Button>
         </Flex>
       ) : null}
@@ -1314,7 +1338,7 @@ function FlagColumn({
           </HeaderKind>
         }
         menu={menuItems}
-        menuLabel={`${feature.id} actions`}
+        menuLabel={t`${flagId} actions`}
       />
 
       {noValues
@@ -1336,7 +1360,7 @@ function FlagColumn({
                   editable={editable && !showingLive}
                   onChange={(next) => stage({ values: { [v.id]: next } })}
                   onOpenEditor={() => setEditingValues(v.id)}
-                  label={variationLabel(v)}
+                  label={variationLabel(v, i18n)}
                 />
               </ColumnCell>
             );
@@ -1367,8 +1391,8 @@ function FlagColumn({
         {noValues && !orphaned ? (
           <Text size="sm" color="text-low">
             {pendingDraft
-              ? `Not on the live Feature Flag yet. ${draftMention} adds it.`
-              : "Not on the live Feature Flag yet."}
+              ? t`Not on the live Feature Flag yet. Revision ${draftVersion} adds it.`
+              : t`Not on the live Feature Flag yet.`}
           </Text>
         ) : linkAction && !showingLive ? (
           stagedLinkAction
@@ -1396,7 +1420,7 @@ function FlagColumn({
               size="sm"
               onClick={() => stageLinkAction("keep")}
             >
-              Keep in experiment
+              <Trans>Keep in experiment</Trans>
             </Button>
           </Flex>
         ) : null}

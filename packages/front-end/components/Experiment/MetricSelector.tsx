@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
@@ -68,6 +69,7 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
+  const { t, i18n } = useLingui();
   const {
     metrics,
     _metricsIncludingArchived,
@@ -90,9 +92,14 @@ const MetricSelector: FC<
     ? _factMetricsIncludingArchived.find((m) => m.id === selectedId)
     : undefined;
   const archivedReason = selectedArchivedFactMetric
-    ? getArchivedFactMetricReason(selectedArchivedFactMetric, getFactTableById)
+    ? i18n._(
+        getArchivedFactMetricReason(
+          selectedArchivedFactMetric,
+          getFactTableById,
+        ),
+      )
     : selectedArchivedMetric
-      ? ARCHIVED_METRIC_REASON
+      ? i18n._(ARCHIVED_METRIC_REASON)
       : undefined;
 
   // get data to help filter metrics to those with joinable userIdTypes to
@@ -192,7 +199,7 @@ const MetricSelector: FC<
   return (
     <SelectField
       size="legacy"
-      placeholder={placeholder ?? "Select metric..."}
+      placeholder={placeholder ?? t`Select metric...`}
       {...selectProps}
       options={filteredOptions.map((m) => {
         return {

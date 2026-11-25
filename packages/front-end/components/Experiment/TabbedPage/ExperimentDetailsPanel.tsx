@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { hasPendingScheduledStart } from "shared/util";
 import { Box, Separator } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import DetailsPanel, {
@@ -50,6 +51,7 @@ export default function ExperimentDetailsPanel({
   tab,
   setTab,
 }: Props) {
+  const { t, i18n } = useLingui();
   // Editors can't open over the page's unsaved edits; their buttons say why.
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
@@ -77,7 +79,7 @@ export default function ExperimentDetailsPanel({
     ) {
       return null;
     }
-    return pencil(SECTION_HEADERS[field], () => editSection(field));
+    return pencil(i18n._(SECTION_HEADERS[field]), () => editSection(field));
   };
   const { active: checklistActive, checklistItemsRemaining } =
     usePreLaunchChecklist();
@@ -116,7 +118,7 @@ export default function ExperimentDetailsPanel({
             </Box>
           </>
         ) : null}
-        <PanelSection title="General">
+        <PanelSection title={t`General`}>
           <ProjectTagBar
             experiment={experiment}
             holdout={holdout}
@@ -124,27 +126,30 @@ export default function ExperimentDetailsPanel({
           />
           {/* The header's dates, which a phase selector stands in for
               there. */}
-          {headerDates(experiment, new Date()).map(({ label, value }) => (
-            <Metadata
-              key={label}
-              size="sm"
-              stacked
-              label={label}
-              value={value}
-            />
-          ))}
+          {headerDates(experiment, new Date(), i18n).map(
+            ({ key, label, value }) => (
+              <Metadata
+                key={key}
+                size="sm"
+                stacked
+                label={label}
+                value={value}
+              />
+            ),
+          )}
           <CustomFieldRows
             section="experiment"
             target={experiment}
-            action={(field) =>
-              pencil(`Edit ${field.name}`, () =>
+            action={(field) => {
+              const fieldName = field.name;
+              return pencil(t`Edit ${fieldName}`, () =>
                 editSection("customFields", field.id),
-              )
-            }
+              );
+            }}
           />
         </PanelSection>
         <Separator size="4" />
-        <PanelSection title="Data">
+        <PanelSection title={t`Data`}>
           <ExperimentDataFields
             experiment={experiment}
             datasourceMissing={datasourceMissing}

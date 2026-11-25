@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { LinkedChangeEnvStates } from "shared/types/experiment";
 import {
   VisualChange,
@@ -175,6 +176,7 @@ function RuleChip({
 }: {
   rule: { include: boolean; type: "simple" | "regex"; pattern: string };
 }) {
+  const { t } = useLingui();
   const inc = rule.include;
   return (
     <span
@@ -189,7 +191,7 @@ function RuleChip({
         {rule.pattern}
       </code>
       {rule.type === "regex" && (
-        <span className={styles.regexBadge} title="Regular expression">
+        <span className={styles.regexBadge} title={t`Regular expression`}>
           .*
         </span>
       )}
@@ -210,6 +212,7 @@ function ChangeRow({
   // experiment so the row is read-only.
   onDelete?: () => Promise<void>;
 }) {
+  const { t } = useLingui();
   const [showCode, setShowCode] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Falls to true when the preview image fails to load (404, CORS-
@@ -228,6 +231,8 @@ function ChangeRow({
       ? prettyPrintCss(h.rawLines.join("\n"))
       : h.rawLines.join("\n");
   }, [showCode, h.type, h.rawLines]);
+  const changeName = `${h.verb} ${h.title}`;
+  const selectorLabel = h.selectorLabel;
 
   return (
     <Box className={styles.change} style={toneVars(h.type)}>
@@ -248,7 +253,7 @@ function ChangeRow({
           type="button"
           className={`${styles.codeToggle}${showCode ? " " + styles.codeToggleOpen : ""}`}
           onClick={() => setShowCode((s) => !s)}
-          title={showCode ? "Hide raw values" : "Show raw values"}
+          title={showCode ? t`Hide raw values` : t`Show raw values`}
           aria-pressed={showCode}
         >
           <PiCodeBold size={13} />
@@ -258,8 +263,8 @@ function ChangeRow({
             type="button"
             className={styles.deleteRowBtn}
             onClick={() => setConfirmingDelete(true)}
-            title="Delete this change"
-            aria-label="Delete this change"
+            title={t`Delete this change`}
+            aria-label={t`Delete this change`}
           >
             <PiTrashBold size={13} />
           </button>
@@ -267,17 +272,15 @@ function ChangeRow({
       </Flex>
       {confirmingDelete && onDelete && (
         <ConfirmDialog
-          title="Delete this change?"
+          title={t`Delete this change?`}
           content={
-            <>
-              <strong>
-                {h.verb} {h.title}
-              </strong>{" "}
-              on <code>{h.selectorLabel}</code> will be removed from this
-              variation. Other changes in this variation are unaffected.
-            </>
+            <Trans>
+              <strong>{changeName}</strong> on <code>{selectorLabel}</code> will
+              be removed from this variation. Other changes in this variation
+              are unaffected.
+            </Trans>
           }
-          yesText="Delete"
+          yesText={t`Delete`}
           onConfirm={async () => {
             await onDelete();
             setConfirmingDelete(false);
@@ -291,7 +294,9 @@ function ChangeRow({
               than next to the human-readable description — it's an
               implementation detail, not human-readable. */}
           <div className={styles.appliesTo}>
-            <span className={styles.appliesToLabel}>Applies to:</span>
+            <span className={styles.appliesToLabel}>
+              <Trans>Applies to:</Trans>
+            </span>
             <code className={styles.selectorChip}>{h.selectorLabel}</code>
           </div>
           {h.imageUrl && !imageError && (
@@ -367,6 +372,7 @@ function VariationRow({
   }) => Promise<void>;
   onDeleteVariation: (variationId: string) => Promise<void>;
 }) {
+  const { t } = useLingui();
   // The visualChange entry for THIS variation under THIS changeset (data-
   // model invariant from the README — variations are global, but their
   // edits are scoped per-changeset).
@@ -377,6 +383,7 @@ function VariationRow({
   const count = visualChangeCount(change);
   const [open, setOpen] = useState(defaultOpen);
   const [confirmingVariantDelete, setConfirmingVariantDelete] = useState(false);
+  const ownerNoun = owner.noun;
 
   // Per-variation preview URL (forces this variation via the experiment's
   // tracking key + the variation INDEX, matching the existing convention).
@@ -468,12 +475,14 @@ function VariationRow({
         </Box>
         {splitPct !== undefined && (
           <Flex flexBasis="90px" flexShrink="0" justify="end">
-            <Metadata label="Split" value={splitPct + "%"} />
+            <Metadata label={t`Split`} value={splitPct + "%"} />
           </Flex>
         )}
         <Box className={styles.changesArea}>
           {count === 0 ? (
-            <span className={styles.changesEmpty}>No visual changes</span>
+            <span className={styles.changesEmpty}>
+              <Trans>No visual changes</Trans>
+            </span>
           ) : (
             <button
               type="button"
@@ -481,7 +490,11 @@ function VariationRow({
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
             >
-              {count} visual change{count > 1 ? "s" : ""}
+              <Plural
+                value={count}
+                one="# visual change"
+                other="# visual changes"
+              />
               <span
                 className={`${styles.changesChev}${open ? " " + styles.changesChevOpen : ""}`}
               >
@@ -498,7 +511,7 @@ function VariationRow({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Preview
+              <Trans>Preview</Trans>
               <PiArrowSquareOutBold size={12} />
             </a>
           )}
@@ -512,7 +525,9 @@ function VariationRow({
                 })
               }
             >
-              <Text weight="semibold">Edit</Text>
+              <Text weight="semibold">
+                <Trans>Edit</Trans>
+              </Text>
             </Link>
           )}
           {canDeleteVariation && (
@@ -520,8 +535,8 @@ function VariationRow({
               type="button"
               className={styles.variationDeleteBtn}
               onClick={() => setConfirmingVariantDelete(true)}
-              title="Delete this variation"
-              aria-label="Delete this variation"
+              title={t`Delete this variation`}
+              aria-label={t`Delete this variation`}
             >
               <PiTrashBold size={13} />
             </button>
@@ -530,21 +545,47 @@ function VariationRow({
       </Flex>
       {confirmingVariantDelete && (
         <ConfirmDialog
-          title="Delete this variation?"
+          title={t`Delete this variation?`}
           content={
-            <>
-              This will remove{" "}
-              <VariationLabel
-                number={variationIndex}
-                name={variationName}
-                size="md"
-              />{" "}
-              from the {owner.noun}, along with all of its visual changes across
-              every targeted URL. Other variations are unaffected. This
-              can&rsquo;t be undone.
-            </>
+            owner.noun === "experiment" ? (
+              <Trans>
+                This will remove{" "}
+                <VariationLabel
+                  number={variationIndex}
+                  name={variationName}
+                  size="md"
+                />{" "}
+                from the experiment, along with all of its visual changes across
+                every targeted URL. Other variations are unaffected. This
+                can&rsquo;t be undone.
+              </Trans>
+            ) : owner.noun === "Contextual Bandit" ? (
+              <Trans>
+                This will remove{" "}
+                <VariationLabel
+                  number={variationIndex}
+                  name={variationName}
+                  size="md"
+                />{" "}
+                from the Contextual Bandit, along with all of its visual changes
+                across every targeted URL. Other variations are unaffected. This
+                can&rsquo;t be undone.
+              </Trans>
+            ) : (
+              <Trans>
+                This will remove{" "}
+                <VariationLabel
+                  number={variationIndex}
+                  name={variationName}
+                  size="md"
+                />{" "}
+                from the {ownerNoun}, along with all of its visual changes
+                across every targeted URL. Other variations are unaffected. This
+                can&rsquo;t be undone.
+              </Trans>
+            )
           }
-          yesText="Delete variation"
+          yesText={t`Delete variation`}
           onConfirm={async () => {
             await onDeleteVariation(variationId);
             setConfirmingVariantDelete(false);
@@ -584,20 +625,24 @@ function TargetingRows({
   return (
     <Flex className={styles.targeting} direction="column">
       <Flex className={styles.targetRow}>
-        <span className={styles.targetLabel}>Applies to</span>
+        <span className={styles.targetLabel}>
+          <Trans>Applies to</Trans>
+        </span>
         {inc.map((p, i) => (
           <RuleChip key={`inc-${i}-${p.type}-${p.pattern}`} rule={p} />
         ))}
         {canEdit && (
           <Link onClick={onEdit}>
-            <Text weight="semibold">Edit</Text>
+            <Text weight="semibold">
+              <Trans>Edit</Trans>
+            </Text>
           </Link>
         )}
       </Flex>
       {exc.length > 0 && (
         <Flex className={styles.targetRow}>
           <span className={`${styles.targetLabel} ${styles.targetLabelExcept}`}>
-            Except
+            <Trans>Except</Trans>
           </span>
           {exc.map((p, i) => (
             <RuleChip key={`exc-${i}-${p.type}-${p.pattern}`} rule={p} />
@@ -653,29 +698,30 @@ function UrlCard({
   }) => Promise<void>;
   onDeleteVariation: (variationId: string) => Promise<void>;
 }) {
+  const { t } = useLingui();
   const editorUrl = vc.editorUrl.trim();
   const linkUrl = normalizeVisualEditorUrl(editorUrl);
 
   // Compose the "Text and CSS changes" subline by walking the changeset's
   // visualChanges for the kinds present (matches today's behavior).
   const subline = useMemo(() => {
-    const kinds = new Set<string>();
+    let hasText = false;
+    let hasCss = false;
+    let hasJs = false;
     vc.visualChanges.forEach((c) => {
-      if (c.domMutations?.length) kinds.add("Text");
-      if (c.css?.trim()) kinds.add("CSS");
-      if (c.js?.trim()) kinds.add("Javascript");
+      if (c.domMutations?.length) hasText = true;
+      if (c.css?.trim()) hasCss = true;
+      if (c.js?.trim()) hasJs = true;
     });
-    const order = ["Text", "CSS", "Javascript"];
-    const list = order.filter((k) => kinds.has(k));
-    if (list.length === 0) return "No changes yet";
-    const joined =
-      list.length === 1
-        ? list[0]
-        : list.length === 2
-          ? list.join(" and ")
-          : list.slice(0, -1).join(", ") + " and " + list.slice(-1);
-    return `${joined} changes`;
-  }, [vc.visualChanges]);
+    if (hasText && hasCss && hasJs) return t`Text, CSS and Javascript changes`;
+    if (hasText && hasCss) return t`Text and CSS changes`;
+    if (hasText && hasJs) return t`Text and Javascript changes`;
+    if (hasCss && hasJs) return t`CSS and Javascript changes`;
+    if (hasText) return t`Text changes`;
+    if (hasCss) return t`CSS changes`;
+    if (hasJs) return t`Javascript changes`;
+    return t`No changes yet`;
+  }, [vc.visualChanges, t]);
 
   return (
     <Box p="1">
@@ -695,7 +741,7 @@ function UrlCard({
                 </Link>
               ) : (
                 <span className={styles.cardUrl}>
-                  {editorUrl || "(no URL)"}
+                  {editorUrl || t`(no URL)`}
                 </span>
               )}
             </Flex>
@@ -706,10 +752,10 @@ function UrlCard({
           {canRemove && (
             <DeleteButton
               className="btn-sm ml-4"
-              text="Remove"
+              text={t`Remove`}
               stopPropagation={true}
               onClick={() => onDeleteChangeset()}
-              displayName="Visual Changeset"
+              displayName={t`Visual Changeset`}
             />
           )}
           {canEdit && owner.canEditChanges && (
@@ -717,7 +763,11 @@ function UrlCard({
               useRadix={false}
               visualChangeset={vc}
               useLink
-              button={<Button variant="ghost">Launch AI Visual Editor</Button>}
+              button={
+                <Button variant="ghost">
+                  <Trans>Launch AI Visual Editor</Trans>
+                </Button>
+              }
             />
           )}
         </Box>
@@ -797,6 +847,7 @@ export const VisualChangesetTable: FC<Props> = ({
   canRemoveVisualChangesets = canEditVisualChangesets,
   environmentStates,
 }: Props) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [editingVisualChangeset, setEditingVisualChangeset] =
@@ -953,10 +1004,10 @@ export const VisualChangesetTable: FC<Props> = ({
       isActive: state === "active",
       tooltip:
         state === "active"
-          ? "An SDK connection in this environment has visual experiments enabled"
-          : "No SDK connection in this environment has visual experiments enabled",
+          ? t`An SDK connection in this environment has visual experiments enabled`
+          : t`No SDK connection in this environment has visual experiments enabled`,
     }));
-  }, [environmentStates]);
+  }, [environmentStates, t]);
 
   return (
     <>
