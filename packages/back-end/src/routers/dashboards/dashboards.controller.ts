@@ -331,13 +331,21 @@ export async function getDashboardSnapshots(
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new NotFoundError("Cannot find dashboard");
+  // An editor's page renders the draft, so its blocks need their data too.
+  const blocks = dashboard.experimentId
+    ? dashboard.blocks
+    : [
+        ...dashboard.blocks,
+        ...(await dashboardVersions.getDashboardWorkingContent(context, id))
+          .blocks,
+      ];
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);
     const snapshotIds = [
       ...new Set([
         experiment?.analysisSummary?.snapshotId,
-        ...dashboard.blocks.map((block) => block.snapshotId),
+        ...blocks.map((block) => block.snapshotId),
       ]),
     ].filter(
       (snapId): snapId is string => isDefined(snapId) && snapId.length > 0,
@@ -348,7 +356,7 @@ export async function getDashboardSnapshots(
   }
   const savedQueries = await context.models.savedQueries.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter(
           (
             block,
@@ -364,7 +372,7 @@ export async function getDashboardSnapshots(
   ]);
   const metricAnalyses = await context.models.metricAnalysis.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter(
           (
             block,
@@ -381,7 +389,7 @@ export async function getDashboardSnapshots(
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks.flatMap((block) => {
+      blocks.flatMap((block) => {
         if (
           block.type !== "metric-exploration" &&
           block.type !== "fact-table-exploration" &&

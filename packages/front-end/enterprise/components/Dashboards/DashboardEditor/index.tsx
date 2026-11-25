@@ -203,6 +203,8 @@ interface Props {
   setIsEditing?: (v: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
   editBlockProps?: EditBlockProps;
+  // The caller draws its own title row; only the controls and grid render.
+  hideHeader?: boolean;
 }
 
 function DashboardEditor({
@@ -233,6 +235,7 @@ function DashboardEditor({
   setIsEditing,
   enterEditModeForBlock,
   editBlockProps,
+  hideHeader,
 }: Props) {
   const {
     editSidebarDirty,
@@ -443,189 +446,203 @@ function DashboardEditor({
         dashboardId={id}
       />
       <Box mt={isEditing ? "1" : undefined} mb="3">
-        {/* Viewing, as tall as what's in it, so it starts 24px under the
+        {hideHeader ? null : (
+          <>
+            {/* Viewing, as tall as what's in it, so it starts 24px under the
           header like other pages' title rows; editing, the editor's 40px. */}
-        <Flex
-          align="center"
-          height={isEditing ? DASHBOARD_TOPBAR_HEIGHT : undefined}
-          gap="1"
-        >
-          {switchToExperimentView ? (
-            <Button variant="ghost" size="sm" onClick={switchToExperimentView}>
-              View Regular Experiment View
-            </Button>
-          ) : (
-            <Flex align="center" gap="2" flexGrow="1" minWidth="0">
-              <Text truncate={true} size="xl">
-                {title}
-              </Text>
-              <ShareStatusBadge
-                shareLevel={
-                  initialShareLevel === "published" ? "organization" : "private"
-                }
-                editLevel={
-                  initialEditLevel === "private" ? "private" : "organization"
-                }
-                isOwner={dashboardOwnerId === userId}
-              />
-            </Flex>
-          )}
-          <DashboardUpdateDisplay
-            dashboardId={id}
-            enableAutoUpdates={enableAutoUpdates}
-            nextUpdate={nextUpdate}
-            dashboardLastUpdated={dashboardLastUpdated}
-            disabled={!!editSidebarDirty}
-            isEditing={isEditing}
-            needsUpdate={needsUpdate}
-            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
-            onUpdated={() => setNeedsUpdate(false)}
-          />
-          {isGeneralDashboard && setIsEditing && !isEditing ? (
-            <Flex align="center" gap="4" ml="4" flexShrink="0">
-              {canManageSharingAndEditLevels && (
+            <Flex
+              align="center"
+              height={isEditing ? DASHBOARD_TOPBAR_HEIGHT : undefined}
+              gap="1"
+            >
+              {switchToExperimentView ? (
                 <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => setShareModalOpen(true)}
+                  variant="ghost"
+                  size="sm"
+                  onClick={switchToExperimentView}
                 >
-                  Share...
+                  View Regular Experiment View
                 </Button>
-              )}
-              <Button
-                variant="solid"
-                size="md"
-                disabled={!canEdit}
-                onClick={() => setIsEditing(true)}
-              >
-                <PiPencilSimpleFill className="mr-2" />
-                Edit Blocks
-              </Button>
-
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="3"
-                    highContrast
-                    // Its hover area stays within the title row.
-                    style={{ marginTop: 0, marginBottom: 0 }}
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
-                }
-                open={dropdownOpen}
-                onOpenChange={(o) => {
-                  setDropdownOpen(!!o);
-                }}
-                menuPlacement="end"
-                variant="soft"
-              >
-                <DropdownMenuGroup>
-                  {canEdit && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setEditDashboard(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit Dashboard Settings
-                    </DropdownMenuItem>
-                  )}
-                  {canDuplicate && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDuplicateDashboard(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                  )}
-                  {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleViewQueries}>
-                        View queries
-                        <Badge
-                          variant="soft"
-                          radius="full"
-                          label={String(count)}
-                          ml="2"
-                          color={error ? "red" : undefined}
-                        />
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                  {canDelete && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          confirmationTitle: "Delete Dashboard?",
-                          cta: "Delete",
-                          submit: async () => {
-                            await apiCall(`/dashboards/${id}`, {
-                              method: "DELETE",
-                            });
-                            if (typeof window !== "undefined") {
-                              window.location.href =
-                                "/product-analytics/dashboards";
-                            }
-                          },
-                          closeDropdown: () => {
-                            setDropdownOpen(false);
-                          },
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuGroup>
-              </DropdownMenu>
-              {queriesModalOpen &&
-                (queryStrings.length > 0 || savedQueryIds.length > 0) && (
-                  <AsyncQueriesModal
-                    close={() => setQueriesModalOpen(false)}
-                    queries={queryStrings}
-                    savedQueries={savedQueryIds}
-                    error={error}
-                  />
-                )}
-            </Flex>
-          ) : null}
-        </Flex>
-        {!isEditing && (
-          <Flex align="center" gap="3">
-            <Flex align="center" gap="1">
-              <Text weight="medium">Projects:</Text>
-              {projects?.length ? (
-                <Tooltip
-                  body={
-                    <Flex direction="column" gap="1">
-                      <ProjectBadges
-                        skipMargin
-                        resourceType="dashboard"
-                        projectIds={projects}
-                      />
-                    </Flex>
-                  }
-                >
-                  <span role="button">{projects.length}</span>
-                </Tooltip>
               ) : (
-                <ProjectBadges resourceType="dashboard" />
+                <Flex align="center" gap="2" flexGrow="1" minWidth="0">
+                  <Text truncate={true} size="xl">
+                    {title}
+                  </Text>
+                  <ShareStatusBadge
+                    shareLevel={
+                      initialShareLevel === "published"
+                        ? "organization"
+                        : "private"
+                    }
+                    editLevel={
+                      initialEditLevel === "private"
+                        ? "private"
+                        : "organization"
+                    }
+                    isOwner={dashboardOwnerId === userId}
+                  />
+                </Flex>
               )}
+              <DashboardUpdateDisplay
+                dashboardId={id}
+                enableAutoUpdates={enableAutoUpdates}
+                nextUpdate={nextUpdate}
+                dashboardLastUpdated={dashboardLastUpdated}
+                disabled={!!editSidebarDirty}
+                isEditing={isEditing}
+                needsUpdate={needsUpdate}
+                updateTemporaryDashboardResults={
+                  updateTemporaryDashboardResults
+                }
+                onUpdated={() => setNeedsUpdate(false)}
+              />
+              {isGeneralDashboard && setIsEditing && !isEditing ? (
+                <Flex align="center" gap="4" ml="4" flexShrink="0">
+                  {canManageSharingAndEditLevels && (
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onClick={() => setShareModalOpen(true)}
+                    >
+                      Share...
+                    </Button>
+                  )}
+                  <Button
+                    variant="solid"
+                    size="md"
+                    disabled={!canEdit}
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <PiPencilSimpleFill className="mr-2" />
+                    Edit Blocks
+                  </Button>
+
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="3"
+                        highContrast
+                        // Its hover area stays within the title row.
+                        style={{ marginTop: 0, marginBottom: 0 }}
+                      >
+                        <BsThreeDotsVertical size={18} />
+                      </IconButton>
+                    }
+                    open={dropdownOpen}
+                    onOpenChange={(o) => {
+                      setDropdownOpen(!!o);
+                    }}
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {canEdit && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditDashboard(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Edit Dashboard Settings
+                        </DropdownMenuItem>
+                      )}
+                      {canDuplicate && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setDuplicateDashboard(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Duplicate
+                        </DropdownMenuItem>
+                      )}
+                      {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={handleViewQueries}>
+                            View queries
+                            <Badge
+                              variant="soft"
+                              radius="full"
+                              label={String(count)}
+                              ml="2"
+                              color={error ? "red" : undefined}
+                            />
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
+                      {canDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            color="red"
+                            confirmation={{
+                              confirmationTitle: "Delete Dashboard?",
+                              cta: "Delete",
+                              submit: async () => {
+                                await apiCall(`/dashboards/${id}`, {
+                                  method: "DELETE",
+                                });
+                                if (typeof window !== "undefined") {
+                                  window.location.href =
+                                    "/product-analytics/dashboards";
+                                }
+                              },
+                              closeDropdown: () => {
+                                setDropdownOpen(false);
+                              },
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                  {queriesModalOpen &&
+                    (queryStrings.length > 0 || savedQueryIds.length > 0) && (
+                      <AsyncQueriesModal
+                        close={() => setQueriesModalOpen(false)}
+                        queries={queryStrings}
+                        savedQueries={savedQueryIds}
+                        error={error}
+                      />
+                    )}
+                </Flex>
+              ) : null}
             </Flex>
-            <Flex align="center" gap="1">
-              <Text weight="medium">Owner:</Text>
-              <Owner ownerId={dashboardOwnerId} gap="1" />
-            </Flex>
-          </Flex>
+            {!isEditing && (
+              <Flex align="center" gap="3">
+                <Flex align="center" gap="1">
+                  <Text weight="medium">Projects:</Text>
+                  {projects?.length ? (
+                    <Tooltip
+                      body={
+                        <Flex direction="column" gap="1">
+                          <ProjectBadges
+                            skipMargin
+                            resourceType="dashboard"
+                            projectIds={projects}
+                          />
+                        </Flex>
+                      }
+                    >
+                      <span role="button">{projects.length}</span>
+                    </Tooltip>
+                  ) : (
+                    <ProjectBadges resourceType="dashboard" />
+                  )}
+                </Flex>
+                <Flex align="center" gap="1">
+                  <Text weight="medium">Owner:</Text>
+                  <Owner ownerId={dashboardOwnerId} gap="1" />
+                </Flex>
+              </Flex>
+            )}
+          </>
         )}
         {isGeneralDashboard && onGlobalControlsChange ? (
           <DashboardGlobalControlsBar
