@@ -363,6 +363,9 @@ export interface OrganizationSettings {
   defaultDataSource?: string;
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;
+  // Whether experiment results show each variation's value by default. Unset
+  // (orgs from before the setting) means shown.
+  showExperimentResultsValues?: boolean;
   useStickyBucketing?: boolean;
   stickyBucketingOnByDefault?: boolean;
   useFallbackAttributes?: boolean;

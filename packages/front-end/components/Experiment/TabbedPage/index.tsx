@@ -24,6 +24,7 @@ import {
   getAvailableSliceTags,
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import {
   ResultsRedesignContext,
@@ -306,10 +307,15 @@ function TabbedPageContents({
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
 
-  const [showValue, setShowValue] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__show_value`,
-    true,
+  const orgSettings = useOrgSettings();
+  // The org sets the default; a viewer's own choice, kept in their browser,
+  // holds across experiments.
+  const [showValueChoice, setShowValue] = useLocalStorage<boolean | null>(
+    "experiment-results__show_values",
+    null,
   );
+  const showValue =
+    showValueChoice ?? orgSettings.showExperimentResultsValues ?? true;
 
   const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
     setMetricTagFilter(newMetricTagFilter);

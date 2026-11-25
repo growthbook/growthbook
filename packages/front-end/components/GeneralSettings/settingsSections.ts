@@ -126,6 +126,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "clusterIssueMinPercent",
     "attributionModel",
     "disablePrecomputedDimensions",
+    "showExperimentResultsValues",
     "useStickyBucketing",
     "stickyBucketingOnByDefault",
     "useFallbackAttributes",

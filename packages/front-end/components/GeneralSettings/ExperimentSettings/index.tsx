@@ -1,6 +1,7 @@
 import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box } from "@radix-ui/themes";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
@@ -25,6 +26,8 @@ import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
 export default function ExperimentSettings() {
   const { hasCommercialFeature } = useUser();
+  // The setting only has an effect in the results redesign.
+  const resultsRedesign = useFeatureIsOn("experiment-results-redesign-v1");
   const form = useFormContext();
   const { defaultFor } = useSettingsForm();
   const cron = form.watch("updateSchedule.cron") || "";
@@ -458,6 +461,18 @@ export default function ExperimentSettings() {
             setValue={(v) => form.setValue("disablePrecomputedDimensions", !v)}
           />
         </UnsavedMark>
+
+        {resultsRedesign ? (
+          <UnsavedMark name="showExperimentResultsValues">
+            <Checkbox
+              id="toggle-showExperimentResultsValues"
+              label="Show metric values in experiment results"
+              description="Adds each variation's value beside its result by default. Anyone can change this for themselves under View options on an experiment's results."
+              value={form.watch("showExperimentResultsValues")}
+              setValue={(v) => form.setValue("showExperimentResultsValues", v)}
+            />
+          </UnsavedMark>
+        ) : null}
 
         <SettingsField
           name="pastExperimentsMinLength"

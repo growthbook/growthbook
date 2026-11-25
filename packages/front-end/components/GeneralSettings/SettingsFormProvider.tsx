@@ -257,6 +257,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       defaultDataSource: "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disablePrecomputedDimensions: true,
+      showExperimentResultsValues: true,
       useStickyBucketing: false,
       stickyBucketingOnByDefault: false,
       useFallbackAttributes: false,

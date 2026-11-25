@@ -254,6 +254,7 @@ export async function createOrganization({
         { property: "utmContent", datatype: "string" },
       ],
       disablePrecomputedDimensions: false,
+      showExperimentResultsValues: false,
       restApiBypassesReviews: false,
       requireRebaseBeforePublish: false,
       revertsBypassApproval: false,
