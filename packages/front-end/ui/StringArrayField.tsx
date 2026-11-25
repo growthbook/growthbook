@@ -186,15 +186,6 @@ export default function StringArrayField({
   const components = {
     ...baseComponents,
     Input: InputWithPasteHandler,
-    MultiValueLabel: (
-      props: React.ComponentProps<typeof SelectComponents.MultiValueLabel>,
-    ) => {
-      const title = props.data as string;
-      const innerProps = { ...props.innerProps, title };
-      return (
-        <SelectComponents.MultiValueLabel {...props} innerProps={innerProps} />
-      );
-    },
     MultiValueRemove: CustomMultiValueRemove,
     ClearIndicator: CustomClearIndicator,
     ...(showButtons

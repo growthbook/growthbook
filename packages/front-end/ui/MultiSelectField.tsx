@@ -54,13 +54,13 @@ type MultiValueLabelStyle = {
   fontSize: string;
   fontWeight: number;
   cursor: string | undefined;
-  title: boolean;
+  tooltips: boolean;
 };
 const MultiValueLabelStyleContext = createContext<MultiValueLabelStyle>({
   fontSize: "12px",
   fontWeight: 500,
   cursor: undefined,
-  title: true,
+  tooltips: true,
 });
 
 const SortableMultiValue = SortableElement(
@@ -79,15 +79,9 @@ const SortableMultiValue = SortableElement(
 const SortableMultiValueLabel = (
   props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
-  const { title: showTitle, ...style } = useContext(
-    MultiValueLabelStyleContext,
-  );
-  // With valueTitles off, the label's own content (e.g. a hover card) owns hover.
-  const tooltip = showTitle ? props.data?.tooltip : undefined;
-  const innerProps =
-    showTitle && !tooltip
-      ? { ...props.innerProps, title: props.data?.label || "" }
-      : props.innerProps;
+  const { tooltips, ...style } = useContext(MultiValueLabelStyleContext);
+  // With valueTooltips off, the label's own content (e.g. a hover card) owns hover.
+  const tooltip = tooltips ? props.data?.tooltip : undefined;
   const label = (
     <span
       style={{
@@ -97,7 +91,7 @@ const SortableMultiValueLabel = (
         ...style,
       }}
     >
-      <components.MultiValueLabel {...props} innerProps={innerProps} />
+      <components.MultiValueLabel {...props} />
     </span>
   );
   return tooltip ? <Tooltip content={tooltip}>{label}</Tooltip> : label;
@@ -305,8 +299,8 @@ export type MultiSelectFieldProps = Omit<
   maxMenuHeight?: number;
   /** Names the control when its visible label isn't the `label` prop. */
   "aria-label"?: string;
-  /** Hover text on each chosen value: its tooltip, or else its name. */
-  valueTitles?: boolean;
+  /** Hover text on each chosen value: its option's tooltip. */
+  valueTooltips?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -344,7 +338,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   legacyHeight,
   maxMenuHeight,
   "aria-label": ariaLabel,
-  valueTitles = true,
+  valueTooltips = true,
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -482,7 +476,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               )
             : ReactSelectProps.styles.multiValueLabel(base);
           // With no remove button, the label closes the tag as it opens it. It
-          // still takes the pointer, so its title or hover card reads while the
+          // still takes the pointer, so its tooltip or hover card reads while the
           // field can't change.
           return state.selectProps.isDisabled
             ? {
@@ -507,9 +501,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       fontSize: !usesLegacyHeight && resolvedSize === "lg" ? "14px" : "12px",
       fontWeight: 500,
       cursor: sort ? "grab" : undefined,
-      title: valueTitles,
+      tooltips: valueTooltips,
     }),
-    [resolvedSize, sort, usesLegacyHeight, valueTitles],
+    [resolvedSize, sort, usesLegacyHeight, valueTooltips],
   );
   return (
     <OptionCheckedContext.Provider value={isOptionChecked ?? null}>
