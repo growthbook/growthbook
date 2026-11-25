@@ -27,6 +27,9 @@ export type DatadogEnvelope = {
 
 type JsonRecord = Record<string, unknown>;
 
+// Datadog's limits, beyond which it rejects the event.
+const MAX_KEY = 100;
+const MAX_NAME = 128;
 const MAX_RELATED = 100;
 const MAX_TAGS = 100;
 const MAX_TITLE = 500;
@@ -66,6 +69,11 @@ export function servedEnvironments(envelope: DatadogEnvelope): string[] {
 }
 
 function datadogAuthor(user: EventUser): { type: string; name: string } {
+  const author = authorOf(user);
+  return { ...author, name: truncate(author.name, MAX_NAME) };
+}
+
+function authorOf(user: EventUser): { type: string; name: string } {
   if (!user) return { type: "system", name: "GrowthBook" };
   if (user.type === "dashboard") {
     return { type: "user", name: user.email || user.name };
@@ -310,13 +318,20 @@ export function buildDatadogChangeEvent({
       MAX_TITLE,
     ),
     timestamp: new Date(envelope.created).toISOString(),
-    aggregation_key: `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`,
+    aggregation_key:
+      `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`.slice(
+        0,
+        MAX_KEY,
+      ),
     tags: [
       ...environments.map((env) => `env:${env}`),
       ...(service ? [`service:${service}`] : []),
     ].slice(0, MAX_TAGS),
     attributes: {
-      changed_resource: { type: change.resourceType, name: change.name },
+      changed_resource: {
+        type: change.resourceType,
+        name: truncate(change.name, MAX_NAME),
+      },
       ...(service
         ? { impacted_resources: [{ type: "service", name: service }] }
         : {}),
@@ -373,7 +388,9 @@ export function getDatadogNotificationPayload({
 }): JsonRecord | null {
   if (!event.version) return null;
   const envelope: DatadogEnvelope = event.data;
-  const service = eventWebHook.datadog?.service?.trim().toLowerCase() || null;
+  const service =
+    eventWebHook.datadog?.service?.trim().toLowerCase().slice(0, MAX_NAME) ||
+    null;
   if (envelope.event === "webhook.test") {
     return buildDatadogTestEvent(envelope, service);
   }
