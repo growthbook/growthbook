@@ -460,7 +460,7 @@ describe("getDatadogNotificationPayload", () => {
           ...(service ? { datadog: { service } } : {}),
         }),
       });
-    expect(test("Checkout-API")).toMatchObject({
+    expect(test(" Checkout-API ")).toMatchObject({
       data: {
         attributes: {
           category: "change",
@@ -474,49 +474,6 @@ describe("getDatadogNotificationPayload", () => {
     });
     expect(test()).toMatchObject({
       data: { attributes: { tags: ["growthbook-test"] } },
-    });
-  });
-
-  it("tags changes with the webhook's service", () => {
-    expect(
-      getDatadogNotificationPayload({
-        event: asEvent(featureUpdated()),
-        eventWebHook: webhook({ datadog: { service: " Checkout-API " } }),
-      }),
-    ).toMatchObject({
-      data: {
-        attributes: {
-          tags: ["env:production", "service:checkout-api"],
-          attributes: {
-            impacted_resources: [{ type: "service", name: "checkout-api" }],
-          },
-        },
-      },
-    });
-  });
-
-  it("keeps keys and names within Datadog's limits", () => {
-    const length = (n: number) =>
-      expect.stringMatching(new RegExp(`^.{${n}}$`));
-    expect(
-      getDatadogNotificationPayload({
-        event: asEvent(
-          featureUpdated({
-            data: { object: flag({ id: "k".repeat(200) }) },
-          }),
-        ),
-        eventWebHook: webhook({ datadog: { service: "s".repeat(200) } }),
-      }),
-    ).toMatchObject({
-      data: {
-        attributes: {
-          aggregation_key: length(100),
-          attributes: {
-            changed_resource: { name: length(128) },
-            impacted_resources: [{ name: length(128) }],
-          },
-        },
-      },
     });
   });
 

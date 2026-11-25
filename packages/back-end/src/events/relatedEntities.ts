@@ -42,7 +42,7 @@ function ruleIsLive(
 }
 
 // The org's environments and Projects, which related entities are listed in.
-export type OrgScope = { environments: string[]; projectIds: string[] };
+type OrgScope = { environments: string[]; projectIds: string[] };
 
 type Reach = {
   environments: Iterable<string>;
@@ -122,7 +122,7 @@ export function getChangedExperimentEntities(
   );
 }
 
-export function getExperimentRunEnvironments(
+function getExperimentRunEnvironments(
   experimentId: string,
   feature: FeatureInterface,
   allowedEnvs: string[],
@@ -301,6 +301,10 @@ export async function refreshThenReport(
   }
 }
 
+// Whether values pass a webhook's Project or tag filter; an empty one passes all.
+export const passesFilter = (filter: string[] = [], values: string[] = []) =>
+  !filter.length || values.some((v) => filter.includes(v));
+
 // What a webhook may be sent of an event's related entities: those in its
 // Projects and tags, narrowed to its environments.
 export function scopeRelatedEntities(
@@ -308,13 +312,11 @@ export function scopeRelatedEntities(
   webhook: { projects?: string[]; tags?: string[]; environments?: string[] },
 ): EventRelatedEntity[] {
   const environments = webhook.environments ?? [];
-  const misses = (filter: string[] = [], values?: string[]) =>
-    filter.length > 0 && !!values && !values.some((v) => filter.includes(v));
   return entities.flatMap((entity): EventRelatedEntity[] => {
     if (entity.type === "rampSchedule") return [entity];
     if (
-      misses(webhook.projects, entity.projects) ||
-      misses(webhook.tags, entity.tags)
+      (entity.projects && !passesFilter(webhook.projects, entity.projects)) ||
+      (entity.tags && !passesFilter(webhook.tags, entity.tags))
     ) {
       return [];
     }

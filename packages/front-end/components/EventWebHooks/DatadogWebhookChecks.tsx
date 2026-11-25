@@ -1,5 +1,6 @@
 import React from "react";
 import { DATADOG_API_KEY_HEADER, datadogSiteForUrl } from "shared/util";
+import { webhookSecretAllowsOrigin } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
@@ -28,8 +29,7 @@ function CheckRow({ ok, message }: Check) {
 
 function useSecretsCheck(eventWebHook: EventWebHookInterface): Check {
   const { webhookSecrets } = useDefinitions();
-  const origin = new URL(eventWebHook.url).origin;
-  const host = origin.replace(/^https?:\/\//, "");
+  const { origin, host } = new URL(eventWebHook.url);
 
   const key = headerSecretKey(
     eventWebHook.headers ?? {},
@@ -57,10 +57,7 @@ function useSecretsCheck(eventWebHook: EventWebHookInterface): Check {
       ),
     };
   }
-  if (
-    secret.allowedOrigins?.length &&
-    !secret.allowedOrigins.includes(origin)
-  ) {
+  if (!webhookSecretAllowsOrigin(secret, origin)) {
     return {
       ok: false,
       message: (

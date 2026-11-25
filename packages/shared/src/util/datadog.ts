@@ -44,6 +44,16 @@ export function datadogSiteForUrl(url: string): DatadogSite | null {
   return datadogSites.find((site) => datadogEventsUrl(site.id) === url) ?? null;
 }
 
+// Header names are case-insensitive.
+export function findHeader(
+  headers: Record<string, string>,
+  name: string,
+): string | undefined {
+  return Object.keys(headers).find(
+    (key) => key.toLowerCase() === name.toLowerCase(),
+  );
+}
+
 // Why a Datadog webhook can't be saved as is, or null when it can. The
 // intake only takes POST and authenticates with the API key header.
 export function datadogWebhookProblem({
@@ -56,9 +66,7 @@ export function datadogWebhookProblem({
   if (method && method !== "POST") {
     return "Datadog webhooks must use the POST method.";
   }
-  const apiKey = Object.entries(headers ?? {}).find(
-    ([name]) => name.toLowerCase() === DATADOG_API_KEY_HEADER.toLowerCase(),
-  )?.[1];
+  const apiKey = headers?.[findHeader(headers, DATADOG_API_KEY_HEADER) ?? ""];
   if (!apiKey?.trim()) {
     return `Datadog webhooks need a ${DATADOG_API_KEY_HEADER} header, for example {"${DATADOG_API_KEY_HEADER}": "{{ DATADOG_API_KEY }}"} referencing a webhook secret.`;
   }

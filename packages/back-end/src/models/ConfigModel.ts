@@ -20,7 +20,6 @@ import {
   getCyclicConstantRefs,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
-import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import {
@@ -32,11 +31,10 @@ import {
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
@@ -397,22 +395,15 @@ export class ConfigModel extends BaseClass {
   ) {
     this.invalidateReconcileSnapshot();
 
-    // Skip the webhook event when only `dateUpdated` changed. During a
-    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
-    const buffer = captureEventBuffer(this.context);
-    const emit = !isEqual(
-      omit(previous, ["dateUpdated"]),
-      omit(current, ["dateUpdated"]),
-    )
-      ? (reach: EventReach) =>
-          emitOrDeferBulkPublishEvent(
-            () => logConfigUpdatedEvent(this.context, previous, current, reach),
-            entityKey("config", newDoc.id),
-            buffer,
-          )
-      : undefined;
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("config", newDoc.id),
+      previous,
+      current,
+      (reach) => logConfigUpdatedEvent(this.context, previous, current, reach),
+    );
 
     if (
       updates.parent !== undefined ||
@@ -422,7 +413,6 @@ export class ConfigModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      // The event waits for the refresh scan, which finds what the change reaches.
       resolvableValueChanged(this.context, "updated", "config", newDoc.key, {
         onReach: emit,
       }).catch((e) => {

@@ -21,7 +21,11 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
-import { WebhookIcon, displayedEvents } from "@/components/EventWebHooks/utils";
+import {
+  slackSettingsHref,
+  WebhookIcon,
+  displayedEvents,
+} from "@/components/EventWebHooks/utils";
 import {
   LastDelivery,
   WebhookStatusBadge,
@@ -104,15 +108,11 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               const { id, name, payloadType, url, events, lastState } =
                 eventWebHook;
               if (!payloadType) return null;
-              const managedInSlack =
-                payloadType === "slack" && !!eventWebHook.slack?.teamId;
+              const slackHref = slackSettingsHref(eventWebHook);
+              const managedInSlack = !!slackHref;
               const href =
-                managedInSlack && canManageSlack
-                  ? eventWebHook.slack?.channelId
-                    ? `/integrations/slack?channel=${encodeURIComponent(id)}`
-                    : `/integrations/slack?workspace=${encodeURIComponent(
-                        eventWebHook.slack?.teamId || "",
-                      )}`
+                slackHref && canManageSlack
+                  ? slackHref
                   : `/settings/webhooks/event/${id}`;
 
               return (

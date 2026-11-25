@@ -8,7 +8,10 @@ import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
-import { scopeRelatedEntities } from "back-end/src/events/relatedEntities";
+import {
+  passesFilter,
+  scopeRelatedEntities,
+} from "back-end/src/events/relatedEntities";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];
@@ -61,9 +64,6 @@ type RoutedEvent = {
   relatedEntities?: EventRelatedEntity[];
 };
 
-const passes = (filter: string[], values: string[] = []) =>
-  !filter.length || values.some((v) => filter.includes(v));
-
 // Saved Groups, Constants and Configs are shared, so a change to one also
 // reaches a filtered webhook through the Feature Flags and experiments that
 // depend on it, unless it's limited to other Projects.
@@ -81,8 +81,8 @@ export function webhookEventEnvironments(
     ? environments.filter((e) => envFilter.includes(e))
     : environments;
 
-  const projectsPass = passes(webhook.projects ?? [], event.projects);
-  if (projectsPass && passes(webhook.tags ?? [], event.tags)) {
+  const projectsPass = passesFilter(webhook.projects, event.projects);
+  if (projectsPass && passesFilter(webhook.tags, event.tags)) {
     return filterEventForEnvironments({
       event: { environments },
       environments: envFilter,

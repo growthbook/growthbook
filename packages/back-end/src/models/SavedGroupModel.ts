@@ -1,7 +1,7 @@
 import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { isEqual, omit } from "lodash";
+import { omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
@@ -20,11 +20,10 @@ import {
 } from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { loadSavedGroupsWithNested } from "back-end/src/util/featureDefinitionReferences.util";
@@ -210,27 +209,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       !!updates.projects ||
       updates.archived !== undefined;
 
-    // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the feature webhook behavior. During
-    // a bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
-    const buffer = captureEventBuffer(this.context);
-    const emit = !isEqual(
-      omit(previous, ["dateUpdated"]),
-      omit(current, ["dateUpdated"]),
-    )
-      ? (reach: EventReach) =>
-          emitOrDeferBulkPublishEvent(
-            () =>
-              logSavedGroupUpdatedEvent(this.context, previous, current, reach),
-            entityKey("saved-group", newDoc.id),
-            buffer,
-          )
-      : undefined;
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("saved-group", newDoc.id),
+      previous,
+      current,
+      (reach) =>
+        logSavedGroupUpdatedEvent(this.context, previous, current, reach),
+    );
 
     if (refreshesPayloads) {
-      // The event waits for the refresh scan, which finds what the change reaches.
       savedGroupUpdated(this.context, newDoc.id, {
         projectsChanged: !!updates.projects,
         onReach: emit,

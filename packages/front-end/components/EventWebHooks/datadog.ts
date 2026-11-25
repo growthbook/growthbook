@@ -1,4 +1,5 @@
 import { referencedWebhookSecrets } from "shared/validators";
+import { findHeader } from "shared/util";
 
 export function parseHeaders(headers: string): Record<string, string> {
   try {
@@ -14,13 +15,6 @@ export function parseHeaders(headers: string): Record<string, string> {
     // Not JSON yet.
   }
   return {};
-}
-
-// Header names are case-insensitive.
-function findHeader(headers: Record<string, string>, name: string) {
-  return Object.keys(headers).find(
-    (key) => key.toLowerCase() === name.toLowerCase(),
-  );
 }
 
 // The secret a header is set to, when it is exactly one `{{ KEY }}` reference.

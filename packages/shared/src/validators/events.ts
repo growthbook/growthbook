@@ -250,7 +250,7 @@ const eventEnvelopeExtras = {
     .array(eventRelatedEntity)
     .optional()
     .describe(
-      "Other entities the change touched: the ramp schedule step that published it, experiments whose rules changed or switched on or off, the flags that run an experiment, or the flags and experiments that depend on a saved group, constant or config. Each lists the environments where it was affected.",
+      "Other entities the change touched: the ramp schedule step that published it, experiments whose rules changed or switched on or off, the Feature Flags that run an experiment, or the Feature Flags and experiments that depend on a Saved Group, Constant or Config. Each lists the environments where it was affected.",
     ),
   approvers: z
     .array(eventApprover)

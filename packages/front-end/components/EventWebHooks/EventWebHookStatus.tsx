@@ -41,7 +41,7 @@ function recentFailures(logs: EventWebHookLogInterface[]) {
   };
 }
 
-export function DeliveryStatusBadge({
+function DeliveryStatusBadge({
   log,
 }: {
   log: Pick<EventWebHookLogInterface, "result" | "responseCode">;

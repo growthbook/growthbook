@@ -8,6 +8,7 @@ import React from "react";
 import clsx from "clsx";
 import { PiBracketsCurly } from "react-icons/pi";
 import {
+  EventWebHookInterface,
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
@@ -257,6 +258,16 @@ export const WebhookIcon = ({
       throw new Error(`Invalid type: ${invalidType}`);
   }
 };
+
+// The Slack settings page for a webhook the Slack app manages, or null.
+export function slackSettingsHref(
+  webhook: Pick<EventWebHookInterface, "id" | "payloadType" | "slack">,
+): string | null {
+  if (webhook.payloadType !== "slack" || !webhook.slack?.teamId) return null;
+  return webhook.slack.channelId
+    ? `/integrations/slack?channel=${encodeURIComponent(webhook.id)}`
+    : `/integrations/slack?workspace=${encodeURIComponent(webhook.slack.teamId)}`;
+}
 
 export const displayedEvents = (
   events: string[],

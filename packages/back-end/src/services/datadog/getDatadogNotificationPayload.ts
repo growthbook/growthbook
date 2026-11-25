@@ -356,7 +356,7 @@ export function buildDatadogChangeEvent({
   });
 }
 
-export function buildDatadogTestEvent(
+function buildDatadogTestEvent(
   envelope: Pick<DatadogEnvelope, "created" | "user">,
   service: string | null,
 ): JsonRecord {

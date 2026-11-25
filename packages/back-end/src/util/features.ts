@@ -550,7 +550,7 @@ export type EmbeddedFeatureMetadata = {
 export const NO_EMBEDDED_FEATURE_METADATA: EmbeddedFeatureMetadata = [];
 
 // The environments whose connections embed metadata the change edits.
-export function embeddedFeatureMetadataEnvironments(
+function embeddedFeatureMetadataEnvironments(
   originalFeature: Pick<FeatureInterface, "tags" | "customFields">,
   updatedFeature: Pick<FeatureInterface, "tags" | "customFields">,
   embedded: EmbeddedFeatureMetadata,

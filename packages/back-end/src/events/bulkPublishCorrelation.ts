@@ -1,4 +1,6 @@
+import { isEqual, omit } from "lodash";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { EventReach } from "back-end/src/events/relatedEntities";
 
 // Bare ids can collide across entity types.
 export function entityKey(entityType: string, id: string): string {
@@ -52,4 +54,23 @@ export async function emitOrDeferBulkPublishEvent(
     return;
   }
   await emit();
+}
+
+// Sends a Saved Group, Constant or Config update's event once its reach is
+// known, deferring during a bulk-publish commit; none when only `dateUpdated`
+// changed.
+export function updatedEventEmitter<T extends object>(
+  context: Context,
+  key: string,
+  previous: T,
+  current: T,
+  log: (reach: EventReach) => Promise<unknown>,
+): ((reach: EventReach) => Promise<void>) | undefined {
+  if (
+    isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+  ) {
+    return undefined;
+  }
+  const buffer = captureEventBuffer(context);
+  return (reach) => emitOrDeferBulkPublishEvent(() => log(reach), key, buffer);
 }

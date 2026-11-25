@@ -40,18 +40,6 @@ import { getResolvableValues, ResolvableValue } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
-// A constant/config change alters the SDK payload, so refresh it (and fire SDK
-// webhooks). When we know which resolvable changed (`changedKey`), we scope the
-// refresh to only the connections serving features that actually depend on it —
-// directly, or transitively through other constants/configs (constant `@const:`
-// chains and config lineage, both surfaced as tokens by `getResolvableValues`).
-// When nothing references it, the refresh is skipped entirely. Without a key we
-// fall back to the org-wide refresh (matches the historical behavior).
-//
-// Saved groups deliberately keep the org-wide refresh (`savedGroupUpdated`):
-// their reference graph is condition-string based, recursively nested, and spans
-// experiments as well as features, so it doesn't share this token machinery.
-// `onReach` gets what the change reaches once the scan is done.
 // Where an edit changes the resolved value, or null for every environment:
 // an edit to only some environments' values leaves the rest as they were.
 export function changedConstantEnvironments(
@@ -78,6 +66,18 @@ export function changedConstantEnvironments(
   );
 }
 
+// A constant/config change alters the SDK payload, so refresh it (and fire SDK
+// webhooks). When we know which resolvable changed (`changedKey`), we scope the
+// refresh to only the connections serving features that actually depend on it —
+// directly, or transitively through other constants/configs (constant `@const:`
+// chains and config lineage, both surfaced as tokens by `getResolvableValues`).
+// When nothing references it, the refresh is skipped entirely. Without a key we
+// fall back to the org-wide refresh (matches the historical behavior).
+//
+// Saved groups deliberately keep the org-wide refresh (`savedGroupUpdated`):
+// their reference graph is condition-string based, recursively nested, and spans
+// experiments as well as features, so it doesn't share this token machinery.
+// `onReach` gets what the change reaches once the scan is done, and
 // `environments` limits it to where the value changed, when that's known.
 export async function resolvableValueChanged(
   baseContext: ReqContext | ApiReqContext,

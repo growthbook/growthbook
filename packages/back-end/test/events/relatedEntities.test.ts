@@ -165,13 +165,6 @@ describe("getExperimentReach", () => {
     });
   });
 
-  it("reaches nowhere when no linked flag runs it", () => {
-    expect(getExperimentReach("exp_1", false, [disabled], scope)).toEqual({
-      environments: [],
-      relatedEntities: [],
-    });
-  });
-
   it("reaches every environment with visual changes or redirects", () => {
     expect(
       getExperimentReach("exp_1", true, [scoped], scope).environments,

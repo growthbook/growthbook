@@ -36,7 +36,10 @@ import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import { DocLink } from "@/components/DocLink";
-import WebhookHeadersField from "@/components/EventWebHooks/WebhookHeadersField";
+import WebhookHeadersField, {
+  isJson,
+} from "@/components/EventWebHooks/WebhookHeadersField";
+import StatusDot from "@/components/Experiment/StatusDot";
 import DatadogWebhookFields from "@/components/EventWebHooks/DatadogWebhookFields";
 import DatadogWebhookChecks from "@/components/EventWebHooks/DatadogWebhookChecks";
 import EventWebHookStatus, {
@@ -44,6 +47,7 @@ import EventWebHookStatus, {
 } from "@/components/EventWebHooks/EventWebHookStatus";
 import { parseHeaders } from "@/components/EventWebHooks/datadog";
 import {
+  slackSettingsHref,
   buildGroupedEventOptions,
   eventWebHookEventOptions,
   eventWebHookMethods,
@@ -188,15 +192,6 @@ function isUrl(value: string) {
   return z.string().url().safeParse(value).success;
 }
 
-function isJson(value: string) {
-  try {
-    JSON.parse(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // Problems the rows show themselves: an empty required row (marked) or a
 // timeout out of range.
 function shownOnRows(values: EventWebHookEditParams): boolean {
@@ -292,16 +287,11 @@ export default function EventWebHookPage({
   const latestFailed = !!logs[0] && logs[0].result !== "success";
 
   // The Slack app manages its channels' webhooks.
-  const managedInSlack =
-    eventWebHook?.payloadType === "slack" && !!eventWebHook.slack?.teamId;
-  const slackSettingsUrl =
-    managedInSlack && permissionsUtil.canManageIntegrations()
-      ? eventWebHook.slack?.channelId
-        ? `/integrations/slack?channel=${encodeURIComponent(eventWebHook.id)}`
-        : `/integrations/slack?workspace=${encodeURIComponent(
-            eventWebHook.slack?.teamId ?? "",
-          )}`
-      : null;
+  const slackHref = eventWebHook ? slackSettingsHref(eventWebHook) : null;
+  const managedInSlack = !!slackHref;
+  const slackSettingsUrl = permissionsUtil.canManageIntegrations()
+    ? slackHref
+    : null;
   const canEdit =
     !managedInSlack &&
     (eventWebHook
@@ -490,7 +480,6 @@ export default function EventWebHookPage({
   const actions = slackSettingsUrl ? (
     <LinkButton href={slackSettingsUrl}>Edit Slack settings</LinkButton>
   ) : (
-    // Spaced like the detail pages' header actions.
     <Flex align="center" gap="4">
       {canTest && (
         // A test sends the saved settings.
@@ -739,9 +728,7 @@ export default function EventWebHookPage({
                   ? [allEventsOption]
                   : [allEventsOption, ...datadogEventOptions]
             }
-            formatOptionLabel={(option, meta) =>
-              formatWebhookEventOptionLabel(option, meta)
-            }
+            formatOptionLabel={formatWebhookEventOptionLabel}
             onChange={(value: string[]) =>
               form.setValue(
                 "events",
@@ -856,17 +843,12 @@ export default function EventWebHookPage({
               <TabsTrigger value="diagnostics">
                 Diagnostics
                 {latestFailed ? (
-                  // Sized like the unsaved-change dot, in red.
-                  <span
+                  <StatusDot
+                    inline
+                    color="var(--red-9)"
                     role="img"
                     aria-label="Last delivery failed"
-                    style={{
-                      width: 8,
-                      height: 8,
-                      marginLeft: 6,
-                      borderRadius: "50%",
-                      background: "var(--red-9)",
-                    }}
+                    style={{ marginLeft: 6 }}
                   />
                 ) : null}
               </TabsTrigger>

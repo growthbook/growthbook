@@ -48,6 +48,13 @@ export const apiUpdateWebhookSecretBody = apiCreateWebhookSecretBody.partial();
 export type CreateWebhookSecretProps = CreateProps<WebhookSecretInterface>;
 export type UpdateWebhookSecretProps = UpdateProps<WebhookSecretInterface>;
 
+// A secret with allowed origins may only be sent to those.
+export const webhookSecretAllowsOrigin = (
+  secret: { allowedOrigins?: string[] },
+  origin: string,
+): boolean =>
+  !secret.allowedOrigins?.length || secret.allowedOrigins.includes(origin);
+
 // The secrets a webhook's endpoint or headers reference: `{{ KEY }}`, or
 // `{{[key with spaces]}}` as the sender rewrites those.
 export const referencedWebhookSecrets = (text: string): string[] =>

@@ -3,6 +3,7 @@ import type { Ace } from "ace-builds";
 import { PiKey } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  webhookSecretAllowsOrigin,
   referencedWebhookSecrets,
   WebhookSecretFrontEndInterface,
 } from "shared/validators";
@@ -22,7 +23,7 @@ import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 
-function isJson(value: string): boolean {
+export function isJson(value: string): boolean {
   try {
     JSON.parse(value);
     return true;
@@ -101,9 +102,7 @@ function InsertSecretMenu({
         .sort((a, b) => a.key.localeCompare(b.key))
         .map((secret) => {
           const blocked =
-            !!origin &&
-            !!secret.allowedOrigins?.length &&
-            !secret.allowedOrigins.includes(origin);
+            !!origin && !webhookSecretAllowsOrigin(secret, origin);
           return (
             <DropdownMenuItem
               key={secret.id}

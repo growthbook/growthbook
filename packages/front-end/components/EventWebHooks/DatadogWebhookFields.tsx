@@ -6,6 +6,7 @@ import {
   datadogSites,
   datadogWebhookProblem,
 } from "shared/util";
+import { webhookSecretAllowsOrigin } from "shared/validators";
 import { UseFormReturn } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -84,8 +85,8 @@ function ApiKeySelect({
           );
           return (
             !!allowedOrigin &&
-            !!secret?.allowedOrigins?.length &&
-            !secret.allowedOrigins.includes(allowedOrigin)
+            !!secret &&
+            !webhookSecretAllowsOrigin(secret, allowedOrigin)
           );
         }}
         onChange={(key) =>

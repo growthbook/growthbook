@@ -50,7 +50,7 @@ export const datadogEventWebHookSettings = z
       .string()
       .optional()
       .describe(
-        "The Datadog service the changes are sent to. The webhook's projects, tags and environments choose which changes those are.",
+        "The Datadog service the changes are sent to. The webhook's Projects, tags and environments choose which changes those are.",
       ),
   })
   .strict();

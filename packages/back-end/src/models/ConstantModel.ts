@@ -1,5 +1,4 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
   ApiConstant,
@@ -16,11 +15,10 @@ import {
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
-  captureEventBuffer,
-  emitOrDeferBulkPublishEvent,
+  updatedEventEmitter,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
-import { EventReach, NO_REACH } from "back-end/src/events/relatedEntities";
+import { NO_REACH } from "back-end/src/events/relatedEntities";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
@@ -245,23 +243,16 @@ export class ConstantModel extends BaseClass {
   ) {
     this.invalidateAllSnapshot();
 
-    // Skip the webhook event when only `dateUpdated` changed. During a
-    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
-    const buffer = captureEventBuffer(this.context);
-    const emit = !isEqual(
-      omit(previous, ["dateUpdated"]),
-      omit(current, ["dateUpdated"]),
-    )
-      ? (reach: EventReach) =>
-          emitOrDeferBulkPublishEvent(
-            () =>
-              logConstantUpdatedEvent(this.context, previous, current, reach),
-            entityKey("constant", newDoc.id),
-            buffer,
-          )
-      : undefined;
+    const emit = updatedEventEmitter(
+      this.context,
+      entityKey("constant", newDoc.id),
+      previous,
+      current,
+      (reach) =>
+        logConstantUpdatedEvent(this.context, previous, current, reach),
+    );
 
     if (
       updates.value !== undefined ||
@@ -269,7 +260,6 @@ export class ConstantModel extends BaseClass {
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      // The event waits for the refresh scan, which finds what the change reaches.
       resolvableValueChanged(this.context, "updated", "constant", newDoc.key, {
         onReach: emit,
         environments: changedConstantEnvironments(existing, newDoc),

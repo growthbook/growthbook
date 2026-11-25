@@ -1,5 +1,6 @@
 import { omit } from "lodash";
 import {
+  webhookSecretAllowsOrigin,
   WebhookSecretFrontEndInterface,
   WebhookSecretInterface,
   webhookSecretSchema,
@@ -97,10 +98,8 @@ export class WebhookSecretDataModel extends BaseClass {
 
   // The secrets a webhook sent to `origin` may use.
   private async usableAt(origin: string) {
-    return (await this.getAll()).filter(
-      (secret) =>
-        !secret.allowedOrigins?.length ||
-        secret.allowedOrigins.includes(origin),
+    return (await this.getAll()).filter((secret) =>
+      webhookSecretAllowsOrigin(secret, origin),
     );
   }
 

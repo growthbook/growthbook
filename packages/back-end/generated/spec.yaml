@@ -41816,7 +41816,7 @@ paths:
                     service:
                       description: >-
                         The Datadog service the changes are sent to. The
-                        webhook's projects, tags and environments choose which
+                        webhook's Projects, tags and environments choose which
                         changes those are.
                       type: string
                   additionalProperties: false
@@ -41971,7 +41971,7 @@ paths:
                     service:
                       description: >-
                         The Datadog service the changes are sent to. The
-                        webhook's projects, tags and environments choose which
+                        webhook's Projects, tags and environments choose which
                         changes those are.
                       type: string
                   additionalProperties: false
@@ -84910,7 +84910,7 @@ components:
             service:
               description: >-
                 The Datadog service the changes are sent to. The webhook's
-                projects, tags and environments choose which changes those are.
+                Projects, tags and environments choose which changes those are.
               type: string
           additionalProperties: false
         signingKey:
