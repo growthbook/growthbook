@@ -33,6 +33,11 @@ import { ReqContext } from "back-end/types/request";
 jest.mock("back-end/src/services/datasource", () => ({
   getIntegrationFromDatasourceId: jest.fn(),
 }));
+// Pins query-runner-fast-refresh on, so the live flag cannot pick the timer.
+jest.mock("back-end/src/services/growthbook", () => ({
+  ...jest.requireActual("back-end/src/services/growthbook"),
+  getBackendFeatureValue: jest.fn(() => true),
+}));
 
 const organization = "org_1";
 const experimentId = "exp_race";

@@ -72,16 +72,24 @@ export async function getQueriesByIds(
   context: ReqContext,
   ids: string[],
   includeChunkedResults: boolean = true,
+  // "primary" is for a read right after a status write: a succeeded doc must
+  // come with all of its result chunks, so docs and chunks both read there.
+  readPreference?: "primary",
 ) {
   if (!ids.length) return [];
-  const docs = await QueryModel.find({
+  const find = QueryModel.find({
     organization: context.org.id,
     id: { $in: ids },
   });
+  if (readPreference) find.read(readPreference);
+  const docs = await find;
   const queries = docs.map((doc) => toInterface(doc));
 
   if (includeChunkedResults) {
-    await context.models.sqlResultChunks.addResultsToQueries(queries);
+    await context.models.sqlResultChunks.addResultsToQueries(
+      queries,
+      readPreference,
+    );
   }
 
   return queries;

@@ -9,8 +9,16 @@ import {
   rollupQueryStatus,
   getQueryFailureError,
   getQueryFailureCause,
+  EMPTY_QUERY_LIST_CONFIRM_MS,
+  REFRESH_DEBOUNCE_MS,
+  REFRESH_MIN_INTERVAL_MS,
+  REFRESH_WATCHDOG_INTERVAL_MS,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import {
   countRunningQueries,
   getQueriesByIds,
@@ -24,12 +32,28 @@ import {
 } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
+jest.mock("back-end/src/services/growthbook");
 
 // The automocked heartbeat resolves nowhere by default, and the runner calls
 // `.catch` on it inside a timer callback.
 beforeEach(() => {
   jest.mocked(touchQueuedQueriesHeartbeat).mockResolvedValue(0);
+  // query-runner-fast-refresh is on unless a test turns it off.
+  jest.mocked(getBackendFeatureValue).mockReset().mockReturnValue(true);
+  jest
+    .mocked(getTrustedOrgAttributes)
+    .mockReturnValue({ organizationId: "hashed-org" });
 });
+
+function deferred<T = void>() {
+  let resolve: (value: T) => void = () => {
+    throw new Error("deferred was not initialized");
+  };
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
 
 class TestQueryRunner extends QueryRunner<
   InterfaceWithQueries,
@@ -599,7 +623,7 @@ describe("QueryRunner", () => {
     > {
       public persistedQueries: Queries = [];
       public updateModelSpy = jest.fn();
-      public onQueryFinishSpy = jest.fn();
+      public getLatestModelSpy = jest.fn();
 
       checkPermissions() {
         return true;
@@ -616,6 +640,7 @@ describe("QueryRunner", () => {
       // Simulates reading the model from the database: returns whatever has
       // been persisted via updateModel(), not the in-memory copy.
       async getLatestModel() {
+        this.getLatestModelSpy(this.persistedQueries.length);
         return {
           ...this.model,
           queries: this.persistedQueries,
@@ -630,14 +655,9 @@ describe("QueryRunner", () => {
         this.persistedQueries = params.queries;
         return { ...this.model, queries: params.queries };
       }
-
-      async onQueryFinish() {
-        this.onQueryFinishSpy(this.persistedQueries.length);
-        return super.onQueryFinish();
-      }
     }
 
-    it("gates onQueryFinish until the query DAG is persisted, then drives once", async () => {
+    it("runs no refresh until the query DAG is persisted, then reads it", async () => {
       jest.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
@@ -653,8 +673,8 @@ describe("QueryRunner", () => {
         );
 
         await runner.onQueryFinish();
-        expect(jest.getTimerCount()).toBe(0);
-        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(0);
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
 
         const pointers: Queries = [
           { name: "drop_old", query: "qry_drop", status: "running" },
@@ -666,17 +686,16 @@ describe("QueryRunner", () => {
         expect(runner.updateModelSpy).toHaveBeenCalledWith(
           expect.objectContaining({ status: "running", queries: pointers }),
         );
-        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(
-          pointers.length,
-        );
-        expect(jest.getTimerCount()).toBeGreaterThan(0);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledWith(pointers.length);
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
       }
     });
 
-    it("does not re-arm the timer when queries are already finished (cached)", async () => {
+    it("runs no refresh when queries are already finished (cached)", async () => {
       jest.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
@@ -702,10 +721,10 @@ describe("QueryRunner", () => {
 
         await runner.startAnalysis({ pointers });
 
-        // Runner should be finished (analysis ran synchronously on cached
-        // results) and no follow-up refresh should have been scheduled.
+        // Analysis ran on the cached results, so nothing is left to refresh.
         expect(runner.status).toBe("finished");
-        expect(runner.onQueryFinishSpy).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -1079,11 +1098,12 @@ describe("QueryRunner", () => {
 
     // Drives the runner into the "running" state with a DAG that still has
     // queued/running queries, but never actually executes any query (no
-    // executeQuery, no per-query timers). onQueryFinish is neutralized so the
-    // only timer in play is the runner-level heartbeat interval. This isolates
-    // the guarantee in question: the lock heartbeat must keep firing for the
-    // whole time the runner is "running" — including the gaps between
-    // sequentially-dependent queries when no single query is executing.
+    // executeQuery, no per-query timers). Refresh passes find no query docs,
+    // so they change nothing and the heartbeat interval is the only timer
+    // with an effect. This isolates the guarantee in question: the lock
+    // heartbeat must keep firing for the whole time the runner is "running" —
+    // including the gaps between sequentially-dependent queries when no single
+    // query is executing.
     class HeartbeatTestQueryRunner extends QueryRunner<
       InterfaceWithQueries,
       { pointers: Queries },
@@ -1113,10 +1133,6 @@ describe("QueryRunner", () => {
       }): Promise<InterfaceWithQueries> {
         return { ...this.model, queries: params.queries };
       }
-
-      // Neutralize the per-query follow-up timer so the heartbeat interval is
-      // the only thing the fake clock advances.
-      async onQueryFinish() {}
 
       protected override onHeartbeat(): void {
         this.onHeartbeatSpy();
@@ -1278,8 +1294,7 @@ describe("QueryRunner", () => {
     > {
       public runAnalysisSpy = jest.fn();
       public updateModelSpy = jest.fn();
-      public getLatestModelImpl: () => Promise<InterfaceWithQueries> = () =>
-        Promise.resolve(this.model);
+      public getLatestModelSpy = jest.fn(() => Promise.resolve(this.model));
 
       checkPermissions() {
         return true;
@@ -1295,17 +1310,7 @@ describe("QueryRunner", () => {
       }
 
       async getLatestModel() {
-        return this.getLatestModelImpl();
-      }
-
-      public markDagPersisted() {
-        // @ts-expect-error Setting private prop for testing
-        this.dagPersisted = true;
-      }
-
-      public hasDebounceTimer(): boolean {
-        // @ts-expect-error Reading private prop for testing
-        return this.timer !== null;
+        return this.getLatestModelSpy();
       }
 
       async updateModel(params: {
@@ -1469,10 +1474,11 @@ describe("QueryRunner", () => {
           pointers: persistedQueries.map((pointer) => ({ ...pointer })),
         });
         runner.updateModelSpy.mockClear();
-        runner.getLatestModelImpl = () =>
+        runner.getLatestModelSpy.mockImplementation(() =>
           Promise.resolve(
             makeModel(persistedQueries.map((pointer) => ({ ...pointer }))),
-          );
+          ),
+        );
 
         const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
         getQueriesByIdsMock
@@ -1482,17 +1488,23 @@ describe("QueryRunner", () => {
           ])
           .mockResolvedValueOnce([createMockQuery("qry_c", "succeeded")]);
 
-        await jest.advanceTimersByTimeAsync(1000);
+        await jest.advanceTimersByTimeAsync(0);
 
         expect(runner.status).toBe("running");
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.updateModelSpy).not.toHaveBeenCalled();
 
-        await jest.advanceTimersByTimeAsync(300000);
+        // The watchdog tick retries the failed pass. Fake timers delay a
+        // zero-delay timer armed inside a tick by 1 ms.
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS + 1);
 
-        expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(2, mockContext, [
-          "qry_c",
-        ]);
+        expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(
+          2,
+          mockContext,
+          ["qry_c"],
+          true,
+          "primary",
+        );
         expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
         expect(runner.updateModelSpy).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1527,19 +1539,19 @@ describe("QueryRunner", () => {
 
         // First model re-fetch throws; later ones succeed.
         let failures = 1;
-        runner.getLatestModelImpl = () => {
+        runner.getLatestModelSpy.mockImplementation(() => {
           if (failures > 0) {
             failures--;
             return Promise.reject(new Error("transient mongo error"));
           }
           return Promise.resolve(runner.model);
-        };
+        });
         (getQueriesByIds as jest.Mock).mockResolvedValue([
           createMockQuery("qry_a", "succeeded"),
         ]);
 
-        // Debounce fires; re-fetch fails (bounded retry)
-        await jest.advanceTimersByTimeAsync(1000);
+        // The immediate refresh's re-fetch fails (bounded retry)
+        await jest.advanceTimersByTimeAsync(0);
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.status).toBe("running");
 
@@ -1568,10 +1580,11 @@ describe("QueryRunner", () => {
         });
         expect(runner.status).toBe("running");
         runner.updateModelSpy.mockClear();
-        runner.getLatestModelImpl = () =>
-          Promise.reject(new Error("Could not load snapshot model: snp_1"));
+        runner.getLatestModelSpy.mockImplementation(() =>
+          Promise.reject(new Error("Could not load snapshot model: snp_1")),
+        );
 
-        // 5 failures (debounce + 4 watchdog) plus one tick proving stand-down.
+        // 5 failures (first pass + 4 watchdog) plus one tick proving stand-down.
         for (let i = 0; i < 5; i++) {
           await jest.advanceTimersByTimeAsync(302000);
         }
@@ -1602,8 +1615,9 @@ describe("QueryRunner", () => {
         });
         expect(runner.status).toBe("running");
         runner.updateModelSpy.mockClear();
-        runner.getLatestModelImpl = () =>
-          Promise.reject(new Error("transient mongo error"));
+        runner.getLatestModelSpy.mockImplementation(() =>
+          Promise.reject(new Error("transient mongo error")),
+        );
 
         for (let i = 0; i < 5; i++) {
           await jest.advanceTimersByTimeAsync(302000);
@@ -1618,36 +1632,6 @@ describe("QueryRunner", () => {
             error: expect.stringContaining("transient mongo error"),
           }),
         );
-        expect(jest.getTimerCount()).toBe(0);
-      } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
-      }
-    });
-
-    it("stands down when the query list was emptied by a cancel", async () => {
-      // cancelQueries() on another instance writes queries: []; stand down.
-      jest.useFakeTimers();
-      try {
-        const runner = new StallTestQueryRunner(
-          mockContext,
-          makeModel([]),
-          mockIntegration,
-        );
-        await runner.startAnalysis({
-          pointers: [{ name: "a", query: "qry_a", status: "running" }],
-        });
-        expect(runner.status).toBe("running");
-        runner.updateModelSpy.mockClear();
-        runner.getLatestModelImpl = () =>
-          Promise.resolve({ ...runner.model, queries: [] });
-
-        await jest.advanceTimersByTimeAsync(1000);
-
-        expect(runner.status).toBe("finished");
-        expect(runner.error).toBe("");
-        expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
-        expect(runner.updateModelSpy).not.toHaveBeenCalled();
         expect(jest.getTimerCount()).toBe(0);
       } finally {
         jest.clearAllTimers();
@@ -1703,12 +1687,7 @@ describe("QueryRunner", () => {
 
     it("waits for terminal error persistence before reporting completion", async () => {
       jest.useFakeTimers();
-      let resolveWrite: () => void = () => {
-        throw new Error("write promise was not initialized");
-      };
-      const writeFinished = new Promise<void>((resolve) => {
-        resolveWrite = resolve;
-      });
+      const write = deferred();
       try {
         class DeferredWriteRunner extends StallTestQueryRunner {
           public writeErrorSpy = jest.fn();
@@ -1717,7 +1696,7 @@ describe("QueryRunner", () => {
             error: string,
           ): Promise<void> {
             this.writeErrorSpy(error);
-            await writeFinished;
+            await write.promise;
           }
         }
 
@@ -1742,12 +1721,12 @@ describe("QueryRunner", () => {
         expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
         expect(runner.status).toBe("finishing");
 
-        resolveWrite();
+        write.resolve();
 
         await expect(completion).resolves.toBe("rejected");
         expect(runner.status).toBe("finished");
       } finally {
-        resolveWrite();
+        write.resolve();
         await Promise.resolve();
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -1756,18 +1735,8 @@ describe("QueryRunner", () => {
 
     it("does not start a queued query after error shutdown begins", async () => {
       jest.useFakeTimers();
-      let resolveCount: (count: number) => void = () => {
-        throw new Error("count promise was not initialized");
-      };
-      let resolveWrite: () => void = () => {
-        throw new Error("write promise was not initialized");
-      };
-      const countFinished = new Promise<number>((resolve) => {
-        resolveCount = resolve;
-      });
-      const writeFinished = new Promise<void>((resolve) => {
-        resolveWrite = resolve;
-      });
+      const count = deferred<number>();
+      const write = deferred();
       const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
       try {
         class DeferredShutdownRunner extends StallTestQueryRunner {
@@ -1777,7 +1746,7 @@ describe("QueryRunner", () => {
             error: string,
           ): Promise<void> {
             this.writeErrorSpy(error);
-            await writeFinished;
+            await write.promise;
           }
         }
 
@@ -1792,7 +1761,7 @@ describe("QueryRunner", () => {
           pointers: [{ name: "late", query: query.id, status: query.status }],
         });
         runner.runCallbacks[query.id] = { run, onFailure: jest.fn() };
-        jest.mocked(countRunningQueries).mockReturnValue(countFinished);
+        jest.mocked(countRunningQueries).mockReturnValue(count.promise);
         jest.mocked(updateQueryIfPending).mockResolvedValue(true);
         jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
         jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
@@ -1806,7 +1775,7 @@ describe("QueryRunner", () => {
         expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
         expect(runner.status).toBe("finishing");
 
-        resolveCount(0);
+        count.resolve(0);
         await jest.advanceTimersByTimeAsync(0);
 
         expect(run).not.toHaveBeenCalled();
@@ -1816,8 +1785,8 @@ describe("QueryRunner", () => {
           expect.objectContaining({ status: "failed" }),
         );
       } finally {
-        resolveCount(0);
-        resolveWrite();
+        count.resolve(0);
+        write.resolve();
         randomSpy.mockRestore();
         await Promise.resolve();
         jest.clearAllTimers();
@@ -1859,26 +1828,389 @@ describe("QueryRunner", () => {
       }
     });
 
-    it("does not restart a finished runner on a late query completion", async () => {
-      jest.useFakeTimers();
-      try {
-        const runner = new StallTestQueryRunner(
-          mockContext,
-          makeModel([{ name: "a", query: "qry_a", status: "succeeded" }]),
-          mockIntegration,
+    describe("refresh scheduling", () => {
+      // Stands in for the query collection: tests flip a status, then report
+      // the finish, the way executeQuery writes before calling onQueryFinish.
+      type QueryDb = Record<string, QueryStatus>;
+      const runningPointers = (db: QueryDb): Queries =>
+        Object.keys(db).map((name) => ({
+          name,
+          query: `qry_${name}`,
+          status: "running",
+        }));
+
+      const makeRunner = (
+        db: QueryDb,
+        Runner: typeof StallTestQueryRunner = StallTestQueryRunner,
+      ) => {
+        const runner = new Runner(mockContext, makeModel([]), mockIntegration);
+        runner.getLatestModelSpy.mockImplementation(() =>
+          Promise.resolve(makeModel(runningPointers(db))),
         );
-        // So onQueryFinish reaches the finished-status guard.
-        runner.markDagPersisted();
-        runner.status = "finished";
+        jest
+          .mocked(getQueriesByIds)
+          .mockImplementation(async () =>
+            Object.entries(db).map(([name, status]) =>
+              createMockQuery(`qry_${name}`, status),
+            ),
+          );
+        return runner;
+      };
 
-        await runner.onQueryFinish();
+      const startRunner = async (db: QueryDb) => {
+        const runner = makeRunner(db);
+        await runner.startAnalysis({ pointers: runningPointers(db) });
+        return runner;
+      };
 
-        expect(runner.hasDebounceTimer()).toBe(false);
-        expect(jest.getTimerCount()).toBe(0);
-      } finally {
+      beforeEach(() => {
+        jest.useFakeTimers();
+      });
+
+      afterEach(() => {
         jest.clearAllTimers();
         jest.useRealTimers();
-      }
+      });
+
+      it("runs the first refresh after a quiet period without waiting", async () => {
+        const db: QueryDb = { a: "running" };
+        const runner = await startRunner(db);
+
+        // The pass armed after the DAG write reads the persisted DAG at once.
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("running");
+
+        await jest.advanceTimersByTimeAsync(10 * REFRESH_MIN_INTERVAL_MS);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+        expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finished");
+      });
+
+      describe("with the flag off", () => {
+        beforeEach(() => {
+          jest.mocked(getBackendFeatureValue).mockReturnValue(false);
+        });
+
+        it("waits out the debounce before every pass", async () => {
+          const db: QueryDb = { a: "running" };
+          const runner = await startRunner(db);
+
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+          expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
+          await jest.advanceTimersByTimeAsync(1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+          // A finish after a quiet period still waits the full debounce.
+          await jest.advanceTimersByTimeAsync(10 * REFRESH_DEBOUNCE_MS);
+          db.a = "succeeded";
+          await runner.onQueryFinish();
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+          await jest.advanceTimersByTimeAsync(1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+          expect(runner.status).toBe("finished");
+        });
+
+        it("stands down on the first empty read", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.getLatestModelSpy.mockResolvedValue(makeModel([]));
+
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+          expect(runner.status).toBe("finished");
+          expect(runner.error).toBe("");
+        });
+
+        it("reads query docs with the default read preference", async () => {
+          await startRunner({ a: "running" });
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+
+          expect(getQueriesByIds).toHaveBeenLastCalledWith(
+            mockContext,
+            ["qry_a"],
+            true,
+            undefined,
+          );
+        });
+
+        it("does not hold passes back for beforeFirstRefresh", async () => {
+          const hook = deferred();
+          class HookedRunner extends StallTestQueryRunner {
+            protected override async beforeFirstRefresh() {
+              await hook.promise;
+            }
+          }
+          const db: QueryDb = { a: "running" };
+          const runner = makeRunner(db, HookedRunner);
+
+          const started = runner.startAnalysis({
+            pointers: runningPointers(db),
+          });
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+          hook.resolve();
+          await started;
+        });
+
+        it("leaves a running pass alone on a watchdog tick", async () => {
+          const runner = await startRunner({ a: "running" });
+          const read = deferred();
+          runner.getLatestModelSpy.mockImplementationOnce(async () => {
+            await read.promise;
+            return makeModel(runningPointers({ a: "running" }));
+          });
+
+          await jest.advanceTimersByTimeAsync(
+            REFRESH_WATCHDOG_INTERVAL_MS + REFRESH_DEBOUNCE_MS,
+          );
+          read.resolve();
+          await jest.advanceTimersByTimeAsync(0);
+
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      it("reads the flag once per run, with the run's attributes", async () => {
+        class SnapshotRunner extends StallTestQueryRunner {
+          protected override getRefreshFlagAttributes() {
+            return { snapshot_id: this.model.id };
+          }
+        }
+        const db: QueryDb = { a: "running" };
+        const runner = makeRunner(db, SnapshotRunner);
+        await runner.startAnalysis({ pointers: runningPointers(db) });
+        await jest.advanceTimersByTimeAsync(0);
+
+        // A flip mid-run must not move the run to the other timer.
+        jest.mocked(getBackendFeatureValue).mockReturnValue(false);
+        await jest.advanceTimersByTimeAsync(10 * REFRESH_MIN_INTERVAL_MS);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(runner.status).toBe("finished");
+        expect(getBackendFeatureValue).toHaveBeenCalledTimes(1);
+        expect(getBackendFeatureValue).toHaveBeenCalledWith(
+          "query-runner-fast-refresh",
+          false,
+          { organizationId: "hashed-org", snapshot_id: runner.model.id },
+        );
+      });
+
+      it("runs no pass until beforeFirstRefresh settles, then picks up finishes", async () => {
+        const hook = deferred();
+        class HookedRunner extends StallTestQueryRunner {
+          protected override async beforeFirstRefresh() {
+            await hook.promise;
+          }
+        }
+        const db: QueryDb = { a: "running" };
+        const runner = makeRunner(db, HookedRunner);
+
+        const started = runner.startAnalysis({ pointers: runningPointers(db) });
+        await jest.advanceTimersByTimeAsync(0);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        // Spans a watchdog tick, which must not start a pass either.
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
+
+        hook.resolve();
+        await started;
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finished");
+      });
+
+      it("coalesces a burst of finishes into one trailing pass", async () => {
+        const db: QueryDb = { a: "running", b: "running", c: "running" };
+        const runner = await startRunner(db);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+        const step = REFRESH_MIN_INTERVAL_MS / 10;
+        for (const name of ["a", "b", "c"]) {
+          await jest.advanceTimersByTimeAsync(step);
+          db[name] = "succeeded";
+          await runner.onQueryFinish();
+        }
+
+        // Due REFRESH_MIN_INTERVAL_MS after the previous pass started.
+        await jest.advanceTimersByTimeAsync(
+          REFRESH_MIN_INTERVAL_MS - 3 * step - 1,
+        );
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+        expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finished");
+      });
+
+      it("follows a finish that lands during a pass with another pass", async () => {
+        const db: QueryDb = { a: "running" };
+        const runner = await startRunner(db);
+        const read = deferred();
+        jest.mocked(getQueriesByIds).mockImplementationOnce(async () => {
+          const docs = [createMockQuery("qry_a", db.a)];
+          await read.promise;
+          return docs;
+        });
+
+        // The first pass has read "running" and is still in flight.
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        db.a = "succeeded";
+        await runner.onQueryFinish();
+        read.resolve();
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.status).toBe("running");
+
+        await jest.advanceTimersByTimeAsync(REFRESH_MIN_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+        expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finished");
+      });
+
+      it("queues at most one pass behind a slow pass", async () => {
+        const runner = await startRunner({ a: "running" });
+        const read = deferred();
+        jest.mocked(getQueriesByIds).mockImplementationOnce(async () => {
+          await read.promise;
+          return [createMockQuery("qry_a", "running")];
+        });
+        await jest.advanceTimersByTimeAsync(0);
+
+        // Each finish lands after the interval, so only the queued pass
+        // that has not started yet can absorb it.
+        for (let i = 0; i < 5; i++) {
+          await runner.onQueryFinish();
+          await jest.advanceTimersByTimeAsync(2 * REFRESH_MIN_INTERVAL_MS);
+        }
+        read.resolve();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+      });
+
+      it("watchdog leaves a pending refresh alone and recovers a lost wake-up", async () => {
+        const db: QueryDb = { a: "running" };
+        const runner = await startRunner(db);
+        const gap = REFRESH_MIN_INTERVAL_MS / 10;
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS - gap);
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+
+        // Due after the watchdog tick, which therefore adds no pass.
+        await runner.onQueryFinish();
+        await jest.advanceTimersByTimeAsync(2 * REFRESH_MIN_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(3);
+
+        // A finish whose wake-up never arrives is picked up by the next tick.
+        db.a = "succeeded";
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(4);
+        expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+        expect(runner.status).toBe("finished");
+      });
+
+      it("ignores a finish that arrives after the run concluded", async () => {
+        const runner = await startRunner({ a: "succeeded" });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.status).toBe("finished");
+
+        await runner.onQueryFinish();
+        // A concluded runner arms nothing.
+        expect(jest.getTimerCount()).toBe(0);
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it("cancelQueries clears a pending refresh", async () => {
+        const runner = await startRunner({ a: "running" });
+        await jest.advanceTimersByTimeAsync(0);
+        await runner.onQueryFinish();
+        jest.mocked(markPendingQueriesAsFailed).mockResolvedValue(1);
+
+        await runner.cancelQueries();
+
+        expect(runner.status).toBe("finished");
+        expect(jest.getTimerCount()).toBe(0);
+        await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+      });
+
+      describe("empty query list", () => {
+        it("stands down once the list stays empty for the confirm window", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.updateModelSpy.mockClear();
+          runner.getLatestModelSpy.mockResolvedValue(makeModel([]));
+
+          await jest.advanceTimersByTimeAsync(EMPTY_QUERY_LIST_CONFIRM_MS - 1);
+          expect(runner.status).toBe("running");
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+          // No query finishes, yet the list is re-read at the deadline.
+          await jest.advanceTimersByTimeAsync(1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+          expect(runner.status).toBe("finished");
+          expect(runner.error).toBe("");
+          expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
+          expect(runner.updateModelSpy).not.toHaveBeenCalled();
+          await expect(runner.waitForResults()).resolves.toBeUndefined();
+        });
+
+        it("keeps running when a single read shows an empty list", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.getLatestModelSpy.mockResolvedValueOnce(makeModel([]));
+
+          await jest.advanceTimersByTimeAsync(EMPTY_QUERY_LIST_CONFIRM_MS);
+
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+          expect(runner.status).toBe("running");
+          expect(runner.model.queries).toHaveLength(1);
+        });
+
+        it("restarts the confirm window after a non-empty read", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.getLatestModelSpy.mockResolvedValueOnce(makeModel([]));
+          await jest.advanceTimersByTimeAsync(EMPTY_QUERY_LIST_CONFIRM_MS);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+
+          // Past the first empty read's deadline, so only a reset window
+          // keeps this read from standing the runner down.
+          runner.getLatestModelSpy.mockResolvedValue(makeModel([]));
+          await runner.onQueryFinish();
+          await jest.advanceTimersByTimeAsync(REFRESH_MIN_INTERVAL_MS);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(3);
+          expect(runner.status).toBe("running");
+
+          await jest.advanceTimersByTimeAsync(EMPTY_QUERY_LIST_CONFIRM_MS);
+          expect(runner.status).toBe("finished");
+        });
+
+        it("runs no pass after cancelQueries inside the confirm window", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.getLatestModelSpy.mockResolvedValue(makeModel([]));
+          await jest.advanceTimersByTimeAsync(0);
+          jest.mocked(markPendingQueriesAsFailed).mockResolvedValue(1);
+
+          await runner.cancelQueries();
+          expect(jest.getTimerCount()).toBe(0);
+          await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS);
+
+          expect(runner.status).toBe("finished");
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        });
+      });
     });
 
     it("re-queues a queued query when the concurrency retry throws", async () => {

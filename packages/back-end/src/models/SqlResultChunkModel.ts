@@ -45,7 +45,10 @@ export class SqlResultChunkModel extends BaseClass {
     );
   }
 
-  public async addResultsToQueries(queries: QueryInterface[]) {
+  public async addResultsToQueries(
+    queries: QueryInterface[],
+    readPreference?: "primary",
+  ) {
     const idsToFetch = queries
       .filter((q) => q.hasChunkedResults)
       .map((q) => (q.cachedQueryUsed ? q.cachedQueryUsed : q.id));
@@ -58,6 +61,7 @@ export class SqlResultChunkModel extends BaseClass {
       },
       {
         sort: { queryId: 1, chunkNumber: 1 },
+        readPreference,
       },
     );
     const chunksByQueryId: Record<string, SqlResultChunkInterface[]> = {};

@@ -614,6 +614,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
   }
 
+  protected override getRefreshFlagAttributes(): Record<string, unknown> {
+    return { snapshot_id: this.model.id };
+  }
+
   prepareAnalysisData(
     params: Pick<ExperimentResultsQueryParams, "metricMap" | "variationNames">,
   ): void {

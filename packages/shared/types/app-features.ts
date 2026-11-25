@@ -111,6 +111,7 @@ export type AppFeatures = {
   "proxy-cloud-sse": boolean;
   "pylon-config": Record<string, unknown>;
   "quantile-metrics": boolean;
+  "query-runner-fast-refresh": boolean;
   "remote-evaluation": boolean;
   "remote-saved-groups": boolean;
   "safe-rollout": boolean;
@@ -198,6 +199,7 @@ export type AppAttributes = {
   request_path?: string | null;
   role?: string | null;
   session_id?: string | null;
+  snapshot_id?: string | null;
   superAdmin?: boolean | null;
   ua?: string | null;
   url?: string | null;

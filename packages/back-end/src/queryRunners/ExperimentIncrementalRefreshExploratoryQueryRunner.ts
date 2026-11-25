@@ -412,6 +412,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     );
   }
 
+  protected override getRefreshFlagAttributes(): Record<string, unknown> {
+    return { snapshot_id: this.model.id };
+  }
+
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
       .touchReaderHeartbeat(this.model.experiment, this.model.id)
@@ -483,25 +487,21 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     );
   }
 
-  override async startAnalysis(
-    params: ExperimentIncrementalRefreshExploratoryQueryParams,
-  ): Promise<ExperimentSnapshotInterface> {
-    const model = await super.startAnalysis(params);
-    // A writer that cleared this run's reader entry while its queries were
-    // starting saw an empty query list and cancelled none of them so we
-    // have to finish that cancel here.
+  // A writer that cleared this run's reader entry while its queries were
+  // starting saw an empty query list and cancelled none of them, so finish
+  // that cancel here, before a refresh pass can conclude the run itself.
+  protected override async beforeFirstRefresh(): Promise<void> {
     if (
-      model.status === "running" &&
+      this.model.status === "running" &&
       !(await this.context.models.incrementalRefresh.isLockedBySnapshotId(
-        model.experiment,
-        model.id,
+        this.model.experiment,
+        this.model.id,
       ))
     ) {
-      await cancelExperimentSnapshot(this.context, model, {
+      await cancelExperimentSnapshot(this.context, this.model, {
         interruptedByWriter: true,
       });
     }
-    return model;
   }
 
   // largely copied from ExperimentResultsQueryRunner
