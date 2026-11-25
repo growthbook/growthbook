@@ -29,3 +29,9 @@
     @include click-row-target;
   }
 }
+
+.tableColumn {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}

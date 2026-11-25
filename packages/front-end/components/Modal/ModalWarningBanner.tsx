@@ -1,19 +1,21 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiWarningFill } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
+import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
 
-// Full-bleed amber strip for a Modal's `aboveFooterContent` slot: a warning
-// message on the left, optional controls (an action button, then the
-// "Acknowledge" checkbox that gates the CTA) on the right.
+// Full-bleed strip for a Modal's `aboveFooterContent` slot: a message on the
+// left, optional controls (an action button, then the "Acknowledge" checkbox
+// that gates the CTA) on the right. Amber for warnings, violet for info.
 export default function ModalWarningBanner({
   children,
+  status = "warning",
   controls,
   acknowledged,
   setAcknowledged,
 }: {
   children: ReactNode;
+  status?: "warning" | "info";
   controls?: ReactNode;
   // With both, an "Acknowledge" checkbox follows the controls.
   acknowledged?: boolean;
@@ -31,6 +33,7 @@ export default function ModalWarningBanner({
         />
       </Box>
     ) : null;
+  const color = getRadixColor(status);
   return (
     <Flex
       role="status"
@@ -41,13 +44,15 @@ export default function ModalWarningBanner({
       style={{
         // A host can widen the side inset to match its body padding.
         paddingInline: "var(--modal-warning-banner-inset, var(--space-4))",
-        background: "var(--amber-a3)",
-        borderTop: "1px solid var(--amber-a5)",
-        borderBottom: "1px solid var(--amber-a5)",
+        background: `var(--${color}-a3)`,
+        borderTop: `1px solid var(--${color}-a5)`,
+        borderBottom: `1px solid var(--${color}-a5)`,
       }}
     >
-      <Flex align="center" gap="2" style={{ color: "var(--amber-11)" }}>
-        <PiWarningFill size={15} style={{ flexShrink: 0 }} />
+      <Flex align="center" gap="2" style={{ color: `var(--${color}-11)` }}>
+        <Flex flexShrink="0">
+          <RadixStatusIcon status={status} size="md" />
+        </Flex>
         <Text as="div">{children}</Text>
       </Flex>
       {controls || acknowledge ? (

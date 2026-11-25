@@ -83,6 +83,8 @@ import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
 import { PageBleed } from "@/components/Layout/PageFrame";
 import { hasHealthData } from "@/components/HealthTab/constants";
+import QaActiveChip from "@/components/Experiment/QaOverrides/QaActiveChip";
+import { QA_OVERRIDES_SECTION_ID } from "@/services/qaOverrides";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
@@ -1047,6 +1049,16 @@ export default function ExperimentHeader({
                 >
                   <ExperimentStatusIndicator experimentData={experiment} />
                 </Box>
+                {!isHoldout ? (
+                  <Box as="span" ml="2" position="relative" top="2px">
+                    <QaActiveChip
+                      experiment={experiment}
+                      onClick={() =>
+                        setTab("overview", QA_OVERRIDES_SECTION_ID)
+                      }
+                    />
+                  </Box>
+                ) : null}
               </Flex>
             </Heading>
           </Box>

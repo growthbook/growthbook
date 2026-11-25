@@ -1,0 +1,40 @@
+.help {
+  display: inline-flex;
+  cursor: help;
+}
+
+.dotted {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+// The popover can't clip its own corners (that would cut off its hover
+// bridge), so the rounding is here.
+.waitingPopover {
+  width: 320px;
+  border-radius: var(--radius-3);
+  overflow: hidden;
+}
+
+.waitingHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--amber-a3);
+  border-block: 1px solid var(--amber-a4);
+}
+
+.waitingIcon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--amber-11);
+}
+
+.waitingBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}

@@ -18,6 +18,8 @@ import {
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { useQaOverrideCount } from "@/hooks/useExperimentQaOverrides";
+import { qaOverridesCountLabel } from "@/services/qaOverrides";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -126,6 +128,7 @@ function StartContent({
     setBypassed(false);
   }
   const editsBlocked = useEditsBlockedReason();
+  const qaOverrideCount = useQaOverrideCount(experiment);
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 
@@ -265,7 +268,16 @@ function StartContent({
             {error}
           </Callout>
         ) : null}
-        <Flex justify="end" align="center" gap="3">
+        <Flex
+          justify={qaOverrideCount > 0 ? "between" : "end"}
+          align="center"
+          gap="3"
+        >
+          {qaOverrideCount > 0 ? (
+            <Text size="sm" color="text-mid">
+              Deletes {qaOverridesCountLabel(qaOverrideCount)}
+            </Text>
+          ) : null}
           <Tooltip content={blockedReason} enabled={!!blockedReason}>
             <Button
               onClick={async () => {
