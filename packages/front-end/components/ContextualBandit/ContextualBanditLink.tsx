@@ -1,4 +1,5 @@
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 
@@ -10,7 +11,12 @@ export default function ContextualBanditLink({
 }) {
   const { contextualBanditsMap } = useContextualBandits();
 
-  if (!contextualBanditId) return <em>unset</em>;
+  if (!contextualBanditId)
+    return (
+      <em>
+        <Trans>unset</Trans>
+      </em>
+    );
   const cb = contextualBanditsMap?.get(contextualBanditId);
   return (
     <Link href={`/contextual-bandit/${contextualBanditId}`} target="_blank">

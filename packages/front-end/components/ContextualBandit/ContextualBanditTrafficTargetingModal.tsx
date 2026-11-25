@@ -1,6 +1,7 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
@@ -30,6 +31,7 @@ export default function ContextualBanditTrafficTargetingModal({
   mutate: () => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const environments = useEnvironments();
 
@@ -58,9 +60,9 @@ export default function ContextualBanditTrafficTargetingModal({
       <ModalStandard
         open
         trackingEventModalType="cb-edit-traffic-targeting"
-        header="Edit Traffic & Targeting"
+        header={t`Edit Traffic & Targeting`}
         close={close}
-        cta="Save"
+        cta={t`Save`}
         ctaEnabled={!prerequisiteTargetingSdkIssues}
         size="lg"
         submit={validatedSubmit(form, async (data) => {
@@ -88,9 +90,9 @@ export default function ContextualBanditTrafficTargetingModal({
       >
         <FeatureVariationsInput
           valueType="string"
-          label="Traffic included in this Bandit"
-          coverageLabel="Traffic included in this Bandit"
-          coverageTooltip="Units not included in the Bandit skip this experiment"
+          label={t`Traffic included in this Bandit`}
+          coverageLabel={t`Traffic included in this Bandit`}
+          coverageTooltip={t`Units not included in the Bandit skip this experiment`}
           coverage={form.watch("coverage")}
           setCoverage={(coverage) => form.setValue("coverage", coverage)}
           setWeight={(i, weight) =>

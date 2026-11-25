@@ -10,6 +10,7 @@ import {
   getMalformedTargetingAttributeColumnsForExposureQueries,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -54,6 +55,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   onSave,
   onCancel,
 }) => {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const { settings } = useUser();
   const attributeSchema = settings?.attributeSchema ?? [];
@@ -122,7 +124,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
     const columns = form.getValues("targetingAttributeColumns") ?? [];
     if (columns.length === 0) {
       throw new Error(
-        "Add at least one targeting attribute column for a contextual bandit query.",
+        t`Add at least one targeting attribute column for a contextual bandit query.`,
       );
     }
     const queryForValidation = [
@@ -155,10 +157,9 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       (col) => !new RegExp(`\\b${col}\\b`, "i").test(value.query ?? ""),
     );
     if (missingInQuery.length > 0) {
+      const missingList = missingInQuery.join(", ");
       throw new Error(
-        `These targeting attribute columns are not referenced in your SQL: ${missingInQuery.join(
-          ", ",
-        )}. Add them to your SELECT, or remove them from the list.`,
+        t`These targeting attribute columns are not referenced in your SQL: ${missingList}. Add them to your SELECT, or remove them from the list.`,
       );
     }
 
@@ -193,16 +194,18 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       (col) => !returnedColumns.has(col.toLowerCase()),
     );
     if (missingColumns.length > 0) {
-      throw new Error(
-        `You are missing the following columns: ${missingColumns.join(", ")}`,
-      );
+      const missingList = missingColumns.join(", ");
+      throw new Error(t`You are missing the following columns: ${missingList}`);
     }
   };
 
+  const queryName = contextualBanditQuery?.name;
   const modalTitle =
     mode === "add"
-      ? "Add a Contextual Bandit query"
-      : `Edit ${contextualBanditQuery?.name ?? "Contextual Bandit"} query`;
+      ? t`Add a Contextual Bandit query`
+      : queryName !== undefined
+        ? t`Edit ${queryName} query`
+        : t`Edit Contextual Bandit query`;
 
   if (uiMode === "sql") {
     return (
@@ -231,20 +234,20 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       close={onCancel}
       size="lg"
       header={modalTitle}
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={saveEnabled}
     >
       <div className="my-2 ml-3 mr-3">
-        <Field label="Display Name" required {...form.register("name")} />
+        <Field label={t`Display Name`} required {...form.register("name")} />
         <Field
-          label="Description (optional)"
+          label={t`Description (optional)`}
           textarea
           minRows={1}
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
         <SelectField
-          label="Identifier Type"
+          label={t`Identifier Type`}
           options={(dataSource.settings.userIdTypes || []).map((i) => ({
             value: i.userIdType,
             label: i.userIdType,
@@ -255,11 +258,15 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
         />
 
         <div className="form-group">
-          <label className="mr-5">Query</label>
+          <label className="mr-5">
+            <Trans>Query</Trans>
+          </label>
           {userEnteredQuery === defaultQuery && (
             <Callout status="info" mb="2">
-              The prefilled query below may require editing to fit your data
-              structure.
+              <Trans>
+                The prefilled query below may require editing to fit your data
+                structure.
+              </Trans>
             </Callout>
           )}
           {userEnteredQuery && (
@@ -272,26 +279,28 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
               icon={<PiArrowSquareOut />}
               iconPosition="right"
             >
-              Customize SQL
+              <Trans>Customize SQL</Trans>
             </Button>
           </div>
         </div>
 
         <div className="mt-3">
           <MultiSelectField
-            label="Targeting Attribute Columns"
+            label={t`Targeting Attribute Columns`}
             value={userEnteredTargetingAttributeColumns ?? []}
             onChange={(cols) => {
               form.setValue("targetingAttributeColumns", cols);
             }}
             options={targetingAttributeOptions}
-            placeholder="Select targeting attributes…"
+            placeholder={t`Select targeting attributes…`}
           />
           <small className="form-text text-muted d-block mt-1">
-            Pick from your organization&apos;s targeting attributes (
-            <Link href="/attributes">Settings → Attributes</Link>). Each
-            selected attribute must also appear as a column alias in your
-            SELECT.
+            <Trans>
+              Pick from your organization&apos;s targeting attributes (
+              <Link href="/attributes">Settings → Attributes</Link>). Each
+              selected attribute must also appear as a column alias in your
+              SELECT.
+            </Trans>
           </small>
         </div>
       </div>

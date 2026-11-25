@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ExperimentReportVariation } from "shared/types/report";
 import { ContextualBanditSrmLatestPeriod } from "shared/validators";
@@ -38,6 +39,7 @@ export default function ContextualBanditSRMCard({
   totalUsers,
   latestPeriod,
 }: Props) {
+  const { t } = useLingui();
   const srmHealth = useSrmHealth({
     srm: srm ?? Infinity,
     numOfVariations: variations.length,
@@ -54,23 +56,31 @@ export default function ContextualBanditSRMCard({
   if (srm === null) {
     return (
       <Callout status="info">
-        Not enough data yet for a balance check. It needs at least two
-        variations with 5 or more expected units in the same leaf and Bandit
-        period.
+        <Trans>
+          Not enough data yet for a balance check. It needs at least two
+          variations with 5 or more expected units in the same leaf and Bandit
+          period.
+        </Trans>
       </Callout>
     );
   }
 
+  const pValue = pValueFormatter(srm, 4);
+
   return (
     <SRMCardShell
-      title="Balance Check"
+      title={t`Balance Check`}
       description={
         <>
-          Shows actual unit split compared to the assigned variation weights for
-          the most recent Bandit period, grouped by regression tree leaf.
+          <Trans>
+            Shows actual unit split compared to the assigned variation weights
+            for the most recent Bandit period, grouped by regression tree leaf.
+          </Trans>
           <br />
-          p-value below is calculated using all data, not just the most recent
-          Bandit period.
+          <Trans>
+            p-value below is calculated using all data, not just the most recent
+            Bandit period.
+          </Trans>
         </>
       }
       srmHealth={srmHealth}
@@ -79,7 +89,7 @@ export default function ContextualBanditSRMCard({
           variant="ghost"
           size="sm"
           aria-label={
-            isCollapsed ? "Show balance details" : "Hide balance details"
+            isCollapsed ? t`Show balance details` : t`Hide balance details`
           }
           onClick={() => setIsCollapsed((prev) => !prev)}
         >
@@ -104,7 +114,7 @@ export default function ContextualBanditSRMCard({
         </Box>
       )}
       <Text as="div" color="text-low" mx="2" mt="1" mb="2">
-        p-value: {pValueFormatter(srm, 4)}
+        <Trans>p-value: {pValue}</Trans>
       </Text>
       <div>
         <SRMWarningFooter
@@ -164,12 +174,24 @@ function LatestPeriodBalanceTable({
       <Table variant="surface" mx="2" mb="2">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Leaf</TableColumnHeader>
-            <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader justify="end">Actual units</TableColumnHeader>
-            <TableColumnHeader justify="end">Expected units</TableColumnHeader>
-            <TableColumnHeader justify="end">Actual %</TableColumnHeader>
-            <TableColumnHeader justify="end">Expected %</TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Leaf</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Variation</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Actual units</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Expected units</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Actual %</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Expected %</Trans>
+            </TableColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -226,7 +248,7 @@ function LatestPeriodBalanceTable({
               )
             }
           >
-            Show more...
+            <Trans>Show more...</Trans>
           </Button>
         </Box>
       )}

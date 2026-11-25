@@ -1,4 +1,7 @@
 import { Flex, Grid } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import type {
   ApiCreateInterleavingBody,
   ApiInterleavingInterface,
@@ -28,16 +31,18 @@ export function getRankerConfigError(
 
 export function getRankersError(
   rankers: InterleavingRankers,
+  i18n: I18n,
   jsonSchema: ApiInterleavingInterface["jsonSchema"] = null,
 ): string | null {
-  for (const { role, label } of RANKERS) {
+  for (const { role, label: labelDescriptor } of RANKERS) {
     const r = rankers[role];
-    if (!r.key.trim()) return `${label}: key is required`;
+    const label = i18n._(labelDescriptor);
+    if (!r.key.trim()) return i18n._(msg`${label}: key is required`);
     const err = getRankerConfigError(r.config, jsonSchema);
-    if (err) return `${label}: ${err}`;
+    if (err) return i18n._(msg`${label}: ${err}`);
   }
   if (rankers.control.key.trim() === rankers.treatment.key.trim()) {
-    return "The two rankers need different keys";
+    return i18n._(msg`The two rankers need different keys`);
   }
   return null;
 }
@@ -51,6 +56,7 @@ export default function InterleavingVariationsInput({
   setValue: (value: InterleavingRankers) => void;
   jsonSchema?: ApiInterleavingInterface["jsonSchema"];
 }) {
+  const { t, i18n } = useLingui();
   const update = (
     role: keyof InterleavingRankers,
     changes: Partial<InterleavingRankers["control"]>,
@@ -64,37 +70,37 @@ export default function InterleavingVariationsInput({
           <RankerCard
             key={role}
             index={i}
-            name={ranker.name || ranker.key || label}
+            name={ranker.name || ranker.key || i18n._(label)}
           >
             <Flex gap="3">
               <Field
-                label="Key"
+                label={t`Key`}
                 value={ranker.key}
                 onChange={(e) => update(role, { key: e.target.value })}
                 required
                 containerClassName="flex-1"
               />
               <Field
-                label="Name"
+                label={t`Name`}
                 value={ranker.name}
                 onChange={(e) => update(role, { name: e.target.value })}
                 containerClassName="flex-1"
               />
             </Flex>
             <Field
-              label="Description"
+              label={t`Description`}
               value={ranker.description ?? ""}
               onChange={(e) => update(role, { description: e.target.value })}
             />
             <CodeTextArea
-              label="Config (JSON)"
+              label={t`Config (JSON)`}
               language="json"
               value={ranker.config}
               setValue={(config) => update(role, { config })}
               minLines={4}
               maxLines={16}
               error={getRankerConfigError(ranker.config, jsonSchema) ?? ""}
-              helpText="Passed to getList() in the SDK for this ranker."
+              helpText={t`Passed to getList() in the SDK for this ranker.`}
             />
           </RankerCard>
         );

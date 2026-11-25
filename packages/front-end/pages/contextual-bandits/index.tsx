@@ -8,6 +8,8 @@ import React, {
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ComputedContextualBanditInterface,
   contextualBanditStatusIndicatorData,
@@ -52,12 +54,19 @@ const CONTEXTUAL_BANDIT_LIST_TABS = [
   "archived",
 ] as const;
 type ContextualBanditListTab = (typeof CONTEXTUAL_BANDIT_LIST_TABS)[number];
+const CONTEXTUAL_BANDIT_TAB_LABELS = {
+  running: msg`Running`,
+  drafts: msg`Drafts`,
+  stopped: msg`Stopped`,
+  archived: msg`Archived`,
+};
 const isContextualBanditListTab = (
   value: string,
 ): value is ContextualBanditListTab =>
   CONTEXTUAL_BANDIT_LIST_TABS.includes(value as ContextualBanditListTab);
 
 const ContextualBanditsPage = (): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const { ready, project, projects, datasources } = useDefinitions();
 
   const initialHashRef = useRef(
@@ -160,7 +169,12 @@ const ContextualBanditsPage = (): React.ReactElement => {
   }, [filtered.length]);
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -185,9 +199,9 @@ const ContextualBanditsPage = (): React.ReactElement => {
     return (
       <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Contextual Bandits"
-          title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
-          description="Contextual Bandits automatically guide more traffic to better variants based on user context."
+          h1={t`Contextual Bandits`}
+          title={t`Run Context-Aware Adaptive Experiments with Contextual Bandits`}
+          description={t`Contextual Bandits automatically guide more traffic to better variants based on user context.`}
           commercialFeature="contextual-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
@@ -207,8 +221,10 @@ const ContextualBanditsPage = (): React.ReactElement => {
             wrap="wrap"
           >
             <Flex align="center" flexGrow="1" gap="3" mb="2">
-              <h1 className="mb-0">Contextual Bandits</h1>
-              <Badge color="indigo" label="Beta" variant="solid" size="lg" />
+              <h1 className="mb-0">
+                <Trans>Contextual Bandits</Trans>
+              </h1>
+              <Badge color="indigo" label={t`Beta`} variant="solid" size="lg" />
             </Flex>
             {canAdd && hasExperiments && (
               <PremiumTooltip
@@ -221,7 +237,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                   }}
                   disabled={!hasContextualBanditFeature}
                 >
-                  Add Contextual Bandit
+                  <Trans>Add Contextual Bandit</Trans>
                 </Button>
               </PremiumTooltip>
             )}
@@ -245,14 +261,15 @@ const ContextualBanditsPage = (): React.ReactElement => {
             >
               <Box mb="3">
                 <TabsList>
-                  <TabsTrigger value="all">All Contextual Bandits</TabsTrigger>
+                  <TabsTrigger value="all">
+                    <Trans>All Contextual Bandits</Trans>
+                  </TabsTrigger>
                   {(["running", "drafts", "stopped", "archived"] as const).map(
                     (tabValue) => {
                       if (tabValue === "archived" && !hasArchived) return null;
                       return (
                         <TabsTrigger value={tabValue} key={tabValue}>
-                          {tabValue.slice(0, 1).toUpperCase()}
-                          {tabValue.slice(1)}
+                          {i18n._(CONTEXTUAL_BANDIT_TAB_LABELS[tabValue])}
                           {tabValue !== "archived" && (
                             <span
                               style={{
@@ -277,7 +294,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
               <Flex align="center" mb="3" gap="3" wrap="wrap">
                 <Box>
                   <Field
-                    placeholder="Search..."
+                    placeholder={t`Search...`}
                     type="search"
                     {...searchInputProps}
                   />
@@ -291,7 +308,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                 <Box style={{ marginLeft: "auto" }}>
                   <Switch
                     id="my-contextual-bandits-toggle"
-                    label="My Contextual Bandits Only"
+                    label={t`My Contextual Bandits Only`}
                     value={showMineOnly}
                     onChange={(value) => {
                       setShowMineOnly(value);
@@ -305,19 +322,31 @@ const ContextualBanditsPage = (): React.ReactElement => {
                     <tr>
                       <th></th>
                       <SortableTH field="name" className="w-100">
-                        Contextual Bandit
+                        <Trans>Contextual Bandit</Trans>
                       </SortableTH>
                       {showProjectColumn && (
-                        <SortableTH field="projectName">Project</SortableTH>
+                        <SortableTH field="projectName">
+                          <Trans>Project</Trans>
+                        </SortableTH>
                       )}
-                      <SortableTH field="tags">Tags</SortableTH>
-                      <SortableTH field="ownerName">Owner</SortableTH>
-                      <SortableTH field="date">Date</SortableTH>
-                      <SortableTH field="status">Status</SortableTH>
+                      <SortableTH field="tags">
+                        <Trans>Tags</Trans>
+                      </SortableTH>
+                      <SortableTH field="ownerName">
+                        <Trans>Owner</Trans>
+                      </SortableTH>
+                      <SortableTH field="date">
+                        <Trans>Date</Trans>
+                      </SortableTH>
+                      <SortableTH field="status">
+                        <Trans>Status</Trans>
+                      </SortableTH>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.slice(start, end).map((e) => {
+                      const projectId = e.project;
+                      const formattedDate = date(e.date);
                       return (
                         <tr key={e.id} className="hover-highlight">
                           <td
@@ -348,7 +377,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                 {isFiltered && e.trackingKey && (
                                   <span
                                     className="testid text-muted small"
-                                    title="Experiment Id"
+                                    title={t`Experiment Id`}
                                   >
                                     {e.trackingKey}
                                   </span>
@@ -361,17 +390,21 @@ const ContextualBanditsPage = (): React.ReactElement => {
                               {e.projectIsDeReferenced ? (
                                 <Tooltip
                                   body={
-                                    <>
-                                      Project <code>{e.project}</code> not found
-                                    </>
+                                    <Trans>
+                                      Project <code>{projectId}</code> not found
+                                    </Trans>
                                   }
                                 >
                                   <span className="text-danger">
-                                    Invalid project
+                                    <Trans>Invalid project</Trans>
                                   </span>
                                 </Tooltip>
                               ) : (
-                                (e.projectName ?? <em>None</em>)
+                                (e.projectName ?? (
+                                  <em>
+                                    <Trans>None</Trans>
+                                  </em>
+                                ))
                               )}
                             </td>
                           )}
@@ -392,15 +425,14 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           </td>
                           <td className="nowrap" title={datetime(e.date)}>
                             {e.tab === "running"
-                              ? "started"
+                              ? t`started ${formattedDate}`
                               : e.tab === "drafts"
-                                ? "created"
+                                ? t`created ${formattedDate}`
                                 : e.tab === "stopped"
-                                  ? "ended"
+                                  ? t`ended ${formattedDate}`
                                   : e.tab === "archived"
-                                    ? "updated"
-                                    : ""}{" "}
-                            {date(e.date)}
+                                    ? t`updated ${formattedDate}`
+                                    : formattedDate}
                           </td>
                           <td className="nowrap" data-title="Status:">
                             <ExperimentStatusIndicator

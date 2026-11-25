@@ -8,6 +8,7 @@ import {
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -63,6 +64,7 @@ export default function ContextualBanditAnalysisMetricsModal({
   mutate: () => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const { datasources, getDatasourceById, getExperimentMetricById } =
     useDefinitions();
@@ -181,9 +183,9 @@ export default function ContextualBanditAnalysisMetricsModal({
       <ModalStandard
         open
         trackingEventModalType="cb-edit-analysis-metrics"
-        header="Edit Analysis & Metrics"
+        header={t`Edit Analysis & Metrics`}
         close={close}
-        cta="Save"
+        cta={t`Save`}
         size="lg"
         submit={validatedSubmit(form, async (data) => {
           const query = contextualBanditQueries.find(
@@ -198,7 +200,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             : cb.contextualAttributes;
           if (isDraft && contextualAttributes.length === 0) {
             throw new Error(
-              "Select at least one contextual attribute for this Contextual Bandit.",
+              t`Select at least one contextual attribute for this Contextual Bandit.`,
             );
           }
           const queryChanged =
@@ -208,10 +210,9 @@ export default function ContextualBanditAnalysisMetricsModal({
             queryChanged &&
             !contextualAttributes.some((a) => eligible.includes(a))
           ) {
+            const attributeList = contextualAttributes.join(", ");
             throw new Error(
-              `The selected query has no attributes in common with this Bandit's contextual attributes (${contextualAttributes.join(
-                ", ",
-              )}). Choose a query that includes at least one of them.`,
+              t`The selected query has no attributes in common with this Bandit's contextual attributes (${attributeList}). Choose a query that includes at least one of them.`,
             );
           }
 
@@ -228,7 +229,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             (!Number.isInteger(priorSampleSize) || priorSampleSize < 1)
           ) {
             throw new Error(
-              "Enter a prior variation sample size of at least 1, or turn off Increase Bandit exploration.",
+              t`Enter a prior variation sample size of at least 1, or turn off Increase Bandit exploration.`,
             );
           }
 
@@ -256,25 +257,29 @@ export default function ContextualBanditAnalysisMetricsModal({
         })}
       >
         <SelectField
-          label="Data Source"
+          label={t`Data Source`}
           value={form.watch("datasource")}
           onChange={(v) => {
             form.setValue("datasource", v);
             form.setValue("decisionMetric", "");
           }}
-          options={datasources.map((d) => ({
-            value: d.id,
-            label:
-              d.name +
-              (d.id === settings?.defaultDataSource ? " (default)" : ""),
-          }))}
-          initialOption="None"
-          helpText="Only data sources with a Contextual Bandit query can power a Contextual Bandit."
+          options={datasources.map((d) => {
+            const name = d.name;
+            return {
+              value: d.id,
+              label:
+                d.id === settings?.defaultDataSource
+                  ? t`${name} (default)`
+                  : name,
+            };
+          })}
+          initialOption={t`None`}
+          helpText={t`Only data sources with a Contextual Bandit query can power a Contextual Bandit.`}
         />
 
         {contextualBanditQueries.length > 0 ? (
           <SelectField
-            label="Contextual Bandit Query"
+            label={t`Contextual Bandit Query`}
             value={form.watch("exposureQueryId")}
             onChange={(v) => form.setValue("exposureQueryId", v)}
             required
@@ -282,7 +287,7 @@ export default function ContextualBanditAnalysisMetricsModal({
               value: q.id,
               label: q.name,
             }))}
-            helpText="The bandit assignment query for this data source."
+            helpText={t`The bandit assignment query for this data source.`}
           />
         ) : null}
 
@@ -290,32 +295,34 @@ export default function ContextualBanditAnalysisMetricsModal({
           isDraft ? (
             eligibleAttributes.length > 0 ? (
               <MultiSelectField
-                label="Contextual Attributes"
+                label={t`Contextual Attributes`}
                 value={selectedContextualAttributes}
                 onChange={(v) => form.setValue("contextualAttributes", v)}
                 options={eligibleAttributes.map((a) => ({
                   label: a,
                   value: a,
                 }))}
-                placeholder="Select contextual attributes…"
+                placeholder={t`Select contextual attributes…`}
                 legacyLabelFormatting={false}
-                helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+                helpText={t`Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it.`}
               />
             ) : (
               <Box mb="3">
                 <Text weight="semibold" size="md">
-                  Contextual Attributes
+                  <Trans>Contextual Attributes</Trans>
                 </Text>
                 <HelperText status="warning">
-                  The selected query has no targeting attribute columns that are
-                  still valid organization attributes.
+                  <Trans>
+                    The selected query has no targeting attribute columns that
+                    are still valid organization attributes.
+                  </Trans>
                 </HelperText>
               </Box>
             )
           ) : (
             <Box mb="3">
               <Text weight="semibold" size="md">
-                Contextual Attributes
+                <Trans>Contextual Attributes</Trans>
               </Text>
               <Box mt="1">
                 {effectiveContextualAttributes.length > 0 ? (
@@ -326,12 +333,16 @@ export default function ContextualBanditAnalysisMetricsModal({
                     </Fragment>
                   ))
                 ) : (
-                  <Text color="text-low">None</Text>
+                  <Text color="text-low">
+                    <Trans>None</Trans>
+                  </Text>
                 )}
               </Box>
               <HelperText status="info">
-                Contextual attributes can only be changed while the Bandit is a
-                draft.
+                <Trans>
+                  Contextual attributes can only be changed while the Bandit is
+                  a draft.
+                </Trans>
               </HelperText>
             </Box>
           )
@@ -359,8 +370,8 @@ export default function ContextualBanditAnalysisMetricsModal({
 
         <Box mb="2">
           <Switch
-            label="Increase Bandit exploration"
-            description="Shrink variation mean estimates toward a shared mean to facilitate model exploration."
+            label={t`Increase Bandit exploration`}
+            description={t`Shrink variation mean estimates toward a shared mean to facilitate model exploration.`}
             value={increaseBanditExploration}
             onChange={(v) => {
               form.setValue("increaseBanditExploration", v);
@@ -394,8 +405,10 @@ export default function ContextualBanditAnalysisMetricsModal({
                 weight="semibold"
                 size="md"
               >
-                Prior variation sample size{" "}
-                <Tooltip body="The number of prior (pseudo) observations used to shrink each variation mean toward a shared mean. The larger the prior sample size, the stronger the exploration." />
+                <Trans>Prior variation sample size</Trans>{" "}
+                <Tooltip
+                  body={t`The number of prior (pseudo) observations used to shrink each variation mean toward a shared mean. The larger the prior sample size, the stronger the exploration.`}
+                />
               </Text>
             }
             {...form.register("priorSampleSize", { valueAsNumber: true })}

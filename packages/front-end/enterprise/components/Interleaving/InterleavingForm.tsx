@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useLingui } from "@lingui/react/macro";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
@@ -70,6 +71,7 @@ export default function InterleavingForm({
   initialValue?: ApiInterleavingInterface;
   duplicate?: boolean;
 }) {
+  const { i18n } = useLingui();
   const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
@@ -172,7 +174,7 @@ export default function InterleavingForm({
       !!analysis.userIdType ||
       analysis.metrics.length > 0;
     if (duplicate && analysisStarted) {
-      const analysisError = getAnalysisError(analysis);
+      const analysisError = getAnalysisError(analysis, i18n);
       if (analysisError) throw new Error(analysisError);
     }
     const res = await restApiCall(interleavingEndpoints.createInterleaving, {

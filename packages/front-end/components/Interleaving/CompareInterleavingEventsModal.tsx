@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { InterleavingInterface } from "shared/validators";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
@@ -92,10 +93,11 @@ export default function CompareInterleavingEventsModal({
   interleavingId,
   onClose,
 }: CompareInterleavingEventsModalProps) {
+  const { t } = useLingui();
   return (
     <AuditHistoryExplorerModal<InterleavingInterface>
       entityId={interleavingId}
-      entityName="Interleaving Experiment"
+      entityName={t`Interleaving Experiment`}
       config={INTERLEAVING_DIFF_CONFIG}
       onClose={onClose}
     />

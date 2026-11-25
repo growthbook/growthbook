@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -17,6 +18,7 @@ export default function StopHoldoutModal({
   close,
   mutate,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   // A refusal throws, so the modal stays open and shows it.
@@ -43,14 +45,16 @@ export default function StopHoldoutModal({
       size="md"
       submit={submit}
       ctaColor="red"
-      cta="Confirm"
+      cta={t`Confirm`}
       close={close}
-      header="Stop Holdout"
+      header={t`Stop Holdout`}
     >
       <div className="p-2">
         <div>
-          Stopping this holdout will release all holdout users and will expose
-          them to the same feature values as the general population.
+          <Trans>
+            Stopping this holdout will release all holdout users and will expose
+            them to the same feature values as the general population.
+          </Trans>
         </div>
       </div>
     </ModalStandard>

@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
 import Frame from "@/ui/Frame";
 import VariationLabel from "@/ui/VariationLabel";
 
 export const RANKERS = [
-  { role: "control", label: "Control" },
-  { role: "treatment", label: "Treatment" },
+  { role: "control", label: msg`Control` },
+  { role: "treatment", label: msg`Treatment` },
 ] as const;
 
 export type RankerRole = (typeof RANKERS)[number]["role"];

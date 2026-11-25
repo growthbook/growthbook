@@ -5,6 +5,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { MetricWindowSettings } from "shared/types/fact-table";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -66,6 +67,7 @@ export default function ContextualBanditDecisionMetricSettings({
   disabled = false,
   autoApplyDefaults = true,
 }: ContextualBanditDecisionMetricSettingsProps) {
+  const { t } = useLingui();
   const form = useFormContext();
   const { getExperimentMetricById, factMetrics, factTables } = useDefinitions();
   const factMetricFlow = useFactMetricFlow(
@@ -90,9 +92,9 @@ export default function ContextualBanditDecisionMetricSettings({
   const factTablesForDatasource = useMemo(() => {
     if (!datasourceId) return [];
     return factTables.filter(
-      (t) =>
-        t.datasource === datasourceId &&
-        isProjectListValidForProject(t.projects, project),
+      (table) =>
+        table.datasource === datasourceId &&
+        isProjectListValidForProject(table.projects, project),
     );
   }, [factTables, datasourceId, project]);
   const factTableForMetric = factTablesForDatasource[0] ?? null;
@@ -192,12 +194,28 @@ export default function ContextualBanditDecisionMetricSettings({
   const conversionWindowWarning = showConversionWindowWarning && !disabled && (
     <Callout status="warning" my="4">
       <Text>
-        Consider setting the decision metric conversion window to be at most 10%
-        of the <Text weight="semibold">Update Cadence</Text> to limit metric
-        windows extending into periods when users may switch variations.
+        <Trans>
+          Consider setting the decision metric conversion window to be at most
+          10% of the <Text weight="semibold">Update Cadence</Text> to limit
+          metric windows extending into periods when users may switch
+          variations.
+        </Trans>
       </Text>
     </Callout>
   );
+
+  const metricWindowValue = decisionMetricWindow?.windowValue ?? 0;
+  const metricDefaultWindow =
+    !decisionMetricWindow ? null : decisionMetricWindow.windowUnit ===
+      "weeks" ? (
+      <Plural value={metricWindowValue} one="# week" other="# weeks" />
+    ) : decisionMetricWindow.windowUnit === "days" ? (
+      <Plural value={metricWindowValue} one="# day" other="# days" />
+    ) : decisionMetricWindow.windowUnit === "hours" ? (
+      <Plural value={metricWindowValue} one="# hour" other="# hours" />
+    ) : (
+      <Plural value={metricWindowValue} one="# minute" other="# minutes" />
+    );
 
   if (showNoFactMetricsMessage) {
     const creationTarget = {
@@ -212,8 +230,8 @@ export default function ContextualBanditDecisionMetricSettings({
             <Text>
               {factMetricFlow.creation(creationTarget).disabledReason ??
                 (factTableForMetric
-                  ? "Add a mean or proportion Fact Metric to use as the decision metric, then continue."
-                  : "This Data Source has no Fact Tables. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric. Create a Fact Table for this Data Source, then add a Fact Metric to it.")}
+                  ? t`Add a mean or proportion Fact Metric to use as the decision metric, then continue.`
+                  : t`This Data Source has no Fact Tables. Contextual Bandits can only use a mean or proportion Fact Metric as the decision metric. Create a Fact Table for this Data Source, then add a Fact Metric to it.`)}
             </Text>
             {factMetricFlow.createButton(creationTarget, {
               variant: "outline",
@@ -265,22 +283,19 @@ export default function ContextualBanditDecisionMetricSettings({
       {decisionMetricId ? (
         <Box my="5">
           <Text size="md" weight="semibold">
-            Conversion Window
+            <Trans>Conversion Window</Trans>
           </Text>
           <Text size="sm" color="text-mid" as="p" my="1">
-            Set a short window to ensure the bandit reward is measured before a
-            user may switch variations.
+            <Trans>
+              Set a short window to ensure the bandit reward is measured before
+              a user may switch variations.
+            </Trans>
           </Text>
           <Text color="text-mid" size="sm" as="p" my="1">
-            {decisionMetricWindow ? (
-              <>
-                Metric default: {decisionMetricWindow.windowValue}{" "}
-                {decisionMetricWindow.windowValue === 1
-                  ? decisionMetricWindow.windowUnit.slice(0, -1)
-                  : decisionMetricWindow.windowUnit}
-              </>
+            {metricDefaultWindow ? (
+              <Trans>Metric default: {metricDefaultWindow}</Trans>
             ) : (
-              "Metric default: No existing metric-level conversion window."
+              t`Metric default: No existing metric-level conversion window.`
             )}
           </Text>
 
@@ -313,11 +328,11 @@ export default function ContextualBanditDecisionMetricSettings({
               sort={false}
               options={[
                 {
-                  label: "Hour(s)",
+                  label: t`Hour(s)`,
                   value: "hours",
                 },
                 {
-                  label: "Day(s)",
+                  label: t`Day(s)`,
                   value: "days",
                 },
               ]}

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRight, PiCaretUp } from "react-icons/pi";
 import { MIN_UNITS_PER_VARIATION } from "shared/constants";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ContextualBanditSseStep } from "shared/experiments";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -40,6 +41,7 @@ function AttributeSplitsModal({
   sseByNumSplits: Map<number, number>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const steps = useMemo(
     () => [...entry.steps].sort((a, b) => a.numSplits - b.numSplits),
     [entry.steps],
@@ -48,7 +50,7 @@ function AttributeSplitsModal({
   const attributeReduction = percentFormatter.format(
     fractionRemoved(entry.totalReduction, rootSse),
   );
-  const splitsSubject = entry.isOther ? "these other attributes" : entry.label;
+  const attributeLabel = entry.label;
 
   return (
     <ModalStandard
@@ -57,24 +59,37 @@ function AttributeSplitsModal({
       trackingEventModalType="contextual-bandit-attribute-splits"
       header={
         entry.isOther
-          ? "Splits on other attributes"
-          : `Splits on ${entry.label}`
+          ? t`Splits on other attributes`
+          : t`Splits on ${attributeLabel}`
       }
-      closeCta="Close"
+      closeCta={t`Close`}
       size="lg"
     >
       <Flex direction="column" gap="3">
         <Box>
           <Text size="sm" color="text-low" as="div">
-            GrowthBook&apos;s Contextual Bandits use a tree-based model to split
-            units on the attributes that best differentiate those units on the
-            decision metric.
+            <Trans>
+              GrowthBook&apos;s Contextual Bandits use a tree-based model to
+              split units on the attributes that best differentiate those units
+              on the decision metric.
+            </Trans>
           </Text>
           <Text size="sm" color="text-low" as="div" mt="2">
-            The splits on {splitsSubject} removed {attributeReduction} of the
-            within-context error (summed over variations with at least{" "}
-            {MIN_UNITS_PER_VARIATION} units). Below is the list of splits that
-            add up to this reduction.
+            {entry.isOther ? (
+              <Trans>
+                The splits on these other attributes removed{" "}
+                {attributeReduction} of the within-context error (summed over
+                variations with at least {MIN_UNITS_PER_VARIATION} units). Below
+                is the list of splits that add up to this reduction.
+              </Trans>
+            ) : (
+              <Trans>
+                The splits on {attributeLabel} removed {attributeReduction} of
+                the within-context error (summed over variations with at least{" "}
+                {MIN_UNITS_PER_VARIATION} units). Below is the list of splits
+                that add up to this reduction.
+              </Trans>
+            )}
           </Text>
         </Box>
         {steps.map((step) => {
@@ -115,6 +130,7 @@ export default function ContextualBanditAttributeTable({
 }: {
   steps: ContextualBanditSseStep[];
 }) {
+  const { t } = useLingui();
   const rows = useMemo(
     () => attributeSseReductions(steps, Number.MAX_SAFE_INTEGER),
     [steps],
@@ -141,8 +157,12 @@ export default function ContextualBanditAttributeTable({
       <Table variant="ghost" size="sm" style={{ maxWidth: 420 }}>
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Attribute</TableColumnHeader>
-            <TableColumnHeader justify="end">Error removed</TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Attribute</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader justify="end">
+              <Trans>Error removed</Trans>
+            </TableColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -162,7 +182,7 @@ export default function ContextualBanditAttributeTable({
             >
               <TableRowHeaderCell>
                 <Text size="sm" weight="medium">
-                  {row.isOther ? "Other" : row.label}
+                  {row.isOther ? t`Other` : row.label}
                 </Text>
               </TableRowHeaderCell>
               <TableCell justify="end">
@@ -185,7 +205,7 @@ export default function ContextualBanditAttributeTable({
           icon={expanded ? <PiCaretUp /> : <PiCaretRight />}
           onClick={() => setExpanded((prev) => !prev)}
         >
-          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+          {expanded ? t`Show less` : t`Show ${hiddenCount} more`}
         </Button>
       ) : null}
 

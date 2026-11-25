@@ -2,6 +2,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getAllVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
@@ -43,8 +44,10 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
       <Box mt="4">
         <Text>
           <em>
-            Add new <Link href="/experiments">Experiments</Link> to this
-            Holdout.
+            <Trans>
+              Add new <Link href="/experiments">Experiments</Link> to this
+              Holdout.
+            </Trans>
           </em>
         </Text>
       </Box>
@@ -56,22 +59,22 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
       <TableHeader>
         <TableRow>
           <SortableTableColumnHeader field="name">
-            Experiment
+            <Trans>Experiment</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="status">
-            Status
+            <Trans>Status</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="releasedVariationId">
-            Shipped variation
+            <Trans>Shipped variation</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="ownerNameDisplay">
-            Owner
+            <Trans>Owner</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="dateAdded">
-            Added
+            <Trans>Added</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="dateEnded">
-            Ended
+            <Trans>Ended</Trans>
           </SortableTableColumnHeader>
         </TableRow>
       </TableHeader>

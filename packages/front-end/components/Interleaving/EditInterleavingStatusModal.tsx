@@ -1,4 +1,7 @@
 import { useState } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type {
@@ -11,10 +14,10 @@ import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import StopInterleavingWarning from "./StopInterleavingWarning";
 
-const LABELS: Record<InterleavingStatus, string> = {
-  draft: "Draft",
-  running: "Running",
-  stopped: "Stopped",
+const LABELS: Record<InterleavingStatus, MessageDescriptor> = {
+  draft: msg`Draft`,
+  running: msg`Running`,
+  stopped: msg`Stopped`,
 };
 
 const REACHABLE: Record<InterleavingStatus, InterleavingStatus[]> = {
@@ -23,13 +26,17 @@ const REACHABLE: Record<InterleavingStatus, InterleavingStatus[]> = {
   stopped: ["running"],
 };
 
-function statusOptions(current: InterleavingStatus, archived: boolean) {
+function statusOptions(
+  current: InterleavingStatus,
+  archived: boolean,
+  i18n: I18n,
+) {
   const reachable = archived
     ? REACHABLE[current].filter((status) => status !== "running")
     : REACHABLE[current];
   return [current, ...reachable].map((value) => ({
     value,
-    label: LABELS[value],
+    label: i18n._(LABELS[value]),
   }));
 }
 
@@ -42,6 +49,7 @@ export default function EditInterleavingStatusModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const restApiCall = useRestApiCall();
   const [status, setStatus] = useState<InterleavingStatus>(il.status);
 
@@ -50,9 +58,9 @@ export default function EditInterleavingStatusModal({
       open
       trackingEventModalType="interleaving-edit-status"
       trackingEventModalSource="interleaving-more-menu"
-      header="Change Interleaving Status"
+      header={t`Change Interleaving Status`}
       close={close}
-      cta="Update"
+      cta={t`Update`}
       ctaColor={status === "stopped" ? "red" : undefined}
       ctaEnabled={status !== il.status}
       submit={async () => {
@@ -66,16 +74,18 @@ export default function EditInterleavingStatusModal({
       }}
     >
       <SelectField
-        label="Status"
+        label={t`Status`}
         value={status}
         onChange={(v) => setStatus(v as InterleavingStatus)}
-        options={statusOptions(il.status, il.archived)}
+        options={statusOptions(il.status, il.archived, i18n)}
         sort={false}
       />
       {il.archived && (
         <Callout status="info">
-          This interleaving experiment is archived. Unarchive it to start it
-          again.
+          <Trans>
+            This interleaving experiment is archived. Unarchive it to start it
+            again.
+          </Trans>
         </Callout>
       )}
       {status === "stopped" && il.status === "running" && (
@@ -85,8 +95,10 @@ export default function EditInterleavingStatusModal({
       )}
       {status === "running" && il.status !== "running" && (
         <Callout status="info">
-          Both rankers start serving in the environments this experiment is
-          enabled in.
+          <Trans>
+            Both rankers start serving in the environments this experiment is
+            enabled in.
+          </Trans>
         </Callout>
       )}
     </ModalStandard>

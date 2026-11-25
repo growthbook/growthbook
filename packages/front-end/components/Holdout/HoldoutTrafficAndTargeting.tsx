@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasTargetingConfigured } from "shared/experiments";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -25,6 +26,7 @@ export default function HoldoutTrafficAndTargeting({
   editTargeting,
   editTraffic,
 }: Props) {
+  const { t } = useLingui();
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
@@ -36,29 +38,36 @@ export default function HoldoutTrafficAndTargeting({
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
               <Heading color="text-high" as="h4" size="sm" mb="0">
-                Traffic Allocation
+                <Trans>Traffic Allocation</Trans>
               </Heading>
               <div className="flex-1" />
               {editTraffic ? (
                 <Link onClick={editTraffic}>
-                  <Text weight="semibold">Edit</Text>
+                  <Text weight="semibold">
+                    <Trans>Edit</Trans>
+                  </Text>
                 </Link>
               ) : null}
             </div>
 
             <div className="row">
               <div className="col-4">
-                <div className="h5">Traffic</div>
+                <div className="h5">
+                  <Trans>Traffic</Trans>
+                </div>
                 <HoldoutTrafficBreakdown phase={phase} color="text-mid" />
               </div>
 
               <div className="col-4">
                 <div className="h5">
-                  Assignment Attribute
-                  {experiment.fallbackAttribute ? "s" : ""}{" "}
+                  {experiment.fallbackAttribute ? (
+                    <Trans>Assignment Attributes</Trans>
+                  ) : (
+                    <Trans>Assignment Attribute</Trans>
+                  )}{" "}
                   <Tooltip
                     popperStyle={{ lineHeight: 1.5 }}
-                    body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
+                    body={t`This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.`}
                   >
                     <GBInfo />
                   </Tooltip>
@@ -83,19 +92,23 @@ export default function HoldoutTrafficAndTargeting({
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
               <Heading color="text-high" as="h4" size="sm" mb="0">
-                Targeting
+                <Trans>Targeting</Trans>
               </Heading>
               <div className="flex-1" />
               {editTargeting ? (
                 <Link onClick={editTargeting}>
-                  <Text weight="semibold">Edit</Text>
+                  <Text weight="semibold">
+                    <Trans>Edit</Trans>
+                  </Text>
                 </Link>
               ) : null}
             </div>
             {hasConfiguredTargeting ? (
               <div className="row">
                 <div className="col-4">
-                  <div className="h5">Attribute Targeting</div>
+                  <div className="h5">
+                    <Trans>Attribute Targeting</Trans>
+                  </div>
                   <div>
                     {phase.condition && phase.condition !== "{}" ? (
                       <ConditionDisplay condition={phase.condition} />
@@ -106,7 +119,9 @@ export default function HoldoutTrafficAndTargeting({
                 </div>
 
                 <div className="col-4">
-                  <div className="h5">Saved Group Targeting</div>
+                  <div className="h5">
+                    <Trans>Saved Group Targeting</Trans>
+                  </div>
                   <div>
                     {phase.savedGroups?.length ? (
                       <SavedGroupTargetingDisplay
@@ -120,15 +135,17 @@ export default function HoldoutTrafficAndTargeting({
               </div>
             ) : (
               <Text color="text-mid">
-                No targeting (holdout will include all traffic)
+                <Trans>No targeting (holdout will include all traffic)</Trans>
               </Text>
             )}
           </Frame>
         </>
       ) : (
         <Callout status="warning" mb="4">
-          No traffic allocation or targeting configured yet. Add a phase to this
-          experiment.
+          <Trans>
+            No traffic allocation or targeting configured yet. Add a phase to
+            this experiment.
+          </Trans>
         </Callout>
       )}
     </>

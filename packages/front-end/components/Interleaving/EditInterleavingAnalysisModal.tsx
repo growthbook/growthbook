@@ -1,6 +1,7 @@
 import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -42,6 +43,7 @@ export default function EditInterleavingAnalysisModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const restApiCall = useRestApiCall();
   const { getDatasourceById } = useDefinitions();
   const [analysis, setAnalysis] = useState(() => analysisOf(il));
@@ -83,15 +85,15 @@ export default function EditInterleavingAnalysisModal({
     <ModalStandard
       open
       trackingEventModalType="interleaving-edit-analysis"
-      header="Edit Analysis"
+      header={t`Edit Analysis`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       size="lg"
       submit={async () => {
         // A new experiment has no analysis setup yet; a key-only edit
         // shouldn't have to complete it.
         if (!isEqual(analysis, analysisOf(il))) {
-          const error = getAnalysisError(analysis);
+          const error = getAnalysisError(analysis, i18n);
           if (error) throw new Error(error);
         }
         await restApiCall(interleavingEndpoints.updateInterleaving, {
@@ -103,8 +105,10 @@ export default function EditInterleavingAnalysisModal({
     >
       {il.status === "running" && (
         <Callout status="warning" mb="3">
-          This experiment is running. Changing the analysis inputs affects the
-          next results refresh.
+          <Trans>
+            This experiment is running. Changing the analysis inputs affects the
+            next results refresh.
+          </Trans>
         </Callout>
       )}
       <InterleavingAnalysisFields
@@ -119,25 +123,29 @@ export default function EditInterleavingAnalysisModal({
           onOpenChange={setAdvancedOpen}
           caret="start"
         >
-          <Text weight="semibold">Advanced settings</Text>
+          <Text weight="semibold">
+            <Trans>Advanced settings</Trans>
+          </Text>
         </CollapseTrigger>
         <Collapse open={showAdvanced}>
           <Box pt="3">
             <Field
-              label="Tracking key"
+              label={t`Tracking key`}
               required
               value={trackingKey}
               onChange={(e) => setTrackingKey(e.target.value)}
               disabled={!canEditServing}
-              helpText="Matched against experiment_id in your Interleaving Exposure Query."
+              helpText={t`Matched against experiment_id in your Interleaving Exposure Query.`}
               containerClassName={isInSDKPayload ? "mb-1" : undefined}
             />
             {isInSDKPayload && (
               <HelperText status="warning" size="sm">
-                Changing this while your experiment is running can break
-                analysis, because it changes the interleaving key emitted in
-                exposure events. Only users with permission to run experiments
-                can change this.
+                <Trans>
+                  Changing this while your experiment is running can break
+                  analysis, because it changes the interleaving key emitted in
+                  exposure events. Only users with permission to run experiments
+                  can change this.
+                </Trans>
               </HelperText>
             )}
           </Box>

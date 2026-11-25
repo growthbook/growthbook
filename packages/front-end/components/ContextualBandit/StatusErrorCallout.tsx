@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 
@@ -10,6 +11,7 @@ export default function StatusErrorCallout({
   error: Error;
   onRetry: () => Promise<unknown>;
 }) {
+  const errorMessage = error.message;
   return (
     <Callout
       status="error"
@@ -23,12 +25,14 @@ export default function StatusErrorCallout({
             await onRetry();
           }}
         >
-          Retry
+          <Trans>Retry</Trans>
         </Button>
       }
     >
-      Could not load the latest run status, so the information below may be out
-      of date: {error.message}
+      <Trans>
+        Could not load the latest run status, so the information below may be
+        out of date: {errorMessage}
+      </Trans>
     </Callout>
   );
 }

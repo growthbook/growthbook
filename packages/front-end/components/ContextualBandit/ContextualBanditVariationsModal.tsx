@@ -2,6 +2,7 @@ import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { FormProvider, useForm } from "react-hook-form";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { useRestApiCall } from "@/services/restApi";
@@ -43,6 +44,7 @@ export default function ContextualBanditVariationsModal({
   mutate: () => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
@@ -106,9 +108,9 @@ export default function ContextualBanditVariationsModal({
       <ModalStandard
         open
         trackingEventModalType="cb-edit-variations"
-        header="Edit Variations"
+        header={t`Edit Variations`}
         close={close}
-        cta="Save"
+        cta={t`Save`}
         size="lg"
         submit={validatedSubmit(form, async (data) => {
           const currentIds = new Set(data.variations.map((v) => v.id));
@@ -152,7 +154,7 @@ export default function ContextualBanditVariationsModal({
             if (missing.length > 0) {
               setShowValueErrors(true);
               throw new Error(
-                "Set a Feature Flag value for every new variation before saving",
+                t`Set a Feature Flag value for every new variation before saving`,
               );
             }
           }
@@ -235,12 +237,14 @@ export default function ContextualBanditVariationsModal({
           <Box mt="4">
             <Box mb="3">
               <Heading as="h3" size="sm" mb="1">
-                Feature Flag Values for New Variations
+                <Trans>Feature Flag Values for New Variations</Trans>
               </Heading>
               <Text as="div" size="sm" color="text-low">
-                Set the value each linked Feature Flag serves for the
-                variation(s) you added. A value is required for each one; you
-                can change it later on the Feature Flag.
+                <Trans>
+                  Set the value each linked Feature Flag serves for the
+                  variation(s) you added. A value is required for each one; you
+                  can change it later on the Feature Flag.
+                </Trans>
               </Text>
             </Box>
             {linkedFeatures.map((lf) => (
@@ -260,7 +264,7 @@ export default function ContextualBanditVariationsModal({
                       label={
                         <VariationLabel
                           number={v.index}
-                          name={v.name || v.key || "New variation"}
+                          name={v.name || v.key || t`New variation`}
                           size="lg"
                           disableTooltip
                         />

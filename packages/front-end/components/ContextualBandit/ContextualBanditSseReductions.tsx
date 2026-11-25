@@ -3,6 +3,7 @@ import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
 import { conditionFromLeafClauses } from "shared/experiments";
 import type { ContextualBanditSseStep } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 
@@ -11,13 +12,15 @@ function leafCount(step: ContextualBanditSseStep): number {
   return step.numSplits + 1;
 }
 
-function displayLevel(level: string): string {
-  return level === CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE ? "Other" : level;
+function displayLevel(level: string, otherLabel: string): string {
+  return level === CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE
+    ? otherLabel
+    : level;
 }
 
-function displayLevels(levels: string[]): string {
+function displayLevels(levels: string[], otherLabel: string): string {
   if (!levels.length) return "—";
-  return levels.map(displayLevel).join(", ");
+  return levels.map((level) => displayLevel(level, otherLabel)).join(", ");
 }
 
 export type AttributeSseReduction = {
@@ -95,6 +98,8 @@ export function SseSplitDetails({
   step: ContextualBanditSseStep;
   percentReducedLabel?: string;
 }) {
+  const { t } = useLingui();
+  const otherLabel = t`Other`;
   const isRoot = step.numSplits === 0;
   const condition = useMemo(
     () =>
@@ -104,36 +109,48 @@ export function SseSplitDetails({
     [step.split],
   );
 
+  const splitAttribute = step.split?.attribute ?? "";
+  const leftLevels = step.split
+    ? displayLevels(step.split.leftLevels, otherLabel)
+    : "";
+  const rightLevels = step.split
+    ? displayLevels(step.split.rightLevels, otherLabel)
+    : "";
+  const leaves = leafCount(step);
+
   const splitBody = step.split ? (
     <>
       <Text size="sm" weight="medium" as="div">
-        Split node
+        <Trans>Split node</Trans>
       </Text>
       <Box mb="2">
         {!condition || condition === "{}" ? (
           <Text size="sm" color="text-low">
-            All contexts
+            <Trans>All contexts</Trans>
           </Text>
         ) : (
           <ConditionDisplay condition={condition} />
         )}
       </Box>
       <Text size="sm" weight="medium" as="div">
-        Split on {step.split.attribute}
+        <Trans>Split on {splitAttribute}</Trans>
       </Text>
       <Text size="sm" color="text-low" as="div">
-        {displayLevels(step.split.leftLevels)} vs{" "}
-        {displayLevels(step.split.rightLevels)}
+        <Trans>
+          {leftLevels} vs {rightLevels}
+        </Trans>
       </Text>
     </>
   ) : isRoot ? (
     <Text size="sm" color="text-low" as="div">
-      Root of the tree, before any splits.
+      <Trans>Root of the tree, before any splits.</Trans>
     </Text>
   ) : (
     <Text size="sm" color="text-low" as="div">
-      Split details are unavailable for this point. Refresh results to compute
-      them.
+      <Trans>
+        Split details are unavailable for this point. Refresh results to compute
+        them.
+      </Trans>
     </Text>
   );
 
@@ -143,11 +160,11 @@ export function SseSplitDetails({
       <Box mt="3">
         {percentReducedLabel !== undefined ? (
           <Text size="sm" color="text-low" as="div">
-            Percent error reduced {percentReducedLabel}
+            <Trans>Percent error reduced {percentReducedLabel}</Trans>
           </Text>
         ) : null}
         <Text size="sm" color="text-low" as="div">
-          {leafCount(step)} leaves in tree after split
+          <Trans>{leaves} leaves in tree after split</Trans>
         </Text>
       </Box>
     </Box>

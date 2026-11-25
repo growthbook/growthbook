@@ -2,6 +2,7 @@ import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getEligibleContextualAttributes } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
@@ -26,6 +27,7 @@ export default function ContextualBanditAnalysisFields({
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
 
   const { datasources, getDatasourceById, getExperimentMetricById } =
@@ -85,7 +87,7 @@ export default function ContextualBanditAnalysisFields({
     <>
       <div className="rounded px-3 pt-3 pb-3 bg-highlight mb-4">
         <SelectField
-          label="Data Source"
+          label={t`Data Source`}
           labelClassName="font-weight-bold"
           value={form.watch("datasource") ?? ""}
           onChange={(newDatasource) => {
@@ -105,11 +107,12 @@ export default function ContextualBanditAnalysisFields({
           }}
           options={datasources.map((d) => {
             const isDefaultDataSource = d.id === settings.defaultDataSource;
+            const dsLabel = `${d.name}${
+              d.description ? ` — ${d.description}` : ""
+            }`;
             return {
               value: d.id,
-              label: `${d.name}${
-                d.description ? ` — ${d.description}` : ""
-              }${isDefaultDataSource ? " (default)" : ""}`,
+              label: isDefaultDataSource ? t`${dsLabel} (default)` : dsLabel,
             };
           })}
           className="portal-overflow-ellipsis"
@@ -119,25 +122,29 @@ export default function ContextualBanditAnalysisFields({
           <>
             {cbQueries.length === 0 && !cbQueriesLoading ? (
               <Callout status="warning" mt="3">
-                No Contextual Bandit queries exist for this data source yet.{" "}
-                <Link
-                  href="#"
-                  className="underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setCbQueryModalOpen(true);
-                  }}
-                >
-                  Add one
-                </Link>
-                .
+                <Trans>
+                  No Contextual Bandit queries exist for this data source yet.{" "}
+                  <Link
+                    href="#"
+                    className="underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCbQueryModalOpen(true);
+                    }}
+                  >
+                    Add one
+                  </Link>
+                  .
+                </Trans>
               </Callout>
             ) : (
               <SelectField
                 label={
                   <>
-                    Contextual Bandit Query{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                    <Trans>Contextual Bandit Query</Trans>{" "}
+                    <Tooltip
+                      body={t`Should correspond to the Identifier Type used to randomize units for this experiment`}
+                    />
                   </>
                 }
                 labelClassName="font-weight-bold"
@@ -160,7 +167,9 @@ export default function ContextualBanditAnalysisFields({
                           className="text-muted small float-right position-relative"
                           style={{ top: 3 }}
                         >
-                          Identifier Type: <code>{userIdType}</code>
+                          <Trans>
+                            Identifier Type: <code>{userIdType}</code>
+                          </Trans>
                         </span>
                       ) : null}
                     </>
@@ -172,25 +181,27 @@ export default function ContextualBanditAnalysisFields({
               <Box mt="3">
                 {eligibleAttributes.length > 0 ? (
                   <MultiSelectField
-                    label="Contextual Attributes"
+                    label={t`Contextual Attributes`}
                     value={selectedContextualAttributes}
                     onChange={(v) => form.setValue("contextualAttributes", v)}
                     options={eligibleAttributes.map((a) => ({
                       label: a,
                       value: a,
                     }))}
-                    placeholder="Select contextual attributes…"
+                    placeholder={t`Select contextual attributes…`}
                     legacyLabelFormatting={false}
-                    helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+                    helpText={t`Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it.`}
                   />
                 ) : (
                   <>
                     <Text weight="semibold" size="md">
-                      Contextual Attributes
+                      <Trans>Contextual Attributes</Trans>
                     </Text>
                     <HelperText status="warning">
-                      The selected query has no targeting attribute columns that
-                      are still valid organization attributes.
+                      <Trans>
+                        The selected query has no targeting attribute columns
+                        that are still valid organization attributes.
+                      </Trans>
                     </HelperText>
                   </>
                 )}

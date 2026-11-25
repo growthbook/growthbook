@@ -1,6 +1,7 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, ReactNode, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -66,7 +67,7 @@ import { coveragePercentFormatter } from "@/services/utils";
 function OverviewSection({
   title,
   onEdit,
-  editLabel = "Edit",
+  editLabel,
   children,
 }: {
   title: string;
@@ -74,6 +75,8 @@ function OverviewSection({
   editLabel?: string;
   children: ReactNode;
 }) {
+  const { t } = useLingui();
+  const editLabelText = editLabel === undefined ? t`Edit` : editLabel;
   return (
     <Frame>
       <Flex align="start" justify="between" mb="3" gap="3">
@@ -82,7 +85,7 @@ function OverviewSection({
         </Heading>
         {onEdit ? (
           <Button variant="ghost" onClick={onEdit}>
-            {editLabel}
+            {editLabelText}
           </Button>
         ) : null}
       </Flex>
@@ -150,6 +153,7 @@ export default function ContextualBanditDetailPage({
   canRemoveVisualChangesets?: boolean;
   linkedChangesMutate: () => void;
 }) {
+  const { t } = useLingui();
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
   const restApiCall = useRestApiCall();
@@ -173,15 +177,27 @@ export default function ContextualBanditDetailPage({
     contextualBanditQueriesMap.get(cb.contextualBanditQueryId)?.name ??
     cb.contextualBanditQueryId;
   const projectName =
-    projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
+    projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? t`None`;
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
 
   const showResultsTab = cb.status !== "draft";
 
   const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
 
-  const formatConversionWindow = (value: number, unit: string): string =>
-    `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+  const formatConversionWindow = (value: number, unit: string): string => {
+    switch (unit) {
+      case "minutes":
+        return value === 1 ? t`${value} minute` : t`${value} minutes`;
+      case "hours":
+        return value === 1 ? t`${value} hour` : t`${value} hours`;
+      case "days":
+        return value === 1 ? t`${value} day` : t`${value} days`;
+      case "weeks":
+        return value === 1 ? t`${value} week` : t`${value} weeks`;
+      default:
+        return `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+    }
+  };
 
   const decisionMetricObj = cb.decisionMetric
     ? getExperimentMetricById(cb.decisionMetric)
@@ -264,37 +280,62 @@ export default function ContextualBanditDetailPage({
     unit?: "days" | "hours",
   ): string => {
     const v = value ?? 1;
-    const base = (unit ?? "days") === "days" ? "day" : "hour";
-    return `${v} ${base}${v !== 1 ? "s" : ""}`;
+    if ((unit ?? "days") === "days") {
+      return v !== 1 ? t`${v} days` : t`${v} day`;
+    }
+    return v !== 1 ? t`${v} hours` : t`${v} hour`;
   };
   const formatUpdateCadence = (
     value?: number,
     unit?: "days" | "hours",
   ): string => {
     const v = value ?? 1;
-    return `Every ${v} ${(unit ?? "days") === "days" ? "days" : "hours"}`;
+    return (unit ?? "days") === "days"
+      ? t`Every ${v} days`
+      : t`Every ${v} hours`;
   };
 
   const pendingVariations = cb.variations
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
-  const pendingEach = pendingVariations.length === 1 ? "it" : "each of them";
-  const pendingReasons = [
+  const singlePending = pendingVariations.length === 1;
+  const featurePendingReason =
     linkedFeatures.length > 0
-      ? "a linked Feature Flag rule to be published"
-      : null,
-    visualChangesetsError
-      ? null
-      : visualChangesetsLoading
-        ? "this Contextual Bandit's AI Visual Editor changes to load"
-        : visualChangesets.length > 1
-          ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
-          : visualChangesets.length > 0
-            ? `an AI Visual Editor change to be saved for ${pendingEach}`
-            : null,
-  ]
-    .filter(Boolean)
-    .join(" and ");
+      ? t`a linked Feature Flag rule to be published`
+      : null;
+  const visualPendingReason = visualChangesetsError
+    ? null
+    : visualChangesetsLoading
+      ? t`this Contextual Bandit's AI Visual Editor changes to load`
+      : visualChangesets.length > 1
+        ? singlePending
+          ? t`an AI Visual Editor change to be saved for it on every page`
+          : t`an AI Visual Editor change to be saved for each of them on every page`
+        : visualChangesets.length > 0
+          ? singlePending
+            ? t`an AI Visual Editor change to be saved for it`
+            : t`an AI Visual Editor change to be saved for each of them`
+          : null;
+  const pendingReasons =
+    featurePendingReason && visualPendingReason
+      ? t`${featurePendingReason} and ${visualPendingReason}`
+      : (featurePendingReason ?? visualPendingReason ?? "");
+  const pendingTrafficText = pendingReasons
+    ? singlePending
+      ? t`is waiting on ${pendingReasons} and will not receive any traffic until then.`
+      : t`are waiting on ${pendingReasons} and will not receive any traffic until then.`
+    : singlePending
+      ? t`is not receiving any traffic yet.`
+      : t`are not receiving any traffic yet.`;
+  const pendingActivationText = pendingReasons
+    ? singlePending
+      ? t`It activates automatically once that happens.`
+      : t`They activate automatically once that happens.`
+    : singlePending
+      ? t`It activates automatically once a linked change is ready.`
+      : t`They activate automatically once a linked change is ready.`;
+  const visualChangesetsErrorMessage = visualChangesetsError?.message;
+  const numLinkedFeatures = linkedFeatures.length;
 
   const numVariations = cb.variations.length;
   const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
@@ -358,7 +399,9 @@ export default function ContextualBanditDetailPage({
         ))}
       </ul>
     ) : (
-      <em>none</em>
+      <em>
+        <Trans>none</Trans>
+      </em>
     );
 
   return (
@@ -387,7 +430,7 @@ export default function ContextualBanditDetailPage({
         <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
             <Button onClick={() => setShowStart(true)}>
-              Start Contextual Bandit
+              <Trans>Start Contextual Bandit</Trans>
             </Button>
           ) : null}
           {canStop && cb.status === "running" ? (
@@ -396,7 +439,7 @@ export default function ContextualBanditDetailPage({
               color="red"
               onClick={() => setConfirmStop(true)}
             >
-              Stop Contextual Bandit
+              <Trans>Stop Contextual Bandit</Trans>
             </Button>
           ) : null}
           <DropdownMenu
@@ -424,7 +467,7 @@ export default function ContextualBanditDetailPage({
                     editOverview();
                   }}
                 >
-                  Edit info
+                  <Trans>Edit info</Trans>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : null}
@@ -436,7 +479,7 @@ export default function ContextualBanditDetailPage({
                   setAuditModal(true);
                 }}
               >
-                Audit history
+                <Trans>Audit history</Trans>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {duplicate ? <DropdownMenuSeparator /> : null}
@@ -448,7 +491,7 @@ export default function ContextualBanditDetailPage({
                     duplicate();
                   }}
                 >
-                  Duplicate
+                  <Trans>Duplicate</Trans>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : null}
@@ -462,7 +505,7 @@ export default function ContextualBanditDetailPage({
                       setConfirmArchive(true);
                     }}
                   >
-                    {cb.archived ? "Unarchive" : "Archive"}
+                    {cb.archived ? t`Unarchive` : t`Archive`}
                   </DropdownMenuItem>
                 ) : null}
                 {canDelete ? (
@@ -471,7 +514,7 @@ export default function ContextualBanditDetailPage({
                     disabled={cb.status === "running"}
                     tooltip={
                       cb.status === "running"
-                        ? "Stop this Contextual Bandit before deleting it"
+                        ? t`Stop this Contextual Bandit before deleting it`
                         : undefined
                     }
                     onClick={() => {
@@ -479,7 +522,7 @@ export default function ContextualBanditDetailPage({
                       setConfirmDelete(true);
                     }}
                   >
-                    Delete
+                    <Trans>Delete</Trans>
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenuGroup>
@@ -491,7 +534,7 @@ export default function ContextualBanditDetailPage({
       <div className="pb-3">
         <Flex gap="3" mt="2" mb="1" wrap="wrap" align="center">
           <Metadata
-            label="Project"
+            label={t`Project`}
             value={
               <Flex gap="1" align="center">
                 {cb.project ? (
@@ -505,27 +548,30 @@ export default function ContextualBanditDetailPage({
                       editProject();
                     }}
                   >
-                    +Add
+                    <Trans>+Add</Trans>
                   </Link>
                 ) : (
                   <Text weight="regular" color="text-mid">
-                    None
+                    <Trans>None</Trans>
                   </Text>
                 )}
               </Flex>
             }
           />
-          <Metadata label="Experiment Key" value={cb.trackingKey || "None"} />
           <Metadata
-            label="Owner"
+            label={t`Experiment Key`}
+            value={cb.trackingKey || t`None`}
+          />
+          <Metadata
+            label={t`Owner`}
             value={<Owner ownerId={cb.owner} gap="1" textColor="text-mid" />}
           />
-          <Metadata label="Created" value={date(cb.dateCreated)} />
+          <Metadata label={t`Created`} value={date(cb.dateCreated)} />
         </Flex>
         <div className="row mt-2">
           <div className="col-auto">
             <Metadata
-              label="Tags"
+              label={t`Tags`}
               value={
                 <Flex gap="1" align="center">
                   {cb.tags.length ? (
@@ -543,7 +589,7 @@ export default function ContextualBanditDetailPage({
                             editTags();
                           }}
                         >
-                          Edit
+                          <Trans>Edit</Trans>
                         </Link>
                       ) : null}
                     </>
@@ -554,11 +600,11 @@ export default function ContextualBanditDetailPage({
                         editTags();
                       }}
                     >
-                      +Add
+                      <Trans>+Add</Trans>
                     </Link>
                   ) : (
                     <Text size="sm" color="text-low">
-                      None
+                      <Trans>None</Trans>
                     </Text>
                   )}
                 </Flex>
@@ -573,12 +619,16 @@ export default function ContextualBanditDetailPage({
         persistInURL={true}
       >
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="overview">
+            <Trans>Overview</Trans>
+          </TabsTrigger>
           {showResultsTab ? (
             <>
-              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="results">
+                <Trans>Results</Trans>
+              </TabsTrigger>
               <TabsTrigger value="health">
-                Health
+                <Trans>Health</Trans>
                 {healthIssues.length > 0 ? (
                   <Avatar size="sm" ml="2" color="red">
                     {healthIssues.length}
@@ -594,11 +644,11 @@ export default function ContextualBanditDetailPage({
             <Frame>
               <Flex align="start" justify="between" mb="2" gap="3">
                 <Heading as="h4" size="sm" mb="0">
-                  Description
+                  <Trans>Description</Trans>
                 </Heading>
                 {editDescription ? (
                   <Button variant="ghost" onClick={editDescription}>
-                    Edit
+                    <Trans>Edit</Trans>
                   </Button>
                 ) : null}
               </Flex>
@@ -607,25 +657,27 @@ export default function ContextualBanditDetailPage({
               ) : (
                 <Text color="text-low">
                   <em>
-                    Add context about this Contextual Bandit for your team
+                    <Trans>
+                      Add context about this Contextual Bandit for your team
+                    </Trans>
                   </em>
                 </Text>
               )}
             </Frame>
 
             <Heading as="h2" size="lg" mt="5" mb="3">
-              Implementation
+              <Trans>Implementation</Trans>
             </Heading>
 
             <Frame>
               <Box>
                 <Flex justify="between" align="center" mb="3" mx="1" gap="3">
                   <Heading color="text-high" as="h4" size="sm" mb="0">
-                    Variations
+                    <Trans>Variations</Trans>
                   </Heading>
                   {editVariations ? (
                     <Button variant="ghost" onClick={editVariations}>
-                      Edit Variations
+                      <Trans>Edit Variations</Trans>
                     </Button>
                   ) : null}
                 </Flex>
@@ -644,26 +696,15 @@ export default function ContextualBanditDetailPage({
                         </Box>
                       ))}
                       <Text>
-                        {pendingVariations.length === 1 ? "is" : "are"}{" "}
-                        {pendingReasons
-                          ? `waiting on ${pendingReasons} and will not receive any traffic until then. `
-                          : "not receiving any traffic yet. "}
+                        {pendingTrafficText}{" "}
                         {visualChangesetsError ? (
-                          <>
+                          <Trans>
                             Couldn&apos;t load this Contextual Bandit&apos;s
-                            visual changes ({visualChangesetsError.message}).
+                            visual changes ({visualChangesetsErrorMessage}).
                             Reload the page and try again.
-                          </>
+                          </Trans>
                         ) : (
-                          <>
-                            {pendingVariations.length === 1
-                              ? "It activates"
-                              : "They activate"}{" "}
-                            automatically once{" "}
-                            {pendingReasons
-                              ? "that happens."
-                              : "a linked change is ready."}
-                          </>
+                          pendingActivationText
                         )}
                       </Text>
                     </Flex>
@@ -711,14 +752,14 @@ export default function ContextualBanditDetailPage({
             />
 
             <OverviewSection
-              title="Traffic & Targeting"
+              title={t`Traffic & Targeting`}
               onEdit={editTrafficTargeting}
             >
               <Grid columns="3" gap="4">
-                <DetailSectionColumn label="Traffic">
-                  {coveragePct} included
+                <DetailSectionColumn label={t`Traffic`}>
+                  <Trans>{coveragePct} included</Trans>
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Assignment Attribute">
+                <DetailSectionColumn label={t`Assignment Attribute`}>
                   <Flex align="center" gap="1" wrap="wrap">
                     <AttributeBadge attributeId={cb.hashAttribute || "id"} />
                   </Flex>
@@ -727,14 +768,14 @@ export default function ContextualBanditDetailPage({
               <Grid columns="3" gap="4" mt="4">
                 {hasConfiguredTargeting ? (
                   <>
-                    <DetailSectionColumn label="Attribute Targeting">
+                    <DetailSectionColumn label={t`Attribute Targeting`}>
                       {cb.condition && cb.condition !== "{}" ? (
                         <ConditionDisplay condition={cb.condition} />
                       ) : (
                         <Text color="text-mid">--</Text>
                       )}
                     </DetailSectionColumn>
-                    <DetailSectionColumn label="Saved Group Targeting">
+                    <DetailSectionColumn label={t`Saved Group Targeting`}>
                       {cb.savedGroups?.length ? (
                         <SavedGroupTargetingDisplay
                           savedGroups={cb.savedGroups}
@@ -743,7 +784,7 @@ export default function ContextualBanditDetailPage({
                         <Text color="text-mid">--</Text>
                       )}
                     </DetailSectionColumn>
-                    <DetailSectionColumn label="Prerequisite Targeting">
+                    <DetailSectionColumn label={t`Prerequisite Targeting`}>
                       {cb.prerequisites?.length ? (
                         <ConditionDisplay prerequisites={cb.prerequisites} />
                       ) : (
@@ -752,9 +793,12 @@ export default function ContextualBanditDetailPage({
                     </DetailSectionColumn>
                   </>
                 ) : (
-                  <DetailSectionColumn label="Targeting">
+                  <DetailSectionColumn label={t`Targeting`}>
                     <Text color="text-mid">
-                      No targeting (Contextual Bandit will include all traffic)
+                      <Trans>
+                        No targeting (Contextual Bandit will include all
+                        traffic)
+                      </Trans>
                     </Text>
                   </DetailSectionColumn>
                 )}
@@ -763,10 +807,12 @@ export default function ContextualBanditDetailPage({
                 <Callout status="info" mt="4">
                   <Flex direction="column" gap="2">
                     <Text as="span">
-                      Your attribute targeting overlaps with the Bandit&apos;s
-                      contextual attributes. Overlapping targeting can create
-                      unreachable variations. Please review your targeting to
-                      avoid conflicts.
+                      <Trans>
+                        Your attribute targeting overlaps with the Bandit&apos;s
+                        contextual attributes. Overlapping targeting can create
+                        unreachable variations. Please review your targeting to
+                        avoid conflicts.
+                      </Trans>
                     </Text>
                     <Flex align="center" gap="1" wrap="wrap">
                       {conflictingAttributes.map((a) => (
@@ -779,17 +825,27 @@ export default function ContextualBanditDetailPage({
             </OverviewSection>
 
             <OverviewSection
-              title="Analysis & Metrics"
+              title={t`Analysis & Metrics`}
               onEdit={editAnalysisMetrics}
             >
               <Grid columns="3" gap="4">
-                <DetailSectionColumn label="Data Source">
-                  {datasourceName || <em>none</em>}
+                <DetailSectionColumn label={t`Data Source`}>
+                  {datasourceName || (
+                    <em>
+                      <Trans>none</Trans>
+                    </em>
+                  )}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Contextual Bandit Assignment Table">
-                  {exposureQueryName || <em>none</em>}
+                <DetailSectionColumn
+                  label={t`Contextual Bandit Assignment Table`}
+                >
+                  {exposureQueryName || (
+                    <em>
+                      <Trans>none</Trans>
+                    </em>
+                  )}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Contextual Attributes">
+                <DetailSectionColumn label={t`Contextual Attributes`}>
                   {effectiveContextualAttributes.length
                     ? effectiveContextualAttributes.map((a, i) => (
                         <Fragment key={a}>
@@ -801,12 +857,12 @@ export default function ContextualBanditDetailPage({
                 </DetailSectionColumn>
               </Grid>
               <Grid columns="3" gap="4" mt="4">
-                <DetailSectionColumn label="Decision Metric">
+                <DetailSectionColumn label={t`Decision Metric`}>
                   {renderMetricList(
                     cb.decisionMetric ? [cb.decisionMetric] : [],
                   )}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Conversion Window">
+                <DetailSectionColumn label={t`Conversion Window`}>
                   {conversionWindowOverride ? (
                     conversionWindowOverride
                   ) : decisionMetricWindow ? (
@@ -815,25 +871,31 @@ export default function ContextualBanditDetailPage({
                         decisionMetricWindow.windowValue,
                         decisionMetricWindow.windowUnit,
                       )}{" "}
-                      <Text color="text-low">(metric default)</Text>
+                      <Text color="text-low">
+                        <Trans>(metric default)</Trans>
+                      </Text>
                     </>
                   ) : (
-                    <em>None</em>
+                    <em>
+                      <Trans>None</Trans>
+                    </em>
                   )}
                 </DetailSectionColumn>
               </Grid>
               <Grid columns="3" gap="4" mt="4">
-                <DetailSectionColumn label="Exploratory Stage">
+                <DetailSectionColumn label={t`Exploratory Stage`}>
                   {formatExploratoryStage(cb.burnInValue, cb.burnInUnit)}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Update Cadence">
+                <DetailSectionColumn label={t`Update Cadence`}>
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Prior variation sample size">
+                <DetailSectionColumn label={t`Prior variation sample size`}>
                   {(cb.priorSampleSize ?? 0) > 0 ? (
                     cb.priorSampleSize
                   ) : (
-                    <em>None</em>
+                    <em>
+                      <Trans>None</Trans>
+                    </em>
                   )}
                 </DetailSectionColumn>
               </Grid>
@@ -841,9 +903,11 @@ export default function ContextualBanditDetailPage({
                 <Callout status="warning" mt="4">
                   <Flex direction="column" gap="2">
                     <Text as="span">
-                      These attributes were removed from the Contextual Bandit
-                      query or your organization&apos;s attributes and are no
-                      longer used. Edit the analysis settings to update them.
+                      <Trans>
+                        These attributes were removed from the Contextual Bandit
+                        query or your organization&apos;s attributes and are no
+                        longer used. Edit the analysis settings to update them.
+                      </Trans>
                     </Text>
                     <Flex align="center" gap="1" wrap="wrap">
                       {droppedContextualAttributes.map((a) => (
@@ -897,9 +961,9 @@ export default function ContextualBanditDetailPage({
 
       {confirmStop ? (
         <ConfirmDialog
-          title="Stop this Contextual Bandit?"
-          content="Stopping freezes the current variation weights. You can review results but the bandit will no longer reweight."
-          yesText="Stop"
+          title={t`Stop this Contextual Bandit?`}
+          content={t`Stopping freezes the current variation weights. You can review results but the bandit will no longer reweight.`}
+          yesText={t`Stop`}
           onConfirm={async () => {
             await stop();
             setConfirmStop(false);
@@ -911,26 +975,26 @@ export default function ContextualBanditDetailPage({
         <ConfirmDialog
           title={
             cb.archived
-              ? "Unarchive this Contextual Bandit?"
-              : "Archive this Contextual Bandit?"
+              ? t`Unarchive this Contextual Bandit?`
+              : t`Archive this Contextual Bandit?`
           }
           content={
             <>
               <Text as="p">
                 {cb.archived
-                  ? "It will show up in the main list again and can be edited."
-                  : "It will move to the Archived tab and can't be edited until it is unarchived."}
+                  ? t`It will show up in the main list again and can be edited.`
+                  : t`It will move to the Archived tab and can't be edited until it is unarchived.`}
               </Text>
               {cb.status === "running" ? (
                 <Callout status="warning">
                   {cb.archived
-                    ? "This Contextual Bandit is still running and will resume serving to its linked Feature Flags."
-                    : "This will immediately stop all linked Feature Flags from serving this Contextual Bandit."}
+                    ? t`This Contextual Bandit is still running and will resume serving to its linked Feature Flags.`
+                    : t`This will immediately stop all linked Feature Flags from serving this Contextual Bandit.`}
                 </Callout>
               ) : null}
             </>
           }
-          yesText={cb.archived ? "Unarchive" : "Archive"}
+          yesText={cb.archived ? t`Unarchive` : t`Archive`}
           color={cb.archived ? "violet" : "red"}
           onConfirm={async () => {
             await setArchived(!cb.archived);
@@ -941,23 +1005,27 @@ export default function ContextualBanditDetailPage({
       ) : null}
       {confirmDelete ? (
         <ConfirmDialog
-          title="Delete this Contextual Bandit?"
+          title={t`Delete this Contextual Bandit?`}
           content={
             <>
               <Text as="p">
-                Its results history will be deleted. This can&apos;t be undone.
+                <Trans>
+                  Its results history will be deleted. This can&apos;t be
+                  undone.
+                </Trans>
               </Text>
-              {linkedFeatures.length > 0 ? (
+              {numLinkedFeatures > 0 ? (
                 <Callout status="warning">
-                  {linkedFeatures.length} linked Feature Flag
-                  {linkedFeatures.length === 1 ? "" : "s"} will keep a rule
-                  pointing to this Contextual Bandit. Remove the rule from each
-                  flag if it is no longer needed.
+                  <Plural
+                    value={numLinkedFeatures}
+                    one="# linked Feature Flag will keep a rule pointing to this Contextual Bandit. Remove the rule from each flag if it is no longer needed."
+                    other="# linked Feature Flags will keep a rule pointing to this Contextual Bandit. Remove the rule from each flag if it is no longer needed."
+                  />
                 </Callout>
               ) : null}
             </>
           }
-          yesText="Delete"
+          yesText={t`Delete`}
           color="red"
           onConfirm={deleteContextualBandit}
           onCancel={() => setConfirmDelete(false)}

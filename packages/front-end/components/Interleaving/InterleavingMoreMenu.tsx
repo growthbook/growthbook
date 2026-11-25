@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import {
@@ -32,6 +33,7 @@ export default function InterleavingMoreMenu({
   onDuplicate?: () => void;
   onAuditLog?: () => void;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const restApiCall = useRestApiCall();
@@ -75,6 +77,7 @@ export default function InterleavingMoreMenu({
     interleavingInSDKPayload(il) ||
     interleavingInSDKPayload({ ...il, archived: !il.archived });
   const showArchive = canUpdate && (!togglingArchiveServes || canRunChange);
+  const name = il.name;
 
   return (
     <DropdownMenu
@@ -82,7 +85,7 @@ export default function InterleavingMoreMenu({
       onOpenChange={setOpen}
       trigger={
         <MoreMenuTrigger
-          label="Interleaving experiment actions"
+          label={t`Interleaving experiment actions`}
           size="lg"
           ml="2"
         />
@@ -97,7 +100,7 @@ export default function InterleavingMoreMenu({
             onEditInfo();
           }}
         >
-          Edit info
+          <Trans>Edit info</Trans>
         </DropdownMenuItem>
       )}
       {canRun && (!il.archived || il.status === "running") && onEditStatus && (
@@ -107,7 +110,7 @@ export default function InterleavingMoreMenu({
             onEditStatus();
           }}
         >
-          Edit status
+          <Trans>Edit status</Trans>
         </DropdownMenuItem>
       )}
       {canDuplicate && onDuplicate && (
@@ -117,7 +120,7 @@ export default function InterleavingMoreMenu({
             onDuplicate();
           }}
         >
-          Duplicate
+          <Trans>Duplicate</Trans>
         </DropdownMenuItem>
       )}
       {onAuditLog && (
@@ -127,7 +130,7 @@ export default function InterleavingMoreMenu({
             onAuditLog();
           }}
         >
-          Audit history
+          <Trans>Audit history</Trans>
         </DropdownMenuItem>
       )}
       {showArchive && <DropdownMenuSeparator />}
@@ -138,25 +141,25 @@ export default function InterleavingMoreMenu({
             await setArchived(false);
           }}
         >
-          Unarchive
+          <Trans>Unarchive</Trans>
         </DropdownMenuItem>
       )}
       {showArchive && !il.archived && (
         <DropdownMenuItem
           confirmation={{
-            confirmationTitle: "Archive Interleaving Experiment",
-            cta: "Archive",
+            confirmationTitle: t`Archive Interleaving Experiment`,
+            cta: t`Archive`,
             getConfirmationContent: async () =>
               il.status === "running"
-                ? `"${il.name}" is running. Archiving it removes it from the SDK payload, so both rankers stop serving immediately. You can unarchive it later.`
-                : `Archive "${il.name}"? It stays available on the Archived tab and can be unarchived later.`,
+                ? t`"${name}" is running. Archiving it removes it from the SDK payload, so both rankers stop serving immediately. You can unarchive it later.`
+                : t`Archive "${name}"? It stays available on the Archived tab and can be unarchived later.`,
             submit: async () => {
               await setArchived(true);
             },
             closeDropdown: () => setOpen(false),
           }}
         >
-          Archive
+          <Trans>Archive</Trans>
         </DropdownMenuItem>
       )}
       {canDelete && <DropdownMenuSeparator />}
@@ -164,11 +167,11 @@ export default function InterleavingMoreMenu({
         <DropdownMenuItem
           color="red"
           confirmation={{
-            confirmationTitle: "Delete Interleaving Experiment",
-            cta: "Delete",
+            confirmationTitle: t`Delete Interleaving Experiment`,
+            cta: t`Delete`,
             ctaColor: "red",
             getConfirmationContent: async () =>
-              `Are you sure you want to delete "${il.name}"? Its results snapshots go with it and this can't be undone. Archive it instead to keep the results.`,
+              t`Are you sure you want to delete "${name}"? Its results snapshots go with it and this can't be undone. Archive it instead to keep the results.`,
             submit: async () => {
               await restApiCall(interleavingEndpoints.deleteInterleaving, {
                 params: { id: il.id },
@@ -178,7 +181,7 @@ export default function InterleavingMoreMenu({
             closeDropdown: () => setOpen(false),
           }}
         >
-          Delete
+          <Trans>Delete</Trans>
         </DropdownMenuItem>
       )}
     </DropdownMenu>

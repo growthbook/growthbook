@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
 import { datetimeAt } from "shared/dates";
@@ -19,6 +20,7 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
+  const { t } = useLingui();
   const {
     results,
     latest,
@@ -57,14 +59,11 @@ export default function ContextualBanditHealthTab({
   // The results tab and this tab show the same run. A newer snapshot may be
   // in flight or have failed; `latest` tells us which.
   const newerRun = latest && latest.id !== results?.snapshotId ? latest : null;
-  const resultsDateClause = results
-    ? ` on ${datetimeAt(results.dateCreated)}`
-    : "";
 
   if (loading) {
     return (
       <Callout status="info" mt="3" icon={<LoadingSpinner />}>
-        Snapshot refreshing, health data loading...
+        <Trans>Snapshot refreshing, health data loading...</Trans>
       </Callout>
     );
   }
@@ -85,42 +84,62 @@ export default function ContextualBanditHealthTab({
   if (!results) {
     body = (
       <Callout status="info">
-        No updates yet. Traffic and health results will appear after a
-        successful refresh of the results.
+        <Trans>
+          No updates yet. Traffic and health results will appear after a
+          successful refresh of the results.
+        </Trans>
       </Callout>
     );
   } else if (!traffic) {
     body = (
       <Callout status="info">
-        Traffic data will appear after a successful results refresh.
+        <Trans>
+          Traffic data will appear after a successful results refresh.
+        </Trans>
       </Callout>
     );
   } else if (traffic.error && traffic.error !== "NO_ROWS_IN_UNIT_QUERY") {
+    const trafficError = traffic.error;
     body = (
       <Callout status="error">
-        There was an error running the traffic query for the Health tab:{" "}
-        {traffic.error}.
+        <Trans>
+          There was an error running the traffic query for the Health tab:{" "}
+          {trafficError}.
+        </Trans>
       </Callout>
     );
   } else if (totalUsers === 0) {
     body = (
       <Callout status="info">
-        No data found. It is likely there are no units in your Bandit yet.
+        <Trans>
+          No data found. It is likely there are no units in your Bandit yet.
+        </Trans>
       </Callout>
     );
   } else {
+    const resultsDate = datetimeAt(results.dateCreated);
+    const newerRunError = newerRun?.error;
     body = (
       <>
         {newerRun?.status === "error" ? (
           <Callout status="warning" mb="3">
-            The most recent refresh failed, so the health results below are from
-            the last successful refresh{resultsDateClause}.
-            {newerRun.error ? ` Error: ${newerRun.error}` : ""}
+            <Trans>
+              The most recent refresh failed, so the health results below are
+              from the last successful refresh on {resultsDate}.
+            </Trans>
+            {newerRunError ? (
+              <>
+                {" "}
+                <Trans>Error: {newerRunError}</Trans>
+              </>
+            ) : null}
           </Callout>
         ) : newerRun?.status === "running" ? (
           <Callout status="info" mb="3">
-            A refresh is in progress. The health results below are from the last
-            successful refresh{resultsDateClause}.
+            <Trans>
+              A refresh is in progress. The health results below are from the
+              last successful refresh on {resultsDate}.
+            </Trans>
           </Callout>
         ) : null}
 
@@ -131,13 +150,15 @@ export default function ContextualBanditHealthTab({
           variations={variations}
           isBandit
           disableDimensions
-          overTimeTitle="Traffic Over Time"
+          overTimeTitle={t`Traffic Over Time`}
         />
 
         {health?.multipleExposures === null ? (
           <Callout status="info" mt="4">
-            Balance and multiple exposure checks need the bandit_version,
-            leaf_id, and variation_weights columns in your assignment query.
+            <Trans>
+              Balance and multiple exposure checks need the bandit_version,
+              leaf_id, and variation_weights columns in your assignment query.
+            </Trans>
           </Callout>
         ) : (
           <>

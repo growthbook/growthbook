@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { interleavingInSDKPayload } from "shared/util";
@@ -42,6 +43,7 @@ export default function InterleavingDetailPage({
   interleaving: ApiInterleavingInterface;
   mutate: () => Promise<unknown>;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
@@ -101,7 +103,7 @@ export default function InterleavingDetailPage({
         <Flex align="center" gap="2" flexShrink="0">
           {canRun && !il.archived && il.status === "draft" && (
             <Button onClick={start} setError={setError}>
-              Start
+              <Trans>Start</Trans>
             </Button>
           )}
           {canRun && il.status === "running" && (
@@ -110,7 +112,7 @@ export default function InterleavingDetailPage({
               color="red"
               onClick={() => setConfirmStop(true)}
             >
-              Stop
+              <Trans>Stop</Trans>
             </Button>
           )}
           <InterleavingMoreMenu
@@ -130,25 +132,25 @@ export default function InterleavingDetailPage({
       )}
       <Flex gap="5" wrap="wrap" mb="4">
         <Metadata
-          label="Project"
+          label={t`Project`}
           value={
             il.project
               ? (getProjectById(il.project)?.name ?? il.project)
-              : "None"
+              : t`None`
           }
         />
-        <Metadata label="Owner" value={<Owner ownerId={il.owner} />} />
+        <Metadata label={t`Owner`} value={<Owner ownerId={il.owner} />} />
         <Metadata
-          label="Data Source"
+          label={t`Data Source`}
           value={
             getDatasourceById(il.datasourceId)?.name ||
             il.datasourceId ||
-            "None"
+            t`None`
           }
         />
         {il.tags.length > 0 && (
           <Metadata
-            label="Tags"
+            label={t`Tags`}
             value={<SortedTags tags={il.tags} useFlex />}
           />
         )}
@@ -159,9 +161,13 @@ export default function InterleavingDetailPage({
         persistInURL
       >
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="overview">
+            <Trans>Overview</Trans>
+          </TabsTrigger>
           {il.status !== "draft" && (
-            <TabsTrigger value="results">Results</TabsTrigger>
+            <TabsTrigger value="results">
+              <Trans>Results</Trans>
+            </TabsTrigger>
           )}
         </TabsList>
         <TabsContent value="overview">
@@ -267,9 +273,9 @@ export default function InterleavingDetailPage({
 
       {confirmStop && (
         <ConfirmDialog
-          title="Stop this interleaving experiment?"
+          title={t`Stop this interleaving experiment?`}
           content={<StopInterleavingWarning />}
-          yesText="Stop"
+          yesText={t`Stop`}
           onConfirm={async () => {
             await stop();
             setConfirmStop(false);

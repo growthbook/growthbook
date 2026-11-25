@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -32,8 +35,15 @@ const BANDIT_LIST_TABS = [
 type BanditListTab = (typeof BANDIT_LIST_TABS)[number];
 const isBanditListTab = (v: string): v is BanditListTab =>
   BANDIT_LIST_TABS.includes(v as BanditListTab);
+const TAB_LABELS: Record<Exclude<BanditListTab, "all">, MessageDescriptor> = {
+  running: msg`Running`,
+  drafts: msg`Drafts`,
+  stopped: msg`Stopped`,
+  archived: msg`Archived`,
+};
 
 const ExperimentsPage = (): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const { ready, project, projects } = useDefinitions();
 
   const initialHashRef = useRef(
@@ -112,9 +122,10 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   if (error) {
+    const errorMessage = error.message;
     return (
       <Callout status="error" mb="3">
-        An error occurred: {error.message}
+        <Trans>An error occurred: {errorMessage}</Trans>
       </Callout>
     );
   }
@@ -130,9 +141,9 @@ const ExperimentsPage = (): React.ReactElement => {
     return (
       <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Bandits"
-          title="Run Adaptive Experiments with Bandits"
-          description="Bandits automatically guide more traffic to better variants."
+          h1={t`Bandits`}
+          title={t`Run Adaptive Experiments with Bandits`}
+          description={t`Bandits automatically guide more traffic to better variants.`}
           commercialFeature="multi-armed-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
@@ -151,7 +162,9 @@ const ExperimentsPage = (): React.ReactElement => {
           wrap="wrap"
         >
           <Flex align="center">
-            <h1>Bandits</h1>
+            <h1>
+              <Trans>Bandits</Trans>
+            </h1>
           </Flex>
           <Box style={{ flex: 1 }} />
           <Box>
@@ -160,7 +173,7 @@ const ExperimentsPage = (): React.ReactElement => {
               commercialFeature="multi-armed-bandits"
             >
               <Tooltip
-                body="You don't have permission to add bandits in this project."
+                body={t`You don't have permission to add bandits in this project.`}
                 shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
               >
                 <Button
@@ -169,7 +182,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   }}
                   disabled={!hasMultiArmedBanditFeature || !canAdd}
                 >
-                  Add Bandit
+                  <Trans>Add Bandit</Trans>
                 </Button>
               </Tooltip>
             </PremiumTooltip>
@@ -179,8 +192,12 @@ const ExperimentsPage = (): React.ReactElement => {
         {!hasExperiments ? (
           <Box className="box" py="5" style={{ textAlign: "center" }}>
             <Box style={{ maxWidth: 650, margin: "0 auto" }}>
-              <h1>Adaptively experiment with bandits.</h1>
-              <p className="">Run adaptive experiments with Bandits.</p>
+              <h1>
+                <Trans>Adaptively experiment with bandits.</Trans>
+              </h1>
+              <p className="">
+                <Trans>Run adaptive experiments with Bandits.</Trans>
+              </p>
             </Box>
             <Flex justify="center" pt="2" gap="3">
               <LinkButton
@@ -188,7 +205,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 variant="outline"
                 mr="4"
               >
-                Setup Instructions
+                <Trans>Setup Instructions</Trans>
               </LinkButton>
               <PremiumTooltip
                 tipPosition="left"
@@ -196,7 +213,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 commercialFeature="multi-armed-bandits"
               >
                 <Tooltip
-                  body="You don't have permission to add bandits in this project."
+                  body={t`You don't have permission to add bandits in this project.`}
                   shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
                 >
                   <Button
@@ -205,7 +222,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     }}
                     disabled={!hasMultiArmedBanditFeature || !canAdd}
                   >
-                    Add Bandit
+                    <Trans>Add Bandit</Trans>
                   </Button>
                 </Tooltip>
               </PremiumTooltip>
@@ -213,7 +230,7 @@ const ExperimentsPage = (): React.ReactElement => {
             <Box mt="5">
               <img
                 src="/images/empty-states/bandits.png"
-                alt="Bandits"
+                alt={t`Bandits`}
                 style={{ width: "100%", maxWidth: "740px", height: "auto" }}
               />
             </Box>
@@ -228,14 +245,15 @@ const ExperimentsPage = (): React.ReactElement => {
             >
               <Box mb="3">
                 <TabsList>
-                  <TabsTrigger value="all">All Bandits</TabsTrigger>
+                  <TabsTrigger value="all">
+                    <Trans>All Bandits</Trans>
+                  </TabsTrigger>
                   {(["running", "drafts", "stopped", "archived"] as const).map(
                     (tabValue) => {
                       if (tabValue === "archived" && !hasArchived) return null;
                       return (
                         <TabsTrigger value={tabValue} key={tabValue}>
-                          {tabValue.slice(0, 1).toUpperCase()}
-                          {tabValue.slice(1)}
+                          {i18n._(TAB_LABELS[tabValue])}
                           {tabValue !== "archived" && (
                             <span
                               style={{
@@ -261,7 +279,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <Box flexBasis="300px" flexShrink="0">
                   <Field
                     size="legacy"
-                    placeholder="Search..."
+                    placeholder={t`Search...`}
                     type="search"
                     {...searchInputProps}
                   />

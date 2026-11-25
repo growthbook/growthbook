@@ -1,5 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -16,6 +17,7 @@ export default function ContextualBanditOverviewModal({
   mutate: () => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const form = useForm({
     defaultValues: {
@@ -29,9 +31,9 @@ export default function ContextualBanditOverviewModal({
     <ModalStandard
       open
       trackingEventModalType="cb-edit-overview"
-      header="Edit Overview"
+      header={t`Edit Overview`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       submit={validatedSubmit(form, async (data) => {
         await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
           params: { id: cb.id },
@@ -44,10 +46,15 @@ export default function ContextualBanditOverviewModal({
         mutate();
       })}
     >
-      <Field label="Name" required minLength={2} {...form.register("name")} />
       <Field
-        label="Tracking Key"
-        helpText="Unique identifier used to track impressions and analyze results"
+        label={t`Name`}
+        required
+        minLength={2}
+        {...form.register("name")}
+      />
+      <Field
+        label={t`Tracking Key`}
+        helpText={t`Unique identifier used to track impressions and analyze results`}
         {...form.register("trackingKey")}
       />
       <SelectOwner

@@ -1,5 +1,8 @@
 import { useCallback } from "react";
 import { Box } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   type InterleavingAnalysis,
   type InterleavingMetricConfig,
@@ -20,19 +23,20 @@ const PREFERENCE: InterleavingAnalysis = {
 const SELECTORS: {
   type: InterleavingAnalysis["type"];
   analysis: InterleavingAnalysis;
-  description: string;
+  description: MessageDescriptor;
 }[] = [
   {
     type: "paired",
     analysis: PAIRED,
-    description:
-      "Credited per engaged impression, compared within the same ranked list. Additionally needs a `ranking_id` column.",
+    description: msg({
+      message:
+        "Credited per engaged impression, compared within the same ranked list. Additionally needs a `ranking_id` column.",
+    }),
   },
   {
     type: "preference",
     analysis: PREFERENCE,
-    description:
-      "Each exposed user is credited to the ranker whose items they engaged with more.",
+    description: msg`Each exposed user is credited to the ranker whose items they engaged with more.`,
   },
 ];
 
@@ -51,6 +55,7 @@ export default function InterleavingMetricsInput({
   project?: string;
   disabled?: boolean;
 }) {
+  const { i18n } = useLingui();
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   // The shared util's only use of `analyses` is to require ranking_id for
@@ -102,41 +107,46 @@ export default function InterleavingMetricsInput({
 
   return (
     <Box>
-      {SELECTORS.map(({ type, description }) => (
-        <Box key={type} mb="3">
-          <Box mb="1">
-            <Text as="label" weight="semibold">
-              {INTERLEAVING_ANALYSIS_TITLES[type]} metrics
-            </Text>
+      {SELECTORS.map(({ type, description }) => {
+        const analysisTitle = i18n._(INTERLEAVING_ANALYSIS_TITLES[type]);
+        return (
+          <Box key={type} mb="3">
+            <Box mb="1">
+              <Text as="label" weight="semibold">
+                <Trans>{analysisTitle} metrics</Trans>
+              </Text>
+            </Box>
+            <Box mb="2">
+              <Text as="p" size="sm" color="text-mid">
+                {i18n._(description)}
+              </Text>
+            </Box>
+            <MetricsSelector
+              datasource={datasource}
+              exposureQueryIdentifierType={userIdType}
+              project={project}
+              selected={selectedFor(type)}
+              onChange={(ids) => setSelected(type, ids)}
+              includeFacts
+              includeGroups={false}
+              noLegacyMetrics
+              noManual
+              excludeQuantiles
+              allowedFactMetricTypes={["mean", "proportion"]}
+              getMetricDisabledInfo={
+                type === "paired" ? pairedDisabledInfo : preferenceDisabledInfo
+              }
+              disabled={disabled || !datasource}
+            />
           </Box>
-          <Box mb="2">
-            <Text as="p" size="sm" color="text-mid">
-              {description}
-            </Text>
-          </Box>
-          <MetricsSelector
-            datasource={datasource}
-            exposureQueryIdentifierType={userIdType}
-            project={project}
-            selected={selectedFor(type)}
-            onChange={(ids) => setSelected(type, ids)}
-            includeFacts
-            includeGroups={false}
-            noLegacyMetrics
-            noManual
-            excludeQuantiles
-            allowedFactMetricTypes={["mean", "proportion"]}
-            getMetricDisabledInfo={
-              type === "paired" ? pairedDisabledInfo : preferenceDisabledInfo
-            }
-            disabled={disabled || !datasource}
-          />
-        </Box>
-      ))}
+        );
+      })}
       <Box mb="3">
         <Text as="p" size="sm" color="text-mid">
-          All metrics must come from a Fact Table with an <code>item_id</code>{" "}
-          column.
+          <Trans>
+            All metrics must come from a Fact Table with an <code>item_id</code>{" "}
+            column.
+          </Trans>
         </Text>
       </Box>
     </Box>

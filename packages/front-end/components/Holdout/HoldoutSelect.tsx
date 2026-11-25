@@ -4,6 +4,7 @@ import type { HoldoutInterface } from "shared/validators";
 import { resolveAnalysisIdentifierType, getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -52,6 +53,7 @@ export const HoldoutSelect = ({
   // there are holdouts to pick from. Useful for onboarding contexts.
   hideEmptyStatePromo?: boolean;
 }) => {
+  const { t } = useLingui();
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const { holdouts, experimentsMap, loading } = useHoldouts();
@@ -125,8 +127,10 @@ export const HoldoutSelect = ({
       >
         <Flex direction="row" gap="3">
           <Text>
-            Use Holdouts to isolate units and measure the cumulative impact of
-            changes.
+            <Trans>
+              Use Holdouts to isolate units and measure the cumulative impact of
+              changes.
+            </Trans>
           </Text>
         </Flex>
       </PremiumCallout>
@@ -144,10 +148,12 @@ export const HoldoutSelect = ({
         dismissible
         id="holdout-select-promo"
       >
-        Use <strong>Holdouts</strong> to isolate units and measure the
-        cumulative impact of changes.{" "}
+        <Trans>
+          Use <strong>Holdouts</strong> to isolate units and measure the
+          cumulative impact of changes.
+        </Trans>{" "}
         <Link target="_blank" href="https://docs.growthbook.io/app/holdouts">
-          Show me how <PiArrowSquareOut size={15} />
+          <Trans>Show me how</Trans> <PiArrowSquareOut size={15} />
         </Link>
       </Callout>
     );
@@ -157,7 +163,7 @@ export const HoldoutSelect = ({
     <>
       <SelectField
         size="legacy"
-        label="Holdout"
+        label={t`Holdout`}
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}
         onChange={(v) => {
@@ -167,7 +173,9 @@ export const HoldoutSelect = ({
         helpText={
           exemptingFromHoldout && (
             <HelperText status="warning" size="sm" mt="2">
-              {`Exempting this ${formType} from a holdout may impact your organization's analysis. Proceed with caution.`}
+              {formType === "experiment"
+                ? t`Exempting this experiment from a holdout may impact your organization's analysis. Proceed with caution.`
+                : t`Exempting this feature from a holdout may impact your organization's analysis. Proceed with caution.`}
             </HelperText>
           )
         }
@@ -178,7 +186,7 @@ export const HoldoutSelect = ({
               value: h.id,
             };
           }) || []),
-          { label: "None", value: "" },
+          { label: t`None`, value: "" },
         ]}
         disabled={holdoutsWithExperiment.length === 0}
         sort={false}
@@ -194,11 +202,13 @@ export const HoldoutSelect = ({
                   className="text-muted small float-right position-relative"
                   style={{ top: 3, cursor: "pointer" }}
                 >
-                  Identifier Type: <code>{userIdType}</code>
+                  <Trans>
+                    Identifier Type: <code>{userIdType}</code>
+                  </Trans>
                 </span>
               ) : value === "" && requiredSelectableHoldouts.length > 0 ? (
                 <span className="text-muted small float-right position-relative">
-                  Override Holdout requirement{" "}
+                  <Trans>Override Holdout requirement</Trans>{" "}
                   <PiWarningFill
                     style={{ color: "var(--amber-11)" }}
                     size={12}

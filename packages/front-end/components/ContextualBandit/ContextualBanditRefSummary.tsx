@@ -7,6 +7,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { hasTargetingConfigured } from "shared/experiments";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -33,18 +34,22 @@ export function contextualBanditSkipReason(
   cb: ApiContextualBanditInterface,
 ): ReactNode {
   const view = (
-    <Link href={`/contextual-bandit/${cb.id}`}>View Contextual Bandit</Link>
+    <Link href={`/contextual-bandit/${cb.id}`}>
+      <Trans>View Contextual Bandit</Trans>
+    </Link>
   );
-  if (cb.archived) return <>This Contextual Bandit is archived. {view}</>;
+  if (cb.archived) {
+    return <Trans>This Contextual Bandit is archived. {view}</Trans>;
+  }
   if (cb.status === "stopped") {
-    return <>This Contextual Bandit is stopped. {view}</>;
+    return <Trans>This Contextual Bandit is stopped. {view}</Trans>;
   }
   if (cb.status === "draft") {
     return (
-      <>
+      <Trans>
         This Contextual Bandit is a <strong>draft</strong> and hasn&apos;t
         started.
-      </>
+      </Trans>
     );
   }
   return null;
@@ -59,6 +64,7 @@ export default function ContextualBanditRefSummary({
   feature: FeatureInterface;
   environment?: string;
 }) {
+  const { t } = useLingui();
   const { contextualBanditsMap, loading } = useContextualBandits();
   const cb: ApiContextualBanditInterface | undefined =
     contextualBanditsMap?.get(rule.contextualBanditId);
@@ -67,10 +73,13 @@ export default function ContextualBanditRefSummary({
   if (loading) return null;
 
   if (!cb) {
+    const contextualBanditId = rule.contextualBanditId;
     return (
       <Callout status="error">
-        The Contextual Bandit <code>{rule.contextualBanditId}</code> could not
-        be found.
+        <Trans>
+          The Contextual Bandit <code>{contextualBanditId}</code> could not be
+          found.
+        </Trans>
       </Callout>
     );
   }
@@ -105,7 +114,7 @@ export default function ContextualBanditRefSummary({
         savedGroups: cb.savedGroups,
         prerequisites: cb.prerequisites,
       }) && (
-        <RuleField label="Targeting">
+        <RuleField label={t`Targeting`}>
           <ConditionDisplay
             condition={cb.condition || ""}
             savedGroups={cb.savedGroups}
@@ -114,14 +123,14 @@ export default function ContextualBanditRefSummary({
         </RuleField>
       )}
 
-      <RuleField label="Split by">
+      <RuleField label={t`Split by`}>
         <AttributeBadge attributeId={cb.hashAttribute || "id"} />
       </RuleField>
 
       <RolloutRow coverage={cb.coverage ?? 1} />
 
       {cb.contextualAttributes.length > 0 && (
-        <RuleField label="Context">
+        <RuleField label={t`Context`}>
           <Flex gap="2" wrap="wrap" align="center">
             {cb.contextualAttributes.map((a) => (
               <AttributeBadge key={a} attributeId={a} />
@@ -130,7 +139,7 @@ export default function ContextualBanditRefSummary({
         </RuleField>
       )}
 
-      <RuleField label="Serve" mb="0" align="start">
+      <RuleField label={t`Serve`} mb="0" align="start">
         <Box>
           <ValueDiffProvider>
             <RuleVariationsTable
@@ -144,7 +153,9 @@ export default function ContextualBanditRefSummary({
                   value: ruleVariation ? (
                     variationValue(ruleVariation.value)
                   ) : (
-                    <em>not set</em>
+                    <em>
+                      <Trans>not set</Trans>
+                    </em>
                   ),
                 };
               })}

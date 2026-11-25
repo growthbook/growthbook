@@ -7,6 +7,7 @@ import {
   HoldoutMissingLinkage,
 } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -24,6 +25,7 @@ import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
 import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/StartHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { hid } = router.query;
@@ -51,7 +53,11 @@ const HoldoutPage = (): ReactElement => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return <div>There was a problem loading the holdout</div>;
+    return (
+      <div>
+        <Trans>There was a problem loading the holdout</Trans>
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -170,7 +176,7 @@ const HoldoutPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Holdouts",
+            display: t`Holdouts`,
             href: `/holdouts`,
           },
           { display: holdout.name },

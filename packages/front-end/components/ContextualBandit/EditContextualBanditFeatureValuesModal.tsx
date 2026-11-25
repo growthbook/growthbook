@@ -17,6 +17,7 @@ import {
   DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRestApiCall } from "@/services/restApi";
 import { getDefaultValue, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
@@ -72,6 +73,7 @@ export default function EditContextualBanditFeatureValuesModal({
   mutate,
   onSaved,
 }: Props) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -233,16 +235,18 @@ export default function EditContextualBanditFeatureValuesModal({
       ),
     });
 
+  const errorMessage = error?.message;
+
   return (
     <ModalStandard
       trackingEventModalType="edit-contextual-bandit-feature-values"
-      header="Edit Feature Flag Values"
+      header={t`Edit Feature Flag Values`}
       subheader={
         willPublish
-          ? "Changes made here go live on the linked Feature Flag as soon as you save."
-          : "Changes made here will be saved to a draft on the linked Feature Flag rule."
+          ? t`Changes made here go live on the linked Feature Flag as soon as you save.`
+          : t`Changes made here will be saved to a draft on the linked Feature Flag rule.`
       }
-      cta={willPublish ? "Save and publish" : "Save to draft"}
+      cta={willPublish ? t`Save and publish` : t`Save to draft`}
       // Nothing to submit until the revisions load and there's a rule to patch.
       ctaEnabled={ready}
       close={close}
@@ -251,7 +255,7 @@ export default function EditContextualBanditFeatureValuesModal({
       submit={validatedSubmit(form, async (values) => {
         if (!existingRule || !existingRule.id) {
           throw new Error(
-            "Could not find the contextual-bandit rule on this feature.",
+            t`Could not find the contextual-bandit rule on this feature.`,
           );
         }
 
@@ -264,7 +268,7 @@ export default function EditContextualBanditFeatureValuesModal({
         );
         if (hasUnsetValue) {
           setShowValueErrors(true);
-          throw new Error("Set a value for every variation before saving");
+          throw new Error(t`Set a value for every variation before saving`);
         }
 
         const updatedVariations = values.variations.map((r, i) => ({
@@ -284,7 +288,7 @@ export default function EditContextualBanditFeatureValuesModal({
             form.setValue(`variations.${i}.value`, v.value);
           });
           throw new Error(
-            "We fixed some errors in the values. If they look correct, submit again.",
+            t`We fixed some errors in the values. If they look correct, submit again.`,
           );
         }
 
@@ -323,7 +327,7 @@ export default function EditContextualBanditFeatureValuesModal({
     >
       {error ? (
         <Text color="text-high">
-          Failed to load feature revisions: {error.message}
+          <Trans>Failed to load feature revisions: {errorMessage}</Trans>
         </Text>
       ) : !data ? (
         <Box style={{ position: "relative", minHeight: 80 }}>
@@ -331,16 +335,20 @@ export default function EditContextualBanditFeatureValuesModal({
         </Box>
       ) : !existingRule ? (
         <Callout status="warning">
-          Could not find a contextual-bandit rule for this bandit on the
-          selected feature revision.
+          <Trans>
+            Could not find a contextual-bandit rule for this bandit on the
+            selected feature revision.
+          </Trans>
         </Callout>
       ) : (
         <Flex direction="column" gap="3" pt="2">
           {cb.status === "running" && !willPublish && (
             <Callout status="warning" size="sm">
-              This Bandit is running. Users in each variation keep seeing the
-              current value until you publish the Feature Flag revision this
-              draft creates.
+              <Trans>
+                This Bandit is running. Users in each variation keep seeing the
+                current value until you publish the Feature Flag revision this
+                draft creates.
+              </Trans>
             </Callout>
           )}
           {cb.variations.map((v, i) => (

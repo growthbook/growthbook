@@ -1,5 +1,8 @@
 import { ReactNode } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   PiInfoFill,
   PiArrowSquareOut,
@@ -26,7 +29,6 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 import {
   ICON_PROPERTIES,
-  LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import StartModalSection from "@/components/Experiment/StartModalSection";
@@ -59,17 +61,21 @@ function linkedChangeRow(
   visualChangesets: VisualChangesetInterface[],
   visualChangesetsLoading: boolean,
   visualChangesetsError: Error | undefined,
+  i18n: I18n,
 ): CheckListItem | null {
   if (visualChangesetsError) {
+    const errorMessage = visualChangesetsError.message;
     return blockingRow({
       key: "visual-changes-error",
-      display: `Couldn't load this Contextual Bandit's visual changes (${visualChangesetsError.message}). Reload the page and try again.`,
+      display: i18n._(
+        msg`Couldn't load this Contextual Bandit's visual changes (${errorMessage}). Reload the page and try again.`,
+      ),
     });
   }
   if (visualChangesetsLoading) {
     return blockingRow({
       key: "visual-changes-loading",
-      display: "Checking for saved AI Visual Editor changes…",
+      display: i18n._(msg`Checking for saved AI Visual Editor changes…`),
     });
   }
   if (
@@ -78,8 +84,9 @@ function linkedChangeRow(
   ) {
     return blockingRow({
       key: "no-linked-change",
-      display:
-        "Link at least one Feature Flag or save an AI Visual Editor change",
+      display: i18n._(
+        msg`Link at least one Feature Flag or save an AI Visual Editor change`,
+      ),
     });
   }
   return null;
@@ -91,6 +98,7 @@ function getChecklistItems(
   visualChangesets: VisualChangesetInterface[],
   visualChangesetsLoading: boolean,
   visualChangesetsError: Error | undefined,
+  i18n: I18n,
 ): CheckListItem[] {
   const noLinkedChange = linkedChangeRow(
     cb,
@@ -98,6 +106,7 @@ function getChecklistItems(
     visualChangesets,
     visualChangesetsLoading,
     visualChangesetsError,
+    i18n,
   );
   const awaitingApproval = linkedFeatures
     .filter(
@@ -106,20 +115,21 @@ function getChecklistItems(
         !f.hasUnrelatedDraftChanges &&
         !linkedDraftApproved(f),
     )
-    .map((f) =>
-      blockingRow({
+    .map((f) => {
+      const featureId = f.feature.id;
+      return blockingRow({
         key: `approve-${f.feature.id}`,
-        display: `Approve the Feature Flag draft for ${f.feature.id}`,
+        display: i18n._(msg`Approve the Feature Flag draft for ${featureId}`),
         action: linkedFeatureAction(f),
         description: f.draftRevisionStatus ? (
           <Badge
-            label={revisionStatusLabel(f.draftRevisionStatus)}
+            label={revisionStatusLabel(f.draftRevisionStatus, i18n)}
             color={revisionStatusColor(f.draftRevisionStatus)}
             radius="full"
           />
         ) : undefined,
-      }),
-    );
+      });
+    });
   return [
     ...(noLinkedChange ? [noLinkedChange] : []),
     ...mergeConflictRows(linkedFeatures),
@@ -140,17 +150,14 @@ function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
 
 function LinkedChangeSection({
   type,
-  count,
-  countLabel,
+  title,
   children,
 }: {
   type: LinkedChange;
-  count: number;
-  countLabel?: string;
+  title: ReactNode;
   children: ReactNode;
 }) {
   const { component: Icon, radixColor } = ICON_PROPERTIES[type];
-  const header = LINKED_CHANGE_CONTAINER_PROPERTIES[type].header;
   return (
     <Flex direction="column" gap="2">
       <Flex align="center" gap="2">
@@ -163,7 +170,7 @@ function LinkedChangeSection({
           <Icon />
         </Avatar>
         <Text weight="semibold" color="text-high">
-          {countLabel ?? count} {count > 1 ? header : header.slice(0, -1)}
+          {title}
         </Text>
       </Flex>
       <Box pl="7">{children}</Box>
@@ -180,6 +187,7 @@ export default function StartContextualBanditModal({
   startContextualBandit,
   close,
 }: Props) {
+  const { t, i18n } = useLingui();
   const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
   const hasAttributeTargeting = !!(cb.condition && cb.condition !== "{}");
   const hasSavedGroupTargeting = !!cb.savedGroups?.length;
@@ -193,6 +201,7 @@ export default function StartContextualBanditModal({
       visualChangesets,
       visualChangesetsLoading,
       visualChangesetsError,
+      i18n,
     ),
   );
   const hasHardBlockers = summary.blocking > 0;
@@ -214,24 +223,26 @@ export default function StartContextualBanditModal({
         }}
       >
         <Modal.Header>
-          <Modal.Title>Start Contextual Bandit</Modal.Title>
+          <Modal.Title>
+            <Trans>Start Contextual Bandit</Trans>
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {summary.remaining > 0 && (
             <StartModalSection
-              title="To Do"
+              title={t`To Do`}
               icon={
                 hasHardBlockers ? (
                   <PiWarningOctagonFill
                     color="var(--red-11)"
                     size={15}
-                    aria-label="error"
+                    aria-label={t`error`}
                   />
                 ) : (
                   <PiWarningFill
                     color="var(--amber-11)"
                     size={15}
-                    aria-label="warning"
+                    aria-label={t`warning`}
                   />
                 )
               }
@@ -241,27 +252,29 @@ export default function StartContextualBanditModal({
             </StartModalSection>
           )}
           <StartModalSection
-            title="Summary"
+            title={t`Summary`}
             icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
           >
             <Flex direction="column" gap="4">
-              <TargetingSummaryRow label="Traffic" inline>
-                <Text>{coveragePct} included</Text>
+              <TargetingSummaryRow label={t`Traffic`} inline>
+                <Text>
+                  <Trans>{coveragePct} included</Trans>
+                </Text>
               </TargetingSummaryRow>
               {hasAttributeTargeting && (
-                <TargetingSummaryRow label="Attribute targeting">
+                <TargetingSummaryRow label={t`Attribute targeting`}>
                   <ConditionDisplay condition={cb.condition ?? "{}"} />
                 </TargetingSummaryRow>
               )}
               {hasSavedGroupTargeting && (
-                <TargetingSummaryRow label="Saved Group targeting">
+                <TargetingSummaryRow label={t`Saved Group targeting`}>
                   <SavedGroupTargetingDisplay
                     savedGroups={cb.savedGroups ?? []}
                   />
                 </TargetingSummaryRow>
               )}
               {hasPrerequisites && (
-                <TargetingSummaryRow label="Prerequisites">
+                <TargetingSummaryRow label={t`Prerequisites`}>
                   <ConditionDisplay prerequisites={cb.prerequisites} />
                 </TargetingSummaryRow>
               )}
@@ -270,14 +283,22 @@ export default function StartContextualBanditModal({
           {(hasLinkedFeatures || visualChangesets.length > 0) && (
             <StartModalSection mt="3">
               <Text weight="semibold" color="text-high">
-                Linked changes will activate. Users will see Bandit variations
-                immediately.
+                <Trans>
+                  Linked changes will activate. Users will see Bandit variations
+                  immediately.
+                </Trans>
               </Text>
               <Flex direction="column" gap="4" mt="3">
                 {hasLinkedFeatures && (
                   <LinkedChangeSection
                     type="feature-flag"
-                    count={linkedFeatures.length}
+                    title={
+                      <Plural
+                        value={linkedFeatures.length}
+                        one="# Linked Feature"
+                        other="# Linked Features"
+                      />
+                    }
                   >
                     <Flex wrap="wrap" gap="3">
                       {linkedFeatures.map((info) =>
@@ -298,10 +319,13 @@ export default function StartContextualBanditModal({
                 {visualChangesets.length > 0 && (
                   <LinkedChangeSection
                     type="visual-editor"
-                    count={visualChangesets.length}
-                    countLabel={`${visualChangesets.length} Page${
-                      visualChangesets.length === 1 ? "" : "s"
-                    } with`}
+                    title={
+                      <Plural
+                        value={visualChangesets.length}
+                        one="# Page with AI Visual Editor Change"
+                        other="# Pages with AI Visual Editor Changes"
+                      />
+                    }
                   >
                     <Flex wrap="wrap" gap="3">
                       {visualChangesets.map((vc) =>
@@ -322,10 +346,10 @@ export default function StartContextualBanditModal({
         <Modal.Footer justify="between">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
           </Modal.Close>
-          <SubmitButton cta="Start Now" disabled={hasHardBlockers} />
+          <SubmitButton cta={t`Start Now`} disabled={hasHardBlockers} />
         </Modal.Footer>
       </ModalForm>
     </Modal.Root>

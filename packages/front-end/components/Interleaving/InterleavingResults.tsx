@@ -1,4 +1,7 @@
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowClockwise } from "react-icons/pi";
 import { startCase } from "lodash";
 import type {
@@ -37,17 +40,15 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const SECTIONS: {
   type: InterleavingAnalysis["type"];
-  description: string;
+  description: MessageDescriptor;
 }[] = [
   {
     type: "paired",
-    description:
-      "Per engaged impression: the metric credited to each ranker's items, compared within the same ranked list.",
+    description: msg`Per engaged impression: the metric credited to each ranker's items, compared within the same ranked list.`,
   },
   {
     type: "preference",
-    description:
-      "Per exposed user: each user is credited to the ranker whose items they engaged with more.",
+    description: msg`Per exposed user: each user is credited to the ranker whose items they engaged with more.`,
   },
 ];
 
@@ -60,6 +61,7 @@ export default function InterleavingResults({
   interleaving: ApiInterleavingInterface;
   editAnalysis?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { getExperimentMetricById, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const bayesianConfidenceLevels = useConfidenceLevels(il.project);
@@ -124,7 +126,7 @@ export default function InterleavingResults({
   // "user_id" -> "User Ids", matching the experiment results toolbar
   const unitDisplayName = snapshot?.settings.userIdType
     ? startCase(snapshot.settings.userIdType.split("_").join(" ")) + "s"
-    : "Units";
+    : t`Units`;
 
   const { status: queryStatus } = getQueryStatus(
     latest?.queries ?? [],
@@ -134,25 +136,26 @@ export default function InterleavingResults({
   const justStarted =
     !!il.dateStarted &&
     (Date.now() - getValidDate(il.dateStarted).getTime()) / (1000 * 60) < 120;
+  const startedAgo = il.dateStarted ? ago(il.dateStarted) : "";
   const emptyStateMessage = !snapshot
-    ? 'Click the "Update" button above.'
+    ? t`Click the "Update" button above.`
     : justStarted && il.dateStarted
-      ? `It was just started ${ago(il.dateStarted)}. Give it a little longer and click the "Update" button above to check again.`
-      : "Make sure your Interleaving Experiment is tracking properly.";
+      ? t`It was just started ${startedAgo}. Give it a little longer and click the "Update" button above to check again.`
+      : t`Make sure your Interleaving Experiment is tracking properly.`;
 
   return (
     <Box>
       <Flex direction="row" align="start" gap="3" mx="1" mb="4">
         {editAnalysis ? (
           <Link type="button" onClick={editAnalysis} mr="2">
-            Edit Settings
+            <Trans>Edit Settings</Trans>
           </Link>
         ) : null}
         {snapshot && (
           <>
             {/* Interleaving has no engine choice; the label says which test
                 family the p-values come from. */}
-            <Metadata label="Engine" value="Frequentist" />
+            <Metadata label={t`Engine`} value={t`Frequentist`} />
           </>
         )}
       </Flex>
@@ -187,7 +190,7 @@ export default function InterleavingResults({
                   variant="outline"
                   icon={<PiArrowClockwise />}
                 >
-                  Update
+                  <Trans>Update</Trans>
                 </Button>
                 <ResultMoreMenu
                   datasource={datasource}
@@ -197,7 +200,7 @@ export default function InterleavingResults({
                   legacyQueryError={latest?.error}
                   editMetrics={editAnalysis}
                   canEditMetrics={!!editAnalysis}
-                  editMetricsLabel="Edit analysis settings"
+                  editMetricsLabel={t`Edit analysis settings`}
                   forceRefresh={canRefresh ? refresh : undefined}
                   notebookUrl=""
                   notebookFilename={il.trackingKey}
@@ -224,20 +227,21 @@ export default function InterleavingResults({
         )}
         {latest?.status === "error" && (
           <Callout status="error" mx="3" mb="3">
-            {latest.error || "The most recent update failed."}
+            {latest.error || t`The most recent update failed.`}
           </Callout>
         )}
         {!snapshot?.results?.length &&
           !running &&
           latest?.status !== "error" && (
             <Callout status="info" mx="3" mb="3">
-              No data yet. {emptyStateMessage}
+              <Trans>No data yet. {emptyStateMessage}</Trans>
             </Callout>
           )}
         {snapshot &&
           SECTIONS.map(({ type, description }) => {
             const rows = rowsFor(type);
             if (!rows.length) return null;
+            const analysisTitle = i18n._(INTERLEAVING_ANALYSIS_TITLES[type]);
             return (
               <Box key={type} mb="4">
                 <ResultsTable
@@ -255,10 +259,10 @@ export default function InterleavingResults({
                   tableRowAxis="metric"
                   labelHeader={
                     <Flex align="center" gap="1">
-                      {INTERLEAVING_ANALYSIS_TITLES[type]}
+                      {analysisTitle}
                       <AnalysisSettingInfo
-                        ariaLabel={`What ${INTERLEAVING_ANALYSIS_TITLES[type]} analysis measures`}
-                        description={description}
+                        ariaLabel={t`What ${analysisTitle} analysis measures`}
+                        description={i18n._(description)}
                       />
                     </Flex>
                   }

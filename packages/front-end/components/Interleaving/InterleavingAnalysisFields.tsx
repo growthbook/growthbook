@@ -1,4 +1,7 @@
 import { Box } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import SelectField from "@/components/Forms/SelectField";
@@ -15,10 +18,13 @@ export type InterleavingAnalysisValue = Pick<
 
 export function getAnalysisError(
   value: InterleavingAnalysisValue,
+  i18n: I18n,
 ): string | null {
-  if (!value.datasourceId) return "Select a Data Source";
-  if (!value.interleavingExposureQueryId) return "Select an exposure query";
-  if (!value.userIdType) return "Select an identifier type";
+  if (!value.datasourceId) return i18n._(msg`Select a Data Source`);
+  if (!value.interleavingExposureQueryId) {
+    return i18n._(msg`Select an exposure query`);
+  }
+  if (!value.userIdType) return i18n._(msg`Select an identifier type`);
   return null;
 }
 
@@ -35,6 +41,7 @@ export default function InterleavingAnalysisFields({
   disabled?: boolean;
   onAddExposureQuery?: () => void;
 }) {
+  const { t } = useLingui();
   const { datasources } = useDefinitions();
   const { exposureQueries, loading } = useInterleavingExposureQueries(
     value.datasourceId,
@@ -53,7 +60,7 @@ export default function InterleavingAnalysisFields({
   return (
     <Box>
       <SelectField
-        label="Data Source"
+        label={t`Data Source`}
         required
         value={value.datasourceId}
         onChange={(datasourceId) =>
@@ -69,13 +76,15 @@ export default function InterleavingAnalysisFields({
           label: d.name,
         }))}
         disabled={disabled}
-        helpText="Only Data Sources whose SQL dialect can unnest JSON arrays are listed."
+        helpText={t`Only Data Sources whose SQL dialect can unnest JSON arrays are listed.`}
       />
       {value.datasourceId && !loading && exposureQueries.length === 0 ? (
         <Callout status="warning" mb="3">
-          No Interleaving Exposure Queries exist for this Data Source yet.{" "}
+          <Trans>
+            No Interleaving Exposure Queries exist for this Data Source yet.
+          </Trans>{" "}
           {onAddExposureQuery ? (
-            <>
+            <Trans>
               <Link
                 href="#"
                 className="underline"
@@ -87,12 +96,12 @@ export default function InterleavingAnalysisFields({
                 Add one
               </Link>
               .
-            </>
+            </Trans>
           ) : null}
         </Callout>
       ) : (
         <SelectField
-          label="Interleaving Exposure Query"
+          label={t`Interleaving Exposure Query`}
           required
           value={value.interleavingExposureQueryId}
           onChange={(interleavingExposureQueryId) => {
@@ -112,13 +121,13 @@ export default function InterleavingAnalysisFields({
         />
       )}
       <SelectField
-        label="Identifier type"
+        label={t`Identifier type`}
         required
         value={value.userIdType}
         onChange={(userIdType) =>
           setValue({ ...value, userIdType, metrics: [] })
         }
-        options={userIdTypes.map((t) => ({ value: t, label: t }))}
+        options={userIdTypes.map((type) => ({ value: type, label: type }))}
         sort={false}
         disabled={disabled || !exposureQuery}
       />

@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
@@ -11,11 +12,14 @@ import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOpt
  */
 export default function ContextualBanditAssignmentAttributeSelect({
   project,
-  label = "Assign Variation by Attribute",
+  label,
 }: {
   project?: string;
   label?: string;
 }) {
+  const { t } = useLingui();
+  const labelText =
+    label === undefined ? t`Assign Variation by Attribute` : label;
   const form = useFormContext();
   const hashAttributeOptions = useHashAttributeOptions(
     project,
@@ -25,7 +29,7 @@ export default function ContextualBanditAssignmentAttributeSelect({
   return (
     <div className="mb-4">
       <Text as="label" weight="semibold" mb="1">
-        {label}
+        {labelText}
       </Text>
       <SelectField
         withRadixThemedPortal

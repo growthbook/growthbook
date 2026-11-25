@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { TestQueryRow } from "shared/types/integrations";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
@@ -46,6 +47,7 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
   onSave,
   onCancel,
 }) => {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes ?? [];
@@ -122,18 +124,20 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
       (col) => !returnedColumns.has(col.toLowerCase()),
     );
     if (missingColumns.length > 0) {
+      const missing = missingColumns.join(", ");
       throw new Error(
-        `You are missing the following columns: ${missingColumns.join(
-          ", ",
-        )}. Alias your columns to these names.`,
+        t`You are missing the following columns: ${missing}. Alias your columns to these names.`,
       );
     }
   };
 
+  const queryName = interleavingExposureQuery?.name ?? null;
   const modalTitle =
     mode === "add"
-      ? "Add an Interleaving Exposure Query"
-      : `Edit ${interleavingExposureQuery?.name ?? "Interleaving Exposure"} query`;
+      ? t`Add an Interleaving Exposure Query`
+      : queryName !== null
+        ? t`Edit ${queryName} query`
+        : t`Edit Interleaving Exposure query`;
 
   if (uiMode === "sql") {
     return (
@@ -162,20 +166,20 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
       close={onCancel}
       size="lg"
       header={modalTitle}
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={saveEnabled}
     >
       <Box>
-        <Field label="Display name" required {...form.register("name")} />
+        <Field label={t`Display name`} required {...form.register("name")} />
         <Field
-          label="Description (optional)"
+          label={t`Description (optional)`}
           textarea
           minRows={1}
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
         <SelectField
-          label="Identifier type"
+          label={t`Identifier type`}
           options={userIdTypeOptions.map((i) => ({
             value: i.userIdType,
             label: i.userIdType,
@@ -188,13 +192,15 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
         <Box mb="3">
           <Box mb="2">
             <Text as="label" weight="semibold">
-              Query
+              <Trans>Query</Trans>
             </Text>
           </Box>
           {userEnteredQuery === defaultQuery && (
             <Callout status="info" mb="2">
-              The prefilled query below may require editing to fit your data
-              structure.
+              <Trans>
+                The prefilled query below may require editing to fit your data
+                structure.
+              </Trans>
             </Callout>
           )}
           {userEnteredQuery && (
@@ -207,17 +213,20 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
               icon={<PiArrowSquareOut />}
               iconPosition="right"
             >
-              Customize SQL
+              <Trans>Customize SQL</Trans>
             </Button>
           </Box>
         </Box>
 
         <Callout status="info">
-          Return one row per impression.{" "}
-          <code>{INTERLEAVING_ITEMS_COLUMN}</code> is a JSON array of the ranked
-          items, each with <code>{INTERLEAVING_ITEM_FIELD_ITEM_ID}</code>,{" "}
-          <code>{INTERLEAVING_ITEM_FIELD_VARIATION}</code> and{" "}
-          <code>{INTERLEAVING_ITEM_FIELD_COMPETITIVE}</code>.
+          <Trans>
+            Return one row per impression.{" "}
+            <code>{INTERLEAVING_ITEMS_COLUMN}</code> is a JSON array of the
+            ranked items, each with{" "}
+            <code>{INTERLEAVING_ITEM_FIELD_ITEM_ID}</code>,{" "}
+            <code>{INTERLEAVING_ITEM_FIELD_VARIATION}</code> and{" "}
+            <code>{INTERLEAVING_ITEM_FIELD_COMPETITIVE}</code>.
+          </Trans>
         </Callout>
       </Box>
     </ModalStandard>

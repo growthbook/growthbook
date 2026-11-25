@@ -1,5 +1,6 @@
 import { interleavingEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -18,6 +19,7 @@ export default function EditInterleavingDescriptionModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -29,11 +31,11 @@ export default function EditInterleavingDescriptionModal({
     <ModalStandard
       open
       trackingEventModalType="interleaving-edit-description"
-      header="Edit Description"
+      header={t`Edit Description`}
       subheader={
         <>
           <Text size="inherit" mr="1">
-            Use markdown to format your content.
+            <Trans>Use markdown to format your content.</Trans>
           </Text>
           <Link
             rel="noreferrer"
@@ -41,14 +43,14 @@ export default function EditInterleavingDescriptionModal({
             weight="bold"
             href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
           >
-            Learn More
+            <Trans>Learn More</Trans>
             <PiArrowSquareOutFill className="ml-1" />
           </Link>
         </>
       }
       size="lg"
       close={close}
-      cta="Save"
+      cta={t`Save`}
       submit={validatedSubmit(form, async ({ description }) => {
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
@@ -60,7 +62,7 @@ export default function EditInterleavingDescriptionModal({
       <MarkdownInput
         value={form.watch("description")}
         setValue={(value) => form.setValue("description", value)}
-        placeholder="Add context about this interleaving experiment for your team"
+        placeholder={t`Add context about this interleaving experiment for your team`}
       />
     </ModalStandard>
   );

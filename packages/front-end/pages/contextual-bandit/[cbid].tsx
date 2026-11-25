@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import React, { ReactElement, useMemo, useState } from "react";
 import { canEditContextualBanditVisualChanges } from "shared/experiments";
 import { canRunContextualBanditControl } from "shared/permissions";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRestApiCall } from "@/services/restApi";
 import { useAuth } from "@/services/auth";
 import {
@@ -37,6 +38,7 @@ import {
 } from "@/components/OpenVisualEditorLink";
 
 const ContextualBanditPage = (): ReactElement => {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { cbid } = router.query;
@@ -88,9 +90,9 @@ const ContextualBanditPage = (): ReactElement => {
     return (
       <div className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Contextual Bandits"
-          title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
-          description="Contextual Bandits automatically guide more traffic to better variants based on user context."
+          h1={t`Contextual Bandits`}
+          title={t`Run Context-Aware Adaptive Experiments with Contextual Bandits`}
+          description={t`Contextual Bandits automatically guide more traffic to better variants based on user context.`}
           commercialFeature="contextual-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
@@ -105,7 +107,7 @@ const ContextualBanditPage = (): ReactElement => {
     return (
       <div className="contents container-fluid pagecontents">
         <Callout status="error" mt="4">
-          Contextual Bandit not found.
+          <Trans>Contextual Bandit not found.</Trans>
         </Callout>
       </div>
     );
@@ -150,7 +152,7 @@ const ContextualBanditPage = (): ReactElement => {
     <>
       <PageHead
         breadcrumb={[
-          { display: "Contextual Bandits", href: `/contextual-bandits` },
+          { display: t`Contextual Bandits`, href: `/contextual-bandits` },
           { display: cb.name },
         ]}
       />
@@ -258,11 +260,9 @@ const ContextualBanditPage = (): ReactElement => {
         <EditProjectForm
           label={
             <>
-              Projects{" "}
+              <Trans>Projects</Trans>{" "}
               <Tooltip
-                body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Contextual Bandits"
-                }
+                body={t`The dropdown below has been filtered to only include projects where you have permission to update Contextual Bandits`}
               />
             </>
           }
@@ -310,7 +310,7 @@ const ContextualBanditPage = (): ReactElement => {
           onCreate={async (vc) => {
             await openVisualEditor({ vc, apiCall, browser, deviceType });
           }}
-          cta="Open AI Visual Editor"
+          cta={t`Open AI Visual Editor`}
           mutate={mutateLinkedChanges}
           close={() => setVisualChangesetModalOpen(false)}
           source="cbid"

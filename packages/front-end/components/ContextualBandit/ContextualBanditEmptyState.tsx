@@ -1,4 +1,7 @@
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Heading from "@/ui/Heading";
@@ -8,9 +11,11 @@ import { docUrl } from "@/components/DocLink";
 
 export type ContextualBanditEmptyStateKind = "no-data-source" | "ready";
 
-const FOOTNOTES: Record<ContextualBanditEmptyStateKind, string | null> = {
-  "no-data-source":
-    "User still needs to connect a Data Source to gain access to Contextual Bandits.",
+const FOOTNOTES: Record<
+  ContextualBanditEmptyStateKind,
+  MessageDescriptor | null
+> = {
+  "no-data-source": msg`User still needs to connect a Data Source to gain access to Contextual Bandits.`,
   ready: null,
 };
 
@@ -25,6 +30,7 @@ export default function ContextualBanditEmptyState({
   hasContextualBanditFeature: boolean;
   onCreate: () => void;
 }) {
+  const { i18n } = useLingui();
   const footnote = FOOTNOTES[kind];
 
   return (
@@ -38,10 +44,15 @@ export default function ContextualBanditEmptyState({
             color="text-high"
             align="center"
           >
-            Automatically Personalize Experiences with Contextual Bandits
+            <Trans>
+              Automatically Personalize Experiences with Contextual Bandits
+            </Trans>
           </Heading>
           <Text size="lg" color="text-mid" align="center">
-            Drive more traffic to variants that perform best for groups of users
+            <Trans>
+              Drive more traffic to variants that perform best for groups of
+              users
+            </Trans>
           </Text>
 
           <Flex justify="center" gap="5" pt="4">
@@ -50,11 +61,13 @@ export default function ContextualBanditEmptyState({
               external
               variant="outline"
             >
-              View docs
+              <Trans>View docs</Trans>
             </LinkButton>
 
             {kind === "no-data-source" ? (
-              <LinkButton href="/datasources">Connect data source</LinkButton>
+              <LinkButton href="/datasources">
+                <Trans>Connect data source</Trans>
+              </LinkButton>
             ) : (
               canAdd && (
                 <PremiumTooltip
@@ -66,7 +79,7 @@ export default function ContextualBanditEmptyState({
                     onClick={onCreate}
                     disabled={!hasContextualBanditFeature}
                   >
-                    Create Contextual Bandit
+                    <Trans>Create Contextual Bandit</Trans>
                   </Button>
                 </PremiumTooltip>
               )
@@ -77,7 +90,7 @@ export default function ContextualBanditEmptyState({
 
       {footnote && (
         <Text as="p" size="sm" color="text-low" mt="3" align="center">
-          {footnote}
+          {i18n._(footnote)}
         </Text>
       )}
     </Box>

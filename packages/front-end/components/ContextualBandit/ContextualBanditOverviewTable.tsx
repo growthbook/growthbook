@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRight, PiCaretUp } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Table, {
@@ -122,6 +123,7 @@ export default function ContextualBanditOverviewTable({
   formatMean: (value: number) => string;
   formatWeight: (value: number) => string;
 }) {
+  const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
 
   const rows: OverviewRow[] = useMemo(
@@ -145,6 +147,13 @@ export default function ContextualBanditOverviewTable({
   const hiddenCount = rows.length - DEFAULT_VISIBLE_ROWS;
 
   const meanColumn = visibleRows.map((r) => r.mean);
+  const goalMetricLabel = goalMetricLink ? (
+    <Link href={goalMetricLink} target="_blank" color="dark" underline="hover">
+      {goalMetricName}
+    </Link>
+  ) : (
+    goalMetricName
+  );
   const weightColumn = visibleRows.map((r) => r.weight);
 
   return (
@@ -152,36 +161,26 @@ export default function ContextualBanditOverviewTable({
       <Table variant="ghost" size="sm">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Variation</TableColumnHeader>
             <TableColumnHeader>
-              Weight{" "}
-              <Tooltip body="Current share of traffic.">
+              <Trans>Variation</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Weight</Trans>{" "}
+              <Tooltip body={t`Current share of traffic.`}>
                 <GBInfo />
               </Tooltip>
             </TableColumnHeader>
             <TableColumnHeader>
-              Mean{" "}
-              {goalMetricLink ? (
-                <Link
-                  href={goalMetricLink}
-                  target="_blank"
-                  color="dark"
-                  underline="hover"
-                >
-                  {goalMetricName}
-                </Link>
-              ) : (
-                goalMetricName
-              )}{" "}
+              <Trans>Mean {goalMetricLabel}</Trans>{" "}
               <Tooltip
-                body={`Mean ${goalMetricName} if all traffic were allocated to a single variation.`}
+                body={t`Mean ${goalMetricName} if all traffic were allocated to a single variation.`}
               >
                 <GBInfo />
               </Tooltip>
             </TableColumnHeader>
             <TableColumnHeader justify="end">
               {unitDisplayName}{" "}
-              <Tooltip body="Number of units historically allocated.">
+              <Tooltip body={t`Number of units historically allocated.`}>
                 <GBInfo />
               </Tooltip>
             </TableColumnHeader>
@@ -231,7 +230,7 @@ export default function ContextualBanditOverviewTable({
           icon={expanded ? <PiCaretUp /> : <PiCaretRight />}
           onClick={() => setExpanded((prev) => !prev)}
         >
-          {expanded ? "Show less" : `Show ${hiddenCount} more`}
+          {expanded ? t`Show less` : t`Show ${hiddenCount} more`}
         </Button>
       ) : null}
     </Box>

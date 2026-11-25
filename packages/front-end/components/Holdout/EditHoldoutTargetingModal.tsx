@@ -13,6 +13,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { Text, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import ConditionInput from "@/components//Features/ConditionInput";
@@ -45,6 +46,7 @@ export default function EditHoldoutTargetingModal({
   experiment,
   mutate,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -92,9 +94,9 @@ export default function EditHoldoutTargetingModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header={`Edit Targeting`}
+      header={t`Edit Targeting`}
       submit={onSubmit}
-      cta="Save"
+      cta={t`Save`}
       size="lg"
     >
       <TargetingForm
@@ -115,6 +117,7 @@ function TargetingForm({
   form: UseFormReturn<ExperimentTargetingData>;
   conditionKey: number;
 }) {
+  const { t } = useLingui();
   const hashAttributeOptions = useHashAttributeOptions(
     experiment.project,
     form.watch("hashAttribute"),
@@ -126,7 +129,7 @@ function TargetingForm({
         <SelectField
           withRadixThemedPortal
           containerClassName="flex-1"
-          label="Assign variation based on attribute"
+          label={t`Assign variation based on attribute`}
           options={hashAttributeOptions}
           sort={false}
           value={form.watch("hashAttribute")}
@@ -134,15 +137,17 @@ function TargetingForm({
             form.setValue("hashAttribute", v);
           }}
           formatOptionLabel={formatAttributeOptionLabel}
-          helpText={"The globally unique tracking key for the experiment"}
+          helpText={t`The globally unique tracking key for the experiment`}
         />
 
         <div>
           <Text as="label" size="2" weight="medium">
-            Holdout Size
+            <Trans>Holdout Size</Trans>
             <Text size="1" as="div" weight="regular" color="gray">
-              Enter the percent of traffic that you would like to be in the
-              holdout. The same amount of traffic will be in the control.
+              <Trans>
+                Enter the percent of traffic that you would like to be in the
+                holdout. The same amount of traffic will be in the control.
+              </Trans>
             </Text>
           </Text>
           <div className={variationInputStyles.percentInputWrap}>

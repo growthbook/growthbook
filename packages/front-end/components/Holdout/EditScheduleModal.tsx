@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getHoldoutStage } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
@@ -19,6 +20,7 @@ const EditScheduleModal = ({
   close: () => void;
   mutate: () => void;
 }) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const holdoutStage = getHoldoutStage(holdout, experiment);
 
@@ -78,7 +80,7 @@ const EditScheduleModal = ({
       open={true}
       ctaEnabled={holdoutStage !== "stopped" && !experiment.archived}
       trackingEventModalType=""
-      header="Edit Holdout Schedule"
+      header={t`Edit Holdout Schedule`}
       close={close}
       submit={onSubmit}
       size="lg"
@@ -87,8 +89,10 @@ const EditScheduleModal = ({
       <div className="px-2">
         <Box mb="4">
           <Text color="text-mid">
-            Schedule the Holdout to start, transition to analysis, and end
-            analysis.
+            <Trans>
+              Schedule the Holdout to start, transition to analysis, and end
+              analysis.
+            </Trans>
           </Text>
         </Box>
         <ScheduleStatusChangeInputs

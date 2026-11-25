@@ -23,6 +23,7 @@ import {
   HoldoutInterfaceStringDates,
 } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -164,6 +165,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   inline,
   mutate,
 }) => {
+  const { t } = useLingui();
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
 
@@ -267,7 +269,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Name must not be empty");
+      throw new Error(t`Name must not be empty`);
     }
 
     // A copy whose identifier no query declares is left for the user to pick.
@@ -276,7 +278,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       value.exposureQueryId &&
       !value.exposureQueryIdentifierType
     ) {
-      throw new Error("Choose an identifier type for the assignment query");
+      throw new Error(t`Choose an identifier type for the assignment query`);
     }
 
     const phase = value.phases?.[0];
@@ -382,11 +384,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
-  let header = "Add new Holdout";
-  if (duplicate) {
-    header = "Duplicate Holdout";
-  }
-  const trackingEventModalType = kebabCase(header);
+  const header = duplicate ? t`Duplicate Holdout` : t`Add new Holdout`;
+  // Tracking keeps the English name so events stay comparable across languages.
+  const trackingEventModalType = kebabCase(
+    duplicate ? "Duplicate Holdout" : "Add new Holdout",
+  );
 
   const nameFieldHandlers = form.register("name", {
     setValueAs: (s) => s?.trim(),
@@ -398,17 +400,19 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     <SDKCapabilityWarning
       capability="prerequisites"
       project={selectedProjects[0] || ""}
-      someMessage="Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
-      noneMessage="None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."
+      someMessage={t`Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts.`}
+      noneMessage={t`None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK.`}
       mb="4"
     />
   );
 
   const remoteEvalAlert = hasSDKWithRemoteEval ? (
     <Callout status="info" mb="4">
-      When using a Remote Evaluated SDK Connection with Holdouts, you must use a
-      compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{" "}
-      <strong>remote evaluation library</strong> (1.1.0+).
+      <Trans>
+        When using a Remote Evaluated SDK Connection with Holdouts, you must use
+        a compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or
+        the <strong>remote evaluation library</strong> (1.1.0+).
+      </Trans>
     </Callout>
   ) : null;
 
@@ -421,29 +425,31 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         close={onClose}
         docSection="holdouts"
         submit={onSubmit}
-        cta="Save"
+        cta={t`Save`}
         ctaEnabled={hasSDKWithPrerequisites && hasProjectPermission}
         disabledMessage={
           !hasProjectPermission
             ? !selectedProjects.length && availableProjects.length > 0
-              ? "Select a project to continue."
-              : "You don't have permission to create holdouts."
+              ? t`Select a project to continue.`
+              : t`You don't have permission to create holdouts.`
             : undefined
         }
-        closeCta="Cancel"
+        closeCta={t`Cancel`}
         size="lg"
         step={step}
         setStep={setStep}
         inline={inline}
         backButton={true}
       >
-        <Page display="Overview">
+        <Page display={t`Overview`}>
           <div className="px-2">
             {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a holdout in the Sample Data Project.
+                <Trans>
+                  You are creating a holdout in the Sample Data Project.
+                </Trans>
               </Callout>
             )}
 
@@ -452,7 +458,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <Field
               size="legacy"
-              label={"Holdout Name"}
+              label={t`Holdout Name`}
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -463,24 +469,22 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   legacyHeight
                   label={
                     <>
-                      Projects{" "}
+                      <Trans>Projects</Trans>{" "}
                       <Tooltip
-                        content={
-                          "The dropdown below has been filtered to only include projects where you have permission to create Holdouts."
-                        }
+                        content={t`The dropdown below has been filtered to only include projects where you have permission to create Holdouts.`}
                       />
                     </>
                   }
                   placeholder={
                     canCreateWithoutProject
-                      ? "All Projects"
-                      : "Select projects..."
+                      ? t`All Projects`
+                      : t`Select projects...`
                   }
                   value={form.watch("projects") || []}
                   options={availableProjects}
                   onChange={(v) => form.setValue("projects", v)}
                   customClassName="label-overflow-ellipsis"
-                  helpText="Assign this holdout to specific projects"
+                  helpText={t`Assign this holdout to specific projects`}
                 />
               </div>
             )}
@@ -488,16 +492,18 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {includeDescription && (
               <Field
                 size="legacy"
-                label="Description"
+                label={t`Description`}
                 textarea
                 minRows={1}
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
-                placeholder={"Short human-readable description of the Holdout"}
+                placeholder={t`Short human-readable description of the Holdout`}
               />
             )}
             <div className="form-group">
-              <label>Tags</label>
+              <label>
+                <Trans>Tags</Trans>
+              </label>
               <TagsInput
                 value={form.watch("tags") ?? []}
                 onChange={(tags) => form.setValue("tags", tags)}
@@ -530,17 +536,19 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           </div>
         </Page>
 
-        <Page display="Traffic">
+        <Page display={t`Traffic`}>
           <div className="px-2">
             {prerequisiteAlert}
 
             <div className="mb-4">
               <Text as="label" weight="semibold" mb="1">
-                Assign Variation by Attribute
+                <Trans>Assign Variation by Attribute</Trans>
               </Text>
               <Text as="div" color="text-mid" mb="2">
-                Will be hashed together with the Tracking Key to determine which
-                variation to assign
+                <Trans>
+                  Will be hashed together with the Tracking Key to determine
+                  which variation to assign
+                </Trans>
               </Text>
               <SelectField
                 size="legacy"
@@ -557,11 +565,13 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div>
               <Text as="label" weight="medium" mb="1">
-                Holdout Size
+                <Trans>Holdout Size</Trans>
               </Text>
               <Text as="div" color="text-mid" mb="2">
-                Enter the percent of traffic that you would like to be in the
-                holdout. The same amount of traffic will be in the control.
+                <Trans>
+                  Enter the percent of traffic that you would like to be in the
+                  holdout. The same amount of traffic will be in the control.
+                </Trans>
               </Text>
               <div
                 className={`${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
@@ -599,7 +609,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           </div>
         </Page>
 
-        <Page display="Targeting">
+        <Page display={t`Targeting`}>
           <div>
             {prerequisiteAlert}
 
@@ -620,14 +630,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           </div>
         </Page>
 
-        <Page display="Metrics">
+        <Page display={t`Metrics`}>
           <div className="px-2">
             {prerequisiteAlert}
 
             <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
               <SelectField
                 size="legacy"
-                label="Data Source"
+                label={t`Data Source`}
                 labelClassName="font-weight-bold"
                 value={form.watch("datasource") ?? ""}
                 onChange={(newDatasource) => {
@@ -649,11 +659,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 options={datasources.map((d) => {
                   const isDefaultDataSource =
                     d.id === settings.defaultDataSource;
+                  const datasourceLabel = `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }`;
                   return {
                     value: d.id,
-                    label: `${d.name}${
-                      d.description ? ` — ${d.description}` : ""
-                    }${isDefaultDataSource ? " (default)" : ""}`,
+                    label: isDefaultDataSource
+                      ? t`${datasourceLabel} (default)`
+                      : datasourceLabel,
                   };
                 })}
                 className="portal-overflow-ellipsis"
@@ -690,7 +703,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
               collapseSecondary={true}
-              goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
+              goalMetricsDescription={t`The primary metrics you are trying to improve within this holdout. `}
               filterConversionWindowMetrics={true}
               experimentType="holdout"
             />
@@ -701,7 +714,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               trigger={
                 <div className="link-purple font-weight-bold mt-4 mb-2">
                   <PiCaretRightFill className="chevron mr-1" />
-                  Advanced Settings
+                  <Trans>Advanced Settings</Trans>
                 </div>
               }
               transitionTime={100}
@@ -709,7 +722,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               <div className="rounded px-3 pt-3 pb-1 bg-highlight">
                 <StatsEngineSelect
                   className="mb-4"
-                  label={<div>Statistics Engine</div>}
+                  label={
+                    <div>
+                      <Trans>Statistics Engine</Trans>
+                    </div>
+                  }
                   value={form.watch("statsEngine") ?? orgStatsEngine}
                   onChange={(v) => form.setValue("statsEngine", v)}
                   allowUndefined={false}

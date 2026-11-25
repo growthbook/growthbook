@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { date, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -42,6 +45,15 @@ import Custom404 from "@/pages/404";
 const LIST_TABS = ["all", "running", "drafts", "stopped", "archived"] as const;
 type ListTab = (typeof LIST_TABS)[number];
 const STATUS_TABS = ["running", "drafts", "stopped", "archived"] as const;
+const STATUS_TAB_LABELS: Record<
+  (typeof STATUS_TABS)[number],
+  MessageDescriptor
+> = {
+  running: msg`Running`,
+  drafts: msg`Drafts`,
+  stopped: msg`Stopped`,
+  archived: msg`Archived`,
+};
 const NUM_PER_PAGE = 20;
 
 function tabOf(il: ApiInterleavingInterface): Exclude<ListTab, "all"> {
@@ -49,14 +61,8 @@ function tabOf(il: ApiInterleavingInterface): Exclude<ListTab, "all"> {
   return il.status === "draft" ? "drafts" : il.status;
 }
 
-const DATE_LABELS: Record<Exclude<ListTab, "all">, string> = {
-  running: "started",
-  drafts: "created",
-  stopped: "ended",
-  archived: "updated",
-};
-
 const InterleavingsPage = (): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const { ready, project, getProjectById } = useDefinitions();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -67,7 +73,8 @@ const InterleavingsPage = (): React.ReactElement => {
   });
   const [openNewModal, setOpenNewModal] = useState(false);
   const [urlTab, setTab] = useURLHash<ListTab>([...LIST_TABS]);
-  const activeTab: ListTab = LIST_TABS.find((t) => t === urlTab) ?? "all";
+  const activeTab: ListTab =
+    LIST_TABS.find((tabValue) => tabValue === urlTab) ?? "all";
   const [currentPage, setCurrentPage] = useState(1);
 
   const rows = useMemo(
@@ -128,6 +135,19 @@ const InterleavingsPage = (): React.ReactElement => {
     setCurrentPage(1);
   }, [filtered.length]);
 
+  const dateLabel = (tab: Exclude<ListTab, "all">, when: string): string => {
+    switch (tab) {
+      case "running":
+        return t`started ${when}`;
+      case "drafts":
+        return t`created ${when}`;
+      case "stopped":
+        return t`ended ${when}`;
+      case "archived":
+        return t`updated ${when}`;
+    }
+  };
+
   if (!interleavingEnabled) {
     return <Custom404 />;
   }
@@ -135,9 +155,9 @@ const InterleavingsPage = (): React.ReactElement => {
     return (
       <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Interleaving Experiments"
-          title="Compare two rankers head-to-head with Interleaving"
-          description="Interleaving merges two ranked lists for each user and measures which ranker's items get engagement, detecting ranking differences with far less traffic than an A/B test."
+          h1={t`Interleaving Experiments`}
+          title={t`Compare two rankers head-to-head with Interleaving`}
+          description={t`Interleaving merges two ranked lists for each user and measures which ranker's items get engagement, detecting ranking differences with far less traffic than an A/B test.`}
           commercialFeature="interleaving"
           learnMoreLink={docUrl("interleaving")}
         />
@@ -145,7 +165,12 @@ const InterleavingsPage = (): React.ReactElement => {
     );
   }
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -159,42 +184,42 @@ const InterleavingsPage = (): React.ReactElement => {
 
   return (
     <>
-      <PageHead breadcrumb={[{ display: "Interleaving" }]} />
+      <PageHead breadcrumb={[{ display: t`Interleaving` }]} />
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
           <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
             <Heading as="h1" size="xl" mb="0">
-              Interleaving Experiments
+              <Trans>Interleaving Experiments</Trans>
             </Heading>
             {hasInterleavings && (
               <Button onClick={() => setOpenNewModal(true)} disabled={!canAdd}>
-                Add interleaving experiment
+                <Trans>Add interleaving experiment</Trans>
               </Button>
             )}
           </Flex>
           {!hasInterleavings ? (
             <EmptyState
-              title="Create Your First Interleaving Experiment"
-              description="Compare two rankers by interleaving their lists for each user and measuring which ranker's items get engagement."
+              title={t`Create Your First Interleaving Experiment`}
+              description={t`Compare two rankers by interleaving their lists for each user and measuring which ranker's items get engagement.`}
               leftButton={
                 <LinkButton
                   href={docUrl("interleaving")}
                   variant="outline"
                   external
                 >
-                  View docs
+                  <Trans>View docs</Trans>
                 </LinkButton>
               }
               rightButton={
                 <Tooltip
-                  body="You don't have permission to create interleaving experiments in this project."
+                  body={t`You don't have permission to create interleaving experiments in this project.`}
                   shouldDisplay={!canAdd}
                 >
                   <Button
                     disabled={!canAdd}
                     onClick={() => setOpenNewModal(true)}
                   >
-                    Create interleaving experiment
+                    <Trans>Create interleaving experiment</Trans>
                   </Button>
                 </Tooltip>
               }
@@ -203,21 +228,22 @@ const InterleavingsPage = (): React.ReactElement => {
             <Tabs
               value={activeTab}
               onValueChange={(value) => {
-                const tab = LIST_TABS.find((t) => t === value);
+                const tab = LIST_TABS.find((tabValue) => tabValue === value);
                 if (tab) setTab(tab);
               }}
             >
               <Box mb="3">
                 <TabsList>
-                  <TabsTrigger value="all">All Interleaving</TabsTrigger>
+                  <TabsTrigger value="all">
+                    <Trans>All Interleaving</Trans>
+                  </TabsTrigger>
                   {STATUS_TABS.map((tabValue) => {
                     if (tabValue === "archived" && !tabCounts.archived) {
                       return null;
                     }
                     return (
                       <TabsTrigger value={tabValue} key={tabValue}>
-                        {tabValue.slice(0, 1).toUpperCase()}
-                        {tabValue.slice(1)}
+                        {i18n._(STATUS_TAB_LABELS[tabValue])}
                         {tabValue !== "archived" && (
                           <span
                             style={{
@@ -241,7 +267,7 @@ const InterleavingsPage = (): React.ReactElement => {
               <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
                 <Box flexBasis="300px" flexShrink="0">
                   <Field
-                    placeholder="Search..."
+                    placeholder={t`Search...`}
                     type="search"
                     {...searchInputProps}
                   />
@@ -254,26 +280,28 @@ const InterleavingsPage = (): React.ReactElement => {
                       field="name"
                       style={{ maxWidth: 320 }}
                     >
-                      Interleaving Experiment
+                      <Trans>Interleaving Experiment</Trans>
                     </SortableTableColumnHeader>
                     {showProjectColumn && (
                       <SortableTableColumnHeader field="projectName">
-                        Project
+                        <Trans>Project</Trans>
                       </SortableTableColumnHeader>
                     )}
                     <SortableTableColumnHeader field="key">
-                      Key
+                      <Trans>Key</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="tags">
-                      Tags
+                      <Trans>Tags</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="ownerName">
-                      Owner
+                      <Trans>Owner</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="date">
-                      Date
+                      <Trans>Date</Trans>
                     </SortableTableColumnHeader>
-                    <TableColumnHeader>Status</TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Status</Trans>
+                    </TableColumnHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -292,7 +320,13 @@ const InterleavingsPage = (): React.ReactElement => {
                         </Link>
                       </TableCell>
                       {showProjectColumn && (
-                        <TableCell>{il.projectName || <em>None</em>}</TableCell>
+                        <TableCell>
+                          {il.projectName || (
+                            <em>
+                              <Trans>None</Trans>
+                            </em>
+                          )}
+                        </TableCell>
                       )}
                       <TableCell>{il.key}</TableCell>
                       <TableCell>
@@ -305,9 +339,15 @@ const InterleavingsPage = (): React.ReactElement => {
                           )}
                         />
                       </TableCell>
-                      <TableCell>{il.ownerName || <em>None</em>}</TableCell>
+                      <TableCell>
+                        {il.ownerName || (
+                          <em>
+                            <Trans>None</Trans>
+                          </em>
+                        )}
+                      </TableCell>
                       <TableCell title={datetime(il.date)}>
-                        {DATE_LABELS[il.tab]} {date(il.date)}
+                        {dateLabel(il.tab, date(il.date))}
                       </TableCell>
                       <TableCell>
                         <ExperimentStatusIndicator
@@ -323,8 +363,8 @@ const InterleavingsPage = (): React.ReactElement => {
                         style={{ textAlign: "center" }}
                       >
                         {isFiltered
-                          ? "No interleaving experiments match the current filter."
-                          : "No interleaving experiments found."}
+                          ? t`No interleaving experiments match the current filter.`
+                          : t`No interleaving experiments found.`}
                       </TableCell>
                     </TableRow>
                   )}

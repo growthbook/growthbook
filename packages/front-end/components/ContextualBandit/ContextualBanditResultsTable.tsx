@@ -1,6 +1,9 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
@@ -46,17 +49,14 @@ const numberFormatter = Intl.NumberFormat();
 
 type ComparisonMode = "weights" | "means" | "units";
 
-const EMPTY_SNAPSHOT_NOTICE =
-  "Contextual bandit results are not available for this snapshot yet. Run or refresh results to compute weights per context.";
-const EXPLORING_NOTICE =
-  "This Contextual Bandit is in its exploratory stage. Updating results recomputes stats but does not change variation weights — weights stay evenly split until the exploratory stage ends.";
-const EMPTY_SNAPSHOT_EXPLORING_NOTICE =
-  "This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats.";
+const EMPTY_SNAPSHOT_NOTICE = msg`Contextual bandit results are not available for this snapshot yet. Run or refresh results to compute weights per context.`;
+const EXPLORING_NOTICE = msg`This Contextual Bandit is in its exploratory stage. Updating results recomputes stats but does not change variation weights — weights stay evenly split until the exploratory stage ends.`;
+const EMPTY_SNAPSHOT_EXPLORING_NOTICE = msg`This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats.`;
 
 function getResultsNotice(
   hasTableData: boolean,
   isExploring: boolean,
-): string | null {
+): MessageDescriptor | null {
   if (!hasTableData) {
     return isExploring
       ? EMPTY_SNAPSHOT_EXPLORING_NOTICE
@@ -79,7 +79,7 @@ function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
   if (!clauses.length || condition === "{}") {
     return (
       <Text size="md" color="text-low">
-        All contexts
+        <Trans>All contexts</Trans>
       </Text>
     );
   }
@@ -154,6 +154,7 @@ export default function ContextualBanditResultsTable({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const [mode, setMode] = useState<ComparisonMode>("weights");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const {
@@ -199,7 +200,7 @@ export default function ContextualBanditResultsTable({
   const goalMetric = cb.decisionMetric
     ? getExperimentMetricById(cb.decisionMetric)
     : null;
-  const goalMetricName = goalMetric?.name ?? "outcome";
+  const goalMetricName = goalMetric?.name ?? t`outcome`;
   const goalMetricLink = goalMetric ? getMetricLink(goalMetric.id) : null;
   const formatGoalMetricMean = (value: number): string => {
     if (Number.isNaN(value)) return "—";
@@ -269,7 +270,7 @@ export default function ContextualBanditResultsTable({
         const current = canonical >= 0 ? cb.variations[canonical] : undefined;
         return {
           id: v.variationId,
-          name: current?.name ?? v.variationName ?? "Removed variation",
+          name: current?.name ?? v.variationName ?? t`Removed variation`,
           index: canonical >= 0 ? canonical : i,
         };
       }),
@@ -279,7 +280,7 @@ export default function ContextualBanditResultsTable({
         index: cb.variations.findIndex((c) => c.id === v.id),
       })),
     ],
-    [overallVariations, cb.variations, pendingActiveVariations],
+    [overallVariations, cb.variations, pendingActiveVariations, t],
   );
   const isOutdated = useMemo(
     () =>
@@ -318,6 +319,7 @@ export default function ContextualBanditResultsTable({
     [leaves],
   );
 
+  const queryLatestError = queryLatest?.error;
   const showQueries =
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
@@ -409,7 +411,7 @@ export default function ContextualBanditResultsTable({
         showAutoUpdateWidget={true}
         failedString={
           queryLatest && !queryLatest.queries.length && queryLatest.error
-            ? `Snapshot update failed: ${queryLatest.error}`
+            ? t`Snapshot update failed: ${queryLatestError}`
             : undefined
         }
         queries={
@@ -422,13 +424,13 @@ export default function ContextualBanditResultsTable({
       {isOutdated && hasTableData ? (
         <OutdatedBadge
           reasons={[
-            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
+            t`The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.`,
           ]}
         />
       ) : null}
       {canRunQueries ? (
         <RunQueriesButton
-          cta="Update results"
+          cta={t`Update results`}
           icon="refresh"
           model={{
             queries: queryLatest?.queries ?? [],
@@ -471,7 +473,7 @@ export default function ContextualBanditResultsTable({
 
       {resultsNotice ? (
         <Callout status="info" mb="3">
-          {resultsNotice}
+          {i18n._(resultsNotice)}
         </Callout>
       ) : null}
 
@@ -491,8 +493,8 @@ export default function ContextualBanditResultsTable({
       {hasTableData ? (
         <>
           <SectionHeading
-            title="Variation Performance"
-            description="Breakdown by variation."
+            title={t`Variation Performance`}
+            description={t`Breakdown by variation.`}
           />
           <Box mb="5">
             <ContextualBanditOverviewTable
@@ -509,8 +511,8 @@ export default function ContextualBanditResultsTable({
           </Box>
 
           <SectionHeading
-            title="Attribute Importance"
-            description="Attributes ranked by proportion of error removed."
+            title={t`Attribute Importance`}
+            description={t`Attributes ranked by proportion of error removed.`}
           />
           {hasSplitMetadata ? (
             <Box mb="5">
@@ -518,8 +520,10 @@ export default function ContextualBanditResultsTable({
             </Box>
           ) : (
             <Text size="sm" color="text-low" as="div" mb="5">
-              Split details aren&apos;t available yet. Refresh results to
-              compute them.
+              <Trans>
+                Split details aren&apos;t available yet. Refresh results to
+                compute them.
+              </Trans>
             </Text>
           )}
 
@@ -533,28 +537,30 @@ export default function ContextualBanditResultsTable({
           >
             <Box>
               <Heading as="h3" size="sm" mb="1">
-                Bandit Breakdown
+                <Trans>Bandit Breakdown</Trans>
               </Heading>
               <Text size="sm" color="text-low" as="div">
-                Variation weights, sample {goalMetricName} means, and sample
-                sizes by bandit group.
+                <Trans>
+                  Variation weights, sample {goalMetricName} means, and sample
+                  sizes by bandit group.
+                </Trans>
               </Text>
             </Box>
             <SegmentedControl
               size="normal"
-              aria-label="Comparison value type"
+              aria-label={t`Comparison value type`}
               value={mode}
               setValue={setMode}
               options={[
-                { value: "weights", label: "Weights" },
-                { value: "means", label: "Means" },
+                { value: "weights", label: t`Weights` },
+                { value: "means", label: t`Means` },
                 { value: "units", label: unitDisplayName },
               ]}
             />
           </Flex>
 
           <Heatmap
-            labelHeader="Context"
+            labelHeader={t`Context`}
             leadingColumns={[
               {
                 key: "units",

@@ -5,6 +5,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { linkedDraftApproved } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRestApiCall } from "@/services/restApi";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -34,6 +35,7 @@ export default function ContextualBanditLinkedFeatureFlag({
   cb,
   mutate,
 }: Props) {
+  const { t, i18n } = useLingui();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
@@ -126,12 +128,12 @@ export default function ContextualBanditLinkedFeatureFlag({
       isActive: state === "active",
       tooltip:
         state === "active"
-          ? "The contextual bandit is active in this environment"
+          ? t`The contextual bandit is active in this environment`
           : state === "disabled-env"
-            ? "The environment is disabled for this feature, so the contextual bandit is not active"
+            ? t`The environment is disabled for this feature, so the contextual bandit is not active`
             : state === "disabled-rule"
-              ? "The contextual bandit is disabled in this environment and is not active"
-              : "The contextual bandit is not present in this environment",
+              ? t`The contextual bandit is disabled in this environment and is not active`
+              : t`The contextual bandit is not present in this environment`,
     }),
   );
 
@@ -152,43 +154,64 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""
   }`;
 
-  const draftRevisionDescription = awaitingApproval ? (
-    <>
-      a <strong>draft</strong> revision pending approval
-    </>
+  const draftRevisionSentence = cbNotStarted ? (
+    awaitingApproval ? (
+      <Trans>
+        Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+        revision pending approval.
+      </Trans>
+    ) : approvedNotPublished ? (
+      <Trans>
+        Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+        revision that has been <strong>approved</strong>.
+      </Trans>
+    ) : (
+      <Trans>
+        Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+        revision.
+      </Trans>
+    )
+  ) : awaitingApproval ? (
+    <Trans>
+      Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+      revision pending approval, so this Contextual Bandit is not serving this
+      Feature Flag.
+    </Trans>
   ) : approvedNotPublished ? (
-    <>
-      a <strong>draft</strong> revision that has been <strong>approved</strong>
-    </>
+    <Trans>
+      Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+      revision that has been <strong>approved</strong>, so this Contextual
+      Bandit is not serving this Feature Flag.
+    </Trans>
   ) : (
-    <>
-      a <strong>draft</strong> revision
-    </>
+    <Trans>
+      Rule changes for this Feature Flag are in a <strong>draft</strong>{" "}
+      revision, so this Contextual Bandit is not serving this Feature Flag.
+    </Trans>
   );
 
-  const draftCalloutBody = cbNotStarted ? (
+  const draftCalloutBody = (
     <>
-      Rule changes for this Feature Flag are in {draftRevisionDescription}.{" "}
-      {awaitingApproval ? "Once approved, they" : "They"} will be auto-published
-      when this Contextual Bandit starts, or you can publish manually.
-    </>
-  ) : (
-    <>
-      Rule changes for this Feature Flag are in {draftRevisionDescription}, so
-      this Contextual Bandit is not serving this Feature Flag.{" "}
-      {cb.status === "stopped"
-        ? "This Contextual Bandit has stopped, so the draft will not be auto-published."
-        : awaitingApproval
-          ? "Drafts are only auto-published when a Contextual Bandit starts, so this one has to be approved and then published manually."
-          : "Drafts are only auto-published when a Contextual Bandit starts, so this one has to be published manually."}
+      {draftRevisionSentence}{" "}
+      {cbNotStarted
+        ? awaitingApproval
+          ? t`Once approved, they will be auto-published when this Contextual Bandit starts, or you can publish manually.`
+          : t`They will be auto-published when this Contextual Bandit starts, or you can publish manually.`
+        : cb.status === "stopped"
+          ? t`This Contextual Bandit has stopped, so the draft will not be auto-published.`
+          : awaitingApproval
+            ? t`Drafts are only auto-published when a Contextual Bandit starts, so this one has to be approved and then published manually.`
+            : t`Drafts are only auto-published when a Contextual Bandit starts, so this one has to be published manually.`}
     </>
   );
 
   const draftCalloutLinkLabel = awaitingApproval
-    ? "Review and approve draft"
+    ? t`Review and approve draft`
     : cb.status === "running"
-      ? "Publish draft"
-      : "Review draft";
+      ? t`Publish draft`
+      : t`Review draft`;
+
+  const valuesFrom = info.valuesFrom;
 
   return (
     <>
@@ -202,13 +225,13 @@ export default function ContextualBanditLinkedFeatureFlag({
         />
       )}
       <LinkedChange
-        heading={info.feature?.id || "Feature"}
+        heading={info.feature?.id || t`Feature`}
         feature={info.feature}
         canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
         additionalBadge={(() => {
           if (info.state === "archived") {
-            return <Badge label="Archived" radius="full" color="gray" />;
+            return <Badge label={t`Archived`} radius="full" color="gray" />;
           }
           const revisionStatus =
             info.state === "live"
@@ -221,7 +244,7 @@ export default function ContextualBanditLinkedFeatureFlag({
           if (!revisionStatus) return null;
           return (
             <Badge
-              label={revisionStatusLabel(revisionStatus)}
+              label={revisionStatusLabel(revisionStatus, i18n)}
               radius="full"
               color={revisionStatusColor(revisionStatus)}
             />
@@ -230,14 +253,16 @@ export default function ContextualBanditLinkedFeatureFlag({
       >
         {stagedChangeVersion != null && (
           <Callout status="info" my="4">
-            There is a new revision with changes to variation values. The values
-            below are live until the changes are published.
+            <Trans>
+              There is a new revision with changes to variation values. The
+              values below are live until the changes are published.
+            </Trans>
             <Box mt="1">
               <Link
                 href={`/features/${info.feature?.id}?v=${stagedChangeVersion}`}
                 target="_blank"
               >
-                Review draft
+                <Trans>Review draft</Trans>
                 <PiArrowSquareOut className="ml-1" />
               </Link>
             </Box>
@@ -245,16 +270,21 @@ export default function ContextualBanditLinkedFeatureFlag({
         )}
         {info.state === "archived" && (
           <Callout status="warning" my="4">
-            This Feature Flag has been archived. Unarchive it to make this
-            contextual bandit active.
+            <Trans>
+              This Feature Flag has been archived. Unarchive it to make this
+              contextual bandit active.
+            </Trans>
           </Callout>
         )}
         {info.state === "discarded" && (
           <Callout status="warning" my="4">
-            The draft revision linking this contextual bandit was discarded. The
-            contextual-bandit rule is no longer queued.{" "}
+            <Trans>
+              The draft revision linking this contextual bandit was discarded.
+              The contextual-bandit rule is no longer queued.
+            </Trans>{" "}
             <Link href={`/features/${info.feature?.id}`} target="_blank">
-              Go to feature page <PiArrowSquareOut className="ml-1" />
+              <Trans>Go to feature page</Trans>{" "}
+              <PiArrowSquareOut className="ml-1" />
             </Link>
             {canEditFeatureDraft && (
               <>
@@ -263,7 +293,7 @@ export default function ContextualBanditLinkedFeatureFlag({
                   onClick={() => handleRemove()}
                   style={{ cursor: removing ? "wait" : "pointer" }}
                 >
-                  Remove from contextual bandit
+                  <Trans>Remove from contextual bandit</Trans>
                 </Link>
               </>
             )}
@@ -271,10 +301,12 @@ export default function ContextualBanditLinkedFeatureFlag({
         )}
         {info.state === "draft" && info.hasMergeConflict && (
           <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
-            This feature draft has a <strong>merge conflict</strong> and cannot
-            be auto-published.{" "}
+            <Trans>
+              This feature draft has a <strong>merge conflict</strong> and
+              cannot be auto-published.
+            </Trans>{" "}
             <Link href={draftRevisionHref} target="_blank">
-              Fix conflicts
+              <Trans>Fix conflicts</Trans>
               <PiArrowSquareOut className="ml-1" />
             </Link>
           </Callout>
@@ -283,12 +315,14 @@ export default function ContextualBanditLinkedFeatureFlag({
           !info.hasMergeConflict &&
           info.hasUnrelatedDraftChanges && (
             <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
-              This feature draft contains{" "}
-              <strong>changes beyond this contextual bandit</strong> and cannot
-              be auto-published. Either remove the unrelated edits from the
-              draft or publish the full draft manually.{" "}
+              <Trans>
+                This feature draft contains{" "}
+                <strong>changes beyond this contextual bandit</strong> and
+                cannot be auto-published. Either remove the unrelated edits from
+                the draft or publish the full draft manually.
+              </Trans>{" "}
               <Link href={draftRevisionHref} target="_blank">
-                Review draft
+                <Trans>Review draft</Trans>
                 <PiArrowSquareOut className="ml-1" />
               </Link>
             </Callout>
@@ -320,75 +354,86 @@ export default function ContextualBanditLinkedFeatureFlag({
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
             <Flex width="100%" gap="4" py="4" px="5" direction="column">
               <Box flexGrow="1">
-                {cb.variations.map((v, j) => (
-                  <React.Fragment key={v.id}>
-                    <Flex
-                      align={
-                        info.feature.valueType === "json" ? "start" : "center"
-                      }
-                      justify="between"
-                      width="100%"
-                      gap="9"
-                      minHeight="24px"
-                    >
-                      <Box flexBasis="15%" flexShrink="0" minWidth="0">
-                        <VariationLabel number={j} name={v.name} size="md" />
-                      </Box>
-                      <Flex flexBasis="90px" flexShrink="0" justify="end">
-                        <Text>
-                          {decimalToPercent(weightForIndex(j))}% Split
-                        </Text>
+                {cb.variations.map((v, j) => {
+                  const splitPercent = decimalToPercent(weightForIndex(j));
+                  const stagedVersion = variationValueStates[j].stagedVersion;
+                  return (
+                    <React.Fragment key={v.id}>
+                      <Flex
+                        align={
+                          info.feature.valueType === "json" ? "start" : "center"
+                        }
+                        justify="between"
+                        width="100%"
+                        gap="9"
+                        minHeight="24px"
+                      >
+                        <Box flexBasis="15%" flexShrink="0" minWidth="0">
+                          <VariationLabel number={j} name={v.name} size="md" />
+                        </Box>
+                        <Flex flexBasis="90px" flexShrink="0" justify="end">
+                          <Text>
+                            <Trans>{splitPercent}% Split</Trans>
+                          </Text>
+                        </Flex>
+                        <Box flexGrow="1">
+                          {!variationValueStates[j].hasLiveValue &&
+                          !variationValueStates[j].hasStagedChange ? (
+                            <HelperText status="warning">
+                              <Trans>Define missing values</Trans>
+                            </HelperText>
+                          ) : (
+                            <Flex direction="column" gap="1">
+                              {variationValueStates[j].hasLiveValue && (
+                                <ForceSummary
+                                  value={
+                                    variationValueStates[j].liveValue ?? ""
+                                  }
+                                  feature={info.feature}
+                                  sparse={info.sparse}
+                                  maxHeight={60}
+                                />
+                              )}
+                              {variationValueStates[j].hasStagedChange && (
+                                <HelperText status="warning">
+                                  <Trans>
+                                    Staged in revision #{stagedVersion} — not
+                                    serving yet
+                                  </Trans>
+                                </HelperText>
+                              )}
+                            </Flex>
+                          )}
+                        </Box>
                       </Flex>
-                      <Box flexGrow="1">
-                        {!variationValueStates[j].hasLiveValue &&
-                        !variationValueStates[j].hasStagedChange ? (
-                          <HelperText status="warning">
-                            Define missing values
-                          </HelperText>
-                        ) : (
-                          <Flex direction="column" gap="1">
-                            {variationValueStates[j].hasLiveValue && (
-                              <ForceSummary
-                                value={variationValueStates[j].liveValue ?? ""}
-                                feature={info.feature}
-                                sparse={info.sparse}
-                                maxHeight={60}
-                              />
-                            )}
-                            {variationValueStates[j].hasStagedChange && (
-                              <HelperText status="warning">
-                                Staged in revision #
-                                {variationValueStates[j].stagedVersion} — not
-                                serving yet
-                              </HelperText>
-                            )}
-                          </Flex>
-                        )}
-                      </Box>
-                    </Flex>
-                    {j < cb.variations.length - 1 && (
-                      <Separator size="4" mt="2" mb="3" />
-                    )}
-                  </React.Fragment>
-                ))}
+                      {j < cb.variations.length - 1 && (
+                        <Separator size="4" mt="2" mb="3" />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </Box>
 
               {(info.state === "live" || info.state === "draft") && (
                 <>
                   {info.inconsistentValues && (
                     <Callout status="warning">
-                      <strong>Warning:</strong> This contextual bandit is
-                      included multiple times with different values. The values
-                      above are from the first matching rule in{" "}
-                      <strong>{info.valuesFrom}</strong>.
+                      <Trans>
+                        <strong>Warning:</strong> This contextual bandit is
+                        included multiple times with different values. The
+                        values above are from the first matching rule in{" "}
+                        <strong>{valuesFrom}</strong>.
+                      </Trans>
                     </Callout>
                   )}
 
                   {info.rulesAbove && (
                     <Callout status="info">
-                      <strong>Notice:</strong> There are Feature Flag rules
-                      above this contextual bandit so some users might not be
-                      included.
+                      <Trans>
+                        <strong>Notice:</strong> There are Feature Flag rules
+                        above this contextual bandit so some users might not be
+                        included.
+                      </Trans>
                     </Callout>
                   )}
                 </>

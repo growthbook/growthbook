@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
@@ -20,6 +21,7 @@ export default function EditInterleavingTargetingModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const environments = useEnvironments();
   const hashAttributes = useAttributeSchema(false, il.project)
@@ -41,14 +43,14 @@ export default function EditInterleavingTargetingModal({
     <ModalStandard
       open
       trackingEventModalType="interleaving-edit-targeting"
-      header="Edit Targeting"
+      header={t`Edit Targeting`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       size="lg"
       submit={async () => {
         if (prereqSdkIssues) {
           throw new Error(
-            "Some prerequisites aren't supported by your SDK versions.",
+            t`Some prerequisites aren't supported by your SDK versions.`,
           );
         }
         let fixedCondition = condition;
@@ -71,14 +73,16 @@ export default function EditInterleavingTargetingModal({
     >
       {isRunning && (
         <Callout status="warning" mb="3">
-          This experiment is running. Saved changes apply to live traffic
-          immediately, and the hash attribute is locked.
+          <Trans>
+            This experiment is running. Saved changes apply to live traffic
+            immediately, and the hash attribute is locked.
+          </Trans>
         </Callout>
       )}
       <Flex gap="3">
         <Box flexGrow="1">
           <SelectField
-            label="Hash attribute"
+            label={t`Hash attribute`}
             value={hashAttribute}
             onChange={setHashAttribute}
             options={hashAttributes.map((a) => ({ value: a, label: a }))}
@@ -86,14 +90,14 @@ export default function EditInterleavingTargetingModal({
             disabled={isRunning}
             helpText={
               isRunning
-                ? "Stop this experiment to change which units are interleaved. Changing it mid-flight would rebucket everyone."
-                : "Decides which units are interleaved."
+                ? t`Stop this experiment to change which units are interleaved. Changing it mid-flight would rebucket everyone.`
+                : t`Decides which units are interleaved.`
             }
           />
         </Box>
         <Box flexGrow="1">
           <PercentField
-            label="Coverage"
+            label={t`Coverage`}
             value={coverage}
             onChange={(v) => setCoverage(Math.min(1, Math.max(0, v ?? 0)))}
             min={0}

@@ -1,4 +1,5 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ApiInterleavingInterface } from "shared/validators";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
@@ -15,29 +16,37 @@ export default function InterleavingRankersDisplay({
   variations: ApiInterleavingInterface["variations"];
   jsonSchema: ApiInterleavingInterface["jsonSchema"];
 }) {
+  const { i18n } = useLingui();
   return (
     <Grid columns={{ initial: "1", md: "2" }} gap="4">
       {RANKERS.map(({ role, label }, i) => {
         const ranker = variations[role];
         const configError = getRankerConfigError(ranker.config, jsonSchema);
+        const rankerKey = ranker.key;
         return (
           <RankerCard
             key={role}
             index={i}
-            name={ranker.name || ranker.key || label}
+            name={ranker.name || ranker.key || i18n._(label)}
           >
             <Flex direction="column" gap="2">
               <Text size="sm">
-                <code>ID: {ranker.key}</code>
+                <code>
+                  <Trans>ID: {rankerKey}</Trans>
+                </code>
               </Text>
               {ranker.description ? (
                 <Text>{ranker.description}</Text>
               ) : (
-                <Text color="text-disabled">No description</Text>
+                <Text color="text-disabled">
+                  <Trans>No description</Trans>
+                </Text>
               )}
               <Box mt="1">
                 <Box mb="1">
-                  <Text weight="semibold">Config (JSON)</Text>
+                  <Text weight="semibold">
+                    <Trans>Config (JSON)</Trans>
+                  </Text>
                 </Box>
                 <Code
                   language="json"

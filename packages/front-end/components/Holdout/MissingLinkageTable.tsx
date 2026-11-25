@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HoldoutMissingLinkage } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -27,6 +28,7 @@ export default function MissingLinkageTable({
   canEdit: boolean;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const rows = [
@@ -37,6 +39,7 @@ export default function MissingLinkageTable({
     ...missing.features.map((link) => ({ ...link, kind: "feature" as const })),
   ];
   if (!rows.length) return null;
+  const count = rows.length;
 
   return (
     <Box mt="5">
@@ -45,12 +48,14 @@ export default function MissingLinkageTable({
           <PiWarningFill />
         </Flex>
         <Heading as="h5" size="xs" mb="0">
-          Missing Linkage ({rows.length})
+          <Trans>Missing Linkage ({count})</Trans>
         </Heading>
       </Flex>
       <Text as="p" color="text-mid" mb="3">
-        This holdout still lists these, but they no longer belong to it.
-        Removing one only drops it from this list.
+        <Trans>
+          This holdout still lists these, but they no longer belong to it.
+          Removing one only drops it from this list.
+        </Trans>
       </Text>
       {error ? (
         <Callout status="error" size="sm" mb="3">
@@ -60,9 +65,15 @@ export default function MissingLinkageTable({
       <Table variant="list" roundedCorners>
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader>Type</TableColumnHeader>
-            <TableColumnHeader>Problem</TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Name</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Type</Trans>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Trans>Problem</Trans>
+            </TableColumnHeader>
             {canEdit ? <TableColumnHeader style={{ width: 100 }} /> : null}
           </TableRow>
         </TableHeader>
@@ -86,13 +97,13 @@ export default function MissingLinkageTable({
                 )}
               </TableCell>
               <TableCell>
-                {row.kind === "experiment" ? "Experiment" : "Feature Flag"}
+                {row.kind === "experiment" ? t`Experiment` : t`Feature Flag`}
               </TableCell>
               <TableCell>
                 <Text color="text-mid">
                   {row.problem === "deleted"
-                    ? "Deleted"
-                    : "No longer in this holdout"}
+                    ? t`Deleted`
+                    : t`No longer in this holdout`}
                 </Text>
               </TableCell>
               {canEdit ? (
@@ -110,7 +121,7 @@ export default function MissingLinkageTable({
                       mutate();
                     }}
                   >
-                    Remove
+                    <Trans>Remove</Trans>
                   </Button>
                 </TableCell>
               ) : null}

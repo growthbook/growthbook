@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { getMetricLink } from "shared/experiments";
 import { useEnvironments } from "@/services/features";
@@ -46,7 +47,7 @@ function OverviewSection({
         </Box>
         {onEdit ? (
           <Button variant="ghost" onClick={onEdit}>
-            Edit
+            <Trans>Edit</Trans>
           </Button>
         ) : null}
       </Flex>
@@ -72,6 +73,7 @@ export default function InterleavingOverview({
   editTargeting?: () => void;
   editAnalysis?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const environments = useEnvironments();
   const { getDatasourceById, getExperimentMetricById } = useDefinitions();
   const { exposureQueries } = useInterleavingExposureQueries(il.datasourceId);
@@ -82,17 +84,18 @@ export default function InterleavingOverview({
 
   const environmentItems: DataListItem[] = environments.map((env) => ({
     label: env.id,
-    value: il.environmentSettings[env.id]?.enabled ? "On" : "Off",
+    value: il.environmentSettings[env.id]?.enabled ? t`On` : t`Off`,
   }));
 
+  const coveragePercent = Math.round((il.coverage ?? 1) * 100);
   const targetingItems: DataListItem[] = [
-    { label: "Hash attribute", value: il.hashAttribute || EMPTY },
+    { label: t`Hash attribute`, value: il.hashAttribute || EMPTY },
     {
-      label: "Coverage",
-      value: `${Math.round((il.coverage ?? 1) * 100)}% included`,
+      label: t`Coverage`,
+      value: t`${coveragePercent}% included`,
     },
     {
-      label: "Attribute Targeting",
+      label: t`Attribute Targeting`,
       value: il.condition ? (
         <ConditionDisplay condition={il.condition} />
       ) : (
@@ -100,7 +103,7 @@ export default function InterleavingOverview({
       ),
     },
     {
-      label: "Saved Group Targeting",
+      label: t`Saved Group Targeting`,
       value: il.savedGroups?.length ? (
         <SavedGroupTargetingDisplay savedGroups={il.savedGroups} />
       ) : (
@@ -108,7 +111,7 @@ export default function InterleavingOverview({
       ),
     },
     {
-      label: "Prerequisite Targeting",
+      label: t`Prerequisite Targeting`,
       value: il.prerequisites?.length ? (
         <ConditionDisplay prerequisites={il.prerequisites} />
       ) : (
@@ -118,19 +121,19 @@ export default function InterleavingOverview({
   ];
 
   const analysisItems: DataListItem[] = [
-    { label: "Tracking key", value: il.trackingKey || EMPTY },
+    { label: t`Tracking key`, value: il.trackingKey || EMPTY },
     {
-      label: "Data Source",
+      label: t`Data Source`,
       value:
         getDatasourceById(il.datasourceId)?.name || il.datasourceId || EMPTY,
     },
     {
-      label: "Interleaving Exposure Query",
+      label: t`Interleaving Exposure Query`,
       value: exposureQuery?.name || il.interleavingExposureQueryId || EMPTY,
     },
-    { label: "Identifier type", value: il.userIdType || EMPTY },
+    { label: t`Identifier type`, value: il.userIdType || EMPTY },
     {
-      label: "Metrics",
+      label: t`Metrics`,
       value: il.metrics.length ? (
         <Flex direction="column" gap="2">
           {il.metrics.map((m) => (
@@ -141,7 +144,7 @@ export default function InterleavingOverview({
               {m.analyses.map((a) => (
                 <Badge
                   key={a.type}
-                  label={INTERLEAVING_ANALYSIS_TITLES[a.type]}
+                  label={i18n._(INTERLEAVING_ANALYSIS_TITLES[a.type])}
                   color="violet"
                   variant="soft"
                   size="sm"
@@ -159,7 +162,7 @@ export default function InterleavingOverview({
   return (
     <Box>
       <OverviewSection
-        title="Description"
+        title={t`Description`}
         onEdit={canEdit ? editDescription : undefined}
       >
         {il.description ? (
@@ -167,21 +170,22 @@ export default function InterleavingOverview({
         ) : (
           <Text color="text-mid">
             <em>
-              Add context about this interleaving experiment for your team
+              <Trans>
+                Add context about this interleaving experiment for your team
+              </Trans>
             </em>
           </Text>
         )}
       </OverviewSection>
 
-      <OverviewSection title="Environments" onEdit={editEnvironments}>
+      <OverviewSection title={t`Environments`} onEdit={editEnvironments}>
         <Box mb="3">
           <DataList
             maxColumns={3}
             data={[
               {
-                label: "Key",
-                tooltip:
-                  "Pass this to interleave() in your code. It can't be changed.",
+                label: t`Key`,
+                tooltip: t`Pass this to interleave() in your code. It can't be changed.`,
                 value: il.key,
               },
             ]}
@@ -190,7 +194,7 @@ export default function InterleavingOverview({
         <DataList maxColumns={3} data={environmentItems} />
       </OverviewSection>
 
-      <OverviewSection title="Rankers" onEdit={editRankers}>
+      <OverviewSection title={t`Rankers`} onEdit={editRankers}>
         <InterleavingRankersDisplay
           variations={il.variations}
           jsonSchema={il.jsonSchema}
@@ -198,14 +202,14 @@ export default function InterleavingOverview({
       </OverviewSection>
 
       <OverviewSection
-        title="Targeting"
-        description="Which units to include in interleaving at all."
+        title={t`Targeting`}
+        description={t`Which units to include in interleaving at all.`}
         onEdit={editTargeting}
       >
         <DataList maxColumns={3} data={targetingItems} />
       </OverviewSection>
 
-      <OverviewSection title="Analysis" onEdit={editAnalysis}>
+      <OverviewSection title={t`Analysis`} onEdit={editAnalysis}>
         <DataList maxColumns={3} data={analysisItems} />
       </OverviewSection>
     </Box>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { interleavingEnvsForChange } from "shared/permissions";
@@ -18,6 +19,7 @@ export default function EditInterleavingEnvironmentsModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
@@ -41,9 +43,9 @@ export default function EditInterleavingEnvironmentsModal({
     <ModalStandard
       open
       trackingEventModalType="interleaving-edit-environments"
-      header="Edit Environments"
+      header={t`Edit Environments`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       ctaEnabled={canEditExistingEnvironments}
       size="lg"
       submit={async () => {
@@ -56,14 +58,18 @@ export default function EditInterleavingEnvironmentsModal({
     >
       {!canEditExistingEnvironments && (
         <Callout status="warning" mb="3">
-          You don&apos;t have permission to change every environment where this
-          experiment is enabled.
+          <Trans>
+            You don&apos;t have permission to change every environment where
+            this experiment is enabled.
+          </Trans>
         </Callout>
       )}
       {il.status === "running" && (
         <Callout status="warning" mb="3">
-          This experiment is running. Saved changes apply to live traffic
-          immediately.
+          <Trans>
+            This experiment is running. Saved changes apply to live traffic
+            immediately.
+          </Trans>
         </Callout>
       )}
       <EnvironmentSelect

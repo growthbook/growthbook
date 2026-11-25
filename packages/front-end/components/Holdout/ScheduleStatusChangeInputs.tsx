@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
 import { getHoldoutStage } from "shared/util";
 import { format } from "date-fns";
+import { Trans, useLingui } from "@lingui/react/macro";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
@@ -26,6 +27,7 @@ export default function ScheduleStatusChangeInputs({
   holdout,
   experiment,
 }: Props) {
+  const { t } = useLingui();
   const isArchived = experiment.archived;
   const holdoutStatus = getHoldoutStage(holdout, experiment);
 
@@ -38,7 +40,9 @@ export default function ScheduleStatusChangeInputs({
   return (
     <Box my="4">
       <Box mb="2">
-        <Text weight="medium">Start Holdout</Text>
+        <Text weight="medium">
+          <Trans>Start Holdout</Trans>
+        </Text>
       </Box>
 
       {holdoutStatus === "draft" && !isArchived ? (
@@ -60,7 +64,9 @@ export default function ScheduleStatusChangeInputs({
         </Flex>
       ) : (
         <Box mb="4">
-          <Tooltip content="The Holdout has already started—this date cannot be edited">
+          <Tooltip
+            content={t`The Holdout has already started—this date cannot be edited`}
+          >
             <Field
               size="legacy"
               value={
@@ -80,7 +86,9 @@ export default function ScheduleStatusChangeInputs({
       )}
 
       <Box my="2">
-        <Text weight="medium">Stop Holdout & Start Analysis</Text>
+        <Text weight="medium">
+          <Trans>Stop Holdout & Start Analysis</Trans>
+        </Text>
       </Box>
 
       {holdoutStatus !== "stopped" &&
@@ -104,7 +112,9 @@ export default function ScheduleStatusChangeInputs({
         </Flex>
       ) : (
         <Box mb="4">
-          <Tooltip content="The Analysis Phase has already started—this date cannot be edited">
+          <Tooltip
+            content={t`The Analysis Phase has already started—this date cannot be edited`}
+          >
             <Field
               size="legacy"
               value={
@@ -121,7 +131,9 @@ export default function ScheduleStatusChangeInputs({
       )}
 
       <Box my="2">
-        <Text weight="medium">Stop Analysis & Release Holdout</Text>
+        <Text weight="medium">
+          <Trans>Stop Analysis & Release Holdout</Trans>
+        </Text>
       </Box>
       {holdoutStatus !== "stopped" && !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">
@@ -142,7 +154,9 @@ export default function ScheduleStatusChangeInputs({
         </Flex>
       ) : (
         <Box mb="4">
-          <Tooltip content="The Analysis Phase has already ended—this date cannot be edited">
+          <Tooltip
+            content={t`The Analysis Phase has already ended—this date cannot be edited`}
+          >
             <Field
               size="legacy"
               value={

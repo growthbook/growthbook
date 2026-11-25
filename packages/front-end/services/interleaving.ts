@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type {
   ApiInterleavingInterface,
   InterleavingAnalysis,
@@ -20,10 +22,10 @@ export function isInterleavingEnabled(gb: GrowthBook | undefined): boolean {
 // can't drift on what an analysis type is called.
 export const INTERLEAVING_ANALYSIS_TITLES: Record<
   InterleavingAnalysis["type"],
-  string
+  MessageDescriptor
 > = {
-  paired: "Paired",
-  preference: "Preference",
+  paired: msg`Paired`,
+  preference: msg`Preference`,
 };
 
 export function interleavingResultToSnapshotMetrics(

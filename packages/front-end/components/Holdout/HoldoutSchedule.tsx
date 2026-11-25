@@ -3,6 +3,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getHoldoutStage } from "shared/util";
 import { format, differenceInMinutes } from "date-fns";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ProgressBar, Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
 import styles from "./HoldoutSchedule.module.scss";
@@ -60,6 +61,7 @@ export const HoldoutSchedule = ({
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }) => {
+  const { t } = useLingui();
   const holdoutStage = getHoldoutStage(holdout, experiment);
   const startDate =
     holdoutStage !== "draft"
@@ -104,7 +106,7 @@ export const HoldoutSchedule = ({
       endBorder: isDraft ? false : true,
       tooltip:
         holdoutSegmentCompletion === 100
-          ? "Holdout has stopped—no new Experiments or Features can be added"
+          ? t`Holdout has stopped—no new Experiments or Features can be added`
           : undefined,
     },
     {
@@ -131,12 +133,12 @@ export const HoldoutSchedule = ({
           {isDraft ? (
             <>
               <Text weight="medium" color="text-high">
-                Start:{" "}
+                <Trans>Start:</Trans>{" "}
               </Text>
               <Text color={startDate ? "text-high" : "text-disabled"}>
                 {startDate
                   ? format(startDate, "MMM d, yyyy 'at' h:mm a")
-                  : "Not scheduled"}
+                  : t`Not scheduled`}
               </Text>
             </>
           ) : holdoutStage === "running" ||
@@ -153,7 +155,7 @@ export const HoldoutSchedule = ({
                 position="absolute"
               >
                 <Text weight="semibold" color="text-high">
-                  {isInAnalysisPeriod ? "Analyzing..." : "Running..."}
+                  {isInAnalysisPeriod ? t`Analyzing...` : t`Running...`}
                 </Text>
               </Box>
               <Box
@@ -163,14 +165,14 @@ export const HoldoutSchedule = ({
               >
                 <Text color="text-high" weight="regular">
                   {isInAnalysisPeriod
-                    ? "No new experiments or features can be added to Holdout"
-                    : "Experiments and features are being added to this Holdout"}
+                    ? t`No new experiments or features can be added to Holdout`
+                    : t`Experiments and features are being added to this Holdout`}
                 </Text>
               </Box>
             </Box>
           ) : (
             <Text weight="semibold" color="text-high">
-              Holdout stopped
+              <Trans>Holdout stopped</Trans>
             </Text>
           )}
         </Box>
@@ -178,7 +180,7 @@ export const HoldoutSchedule = ({
           {isDraft || isRunning ? (
             <>
               <Text weight="medium" color={isDraft ? "text-high" : "text-low"}>
-                Analysis:{" "}
+                <Trans>Analysis:</Trans>{" "}
               </Text>
               {startAnalysisPeriodDate ? (
                 <>
@@ -194,19 +196,19 @@ export const HoldoutSchedule = ({
                   >
                     {stopDate
                       ? format(stopDate, "MMM d, yyyy 'at' h:mm a")
-                      : "No end scheduled"}
+                      : t`No end scheduled`}
                   </Text>
                 </>
               ) : (
                 <Text weight="regular" color="text-disabled">
-                  Not scheduled
+                  <Trans>Not scheduled</Trans>
                 </Text>
               )}
             </>
           ) : isInAnalysisPeriod ? (
             <>
               <Text weight="medium" color="text-low">
-                Analysis ends:{" "}
+                <Trans>Analysis ends:</Trans>{" "}
               </Text>
               {stopDate ? (
                 <>
@@ -216,14 +218,14 @@ export const HoldoutSchedule = ({
                 </>
               ) : (
                 <Text weight="regular" color="text-disabled">
-                  Not scheduled
+                  <Trans>Not scheduled</Trans>
                 </Text>
               )}
             </>
           ) : (
             <>
               <Text weight="medium" color="text-low">
-                Analysis ended:{" "}
+                <Trans>Analysis ended:</Trans>{" "}
               </Text>
               {stopDate ? (
                 <>
@@ -233,7 +235,7 @@ export const HoldoutSchedule = ({
                 </>
               ) : (
                 <Text weight="regular" color="text-disabled">
-                  Not scheduled
+                  <Trans>Not scheduled</Trans>
                 </Text>
               )}
             </>

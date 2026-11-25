@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { mapInterleavingVariations } from "shared/util";
@@ -31,6 +32,7 @@ export default function EditInterleavingRankersModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const restApiCall = useRestApiCall();
   const [rankers, setRankers] = useState(() => rankersOf(il));
 
@@ -38,12 +40,12 @@ export default function EditInterleavingRankersModal({
     <ModalStandard
       open
       trackingEventModalType="interleaving-edit-rankers"
-      header="Edit Rankers"
+      header={t`Edit Rankers`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       size="lg"
       submit={async () => {
-        const error = getRankersError(rankers, il.jsonSchema);
+        const error = getRankersError(rankers, i18n, il.jsonSchema);
         if (error) throw new Error(error);
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
@@ -54,8 +56,10 @@ export default function EditInterleavingRankersModal({
     >
       {il.status === "running" && (
         <Callout status="warning" mb="3">
-          This experiment is running. Saved changes apply to live traffic
-          immediately.
+          <Trans>
+            This experiment is running. Saved changes apply to live traffic
+            immediately.
+          </Trans>
         </Callout>
       )}
       <InterleavingVariationsInput

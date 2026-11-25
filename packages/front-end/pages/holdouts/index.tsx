@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -39,8 +42,15 @@ const HOLDOUT_TABS = [
 type HoldoutTab = (typeof HOLDOUT_TABS)[number];
 const isHoldoutTab = (v: string): v is HoldoutTab =>
   HOLDOUT_TABS.includes(v as HoldoutTab);
+const TAB_LABELS: Record<Exclude<HoldoutTab, "all">, MessageDescriptor> = {
+  running: msg`Running`,
+  draft: msg`Draft`,
+  stopped: msg`Stopped`,
+  archived: msg`Archived`,
+};
 
 const HoldoutsPage = (): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const { ready, project, projects } = useDefinitions();
 
   const initialHashRef = useRef(
@@ -100,37 +110,43 @@ const HoldoutsPage = (): React.ReactElement => {
       );
   }, [holdouts, experimentsMap]);
 
-  const holdoutItems = useAddComputedFields(holdoutsWithExperiment, (item) => {
-    const durationString =
-      item.experiment?.status === "draft"
-        ? "--"
-        : item.experiment?.status === "running"
-          ? `${date(item.experiment.phases[0].dateStarted ?? "")} - now`
-          : item.experiment?.status === "stopped"
-            ? `${date(item.experiment.phases[0].dateStarted ?? "")} - ${date(
-                item.experiment.phases[0].dateEnded ?? "",
-              )}`
-            : null;
-    const projectsComputed = item.projects.reduce((acc, p) => {
-      const proj = projects.find((project) => project.id === p);
-      if (!proj) return acc;
-      return [...acc, proj.name];
-    }, []);
-    const statusString = holdoutStatusLabel(item, item.experiment);
-    const ownerName = getOwnerDisplay(item.experiment.owner);
-    return {
-      name: item.name,
-      projects: projectsComputed,
-      tags: item.experiment.tags,
-      duration: durationString,
-      numExperiments: Object.values(item.linkedExperiments).length || "--",
-      numFeatures: Object.values(item.linkedFeatures).length || "--",
-      ownerName,
-      hashAttribute: item.experiment.hashAttribute,
-      status: item.experiment.status,
-      holdoutStatus: statusString,
-    };
-  });
+  const holdoutItems = useAddComputedFields(
+    holdoutsWithExperiment,
+    (item) => {
+      const started = date(item.experiment.phases[0]?.dateStarted ?? "");
+      const durationString =
+        item.experiment?.status === "draft"
+          ? "--"
+          : item.experiment?.status === "running"
+            ? t`${started} - now`
+            : item.experiment?.status === "stopped"
+              ? `${started} - ${date(
+                  item.experiment.phases[0].dateEnded ?? "",
+                )}`
+              : null;
+      const projectsComputed = item.projects.reduce((acc, p) => {
+        const proj = projects.find((project) => project.id === p);
+        if (!proj) return acc;
+        return [...acc, proj.name];
+      }, []);
+      const statusString = holdoutStatusLabel(item, item.experiment);
+      const ownerName = getOwnerDisplay(item.experiment.owner);
+      return {
+        name: item.name,
+        projects: projectsComputed,
+        tags: item.experiment.tags,
+        duration: durationString,
+        numExperiments: Object.values(item.linkedExperiments).length || "--",
+        numFeatures: Object.values(item.linkedFeatures).length || "--",
+        ownerName,
+        hashAttribute: item.experiment.hashAttribute,
+        status: item.experiment.status,
+        holdoutStatus: statusString,
+        holdoutStatusText: holdoutStatusLabel(item, item.experiment, i18n),
+      };
+    },
+    [t, i18n],
+  );
 
   const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
     useSearch({
@@ -165,9 +181,10 @@ const HoldoutsPage = (): React.ReactElement => {
   const hasHoldoutFeature = hasCommercialFeature("holdouts");
 
   if (error) {
+    const errorMessage = error.message;
     return (
       <Callout status="error" mb="3">
-        An error occurred: {error.message}
+        <Trans>An error occurred: {errorMessage}</Trans>
       </Callout>
     );
   }
@@ -182,9 +199,9 @@ const HoldoutsPage = (): React.ReactElement => {
     return (
       <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Holdouts"
-          title="Measure aggregate impact with Holdouts"
-          description="Holdouts allow you to measure the aggregate impact of features and experiments."
+          h1={t`Holdouts`}
+          title={t`Measure aggregate impact with Holdouts`}
+          description={t`Holdouts allow you to measure the aggregate impact of features and experiments.`}
           commercialFeature="holdouts"
           learnMoreLink="https://docs.growthbook.io/app/holdouts"
         />
@@ -196,14 +213,16 @@ const HoldoutsPage = (): React.ReactElement => {
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex mb="3" mt="2" align="center" justify="between">
-          <h1>Holdouts</h1>
+          <h1>
+            <Trans>Holdouts</Trans>
+          </h1>
           {canAdd && (
             <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
               <Button
                 onClick={() => setOpenNewHoldoutModal(true)}
                 disabled={!hasHoldoutFeature}
               >
-                Add Holdout
+                <Trans>Add Holdout</Trans>
               </Button>
             </PremiumTooltip>
           )}
@@ -211,15 +230,15 @@ const HoldoutsPage = (): React.ReactElement => {
 
         {!hasHoldoutsCreated ? (
           <EmptyState
-            title="Measure aggregate impact with Holdouts"
-            description="Measure the aggregate impact of features and experiments with Holdouts."
+            title={t`Measure aggregate impact with Holdouts`}
+            description={t`Measure the aggregate impact of features and experiments with Holdouts.`}
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/app/holdouts"
                 variant="outline"
                 external={true}
               >
-                View docs
+                <Trans>View docs</Trans>
               </LinkButton>
             }
             rightButton={
@@ -233,7 +252,7 @@ const HoldoutsPage = (): React.ReactElement => {
                     onClick={() => setOpenNewHoldoutModal(true)}
                     disabled={!hasHoldoutFeature}
                   >
-                    Add Holdout
+                    <Trans>Add Holdout</Trans>
                   </Button>
                 </PremiumTooltip>
               ) : null
@@ -248,14 +267,15 @@ const HoldoutsPage = (): React.ReactElement => {
           >
             <Box mb="3">
               <TabsList>
-                <TabsTrigger value="all">All Holdouts</TabsTrigger>
+                <TabsTrigger value="all">
+                  <Trans>All Holdouts</Trans>
+                </TabsTrigger>
                 {(["running", "draft", "stopped", "archived"] as const).map(
                   (tabValue) => {
                     if (tabValue === "archived" && !hasArchived) return null;
                     return (
                       <TabsTrigger value={tabValue} key={tabValue}>
-                        {tabValue.slice(0, 1).toUpperCase()}
-                        {tabValue.slice(1)}
+                        {i18n._(TAB_LABELS[tabValue])}
                         {tabValue !== "archived" && (
                           <span
                             style={{
@@ -280,7 +300,7 @@ const HoldoutsPage = (): React.ReactElement => {
             <Box mb="4" style={{ width: "40%" }}>
               <Field
                 size="legacy"
-                placeholder="Search..."
+                placeholder={t`Search...`}
                 type="search"
                 {...searchInputProps}
               />
@@ -290,25 +310,31 @@ const HoldoutsPage = (): React.ReactElement => {
                 <TableHeader>
                   <TableRow>
                     <SortableTableColumnHeader field="name">
-                      Holdout Name
+                      <Trans>Holdout Name</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="projects">
-                      Projects
+                      <Trans>Projects</Trans>
                     </SortableTableColumnHeader>
-                    <TableColumnHeader>Tags</TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Tags</Trans>
+                    </TableColumnHeader>
                     <SortableTableColumnHeader field="ownerName">
-                      Owner
+                      <Trans>Owner</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="hashAttribute">
-                      ID Type
+                      <Trans>ID Type</Trans>
                     </SortableTableColumnHeader>
-                    <TableColumnHeader>Experiments</TableColumnHeader>
-                    <TableColumnHeader>Features</TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Experiments</Trans>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Features</Trans>
+                    </TableColumnHeader>
                     <SortableTableColumnHeader field="holdoutStatus">
-                      Status
+                      <Trans>Status</Trans>
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="duration">
-                      Duration
+                      <Trans>Duration</Trans>
                     </SortableTableColumnHeader>
                   </TableRow>
                 </TableHeader>
@@ -344,7 +370,7 @@ const HoldoutsPage = (): React.ReactElement => {
                       </TableCell>
                       <TableCell>{holdout.numExperiments}</TableCell>
                       <TableCell>{holdout.numFeatures}</TableCell>
-                      <TableCell>{holdout.holdoutStatus}</TableCell>
+                      <TableCell>{holdout.holdoutStatusText}</TableCell>
                       <TableCell
                         title={datetime(
                           holdout.experiment.phases[0].dateStarted ?? "",
@@ -358,8 +384,8 @@ const HoldoutsPage = (): React.ReactElement => {
                     <TableRow>
                       <TableCell colSpan={9} style={{ textAlign: "center" }}>
                         {isFiltered
-                          ? "No holdouts match the current filter."
-                          : "No holdouts found."}
+                          ? t`No holdouts match the current filter.`
+                          : t`No holdouts found.`}
                       </TableCell>
                     </TableRow>
                   )}

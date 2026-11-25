@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { interleavingInSDKPayload } from "shared/util";
@@ -31,6 +32,7 @@ export default function EditInterleavingInfoModal({
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   const { refreshTags } = useDefinitions();
@@ -72,12 +74,12 @@ export default function EditInterleavingInfoModal({
       open
       trackingEventModalType="interleaving-edit-info"
       trackingEventModalSource="interleaving-more-menu"
-      header="Edit Info"
+      header={t`Edit Info`}
       close={close}
-      cta="Save"
+      cta={t`Save`}
       size="lg"
       submit={validatedSubmit(form, async (data) => {
-        if (!data.name.trim()) throw new Error("Name is required");
+        if (!data.name.trim()) throw new Error(t`Name is required`);
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
           body: {
@@ -95,21 +97,26 @@ export default function EditInterleavingInfoModal({
         await mutate();
       })}
     >
-      <Field label="Name" required minLength={2} {...form.register("name")} />
+      <Field
+        label={t`Name`}
+        required
+        minLength={2}
+        {...form.register("name")}
+      />
       <SelectOwner
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />
       <SelectField
-        label="Project"
+        label={t`Project`}
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
         options={projectOptions}
-        initialOption="All Projects"
+        initialOption={t`All Projects`}
         disabled={!canEditServing}
       />
       <TagsInput
-        label="Tags"
+        label={t`Tags`}
         autoFocus={false}
         value={form.watch("tags")}
         onChange={(tags) => form.setValue("tags", tags)}

@@ -2,6 +2,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
@@ -20,6 +21,7 @@ const EditEnvironmentsModal = ({
   handleCloseModal: () => void;
   mutate: () => void;
 }) => {
+  const { t } = useLingui();
   const environments = useEnvironments();
   const { apiCall } = useAuth();
 
@@ -48,7 +50,7 @@ const EditEnvironmentsModal = ({
     <Modal
       open={true}
       trackingEventModalType=""
-      header="Edit Included Environments"
+      header={t`Edit Included Environments`}
       close={handleCloseModal}
       submit={onSubmit}
       size="lg"
@@ -56,15 +58,20 @@ const EditEnvironmentsModal = ({
       <div className="px-2">
         <Box mb="4">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Review all environment selections before starting a Holdout. Changes
-            made while a Holdout is running can render results inconclusive.
+            <Trans>
+              Review all environment selections before starting a Holdout.
+              Changes made while a Holdout is running can render results
+              inconclusive.
+            </Trans>
           </Text>
         </Box>
         {experiment.status === "running" && (
           <Callout status="warning" mb="4">
             <Text>
-              Proceed with caution. Holdout is running. Adding or removing
-              environments could impact results.{" "}
+              <Trans>
+                Proceed with caution. Holdout is running. Adding or removing
+                environments could impact results.
+              </Trans>{" "}
             </Text>
           </Callout>
         )}

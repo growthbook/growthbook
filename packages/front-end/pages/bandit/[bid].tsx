@@ -9,6 +9,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
 import { canEditDeliveryInPlace } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -23,6 +24,7 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const BanditExperimentPage = (): ReactElement => {
+  const { t } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { bid } = router.query;
@@ -60,7 +62,11 @@ const BanditExperimentPage = (): ReactElement => {
   }, [data, router]);
 
   if (error) {
-    return <div>There was a problem loading the experiment</div>;
+    return (
+      <div>
+        <Trans>There was a problem loading the experiment</Trans>
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -161,7 +167,7 @@ const BanditExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Bandits",
+            display: t`Bandits`,
             href: `/bandits`,
           },
           { display: experiment.name },

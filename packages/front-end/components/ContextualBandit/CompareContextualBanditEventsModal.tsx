@@ -1,4 +1,5 @@
 import { ContextualBanditInterface } from "shared/validators";
+import { useLingui } from "@lingui/react/macro";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
@@ -126,10 +127,11 @@ export default function CompareContextualBanditEventsModal({
   cbId,
   onClose,
 }: CompareContextualBanditEventsModalProps) {
+  const { t } = useLingui();
   return (
     <AuditHistoryExplorerModal<ContextualBanditInterface>
       entityId={cbId}
-      entityName="Contextual Bandit"
+      entityName={t`Contextual Bandit`}
       config={CONTEXTUAL_BANDIT_DIFF_CONFIG}
       onClose={onClose}
     />

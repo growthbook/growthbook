@@ -7,6 +7,7 @@ import {
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRestApiCall } from "@/services/restApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useEnvironments } from "@/services/features";
@@ -68,6 +69,7 @@ export default function ContextualBanditLinkedChanges({
   setVisualChangesetModal?: (open: boolean) => void;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const restApiCall = useRestApiCall();
   const project = cb.project ?? "";
   const envStates = useVisualChangesetEnvStates(project);
@@ -75,6 +77,7 @@ export default function ContextualBanditLinkedChanges({
   const numLinkedChanges = linkedFeatures.length + visualChangesets.length;
   const visualChangesetsSettled =
     !visualChangesetsLoading && !visualChangesetsError;
+  const visualChangesetsErrorMessage = visualChangesetsError?.message;
 
   const deleteVariation = useCallback(
     async (variationId: string) => {
@@ -103,15 +106,14 @@ export default function ContextualBanditLinkedChanges({
     types: ["feature-flag", "visual-editor"],
     extraSdkCapabilities: { "visual-editor": ["contextualBanditsAuto"] },
     sdkUnsupportedCopy: {
-      "visual-editor":
-        "The SDKs in this Project don't support visual changes on Contextual Bandits. Upgrade your SDK(s) or add a supported SDK.",
+      "visual-editor": t`The SDKs in this Project don't support visual changes on Contextual Bandits. Upgrade your SDK(s) or add a supported SDK.`,
     },
   };
 
   return (
     <Frame>
       <Heading color="text-high" as="h4" size="sm" mb="4">
-        Linked Changes
+        <Trans>Linked Changes</Trans>
       </Heading>
 
       {visualChangesets.length > 0 ? (
@@ -120,8 +122,8 @@ export default function ContextualBanditLinkedChanges({
           project={project}
           mx="1"
           mb="3"
-          someMessage="Some SDKs in this Project don't support visual changes on Contextual Bandits. Their users see the original page and aren't counted."
-          noneMessage="None of the SDKs in this Project support visual changes on Contextual Bandits, so these changes aren't served."
+          someMessage={t`Some SDKs in this Project don't support visual changes on Contextual Bandits. Their users see the original page and aren't counted.`}
+          noneMessage={t`None of the SDKs in this Project support visual changes on Contextual Bandits, so these changes aren't served.`}
         />
       ) : null}
 
@@ -136,8 +138,10 @@ export default function ContextualBanditLinkedChanges({
 
       {visualChangesetsError ? (
         <Callout status="error" mx="1" my="2">
-          Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
-          {visualChangesetsError.message}). Reload the page and try again.
+          <Trans>
+            Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
+            {visualChangesetsErrorMessage}). Reload the page and try again.
+          </Trans>
         </Callout>
       ) : visualChangesetsLoading ? (
         <Box mx="1" my="2">
@@ -161,8 +165,8 @@ export default function ContextualBanditLinkedChanges({
           <Flex justify="between" px="1">
             <Text color="text-high" size="lg" weight="semibold">
               {setVisualChangesetModal
-                ? "Add Feature Flag or AI Visual Editor"
-                : "Add Feature Flag"}
+                ? t`Add Feature Flag or AI Visual Editor`
+                : t`Add Feature Flag`}
             </Text>
             <AddLinkedChangeButton
               target={target}
@@ -192,7 +196,11 @@ export default function ContextualBanditLinkedChanges({
       visualChangesetsSettled ? (
         <Box mx="1" my="2">
           <Text color="text-mid">
-            <em>No changes are linked to this Contextual Bandit yet.</em>
+            <em>
+              <Trans>
+                No changes are linked to this Contextual Bandit yet.
+              </Trans>
+            </em>
           </Text>
         </Box>
       ) : null}

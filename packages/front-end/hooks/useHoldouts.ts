@@ -1,28 +1,44 @@
 import { useMemo } from "react";
 import { startCase } from "lodash";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { getHoldoutStage } from "shared/util";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { coveragePercentFormatter } from "@/services/utils";
 import useApi from "./useApi";
 
+const HOLDOUT_STATUS_LABELS: Record<
+  ExperimentInterfaceStringDates["status"],
+  MessageDescriptor
+> = {
+  draft: msg`Draft`,
+  running: msg`Running`,
+  stopped: msg`Stopped`,
+};
+
 // "Running", or "Running: Analysis Phase" once its analysis has started.
+// Without `i18n` it's English, which the holdouts list searches.
 export function holdoutStatusLabel(
   holdout: Pick<HoldoutInterface, "analysisStartDate">,
   experiment: Pick<ExperimentInterfaceStringDates, "status">,
+  i18n?: I18n,
 ): string {
-  return (
-    startCase(experiment.status) +
-    (getHoldoutStage(holdout, experiment) === "analysis-period"
-      ? ": Analysis Phase"
-      : "")
-  );
+  const analysis = getHoldoutStage(holdout, experiment) === "analysis-period";
+  if (!i18n) {
+    return startCase(experiment.status) + (analysis ? ": Analysis Phase" : "");
+  }
+  const label = i18n._(HOLDOUT_STATUS_LABELS[experiment.status]);
+  return analysis ? i18n._(msg`${label}: Analysis Phase`) : label;
 }
 
 // The holdout measures its held-out share against a comparison group as big.
-export function holdoutSizeTip(size: number): string {
-  const pct = (n: number) => coveragePercentFormatter.format(n);
-  return `Of users the holdout targets, ${pct(size)} are held out and never reach this experiment. Another ${pct(size)} reach it as the holdout's comparison group, and the other ${pct(1 - 2 * size)} reach it unmeasured.`;
+export function holdoutSizeTip(size: number, i18n: I18n): string {
+  const heldOut = coveragePercentFormatter.format(size);
+  const unmeasured = coveragePercentFormatter.format(1 - 2 * size);
+  return i18n._(
+    msg`Of users the holdout targets, ${heldOut} are held out and never reach this experiment. Another ${heldOut} reach it as the holdout's comparison group, and the other ${unmeasured} reach it unmeasured.`,
+  );
 }
 
 // True when a holdout is enabled in at least one env — i.e. when it actually

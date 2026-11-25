@@ -2,6 +2,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { FeatureInterface } from "shared/types/feature";
+import { Trans } from "@lingui/react/macro";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -40,7 +41,9 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
       <Box mt="4">
         <Text>
           <em>
-            Add new <Link href="/features">Features</Link> to this Holdout.
+            <Trans>
+              Add new <Link href="/features">Features</Link> to this Holdout.
+            </Trans>
           </em>
         </Text>
       </Box>
@@ -52,22 +55,22 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
       <TableHeader>
         <TableRow>
           <SortableTableColumnHeader field="id">
-            Feature Flag
+            <Trans>Feature Flag</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="valueType">
-            Type
+            <Trans>Type</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="holdoutValue">
-            Holdout value
+            <Trans>Holdout value</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="ownerNameDisplay">
-            Owner
+            <Trans>Owner</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="dateCreated">
-            Created
+            <Trans>Created</Trans>
           </SortableTableColumnHeader>
           <SortableTableColumnHeader field="dateAdded">
-            Added
+            <Trans>Added</Trans>
           </SortableTableColumnHeader>
         </TableRow>
       </TableHeader>
