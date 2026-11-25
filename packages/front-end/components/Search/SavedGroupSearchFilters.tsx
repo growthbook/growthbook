@@ -1,4 +1,5 @@
 import { FC, useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Flex } from "@radix-ui/themes";
 import {
   BaseSearchFiltersProps,
@@ -30,6 +31,7 @@ const SavedGroupSearchFilters: FC<
     updateQuery,
     doesFilterExist,
   } = useSearchFiltersBase({ searchInputProps, syntaxFilters, setSearchValue });
+  const { t } = useLingui();
   const { getOwnerDisplay } = useUser();
 
   const owners = useMemo(() => {
@@ -47,6 +49,7 @@ const SavedGroupSearchFilters: FC<
       {!project && (
         <FilterDropdown
           filter="project"
+          heading={t`project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -61,6 +64,7 @@ const SavedGroupSearchFilters: FC<
       )}
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -70,7 +74,7 @@ const SavedGroupSearchFilters: FC<
       />
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -90,7 +94,7 @@ const SavedGroupSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived saved groups"
+            item={t`Archived saved groups`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>
@@ -105,7 +109,7 @@ const SavedGroupSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Has active draft"
+            item={t`Has active draft`}
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>

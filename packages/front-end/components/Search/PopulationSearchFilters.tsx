@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import type { ApiPopulation } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -28,6 +29,7 @@ const PopulationSearchFilters: FC<
     syntaxFilters,
     setSearchValue,
   });
+  const { t } = useLingui();
   const { datasources } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -76,7 +78,7 @@ const PopulationSearchFilters: FC<
       {usedDatasources.length > 0 && (
         <FilterDropdown
           filter="datasource"
-          heading="Data Source"
+          heading={t`Data Source`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -91,7 +93,7 @@ const PopulationSearchFilters: FC<
       {!project && usedProjects.length > 0 && (
         <FilterDropdown
           filter="project"
-          heading="Project"
+          heading={t`Project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -106,7 +108,7 @@ const PopulationSearchFilters: FC<
       {owners.length > 0 && (
         <FilterDropdown
           filter="owner"
-          heading="Owner"
+          heading={t`Owner`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -117,14 +119,14 @@ const PopulationSearchFilters: FC<
       {identifierTypes.length > 0 && (
         <FilterDropdown
           filter="identifier"
-          heading="Identifier type"
+          heading={t`Identifier type`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
-          items={identifierTypes.map((t) => ({
-            name: t,
-            id: t,
-            searchValue: t,
+          items={identifierTypes.map((type) => ({
+            name: type,
+            id: type,
+            searchValue: type,
           }))}
           updateQuery={updateQuery}
           menuPlacement="end"

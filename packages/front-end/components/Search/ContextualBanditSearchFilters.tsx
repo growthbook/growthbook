@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { ApiContextualBanditInterface } from "shared/validators";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -20,6 +21,7 @@ const ContextualBanditSearchFilters: FC<
   contextualBandits,
   setSearchValue,
 }) => {
+  const { t } = useLingui();
   const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
     useSearchFiltersBase({
       searchInputProps,
@@ -84,7 +86,7 @@ const ContextualBanditSearchFilters: FC<
     <Flex gap="5" align="center">
       <FilterDropdown
         filter="metric"
-        heading="Metric"
+        heading={t`Metric`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -93,7 +95,7 @@ const ContextualBanditSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
-        heading="Owner"
+        heading={t`Owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -104,15 +106,15 @@ const ContextualBanditSearchFilters: FC<
       />
       <FilterDropdown
         filter="tag"
-        heading="Tag"
+        heading={t`Tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
+        items={availableTags.map((tag) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           };
         })}
         updateQuery={updateQuery}

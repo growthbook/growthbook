@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { MetricTableItem } from "@/components/Metrics/MetricsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -16,6 +17,7 @@ import {
 const MetricSearchFilters: FC<
   BaseSearchFiltersProps & { combinedMetrics: MetricTableItem[] }
 > = ({ searchInputProps, syntaxFilters, combinedMetrics, setSearchValue }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -74,6 +76,7 @@ const MetricSearchFilters: FC<
     <Flex gap="5" align="center">
       <FilterDropdown
         filter="datasource"
+        heading={t`datasource`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -84,6 +87,7 @@ const MetricSearchFilters: FC<
       />
       <FilterDropdown
         filter="project"
+        heading={t`project`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -94,6 +98,7 @@ const MetricSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -104,32 +109,34 @@ const MetricSearchFilters: FC<
       />
       <FilterDropdown
         filter="tag"
+        heading={t`tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
+        items={availableTags.map((tag) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           };
         })}
         updateQuery={updateQuery}
       />
       <FilterDropdown
         filter="type"
+        heading={t`type`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={metricTypes.map((t) => {
-          return { name: t, id: t, searchValue: t };
+        items={metricTypes.map((type) => {
+          return { name: type, id: type, searchValue: type };
         })}
         updateQuery={updateQuery}
       />
 
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -148,7 +155,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Official metrics"
+            item={t`Official metrics`}
             exists={doesFilterExist("is", "official", "")}
           />
         </DropdownMenuItem>
@@ -164,7 +171,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived metrics"
+            item={t`Archived metrics`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>
@@ -179,7 +186,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Fact metric"
+            item={t`Fact metric`}
             exists={doesFilterExist("is", "fact", "", false)}
           />
         </DropdownMenuItem>
@@ -194,7 +201,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Non-fact metric"
+            item={t`Non-fact metric`}
             exists={doesFilterExist("is", "fact", "", true)}
           />
         </DropdownMenuItem>

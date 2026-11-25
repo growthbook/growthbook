@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -21,6 +22,7 @@ const FactTableSearchFilters: FC<
     >[];
   }
 > = ({ searchInputProps, syntaxFilters, factTables, setSearchValue }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -77,6 +79,7 @@ const FactTableSearchFilters: FC<
     <Flex gap="5" align="center" wrap="wrap">
       <FilterDropdown
         filter="datasource"
+        heading={t`datasource`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -87,6 +90,7 @@ const FactTableSearchFilters: FC<
       />
       <FilterDropdown
         filter="project"
+        heading={t`project`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -97,6 +101,7 @@ const FactTableSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -107,32 +112,34 @@ const FactTableSearchFilters: FC<
       />
       <FilterDropdown
         filter="tag"
+        heading={t`tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
+        items={availableTags.map((tag) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           };
         })}
         updateQuery={updateQuery}
       />
       <FilterDropdown
         filter="identifier"
+        heading={t`identifier`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={identifierTypes.map((t) => {
-          return { name: t, id: t, searchValue: t };
+        items={identifierTypes.map((type) => {
+          return { name: type, id: type, searchValue: type };
         })}
         updateQuery={updateQuery}
       />
 
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -151,7 +158,7 @@ const FactTableSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Official fact tables"
+            item={t`Official fact tables`}
             exists={doesFilterExist("is", "official", "")}
           />
         </DropdownMenuItem>
@@ -169,7 +176,7 @@ const FactTableSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived fact tables"
+            item={t`Archived fact tables`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

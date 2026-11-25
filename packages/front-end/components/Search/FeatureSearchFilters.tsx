@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import {
   FEATURE_HEALTH_FILTER_OPTIONS,
@@ -312,6 +313,7 @@ const FeatureSearchFilters: FC<
   setSearchValue,
   hasArchived,
 }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -405,19 +407,19 @@ const FeatureSearchFilters: FC<
 
   const allFeatureTypes: SearchFiltersItem[] = [
     {
-      name: "Boolean",
+      name: t`Boolean`,
       id: "feature-type-boolean",
       searchValue: "boolean",
       disabled: !availableFeatureTypes.includes("boolean"),
     },
     {
-      name: "Number",
+      name: t`Number`,
       id: "feature-type-number",
       searchValue: "number",
       disabled: !availableFeatureTypes.includes("number"),
     },
     {
-      name: "String",
+      name: t`String`,
       id: "feature-type-string",
       searchValue: "string",
       disabled: !availableFeatureTypes.includes("string"),
@@ -447,6 +449,7 @@ const FeatureSearchFilters: FC<
       {!project && (
         <FilterDropdown
           filter="project"
+          heading={t`project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -461,6 +464,7 @@ const FeatureSearchFilters: FC<
       )}
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -470,19 +474,21 @@ const FeatureSearchFilters: FC<
       />
       <FilterDropdown
         filter="tag"
+        heading={t`tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => ({
-          name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-          id: t,
-          searchValue: t,
+        items={availableTags.map((tag) => ({
+          name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+          id: tag,
+          searchValue: tag,
         }))}
         updateQuery={updateQuery}
         menuPlacement="end"
       />
       <FilterDropdown
         filter="type"
+        heading={t`type`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -494,7 +500,7 @@ const FeatureSearchFilters: FC<
       {/* Environment filter: per-env row with on/off toggles */}
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "environment",
+          heading: t`environment`,
           open: dropdownFilterOpen === "on",
         })}
         variant="soft"
@@ -502,7 +508,9 @@ const FeatureSearchFilters: FC<
         menuPlacement="end"
         onOpenChange={(o) => setDropdownFilterOpen(o ? "on" : "")}
       >
-        <DropdownMenuLabel>Filter by environment</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Filter by environment</Trans>
+        </DropdownMenuLabel>
         {environments.map((e) => {
           const isOn = doesFilterExist("on", e.id, "");
           const isOff = doesFilterExist("off", e.id, "");
@@ -520,7 +528,7 @@ const FeatureSearchFilters: FC<
                     onClick={() => updateEnvQuery("on", e.id)}
                   >
                     <Text color="text-mid" weight="semibold">
-                      On
+                      <Trans>On</Trans>
                     </Text>
                   </Button>
                   <Button
@@ -530,7 +538,7 @@ const FeatureSearchFilters: FC<
                     onClick={() => updateEnvQuery("off", e.id)}
                   >
                     <Text color="text-mid" weight="semibold">
-                      Off
+                      <Trans>Off</Trans>
                     </Text>
                   </Button>
                   <IconButton
@@ -563,7 +571,7 @@ const FeatureSearchFilters: FC<
       {/* Contains: rule content searches */}
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "contains",
+          heading: t`contains`,
           open: dropdownFilterOpen === "contains",
         })}
         open={dropdownFilterOpen === "contains"}
@@ -571,7 +579,9 @@ const FeatureSearchFilters: FC<
         variant="soft"
         onOpenChange={(o) => setDropdownFilterOpen(o ? "contains" : "")}
       >
-        <DropdownMenuLabel>Has...</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Has...</Trans>
+        </DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => {
             updateQuery({
@@ -583,7 +593,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Prerequisites"
+            item={t`Prerequisites`}
             exists={doesFilterExist("has", "prerequisites", "")}
           />
         </DropdownMenuItem>
@@ -598,7 +608,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Dependents"
+            item={t`Dependents`}
             exists={doesFilterExist("has", "dependents", "")}
           />
         </DropdownMenuItem>
@@ -613,7 +623,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Saved groups"
+            item={t`Saved groups`}
             exists={doesFilterExist("has", "savedgroup", "")}
           />
         </DropdownMenuItem>
@@ -628,7 +638,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Experiments & bandits"
+            item={t`Experiments & bandits`}
             exists={doesFilterExist("has", "experiments", "")}
           />
         </DropdownMenuItem>
@@ -643,26 +653,28 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Active ramp-ups &amp; schedules"
+            item={t`Active ramp-ups & schedules`}
             exists={doesFilterExist("has", "ramp-schedule", "")}
           />
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Contains specific...</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Contains specific...</Trans>
+        </DropdownMenuLabel>
 
         <ContainsTextRow
-          label="Value"
+          label={t`Value`}
           hasPrefix="value:"
-          placeholder="Search values..."
+          placeholder={t`Search values...`}
           syntaxFilters={syntaxFilters}
           searchValue={searchInputProps.value}
           setSearchValue={setSearchValue}
         />
         <ContainsSelectRow
-          label="Attribute"
+          label={t`Attribute`}
           hasPrefix="attribute:"
-          placeholder="Select..."
+          placeholder={t`Select...`}
           options={attributeSchema.map((a) => ({
             value: a.property,
             label: a.property,
@@ -672,9 +684,9 @@ const FeatureSearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <ContainsSelectRow
-          label="Saved Group"
+          label={t`Saved Group`}
           hasPrefix="saved-group:"
-          placeholder="Select..."
+          placeholder={t`Select...`}
           options={savedGroups.map((sg) => ({
             value: sg.id,
             label: sg.groupName,
@@ -684,18 +696,18 @@ const FeatureSearchFilters: FC<
           setSearchValue={setSearchValue}
         />
         <ContainsSelectRow
-          label="Experiment"
+          label={t`Experiment`}
           hasPrefix="experiment:"
-          placeholder="Select..."
+          placeholder={t`Select...`}
           options={experimentOptions}
           syntaxFilters={syntaxFilters}
           searchValue={searchInputProps.value}
           setSearchValue={setSearchValue}
         />
         <ContainsSelectRow
-          label="Bandit"
+          label={t`Bandit`}
           hasPrefix="bandit:"
-          placeholder="Select..."
+          placeholder={t`Select...`}
           options={banditOptions}
           syntaxFilters={syntaxFilters}
           searchValue={searchInputProps.value}
@@ -705,7 +717,7 @@ const FeatureSearchFilters: FC<
 
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "health",
+          heading: t`health`,
           open: dropdownFilterOpen === "health",
         })}
         open={dropdownFilterOpen === "health"}
@@ -715,7 +727,9 @@ const FeatureSearchFilters: FC<
           setDropdownFilterOpen(o ? "health" : "");
         }}
       >
-        <DropdownMenuLabel>Severity</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Severity</Trans>
+        </DropdownMenuLabel>
         {FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS.map(({ value, label }) => (
           <DropdownMenuItem
             key={value}
@@ -742,7 +756,9 @@ const FeatureSearchFilters: FC<
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Issue</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Issue</Trans>
+        </DropdownMenuLabel>
         {FEATURE_HEALTH_FILTER_OPTIONS.map(({ value, label }) => (
           <DropdownMenuItem
             key={value}
@@ -771,7 +787,7 @@ const FeatureSearchFilters: FC<
       {/* More: status/staleness filters */}
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -793,7 +809,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived features"
+            item={t`Archived features`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>
@@ -808,12 +824,14 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Has active draft"
+            item={t`Has active draft`}
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Stale</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <Trans>Stale</Trans>
+        </DropdownMenuLabel>
         {FEATURE_STALE_FILTER_OPTIONS.map(({ value, label }) => (
           <DropdownMenuItem
             key={value}

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   ExperimentHealthState,
   ExperimentInterfaceStringDates,
@@ -36,6 +37,7 @@ export function useExperimentFilterCategories({
   // can filter on them.
   includeTempRollouts?: boolean;
 }): ExperimentFilterCategories {
+  const { t } = useLingui();
   const { getOwnerDisplay } = useUser();
   const allMetrics = useCombinedMetrics({});
 
@@ -87,16 +89,16 @@ export function useExperimentFilterCategories({
 
   const resultItems = useMemo<SearchFiltersItem[]>(
     () => [
-      { searchValue: "won", id: "isWon", name: "Won" },
-      { searchValue: "lost", id: "isLost", name: "Lost" },
+      { searchValue: "won", id: "isWon", name: t`Won` },
+      { searchValue: "lost", id: "isLost", name: t`Lost` },
       {
         searchValue: "inconclusive",
         id: "isInconclusive",
-        name: "Inconclusive",
+        name: t`Inconclusive`,
       },
-      { searchValue: "dnf", id: "isDNF", name: "Did not finish" },
+      { searchValue: "dnf", id: "isDNF", name: t`Did not finish` },
     ],
-    [],
+    [t],
   );
 
   const statusItems = useMemo<SearchFiltersItem[]>(
@@ -104,13 +106,13 @@ export function useExperimentFilterCategories({
       {
         searchValue: "draft",
         id: "draft",
-        name: "Draft",
+        name: t`Draft`,
         disabled: !allowDrafts,
       },
-      { searchValue: "running", id: "running", name: "Running" },
-      { searchValue: "stopped", id: "stopped", name: "Stopped" },
+      { searchValue: "running", id: "running", name: t`Running` },
+      { searchValue: "stopped", id: "stopped", name: t`Stopped` },
     ],
-    [allowDrafts],
+    [allowDrafts, t],
   );
 
   const typeItems = useMemo<SearchFiltersItem[]>(() => {
@@ -122,25 +124,25 @@ export function useExperimentFilterCategories({
     });
     return [
       {
-        name: "Feature Flag",
+        name: t`Feature Flag`,
         id: "exp-type-flag",
         searchValue: "feature",
         disabled: !available.has("feature"),
       },
       {
-        name: "Visual Change",
+        name: t`Visual Change`,
         id: "exp-type-visual",
         searchValue: "visualChange",
         disabled: !available.has("visualChange"),
       },
       {
-        name: "URL Redirect",
+        name: t`URL Redirect`,
         id: "exp-type-redirect",
         searchValue: "redirect",
         disabled: !available.has("redirect"),
       },
     ];
-  }, [experiments]);
+  }, [experiments, t]);
 
   const healthItems = useMemo<SearchFiltersItem[]>(
     () =>

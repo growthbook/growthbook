@@ -1,5 +1,8 @@
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import Tooltip from "./Tooltip/Tooltip";
@@ -42,22 +45,53 @@ const singularProjectTypes = [
   "constant",
 ];
 
+// One whole message per resource type, so translations needn't splice a noun
+// into the sentence.
+const missingProjectMessages: Record<Props["resourceType"], MessageDescriptor> =
+  {
+    metric: msg`This metric is associated with a project that has been deleted or that you do not have access to.`,
+    segment: msg`This segment is associated with a project that has been deleted or that you do not have access to.`,
+    "data source": msg`This data source is associated with a project that has been deleted or that you do not have access to.`,
+    environment: msg`This environment is associated with a project that has been deleted or that you do not have access to.`,
+    member: msg`This member is associated with a project that has been deleted or that you do not have access to.`,
+    team: msg`This team is associated with a project that has been deleted or that you do not have access to.`,
+    "fact table": msg`This fact table is associated with a project that has been deleted or that you do not have access to.`,
+    feature: msg`This feature is associated with a project that has been deleted or that you do not have access to.`,
+    attribute: msg`This attribute is associated with a project that has been deleted or that you do not have access to.`,
+    "sdk connection": msg`This sdk connection is associated with a project that has been deleted or that you do not have access to.`,
+    "saved group": msg`This saved group is associated with a project that has been deleted or that you do not have access to.`,
+    holdout: msg`This holdout is associated with a project that has been deleted or that you do not have access to.`,
+    dashboard: msg`This dashboard is associated with a project that has been deleted or that you do not have access to.`,
+    "custom field": msg`This custom field is associated with a project that has been deleted or that you do not have access to.`,
+    experiment: msg`This experiment is associated with a project that has been deleted or that you do not have access to.`,
+    "experiment assignment query": msg`This experiment assignment query is associated with a project that has been deleted or that you do not have access to.`,
+    "contextual bandit": msg`This contextual bandit is associated with a project that has been deleted or that you do not have access to.`,
+    interleaving: msg`This interleaving is associated with a project that has been deleted or that you do not have access to.`,
+    constant: msg`This constant is associated with a project that has been deleted or that you do not have access to.`,
+    population: msg`This population is associated with a project that has been deleted or that you do not have access to.`,
+  };
+
 export default function ProjectBadges({
   resourceType,
   projectIds,
   invalidProjectIds = [],
-  invalidProjectMessage = "This project is invalid",
+  invalidProjectMessage,
   sort = true,
   skipMargin = false,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { projects, project } = useDefinitions();
+  const invalidProjectText =
+    invalidProjectMessage === undefined
+      ? t`This project is invalid`
+      : invalidProjectMessage;
   if (!projectIds) {
     if (singularProjectTypes.includes(resourceType)) {
       return null;
     }
     return (
       <Badge
-        label="All Projects"
+        label={t`All Projects`}
         key="All Projects"
         color={!project ? "purple" : "gray"}
         style={{
@@ -96,7 +130,7 @@ export default function ProjectBadges({
                 <Tooltip
                   popperClassName="text-left"
                   popperStyle={{ lineHeight: 1.5 }}
-                  body={invalidProjectMessage}
+                  body={invalidProjectText}
                 >
                   <del className="text-danger">
                     <FaExclamationTriangle className="mr-1" />
@@ -115,7 +149,7 @@ export default function ProjectBadges({
       })}
       {showMissingProjectErr ? (
         <Tooltip
-          body={`This ${resourceType} is associated with a project that has been deleted or that you do not have access to.`}
+          body={i18n._(missingProjectMessages[resourceType])}
           key="Unknown Project"
           className="pl-2"
         >
