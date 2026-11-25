@@ -419,6 +419,32 @@ describe("getDatadogNotificationPayload", () => {
     ).toBeNull();
   });
 
+  it("skips an experiment's results refresh", () => {
+    const refresh = (key: string): DatadogEnvelope => ({
+      ...featureUpdated(),
+      event: "experiment.updated",
+      data: {
+        object: { id: "exp_1", status: "running", [key]: "today" },
+        previous_attributes: { [key]: "yesterday" },
+        changes: {
+          modified: [{ key, oldValue: "yesterday", newValue: "today" }],
+        },
+      },
+    });
+    expect(
+      getDatadogNotificationPayload({
+        event: asEvent(refresh("lastSnapshotAttempt")),
+        eventWebHook: webhook(),
+      }),
+    ).toBeNull();
+    expect(
+      getDatadogNotificationPayload({
+        event: asEvent(refresh("name")),
+        eventWebHook: webhook(),
+      }),
+    ).not.toBeNull();
+  });
+
   it("sends test events as a change with no service", () => {
     expect(
       getDatadogNotificationPayload({

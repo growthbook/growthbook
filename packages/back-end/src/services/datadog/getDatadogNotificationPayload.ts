@@ -9,6 +9,7 @@ import {
 } from "shared/validators";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { webhookEventEnvironments } from "back-end/src/events/handlers/utils";
+import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
 
 // The parts of a versioned event envelope the formatter reads.
 export type DatadogEnvelope = {
@@ -358,6 +359,8 @@ export function getDatadogNotificationPayload({
   const envelope: DatadogEnvelope = event.data;
   if (envelope.event === "webhook.test") return buildDatadogTestEvent(envelope);
   if (!isDatadogEventWebHookEvent(envelope.event)) return null;
+  // A results refresh changes nothing SDKs serve.
+  if (isBookkeepingExperimentUpdate(event)) return null;
 
   // Nothing SDKs serve changed in the environments this webhook covers.
   const covered = webhookEventEnvironments(eventWebHook, envelope) ?? [];
