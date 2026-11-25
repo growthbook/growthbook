@@ -215,13 +215,19 @@ export async function getQueryMap(
   context: ReqContext,
   queries: Queries,
   cache?: QueryMap,
+  readPreference?: "primary",
 ): Promise<QueryMap> {
   // Only fetch queries that are not already in the cache
   const idsToFetch = queries
     .filter((p) => !cache || !cache.has(p.name))
     .map((p) => p.query);
 
-  const queryDocs = await getQueriesByIds(context, idsToFetch);
+  const queryDocs = await getQueriesByIds(
+    context,
+    idsToFetch,
+    true,
+    readPreference,
+  );
 
   const map: QueryMap = new Map(cache);
   queryDocs.forEach((query) => {
@@ -281,8 +287,13 @@ export abstract class QueryRunner<
   private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   private lastRefreshStartedAt = Number.NEGATIVE_INFINITY;
-  /** The query-runner-fast-refresh flag, read once per run; null until then. */
+  /**
+   * The query-runner-fast-refresh flag, read once per run; null until then.
+   * Off, the runner behaves as it did before the flag existed: each branch on
+   * usesFastRefresh() keeps that behaviour on its off side.
+   */
   private fastRefresh: boolean | null = null;
+  private refreshPassRunning = false;
   private consecutiveRefreshFailures = 0;
   /** When a pass first read an empty query list; null once one is not. */
   private emptyQueryListSince: number | null = null;
@@ -417,6 +428,7 @@ export abstract class QueryRunner<
   /** Re-arm the refresh when nothing else will. */
   private runRefreshWatchdogCheck(): void {
     logger.debug(`Refresh watchdog tick for ${this.model.id}`);
+    if (this.refreshPassRunning && !this.usesFastRefresh()) return;
     this.scheduleRefreshPass();
   }
 
@@ -445,6 +457,11 @@ export abstract class QueryRunner<
     return this.fastRefresh;
   }
 
+  /** The fast timer reads right after a status write, so it reads the primary. */
+  private queryReadPreference(): "primary" | undefined {
+    return this.usesFastRefresh() ? "primary" : undefined;
+  }
+
   /**
    * Arm one refresh pass, no earlier than `notBefore`. With the fast-refresh
    * flag on it is due REFRESH_MIN_INTERVAL_MS after the last pass started;
@@ -467,12 +484,18 @@ export abstract class QueryRunner<
       return;
     }
     const now = performance.now();
-    const earliest = this.usesFastRefresh()
+    const fast = this.usesFastRefresh();
+    const earliest = fast
       ? this.lastRefreshStartedAt + REFRESH_MIN_INTERVAL_MS
       : now + REFRESH_DEBOUNCE_MS;
     const delay = Math.max(0, earliest - now, notBefore - now);
     logger.debug(`Refreshing ${this.model.id} in ${delay} ms`);
-    this.refreshTimer = setTimeout(() => this.queueRefreshPass(), delay);
+    this.refreshTimer = setTimeout(() => {
+      // The debounce can re-arm once it fires; the fast timer, once its pass
+      // starts.
+      if (!fast) this.refreshTimer = null;
+      this.queueRefreshPass();
+    }, delay);
   }
 
   /**
@@ -507,7 +530,14 @@ export abstract class QueryRunner<
   /** Enqueue one refresh pass on the serialized chain. */
   private queueRefreshPass(): void {
     this.refreshChain = this.refreshChain
-      .then(() => this.runRefreshPass())
+      .then(async () => {
+        this.refreshPassRunning = true;
+        try {
+          await this.runRefreshPass();
+        } finally {
+          this.refreshPassRunning = false;
+        }
+      })
       .catch(async (e) => {
         // Keep the chain alive; count toward the failure budget.
         if (this.isFinished()) return;
@@ -561,7 +591,7 @@ export abstract class QueryRunner<
    */
   private async runRefreshPass(): Promise<void> {
     // Cleared before the first read, so a finish from here on arms a new pass.
-    this.refreshTimer = null;
+    if (this.usesFastRefresh()) this.refreshTimer = null;
     if (this.isFinished()) return;
     this.lastRefreshStartedAt = performance.now();
     let latest: Model;
@@ -624,7 +654,8 @@ export abstract class QueryRunner<
   /**
    * True when this pass must stop on an empty query list: the runner stands
    * down once the list has stayed empty for EMPTY_QUERY_LIST_CONFIRM_MS and
-   * re-reads at that deadline until then.
+   * re-reads at that deadline until then. With the fast-refresh flag off it
+   * stands down on the first empty read.
    */
   private stopsForEmptyQueryList(latest: Model): boolean {
     if (this.status !== "running" || latest.queries.length > 0) {
@@ -634,7 +665,8 @@ export abstract class QueryRunner<
     const now = performance.now();
     this.emptyQueryListSince ??= now;
     const deadline = this.emptyQueryListSince + EMPTY_QUERY_LIST_CONFIRM_MS;
-    if (now < deadline) {
+    // The debounce reads late enough to trust the first empty read.
+    if (this.usesFastRefresh() && now < deadline) {
       this.scheduleRefreshPass(deadline);
       return true;
     }
@@ -644,7 +676,12 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
+    return getQueryMap(
+      this.context,
+      pointers,
+      this.finishedQueryMapCache,
+      this.queryReadPreference(),
+    );
   }
 
   setExperimentUpdateExecutionLogger(
@@ -730,12 +767,18 @@ export abstract class QueryRunner<
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      try {
-        await this.beforeFirstRefresh();
-      } finally {
+      if (this.usesFastRefresh()) {
+        try {
+          await this.beforeFirstRefresh();
+        } finally {
+          this.refreshEnabled = true;
+          // Pick up any query completions that happened before this point.
+          this.scheduleRefreshPass();
+        }
+      } else {
         this.refreshEnabled = true;
-        // Pick up any query completions that happened before this point.
         this.scheduleRefreshPass();
+        await this.beforeFirstRefresh();
       }
     }
 
@@ -744,7 +787,8 @@ export abstract class QueryRunner<
 
   /**
    * Runs once the query DAG is persisted, before any refresh pass can read
-   * it; query finishes meanwhile are deferred. Default is a no-op.
+   * it; query finishes meanwhile are deferred. With the fast-refresh flag
+   * off, passes are not held back for it. Default is a no-op.
    */
   protected async beforeFirstRefresh(): Promise<void> {}
 
@@ -1295,7 +1339,12 @@ export abstract class QueryRunner<
                 ". Currently running, checking every 3 seconds for changes",
             );
             const check = () => {
-              getQueriesByIds(this.context, [existing.id], false)
+              getQueriesByIds(
+                this.context,
+                [existing.id],
+                false,
+                this.queryReadPreference(),
+              )
                 .then(async (queries) => {
                   const query = queries[0];
                   if (
@@ -1432,7 +1481,12 @@ export abstract class QueryRunner<
       .filter((pointer) => !queryMap.has(pointer.name))
       .map((p) => p.query);
 
-    const queries = await getQueriesByIds(this.context, idsToFetch);
+    const queries = await getQueriesByIds(
+      this.context,
+      idsToFetch,
+      true,
+      this.queryReadPreference(),
+    );
 
     queries.forEach((queryDoc) => {
       const pointer = this.model.queries.find((p) => p.query === queryDoc.id);

@@ -45,22 +45,23 @@ export class SqlResultChunkModel extends BaseClass {
     );
   }
 
-  public async addResultsToQueries(queries: QueryInterface[]) {
+  public async addResultsToQueries(
+    queries: QueryInterface[],
+    readPreference?: "primary",
+  ) {
     const idsToFetch = queries
       .filter((q) => q.hasChunkedResults)
       .map((q) => (q.cachedQueryUsed ? q.cachedQueryUsed : q.id));
 
     if (!idsToFetch.length) return;
 
-    // Chunks are written before the query doc reads as succeeded, and only
-    // the primary is guaranteed to be at least as current as the doc read.
     const allChunks = await this._find(
       {
         queryId: { $in: idsToFetch },
       },
       {
         sort: { queryId: 1, chunkNumber: 1 },
-        readPreference: "primary",
+        readPreference,
       },
     );
     const chunksByQueryId: Record<string, SqlResultChunkInterface[]> = {};

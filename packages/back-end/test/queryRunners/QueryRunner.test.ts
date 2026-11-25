@@ -1498,9 +1498,13 @@ describe("QueryRunner", () => {
         // zero-delay timer armed inside a tick by 1 ms.
         await jest.advanceTimersByTimeAsync(REFRESH_WATCHDOG_INTERVAL_MS + 1);
 
-        expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(2, mockContext, [
-          "qry_c",
-        ]);
+        expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(
+          2,
+          mockContext,
+          ["qry_c"],
+          true,
+          "primary",
+        );
         expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
         expect(runner.updateModelSpy).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -1887,25 +1891,90 @@ describe("QueryRunner", () => {
         expect(runner.status).toBe("finished");
       });
 
-      it("waits out the debounce before every pass when the flag is off", async () => {
-        jest.mocked(getBackendFeatureValue).mockReturnValue(false);
-        const db: QueryDb = { a: "running" };
-        const runner = await startRunner(db);
+      describe("with the flag off", () => {
+        beforeEach(() => {
+          jest.mocked(getBackendFeatureValue).mockReturnValue(false);
+        });
 
-        await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
-        expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
-        await jest.advanceTimersByTimeAsync(1);
-        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        it("waits out the debounce before every pass", async () => {
+          const db: QueryDb = { a: "running" };
+          const runner = await startRunner(db);
 
-        // A finish after a quiet period still waits the full debounce.
-        await jest.advanceTimersByTimeAsync(10 * REFRESH_DEBOUNCE_MS);
-        db.a = "succeeded";
-        await runner.onQueryFinish();
-        await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
-        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
-        await jest.advanceTimersByTimeAsync(1);
-        expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
-        expect(runner.status).toBe("finished");
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+          expect(runner.getLatestModelSpy).not.toHaveBeenCalled();
+          await jest.advanceTimersByTimeAsync(1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+          // A finish after a quiet period still waits the full debounce.
+          await jest.advanceTimersByTimeAsync(10 * REFRESH_DEBOUNCE_MS);
+          db.a = "succeeded";
+          await runner.onQueryFinish();
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS - 1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+          await jest.advanceTimersByTimeAsync(1);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(2);
+          expect(runner.status).toBe("finished");
+        });
+
+        it("stands down on the first empty read", async () => {
+          const runner = await startRunner({ a: "running" });
+          runner.getLatestModelSpy.mockResolvedValue(makeModel([]));
+
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+          expect(runner.status).toBe("finished");
+          expect(runner.error).toBe("");
+        });
+
+        it("reads query docs with the default read preference", async () => {
+          await startRunner({ a: "running" });
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+
+          expect(getQueriesByIds).toHaveBeenLastCalledWith(
+            mockContext,
+            ["qry_a"],
+            true,
+            undefined,
+          );
+        });
+
+        it("does not hold passes back for beforeFirstRefresh", async () => {
+          const hook = deferred();
+          class HookedRunner extends StallTestQueryRunner {
+            protected override async beforeFirstRefresh() {
+              await hook.promise;
+            }
+          }
+          const db: QueryDb = { a: "running" };
+          const runner = makeRunner(db, HookedRunner);
+
+          const started = runner.startAnalysis({
+            pointers: runningPointers(db),
+          });
+          await jest.advanceTimersByTimeAsync(REFRESH_DEBOUNCE_MS);
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+
+          hook.resolve();
+          await started;
+        });
+
+        it("leaves a running pass alone on a watchdog tick", async () => {
+          const runner = await startRunner({ a: "running" });
+          const read = deferred();
+          runner.getLatestModelSpy.mockImplementationOnce(async () => {
+            await read.promise;
+            return makeModel(runningPointers({ a: "running" }));
+          });
+
+          await jest.advanceTimersByTimeAsync(
+            REFRESH_WATCHDOG_INTERVAL_MS + REFRESH_DEBOUNCE_MS,
+          );
+          read.resolve();
+          await jest.advanceTimersByTimeAsync(0);
+
+          expect(runner.getLatestModelSpy).toHaveBeenCalledTimes(1);
+        });
       });
 
       it("reads the flag once per run, with the run's attributes", async () => {
