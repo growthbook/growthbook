@@ -844,8 +844,11 @@ export default function ResultsTable({
                   let alreadyShownQuantileError = false;
                   let alreadyShownComputeError = false;
                   let alreadyShownNewMetricState = false;
+                  // A dimension table's label row has no value to drill into.
                   const rowOnClick =
-                    effectiveOnRowClick && !row.newMetricState
+                    effectiveOnRowClick &&
+                    !row.newMetricState &&
+                    !(row.labelOnly && tableRowAxis === "dimension")
                       ? effectiveOnRowClick
                       : undefined;
 

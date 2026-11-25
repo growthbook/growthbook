@@ -247,6 +247,7 @@ const BreakDownResults: FC<{
   // Wrap drilldown to include dimension info
   const handleRowClick = drilldownContext
     ? (row: ExperimentTableRow) => {
+        if (row.labelOnly) return;
         const rawValue =
           row.dimensionValue ??
           (typeof row.label === "string" ? row.label : "");
@@ -256,6 +257,37 @@ const BreakDownResults: FC<{
         });
       }
     : undefined;
+
+  // The redesign shows one table per section, with each metric's rows under a
+  // label row for its name.
+  const sectionLabels = {
+    goal: "Goal Metrics",
+    secondary: "Secondary Metrics",
+    guardrail: "Guardrail Metrics",
+  };
+  const displayTables = redesign
+    ? (["goal", "secondary", "guardrail"] as const)
+        .map((resultGroup) => {
+          const sectionTables = tables.filter(
+            (t) => t.rows[0]?.resultGroup === resultGroup,
+          );
+          return {
+            metric: sectionTables[0]?.metric,
+            rows: sectionTables.flatMap<ExperimentTableRow>((t) => [
+              {
+                label: t.metric.name,
+                metric: t.metric,
+                metricOverrideFields: [],
+                variations: [],
+                resultGroup,
+                labelOnly: true,
+              },
+              ...t.rows,
+            ]),
+          };
+        })
+        .flatMap((t) => (t.metric ? [{ ...t, metric: t.metric }] : []))
+    : tables;
 
   return (
     <div className="mb-3">
@@ -291,7 +323,7 @@ const BreakDownResults: FC<{
         )}
       </div>
 
-      {tables.map((table, i) => {
+      {displayTables.map((table, i) => {
         // Hide child rows (funnel steps, metric slices) whose dimension-value
         // parent is collapsed.
         const visibleRows = table.rows.filter(
@@ -302,18 +334,20 @@ const BreakDownResults: FC<{
         );
         return (
           <Fragment key={table.metric.id + "_" + i}>
-            <h4
-              className="mt-2 mb-1 d-flex position-relative ml-2"
-              style={{ gap: 4 }}
-            >
-              {table.rows[0]?.resultGroup === "goal"
-                ? "Goal Metric"
-                : table.rows[0]?.resultGroup === "secondary"
-                  ? "Secondary Metric"
-                  : table.rows[0]?.resultGroup === "guardrail"
-                    ? "Guardrail Metric"
-                    : null}
-            </h4>
+            {redesign ? null : (
+              <h4
+                className="mt-2 mb-1 d-flex position-relative ml-2"
+                style={{ gap: 4 }}
+              >
+                {table.rows[0]?.resultGroup === "goal"
+                  ? "Goal Metric"
+                  : table.rows[0]?.resultGroup === "secondary"
+                    ? "Secondary Metric"
+                    : table.rows[0]?.resultGroup === "guardrail"
+                      ? "Guardrail Metric"
+                      : null}
+              </h4>
+            )}
             <ResultsTable
               key={i}
               redesign={redesign}
@@ -334,10 +368,15 @@ const BreakDownResults: FC<{
               rows={visibleRows}
               onRowClick={handleRowClick}
               dimension={dimension}
-              id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
+              id={
+                (idPrefix ? `${idPrefix}_` : "") +
+                (redesign ? table.rows[0].resultGroup : table.metric.id)
+              }
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
-                renderMetricName ? (
+                redesign ? (
+                  sectionLabels[table.rows[0].resultGroup]
+                ) : renderMetricName ? (
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
@@ -377,7 +416,7 @@ const BreakDownResults: FC<{
                     </Flex>
                   );
                 }
-                if (row?.isSliceRow) {
+                if (row?.isSliceRow || row?.labelOnly) {
                   return getRenderLabelColumn({})({
                     label,
                     metric: row.metric,
@@ -388,7 +427,9 @@ const BreakDownResults: FC<{
                 const hasSteps = !!row?.numChildren;
                 const parentRowId = `${row?.metric?.id}:${row?.label ?? ""}`;
                 const isExpanded = !!expandedRows[parentRowId];
-                const childLabel = isFactFunnelMetric(table.metric)
+                const childLabel = isFactFunnelMetric(
+                  row?.metric ?? table.metric,
+                )
                   ? "funnel steps"
                   : "metric slices";
                 const rowName =
@@ -397,20 +438,25 @@ const BreakDownResults: FC<{
                     : "unknown";
                 return (
                   <div
-                    className="pl-3 font-weight-bold"
+                    // Bootstrap's padding would override the indent below.
+                    className={
+                      redesign ? "font-weight-bold" : "pl-3 font-weight-bold"
+                    }
                     style={{
                       display: "-webkit-box",
                       WebkitLineClamp: 1,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                       color: "var(--color-text-mid)",
+                      // Under its metric's name.
+                      paddingLeft: redesign ? 36 : undefined,
                     }}
                   >
                     {hasSteps ? (
                       <span
                         style={{
                           position: "absolute",
-                          left: 7,
+                          left: redesign ? 27 : 7,
                           top: 0,
                           bottom: 0,
                           display: "flex",
@@ -446,6 +492,9 @@ const BreakDownResults: FC<{
                       </span>
                     ) : null}
                     <span className={hasSteps ? "ml-2" : undefined}>
+                      {redesign ? (
+                        <span style={{ fontWeight: 400 }}>{dimension}: </span>
+                      ) : null}
                       {label ? (
                         label === NULL_DIMENSION_VALUE ? (
                           <em>{formatDimensionValueForDisplay(label)}</em>
@@ -474,7 +523,7 @@ const BreakDownResults: FC<{
               setAnalysisSettings={setAnalysisSettings}
               mutate={mutate}
             />
-            <div className="mb-5" />
+            <div className={redesign ? "mb-4" : "mb-5"} />
           </Fragment>
         );
       })}
