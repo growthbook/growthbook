@@ -9,6 +9,9 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getSnapshotDataAsOfDate,
+  getAnalysisPValueCorrection,
+  getAnalysisPValueThreshold,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -76,9 +79,11 @@ export default function PublicExperimentResults({
     })) || [];
 
   const _orgSettings = useOrgSettings();
-  const pValueCorrection =
+  const pValueCorrection = getAnalysisPValueCorrection(
+    analysis,
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
-    _orgSettings?.pValueCorrection;
+      _orgSettings?.pValueCorrection,
+  );
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
   const _pValueThreshold = usePValueThreshold(experiment.project);
@@ -89,7 +94,7 @@ export default function PublicExperimentResults({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     bayesianConfidenceLevels,
-    pValueThreshold,
+    pValueThreshold: getAnalysisPValueThreshold(analysis, pValueThreshold),
   };
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
@@ -152,7 +157,7 @@ export default function PublicExperimentResults({
             pValueCorrection={pValueCorrection}
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
-            reportDate={snapshot.dateCreated}
+            reportDate={getSnapshotDataAsOfDate(snapshot)}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
             lookbackOverride={getEffectiveLookbackOverride(
@@ -194,7 +199,7 @@ export default function PublicExperimentResults({
                 phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 activationMetric={experiment.activationMetric}
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
@@ -215,7 +220,7 @@ export default function PublicExperimentResults({
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
-                reportDate={snapshot.dateCreated}
+                reportDate={getSnapshotDataAsOfDate(snapshot)}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}

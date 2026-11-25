@@ -108,6 +108,7 @@ options are:
 - `CACHE_CONNECTION_URL` - The URL of your redis or mongo cluster (if using)
 - `CACHE_STALE_TTL` - Number of seconds until a cache entry is considered stale
 - `CACHE_EXPIRES_TTL` - Number of seconds until a cache entry is expired
+- `MAX_FEATURES_PAYLOAD_SIZE` - The largest SDK payload GrowthBook can push to the proxy (default: `"16mb"`). Older proxy versions use `MAX_PAYLOAD_SIZE` (default: `"2mb"`) instead.
 
 You can also configure the GrowthBook Proxy to handle SSL termination. It supports HTTP/2 by default, which is required for high performance streaming.
 

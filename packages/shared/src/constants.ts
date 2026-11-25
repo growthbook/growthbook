@@ -136,6 +136,10 @@ export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 
+// How recent the end date of an experiment's results must be for an update
+// that didn't choose a scope to compute only its newly added metrics.
+export const DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS = 4;
+
 // Default statuses for saved learnings (insights). Orgs can customize the
 // list in General Settings → Experiment Settings. Status IDs are persisted
 // on each saved learning, so they must remain stable across renames.
@@ -308,6 +312,7 @@ export const entityEvents = {
   ],
   featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
+  experimentQaOverride: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],

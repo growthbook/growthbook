@@ -13,6 +13,11 @@ import {
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
 import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import {
+  EXPERIMENT_RESULT_COLORS,
+  cssColorToHex,
+  getChartThemeColors,
+} from "@/components/DataViz/chart-theme";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
@@ -24,16 +29,6 @@ import {
   rangeLabel,
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
-
-// Pulled from the Metric Explorer chart palette (CHART_COLORS in
-// ProductAnalytics/MainSection/ExplorerChart.tsx) so the dashboard's ECharts
-// blocks share one color scheme. Mapped to the semantically matching hues.
-const RESULT_COLORS: Record<VelocityResultKey, string> = {
-  won: "#22c55e", // green
-  lost: "#ef4444", // red
-  inconclusive: "#6b7280", // gray
-  dnf: "#eab308", // yellow
-};
 
 // Capitalized display labels for the legend + tooltip.
 const RESULT_LABELS: Record<VelocityResultKey, string> = {
@@ -97,6 +92,7 @@ function neutralRow(color: string, name: string, value: number): string {
 }
 
 function buildVelocityTooltip({
+  resultColors,
   index,
   currentBuckets,
   previousBuckets,
@@ -104,6 +100,7 @@ function buildVelocityTooltip({
   prevTooltipLabels,
   comparisonEnabled,
 }: {
+  resultColors: Record<VelocityResultKey, string>;
   index: number;
   currentBuckets: { [k in VelocityResultKey]: number }[];
   previousBuckets: ({ [k in VelocityResultKey]: number } | null)[];
@@ -120,7 +117,7 @@ function buildVelocityTooltip({
   }
 
   VELOCITY_RESULT_KEYS.forEach((key) => {
-    const color = RESULT_COLORS[key];
+    const color = resultColors[key];
     if (comparisonEnabled) {
       html +=
         `<div style="margin-top:8px">` +
@@ -193,7 +190,7 @@ export default function VelocityBlockChart({
   chartId: string;
 }) {
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const { textColor } = getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
 
   // Which ECharts series are toggled off via the legend.
@@ -212,7 +209,14 @@ export default function VelocityBlockChart({
   // single-period view, even if an older block still has comparison persisted.
   const comparisonEnabled = false;
 
-  const option = useMemo(() => {
+  const { option, resultColors } = useMemo(() => {
+    // textColor changes with the theme, so a theme switch re-resolves these.
+    const resultColors: Record<VelocityResultKey, string> = {
+      won: cssColorToHex(EXPERIMENT_RESULT_COLORS.won),
+      lost: cssColorToHex(EXPERIMENT_RESULT_COLORS.lost),
+      inconclusive: cssColorToHex(EXPERIMENT_RESULT_COLORS.inconclusive),
+      dnf: cssColorToHex(EXPERIMENT_RESULT_COLORS.dnf),
+    };
     const resolvedGranularity: ResolvedGranularity = getDateGranularity(
       block.dateGranularity || "auto",
       { startDate: window.startDate, endDate: window.endDate },
@@ -257,7 +261,7 @@ export default function VelocityBlockChart({
       xAxisIndex: 0,
       barWidth: comparisonEnabled ? "45%" : "60%",
       z: 3,
-      itemStyle: { color: RESULT_COLORS[key] },
+      itemStyle: { color: resultColors[key] },
       data: currentBuckets.map((b) => b[key]),
     }));
 
@@ -275,7 +279,7 @@ export default function VelocityBlockChart({
           barGap: "-100%",
           barWidth: "62%",
           z: 1,
-          itemStyle: { color: fadedColor(RESULT_COLORS[key]) },
+          itemStyle: { color: fadedColor(resultColors[key]) },
           data: prevAligned(key),
         }))
       : [];
@@ -290,13 +294,14 @@ export default function VelocityBlockChart({
       },
     };
 
-    return {
+    const option = {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
         axisPointer: { type: "shadow" },
         formatter: (params: { dataIndex: number }[]) =>
           buildVelocityTooltip({
+            resultColors,
             index: params?.[0]?.dataIndex ?? 0,
             currentBuckets,
             previousBuckets,
@@ -331,6 +336,7 @@ export default function VelocityBlockChart({
         : {}),
       series: [...currentSeries, ...previousSeries],
     };
+    return { option, resultColors };
   }, [
     block.dateGranularity,
     current,
@@ -345,8 +351,8 @@ export default function VelocityBlockChart({
   const legendItems: CompareChartLegendItem[] = VELOCITY_RESULT_KEYS.map(
     (key) => ({
       baseName: RESULT_LABELS[key],
-      currentColor: RESULT_COLORS[key],
-      previousColor: fadedColor(RESULT_COLORS[key]),
+      currentColor: resultColors[key],
+      previousColor: fadedColor(resultColors[key]),
       currentSeriesName: currentSeriesName(key),
       previousSeriesName: previousSeriesName(key),
     }),
@@ -374,7 +380,7 @@ export default function VelocityBlockChart({
           {VELOCITY_RESULT_KEYS.map((key) => (
             <LegendDot
               key={key}
-              color={RESULT_COLORS[key]}
+              color={resultColors[key]}
               label={RESULT_LABELS[key]}
             />
           ))}

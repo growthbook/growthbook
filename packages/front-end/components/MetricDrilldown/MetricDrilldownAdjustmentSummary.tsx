@@ -2,13 +2,11 @@ import { FC, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DifferenceType,
-  PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
   AdjustmentEffectSize,
-  AdjustmentImpact,
   getAdjustmentImpactSummaries,
   SupplementalField,
 } from "shared/experiments";
@@ -20,6 +18,7 @@ import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
+import { formatAdjustmentChange, formatAdjustmentQualifiers } from "./helpers";
 
 interface MetricDrilldownAdjustmentSummaryProps {
   row: ExperimentTableRow;
@@ -28,11 +27,6 @@ interface MetricDrilldownAdjustmentSummaryProps {
   baselineRow: number;
   variationFilter?: number[];
   significanceThresholds: SignificanceThresholds;
-  /**
-   * Used to recompute family-wide adjusted p-values.
-   */
-  goalRows?: ExperimentTableRow[];
-  pValueCorrection?: PValueCorrection;
   /**
    * When provided, adjustment labels become links that jump to the matching
    * detailed comparison table below.
@@ -49,26 +43,6 @@ const EFFECT_SIZE_DISPLAY: Record<
   large: { label: "Large effect", color: "amber" },
 };
 
-function formatAdjustmentChange({
-  relativeChange,
-  standardErrorShift,
-}: Pick<AdjustmentImpact, "relativeChange" | "standardErrorShift">): string {
-  if (standardErrorShift !== null) {
-    return `Estimate shifted by ${standardErrorShift.toFixed(2)} standard errors`;
-  }
-  return `${(relativeChange * 100).toFixed(1)}% change in estimate`;
-}
-
-function formatAdjustmentQualifiers({
-  significanceChanged,
-  signFlipped,
-}: Pick<AdjustmentImpact, "significanceChanged" | "signFlipped">): string {
-  const parts: string[] = [];
-  if (signFlipped) parts.push("sign flip");
-  if (significanceChanged) parts.push("significance change");
-  return parts.join(" · ");
-}
-
 const MetricDrilldownAdjustmentSummary: FC<
   MetricDrilldownAdjustmentSummaryProps
 > = ({
@@ -78,8 +52,6 @@ const MetricDrilldownAdjustmentSummary: FC<
   baselineRow,
   variationFilter,
   significanceThresholds,
-  goalRows,
-  pValueCorrection,
   onAdjustmentClick,
 }) => {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -98,8 +70,6 @@ const MetricDrilldownAdjustmentSummary: FC<
         ciUpper,
         ciLower,
         pValueThreshold,
-        goalMetrics: goalRows,
-        pValueCorrection,
       })[0],
     [
       row,
@@ -111,8 +81,6 @@ const MetricDrilldownAdjustmentSummary: FC<
       ciUpper,
       ciLower,
       pValueThreshold,
-      goalRows,
-      pValueCorrection,
     ],
   );
 
@@ -123,7 +91,7 @@ const MetricDrilldownAdjustmentSummary: FC<
   return (
     <Box mb="5">
       <Heading as="h4" size="md" weight="medium" mb="3">
-        Impact Summary
+        Adjustment Summary
       </Heading>
       <Flex direction="row" gap="8" wrap="wrap">
         {summary.map(

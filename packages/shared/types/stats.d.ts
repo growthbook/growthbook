@@ -92,10 +92,15 @@ export interface FrequentistVariationResponseIndividual
   power?: MetricPowerResponseFromStatsEngine;
 }
 
-type SupplementalResult =
+type SupplementalResult = (
   | BaselineResponse
   | BayesianVariationResponseIndividual
-  | FrequentistVariationResponseIndividual;
+  | FrequentistVariationResponseIndividual
+) & {
+  // Not from gbstats: set by the back-end once the stats engine returns.
+  pValueAdjusted?: number;
+  ciAdjusted?: [number, number];
+};
 
 export interface SupplementalResults {
   cupedUnadjusted?: SupplementalResult;
@@ -301,7 +306,6 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
-  p_value_corrected: boolean;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
   difference_type: string;
@@ -309,8 +313,6 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
-  num_goal_metrics: number;
-  num_guardrail_metrics: number;
   one_sided_intervals?: boolean;
   use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
