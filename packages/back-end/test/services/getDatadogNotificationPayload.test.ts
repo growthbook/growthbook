@@ -445,25 +445,33 @@ describe("getDatadogNotificationPayload", () => {
     ).not.toBeNull();
   });
 
-  it("sends test events as a change with no service", () => {
-    expect(
+  it("sends test events tagged, on the webhook's service if it has one", () => {
+    const test = (service?: string) =>
       getDatadogNotificationPayload({
         event: asEvent({
           ...featureUpdated(),
           event: "webhook.test",
           data: { object: { webhookId: "ewh_1" } },
         }),
-        eventWebHook: webhook({ environments: ["production"] }),
-      }),
-    ).toMatchObject({
+        eventWebHook: webhook({
+          environments: ["production"],
+          ...(service ? { datadog: { service } } : {}),
+        }),
+      });
+    expect(test("Checkout-API")).toMatchObject({
       data: {
         attributes: {
           category: "change",
+          tags: ["growthbook-test", "service:checkout-api"],
           attributes: {
             changed_resource: { type: "feature_flag", name: "growthbook-test" },
+            impacted_resources: [{ type: "service", name: "checkout-api" }],
           },
         },
       },
+    });
+    expect(test()).toMatchObject({
+      data: { attributes: { tags: ["growthbook-test"] } },
     });
   });
 

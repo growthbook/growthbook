@@ -332,14 +332,19 @@ export function buildDatadogChangeEvent({
 
 export function buildDatadogTestEvent(
   envelope: Pick<DatadogEnvelope, "created" | "user">,
+  service: string | null,
 ): JsonRecord {
   return changeEvent({
     title: "growthbook-test: Test event from GrowthBook",
     timestamp: new Date(envelope.created).toISOString(),
     aggregation_key: "growthbook:growthbook-test",
-    tags: [],
+    // Datadog requires at least one tag.
+    tags: ["growthbook-test", ...(service ? [`service:${service}`] : [])],
     attributes: {
       changed_resource: { type: "feature_flag", name: "growthbook-test" },
+      ...(service
+        ? { impacted_resources: [{ type: "service", name: service }] }
+        : {}),
       author: datadogAuthor(envelope.user),
     },
   });
@@ -357,7 +362,10 @@ export function getDatadogNotificationPayload({
 }): JsonRecord | null {
   if (!event.version) return null;
   const envelope: DatadogEnvelope = event.data;
-  if (envelope.event === "webhook.test") return buildDatadogTestEvent(envelope);
+  const service = eventWebHook.datadog?.service?.trim().toLowerCase() || null;
+  if (envelope.event === "webhook.test") {
+    return buildDatadogTestEvent(envelope, service);
+  }
   if (!isDatadogEventWebHookEvent(envelope.event)) return null;
   // A results refresh changes nothing SDKs serve.
   if (isBookkeepingExperimentUpdate(event)) return null;
@@ -372,7 +380,7 @@ export function getDatadogNotificationPayload({
   return buildDatadogChangeEvent({
     envelope,
     environments,
-    service: eventWebHook.datadog?.service?.trim().toLowerCase() || null,
+    service,
     appOrigin: APP_ORIGIN,
   });
 }
