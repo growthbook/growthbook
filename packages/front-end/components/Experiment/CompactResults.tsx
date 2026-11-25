@@ -36,6 +36,7 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
   isFactFunnelMetric,
+  AdjustmentImpact,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
@@ -43,6 +44,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   excludeFunnelSliceRows,
   ExperimentTableRow,
+  NewMetricRowState,
 } from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
@@ -54,16 +56,25 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import StatsAdjustmentBadge, {
+  useLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import DataQualityWarning from "./DataQualityWarning";
 import ClusterReliabilityWarning from "./ClusterReliabilityWarning";
 
+const getResultRowKey = (row: ExperimentTableRow) =>
+  `${row.resultGroup}:${row.metric.id}`;
+
 const CompactResults: FC<{
   experimentId: string;
   significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
+  newMetricStates?: Map<string, NewMetricRowState>;
+  onViewNewMetricsUpdateQueries?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -128,6 +139,8 @@ const CompactResults: FC<{
   experimentId,
   significanceThresholds,
   editMetrics,
+  newMetricStates,
+  onViewNewMetricsUpdateQueries,
   variations,
   variationFilter,
   setVariationFilter,
@@ -223,14 +236,28 @@ const CompactResults: FC<{
     sortBy,
     sortDirection,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
+    newMetricStates,
   });
+
+  const drilldownContext = useMetricDrilldownContext();
+  const getStatsAdjustmentImpacts = useLargeAdjustmentImpacts({
+    rows,
+    getKey: getResultRowKey,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    significanceThresholds,
+    ssrPolyfills,
+  });
+  const onStatsAdjustmentClick = drilldownContext
+    ? (row: ExperimentTableRow) =>
+        drilldownContext.openDrilldown(row, { initialTab: "debug" })
+    : undefined;
 
   const expandedGoals = useMemo(
     () =>
@@ -429,6 +456,7 @@ const CompactResults: FC<{
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
           }
+          onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -444,6 +472,8 @@ const CompactResults: FC<{
             getChildRowCounts,
             sliceTagsFilter,
             customMetricSlices,
+            getStatsAdjustmentImpacts,
+            onStatsAdjustmentClick,
           })}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -487,6 +517,7 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
+            onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
@@ -502,6 +533,8 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              getStatsAdjustmentImpacts,
+              onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -545,6 +578,7 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
+            onViewNewMetricsUpdateQueries={onViewNewMetricsUpdateQueries}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
@@ -560,6 +594,8 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              getStatsAdjustmentImpacts,
+              onStatsAdjustmentClick,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -594,6 +630,8 @@ export function getRenderLabelColumn({
   getChildRowCounts,
   sliceTagsFilter,
   customMetricSlices,
+  getStatsAdjustmentImpacts,
+  onStatsAdjustmentClick,
 }: {
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
@@ -606,6 +644,8 @@ export function getRenderLabelColumn({
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
   customMetricSlices?: CustomMetricSlice[];
+  getStatsAdjustmentImpacts?: (row: ExperimentTableRow) => AdjustmentImpact[];
+  onStatsAdjustmentClick?: (row: ExperimentTableRow) => void;
 }) {
   // Resolved per metric rather than per row: a step row only links to the
   // drilldown when the funnel actually has slices to show there.
@@ -752,6 +792,18 @@ export function getRenderLabelColumn({
       />
     ) : null;
 
+    const statsAdjustmentImpacts = row
+      ? (getStatsAdjustmentImpacts?.(row) ?? [])
+      : [];
+    // With a badge, the icon follows it so the badge sits right after the
+    // name instead of after the icon's reserved space.
+    const externalLinkIcon = (
+      <PiArrowSquareOut className={styles.metricExternalLinkIcon} size={14} />
+    );
+    const inlineExternalLinkIcon = statsAdjustmentImpacts.length
+      ? null
+      : externalLinkIcon;
+
     // Render non-slice metric
     return (
       <>
@@ -856,10 +908,7 @@ export function getRenderLabelColumn({
                         disableTooltip={false}
                         leftGap={false}
                       />
-                      <PiArrowSquareOut
-                        className={styles.metricExternalLinkIcon}
-                        size={14}
-                      />
+                      {inlineExternalLinkIcon}
                     </span>
                   </Link>
                 ) : (
@@ -878,15 +927,23 @@ export function getRenderLabelColumn({
                       disableTooltip={false}
                       leftGap={false}
                     />
-                    <PiArrowSquareOut
-                      className={styles.metricExternalLinkIcon}
-                      size={14}
-                    />
+                    {inlineExternalLinkIcon}
                   </Link>
                 )}
               </Text>
               {row?.replacedByMetricName ? (
                 <ReplacedMetricWarning name={row.replacedByMetricName} />
+              ) : null}
+              {row && statsAdjustmentImpacts.length ? (
+                <StatsAdjustmentBadge
+                  impacts={statsAdjustmentImpacts}
+                  trailing={externalLinkIcon}
+                  onClick={
+                    onStatsAdjustmentClick
+                      ? () => onStatsAdjustmentClick(row)
+                      : undefined
+                  }
+                />
               ) : null}
             </span>
           </span>

@@ -241,13 +241,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     metricOverrides,
     ssrPolyfills,
     customMetricSlices,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -256,12 +253,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     );
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
-
-  // Exclude all child rows (slices and funnel steps).
-  const goalRows = useMemo(
-    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isChildRow),
-    [allRows],
-  );
 
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
@@ -467,7 +458,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
-          goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
         />
@@ -686,7 +676,7 @@ const MetricDrilldownModal = ({
                   )}
                 </Flex>
               </TabsTrigger>
-              <TabsTrigger value="debug">Debug</TabsTrigger>
+              <TabsTrigger value="debug">Stats Adjustments</TabsTrigger>
             </TabsList>
           </Box>
         }

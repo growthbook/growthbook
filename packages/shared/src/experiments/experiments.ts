@@ -1764,6 +1764,20 @@ export function parseFunnelStepMetricId(
 }
 
 /**
+ * The id whose stored definition governs a metric. Funnel steps and slices are
+ * derived from a parent and have no document of their own.
+ */
+export function getDefinitionMetricId(metricId: string): string {
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  // Strip step info first (if present), then strip slice info.
+  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
+  const afterStep = stepInfo.isFunnelStepMetric
+    ? stepInfo.baseMetricId
+    : metricId;
+  return parseSliceMetricId(afterStep).baseMetricId;
+}
+
+/**
  * One proportion metric per funnel step, cloned from the parent funnel. Each
  * counts the units that reached that step, so the step's own fact table and row
  * filters become an ordinary `$$distinctUsers` numerator.
@@ -3237,7 +3251,10 @@ export function adjustedCI(
 
 // Modifies the metric in place.
 export function setAdjustedCI(
-  metric: SnapshotMetric,
+  metric: Pick<
+    SnapshotMetric,
+    "pValueAdjusted" | "uplift" | "ci" | "ciAdjusted"
+  >,
   pValueThreshold: number,
 ): void {
   const { pValueAdjusted, uplift, ci } = metric;

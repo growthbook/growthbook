@@ -35,7 +35,10 @@ export default function QueryStatsRow({
     hasCommercialFeature("multi-metric-queries") ||
     datasources.some((d) => isManagedWarehouse(d));
 
+  // A reused query's statistics belong to the run that computed it, so they
+  // don't count toward a total.
   const queryStats: QueryStatistics[] = queries
+    .filter((q) => queries.length === 1 || !q.cachedQueryUsed)
     .map((q) => q.statistics)
     .filter((q): q is QueryStatistics => !!q);
 

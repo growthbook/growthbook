@@ -13,6 +13,19 @@ const checklistItemSchema = z.object({
   hardBlock: z.boolean().optional(),
 });
 
+export const newMetricsUpdateUnavailableReasons = [
+  "no_base_snapshot",
+  "not_latest_phase",
+  "phase_ended",
+  "unsupported_experiment_type",
+  "unsupported_data_source",
+  "incremental_pipeline",
+  "metric_not_supported",
+  "settings_changed",
+  "analysis_dates_changed",
+  "base_incomplete",
+] as const;
+
 const pendingDraftFailureSchema = z.object({
   featureId: z.string(),
   revisionVersion: z.number(),
@@ -77,6 +90,36 @@ export const apiErrorRegistry = {
       "The requested dimension was already computed from the latest Overall Results",
     detailsSchema: z.object({
       overallResultsAsOf: z.string(),
+    }),
+  },
+  metrics_already_up_to_date: {
+    status: 409,
+    description:
+      "Every metric of the experiment that an update can compute already has results in the latest Overall Results",
+    detailsSchema: z.object({
+      latestSnapshotId: z
+        .string()
+        .describe("The snapshot of the latest Overall Results"),
+    }),
+  },
+  snapshot_in_progress: {
+    status: 409,
+    description: "An update of the experiment's results is running",
+    detailsSchema: z.object({
+      snapshotId: z
+        .string()
+        .describe(
+          "The running update's snapshot. Poll it until it finishes. Absent when it isn't known",
+        )
+        .optional(),
+    }),
+  },
+  new_metrics_update_unavailable: {
+    status: 409,
+    description:
+      'Newly added metrics can\'t be updated on their own; send "updateScope": "all_metrics" instead',
+    detailsSchema: z.object({
+      reason: z.enum(newMetricsUpdateUnavailableReasons),
     }),
   },
   invalid_tracking_key: {

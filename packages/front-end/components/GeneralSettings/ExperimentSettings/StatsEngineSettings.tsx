@@ -263,7 +263,7 @@ export default function StatsEngineSettings() {
           name="pValueCorrection"
           htmlFor="settings-pValueCorrection"
           label="Multiple comparisons correction"
-          help="Applied to experiments with several goal metrics or variations."
+          help="Applied to experiments with several goal metrics or variations. Takes effect the next time an experiment's results update."
         >
           <Box width="400px" maxWidth="100%">
             <SelectField
