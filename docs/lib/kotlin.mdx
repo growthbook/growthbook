@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                     // Track experiment views in your analytics system
                     analytics.track("experiment_viewed", mapOf(
                         "experiment_id" to experiment.key,
-                        "variation_id" to result.variationId
+                        "variation_id" to result.key
                     ))
                 },
                 networkDispatcher = GBNetworkDispatcherKtor(),
@@ -394,7 +394,7 @@ if (result.inExperiment) {
     // Track the experiment view
     analytics.track("pricing_experiment_viewed", mapOf(
         "price" to price,
-        "variation_id" to result.variationId
+        "variation_id" to result.key
     ))
 }
 ```
@@ -620,7 +620,7 @@ val growthBook = GBSDKBuilder(
         // Send to your analytics system
         analytics.track("experiment_viewed", mapOf(
             "experiment_id" to experiment.key,
-            "variation_id" to result.variationId,
+            "variation_id" to result.key,
             "variation_value" to result.value,
             "user_id" to userId,
             "in_experiment" to result.inExperiment,
@@ -630,7 +630,7 @@ val growthBook = GBSDKBuilder(
         // Optional: Track in your own analytics
         firebaseAnalytics.logEvent("experiment_viewed") {
             param("experiment_id", experiment.key)
-            param("variation_id", result.variationId.toString())
+            param("variation_id", result.key)
         }
     }
 ).initialize()
@@ -702,7 +702,7 @@ class GrowthBookManager {
         // Send to multiple analytics platforms
         analytics.track("experiment_viewed", mapOf(
             "experiment_id" to experiment.key,
-            "variation_id" to result.variationId,
+            "variation_id" to result.key,
             "user_id" to userId
         ))
 
