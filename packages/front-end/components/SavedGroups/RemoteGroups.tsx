@@ -6,6 +6,7 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -41,6 +42,7 @@ export interface Props {
 
 /** The Remote Groups tab: groups whose IDs live outside the SDK payload. */
 export default function RemoteGroups({ groups, mutate }: Props) {
+  const { t } = useLingui();
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -184,12 +186,12 @@ export default function RemoteGroups({ groups, mutate }: Props) {
         <Flex align="center" justify="between" mb="1">
           <Flex align="center" gap="2">
             <Heading as="h2" size="lg" mb="0">
-              Remote Groups
+              <Trans>Remote Groups</Trans>
             </Heading>
             <PaidFeatureBadge commercialFeature="large-saved-groups" />
           </Flex>
           <Tooltip
-            content="You do not have permission to create Saved Groups."
+            content={t`You do not have permission to create Saved Groups.`}
             enabled={!canCreate}
           >
             {/* A disabled button gets no hover events, so the tooltip wraps a span */}
@@ -200,14 +202,16 @@ export default function RemoteGroups({ groups, mutate }: Props) {
                   hasFeature ? setSavedGroupForm({}) : setUpgradeModal(true)
                 }
               >
-                Add Remote Group
+                <Trans>Add Remote Group</Trans>
               </Button>
             </span>
           </Tooltip>
         </Flex>
         <Text as="p" color="text-mid" mb="1">
-          Remote Groups allow you to upload much larger lists of targeting IDs.
-          The lists are stored and managed outside of the SDK payload.
+          <Trans>
+            Remote Groups allow you to upload much larger lists of targeting
+            IDs. The lists are stored and managed outside of the SDK payload.
+          </Trans>
         </Text>
 
         <Box mt="4">
@@ -219,7 +223,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
-                  placeholder="Search..."
+                  placeholder={t`Search...`}
                   type="search"
                   {...searchInputProps}
                 />
@@ -236,15 +240,19 @@ export default function RemoteGroups({ groups, mutate }: Props) {
               <TableHeader>
                 <TableRow>
                   <SortableTableColumnHeader field="groupName">
-                    Name
+                    <Trans>Name</Trans>
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader field="attributeKey">
-                    Attribute
+                    <Trans>Attribute</Trans>
                   </SortableTableColumnHeader>
-                  <TableColumnHeader>Description</TableColumnHeader>
-                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Description</Trans>
+                  </TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Projects</Trans>
+                  </TableColumnHeader>
                   <SortableTableColumnHeader field="dateUpdated">
-                    Last Modified
+                    <Trans>Last Modified</Trans>
                   </SortableTableColumnHeader>
                 </TableRow>
               </TableHeader>
@@ -282,7 +290,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
                 {!items.length && isFiltered && (
                   <TableRow>
                     <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      No matching Saved Groups
+                      <Trans>No matching Saved Groups</Trans>
                     </TableCell>
                   </TableRow>
                 )}

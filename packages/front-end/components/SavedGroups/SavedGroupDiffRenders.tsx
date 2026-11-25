@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
@@ -73,7 +74,7 @@ function ValuesBox({
             values.join("\n")
           ) : (
             <Text fontStyle="italic" color="text-low">
-              None
+              <Trans>None</Trans>
             </Text>
           )}
         </Box>
@@ -89,14 +90,20 @@ function ValueChangedField({
   pre,
   post,
 }: {
-  label?: string;
+  label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
 }) {
   if (isEqual(pre, post)) return null;
   // Treat null, undefined, and empty string as unset
   const displayVal = (v: string | null | undefined): ReactNode =>
-    v == null || v === "" ? <em>unset</em> : v;
+    v == null || v === "" ? (
+      <em>
+        <Trans>unset</Trans>
+      </em>
+    ) : (
+      v
+    );
   const isSimple = (v: string | null | undefined): boolean =>
     v == null || (!v.includes("\n") && v.length <= 80);
   if (isSimple(pre) && isSimple(post)) {
@@ -171,13 +178,25 @@ export function renderSavedGroupTargeting(
   const rows: ReactNode[] = [
     <ChangeField
       key="condition"
-      label="Condition"
+      label={<Trans>Condition</Trans>}
       changed
       oldNode={
-        !preEmpty ? <ConditionDisplay condition={preStr!} /> : <em>None</em>
+        !preEmpty ? (
+          <ConditionDisplay condition={preStr!} />
+        ) : (
+          <em>
+            <Trans>None</Trans>
+          </em>
+        )
       }
       newNode={
-        !postEmpty ? <ConditionDisplay condition={postStr!} /> : <em>None</em>
+        !postEmpty ? (
+          <ConditionDisplay condition={postStr!} />
+        ) : (
+          <em>
+            <Trans>None</Trans>
+          </em>
+        )
       }
     />,
   ];
@@ -212,9 +231,15 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="attrKey"
-        label="Attribute key"
+        label={<Trans>Attribute key</Trans>}
         changed
-        oldNode={pre?.attributeKey ?? <em>unset</em>}
+        oldNode={
+          pre?.attributeKey ?? (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
         newNode={post.attributeKey}
       />,
     );
@@ -240,11 +265,13 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
       const deltaCount = added.length + removed.length;
 
       if (deltaCount > 0 && deltaCount <= 20) {
+        const moreRemoved = removed.length - 10;
+        const moreAdded = added.length - 10;
         rows.push(
           <Box key="values-badges" mb="2">
             <Box mb="1">
               <Text size="md" weight="medium" color="text-mid">
-                Values
+                <Trans>Values</Trans>
               </Text>
             </Box>
             <Flex wrap="wrap" gap="1">
@@ -258,7 +285,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
               ))}
               {removed.length > 10 && (
                 <Badge
-                  label={`− ${removed.length - 10} more`}
+                  label={<Trans>− {moreRemoved} more</Trans>}
                   color="red"
                   variant="soft"
                 />
@@ -273,7 +300,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
               ))}
               {added.length > 10 && (
                 <Badge
-                  label={`+ ${added.length - 10} more`}
+                  label={<Trans>+ {moreAdded} more</Trans>}
                   color="green"
                   variant="soft"
                 />
@@ -287,7 +314,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
           <Box key="values" mb="2">
             <Box mb="1">
               <Text size="md" weight="medium" color="text-mid">
-                Values
+                <Trans>Values</Trans>
               </Text>
             </Box>
             <ValuesBox values={preVals} marker="Δ" color="danger" />
@@ -297,16 +324,19 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
       }
     } else {
       const countChanged = preCount !== postCount;
+      const postCountText = postCount.toLocaleString();
       rows.push(
         <ChangeField
           key="values-count"
-          label="Values"
+          label={<Trans>Values</Trans>}
           changed
-          oldNode={`${preCount.toLocaleString()} item${preCount !== 1 ? "s" : ""}`}
+          oldNode={<Plural value={preCount} one="# item" other="# items" />}
           newNode={
-            countChanged
-              ? `${postCount.toLocaleString()} item${postCount !== 1 ? "s" : ""}`
-              : `${postCount.toLocaleString()} items (content changed)`
+            countChanged ? (
+              <Plural value={postCount} one="# item" other="# items" />
+            ) : (
+              <Trans>{postCountText} items (content changed)</Trans>
+            )
           }
         />,
       );
@@ -349,9 +379,15 @@ export function renderSavedGroupSettings(
     rows.push(
       <ChangeField
         key="groupName"
-        label="Name"
+        label={<Trans>Name</Trans>}
         changed
-        oldNode={pre?.groupName ?? <em>None</em>}
+        oldNode={
+          pre?.groupName ?? (
+            <em>
+              <Trans>None</Trans>
+            </em>
+          )
+        }
         newNode={post.groupName}
       />,
     );
@@ -361,10 +397,26 @@ export function renderSavedGroupSettings(
     rows.push(
       <ChangeField
         key="owner"
-        label="Owner"
+        label={<Trans>Owner</Trans>}
         changed
-        oldNode={pre?.owner ? <OwnerName id={pre.owner} /> : <em>unset</em>}
-        newNode={post.owner ? <OwnerName id={post.owner} /> : <em>unset</em>}
+        oldNode={
+          pre?.owner ? (
+            <OwnerName id={pre.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
+        newNode={
+          post.owner ? (
+            <OwnerName id={post.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
       />,
     );
   }
@@ -377,7 +429,7 @@ export function renderSavedGroupSettings(
     rows.push(
       <ValueChangedField
         key="description"
-        label="Description"
+        label={<Trans>Description</Trans>}
         pre={pre?.description || null}
         post={post.description || null}
       />,
@@ -398,10 +450,10 @@ export function renderSavedGroupSettings(
     rows.push(
       <ChangeField
         key="archived"
-        label="Status"
+        label={<Trans>Status</Trans>}
         changed
-        oldNode={preArchived ? "Archived" : "Active"}
-        newNode={postArchived ? "Archived" : "Active"}
+        oldNode={preArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
+        newNode={postArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
       />,
     );
   }
@@ -417,7 +469,7 @@ export function renderSavedGroupSettings(
         rows.push(
           <ChangeField
             key="projects"
-            label="Project"
+            label={<Trans>Project</Trans>}
             changed
             oldNode={
               preProjects.length ? (
@@ -430,7 +482,9 @@ export function renderSavedGroupSettings(
                   ))}
                 </>
               ) : (
-                <em>unset</em>
+                <em>
+                  <Trans>unset</Trans>
+                </em>
               )
             }
             newNode={
@@ -444,7 +498,9 @@ export function renderSavedGroupSettings(
                   ))}
                 </>
               ) : (
-                <em>unset</em>
+                <em>
+                  <Trans>unset</Trans>
+                </em>
               )
             }
           />,
@@ -496,7 +552,7 @@ export function renderSavedGroupProjects(
       <Box key="projects-badges" mb="2">
         <Box mb="1">
           <Text size="md" weight="medium" color="text-mid">
-            Projects
+            <Trans>Projects</Trans>
           </Text>
         </Box>
         <Flex wrap="wrap" gap="1">
@@ -532,7 +588,7 @@ export function renderSavedGroupProjects(
     rows.push(
       <ChangeField
         key="projects"
-        label="Projects"
+        label={<Trans>Projects</Trans>}
         changed
         oldNode={
           preProjects.length ? (
@@ -545,7 +601,9 @@ export function renderSavedGroupProjects(
               ))}
             </>
           ) : (
-            <em>None</em>
+            <em>
+              <Trans>None</Trans>
+            </em>
           )
         }
         newNode={
@@ -559,7 +617,9 @@ export function renderSavedGroupProjects(
               ))}
             </>
           ) : (
-            <em>None</em>
+            <em>
+              <Trans>None</Trans>
+            </em>
           )
         }
       />,
@@ -656,18 +716,34 @@ export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
+function UploadVersionChangedField({
+  pre,
+  post,
+}: {
+  pre: number | undefined;
+  post: number | undefined;
+}) {
+  const { t } = useLingui();
+  const version = (v: number | undefined) =>
+    v === undefined ? undefined : t`Version ${v}`;
+  return (
+    <ValueChangedField
+      label={t`Upload version`}
+      pre={version(pre)}
+      post={version(post)}
+    />
+  );
+}
+
 /** A remote group switching to another upload. */
 export function renderSavedGroupUploadVersion(
   pre: Pre,
   post: Post,
 ): ReactNode | null {
-  const version = (v: number | undefined) =>
-    v === undefined ? undefined : `Version ${v}`;
   return (
-    <ValueChangedField
-      label="Upload version"
-      pre={version(pre?.currentUploadVersion)}
-      post={version(post.currentUploadVersion)}
+    <UploadVersionChangedField
+      pre={pre?.currentUploadVersion}
+      post={post.currentUploadVersion}
     />
   );
 }

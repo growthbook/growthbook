@@ -26,6 +26,8 @@ import { isActiveDraftStatus } from "shared/validators";
 import { PiPlus } from "react-icons/pi";
 import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -124,9 +126,11 @@ const NUM_PER_PAGE = 10;
 const savedGroupTabs = ["overview", "review"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
 
-const REMOTE_LOCKED_REASON = "Changing Remote Groups needs an Enterprise plan.";
+const REMOTE_LOCKED_REASON = msg`Changing Remote Groups needs an Enterprise plan.`;
 
 export default function EditSavedGroupPage() {
+  const { t, i18n } = useLingui();
+  const remoteLockedReason = i18n._(REMOTE_LOCKED_REASON);
   const router = useRouter();
   const { sgid } = router.query;
   const { data, error, mutate } = useApi<{ savedGroup: SavedGroupInterface }>(
@@ -288,7 +292,7 @@ export default function EditSavedGroupPage() {
   // One instance per modal, so an add conflict can't gate a later removal.
   const addConflict = useDraftConflict<Record<string, unknown>>({
     initial: { values: displayedValues },
-    labels: { values: "List items" },
+    labels: { values: t`List items` },
     applyField: (_field, value) => {
       setImportOperation("replace");
       setItemsToAdd((value as string[]) ?? []);
@@ -305,7 +309,7 @@ export default function EditSavedGroupPage() {
   // reports the conflict and offers a reload.
   const deleteConflict = useDraftConflict<Record<string, unknown>>({
     initial: { values: displayedValues },
-    labels: { values: "List items" },
+    labels: { values: t`List items` },
     isNewDraft: deleteItemsDraftMode === "new",
     entityNoun: "saved group",
   });
@@ -432,9 +436,10 @@ export default function EditSavedGroupPage() {
   const panelRevision = selectedRevision ?? liveRevision;
 
   if (error) {
+    const errorMessage = error.message;
     return (
       <Callout status="error" mt="4">
-        An error occurred: {error.message}
+        <Trans>An error occurred: {errorMessage}</Trans>
       </Callout>
     );
   }
@@ -443,6 +448,7 @@ export default function EditSavedGroupPage() {
     return <LoadingOverlay />;
   }
 
+  const selectedCount = selected.size;
   const toggleSelected = (value: string) => {
     const next = new Set(selected);
     if (next.has(value)) next.delete(value);
@@ -504,14 +510,14 @@ export default function EditSavedGroupPage() {
       ? SCHEDULE_EDIT_LOCK_REASON
       : null;
   const editBlockedReason = isMerged
-    ? "You cannot edit a published revision."
+    ? t`You cannot edit a published revision.`
     : isDiscarded
-      ? "You cannot edit a discarded revision."
+      ? t`You cannot edit a discarded revision.`
       : !canDraft
-        ? "You don't have permission to edit drafts for this Saved Group."
+        ? t`You don't have permission to edit drafts for this Saved Group.`
         : null;
   const editInfoBlockedReason = remoteLocked
-    ? REMOTE_LOCKED_REASON
+    ? remoteLockedReason
     : editLockReason;
   const editInfo =
     (canDraft || remoteLocked) && !isMerged && !isDiscarded
@@ -565,7 +571,7 @@ export default function EditSavedGroupPage() {
             {getStatusBadge("live", approvalRequired)}
           </>
         ) : (
-          <>the live Saved Group</>
+          <Trans>the live Saved Group</Trans>
         )
       }
       create={async ({ title, comment }) => {
@@ -601,7 +607,7 @@ export default function EditSavedGroupPage() {
             setShowAuditModal(true);
           }}
         >
-          Audit history
+          <Trans>Audit history</Trans>
         </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
@@ -610,7 +616,7 @@ export default function EditSavedGroupPage() {
               setCompareRevisionsModalOpen(true);
             }}
           >
-            Compare revisions
+            <Trans>Compare revisions</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuGroup>
@@ -625,7 +631,7 @@ export default function EditSavedGroupPage() {
                   setShowArchiveModal(true);
                 }}
               >
-                {isArchivedInView ? "Unarchive" : "Archive"}
+                {isArchivedInView ? t`Unarchive` : t`Archive`}
               </DropdownMenuItem>
             )}
             {/* Gated on the LIVE archive state, as the server is: publish the
@@ -638,7 +644,7 @@ export default function EditSavedGroupPage() {
                   setShowDeleteModal(true);
                 }}
               >
-                Delete
+                <Trans>Delete</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -660,35 +666,35 @@ export default function EditSavedGroupPage() {
             labelOnlyEvents: [
               {
                 event: "savedGroup.deleted",
-                getLabel: () => "Deleted",
+                getLabel: () => t`Deleted`,
                 alwaysVisible: true,
               },
               {
                 event: "savedGroup.uploaded",
-                getLabel: () => "Uploaded IDs",
+                getLabel: () => t`Uploaded IDs`,
                 alwaysVisible: true,
               },
               {
                 event: "savedGroup.uploadDeleted",
-                getLabel: () => "Deleted an upload",
+                getLabel: () => t`Deleted an upload`,
                 alwaysVisible: true,
               },
             ],
             sections: [
               {
-                label: "Saved Group Settings",
+                label: t`Saved Group Settings`,
                 keys: ["groupName", "owner", "description", "projects"],
                 render: renderSavedGroupSettings,
                 getBadges: getSavedGroupSettingsBadges,
               },
               {
-                label: "Targeting",
+                label: t`Targeting`,
                 keys: ["condition"],
                 render: renderSavedGroupTargeting,
                 getBadges: getSavedGroupTargetingBadges,
               },
               {
-                label: "Values",
+                label: t`Values`,
                 keys: ["values", "attributeKey"],
                 getBadges: getSavedGroupValuesBadges,
               },
@@ -717,11 +723,12 @@ export default function EditSavedGroupPage() {
                 const vals = result.values as string[];
                 const LIMIT = 100;
                 if (vals.length > LIMIT) {
+                  const moreCount = vals.length - LIMIT;
                   result = {
                     ...result,
                     values: [
                       ...vals.slice(0, LIMIT),
-                      `— ${vals.length - LIMIT} more values...`,
+                      t`— ${moreCount} more values...`,
                     ],
                   };
                 }
@@ -737,13 +744,17 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="delete-saved-group-items"
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
-          header={`Remove ${selected.size} Item${selected.size !== 1 ? "s" : ""}`}
+          header={
+            selectedCount !== 1
+              ? t`Remove ${selectedCount} Items`
+              : t`Remove ${selectedCount} Item`
+          }
           cta={removeCta.label}
           submitColor={removeCta.bypass ? "danger" : "primary"}
           ctaEnabled={!deleteConflict.hasConflict}
           disabledMessage={
             deleteConflict.hasConflict
-              ? "Reload to remove items from the current list."
+              ? t`Reload to remove items from the current list.`
               : undefined
           }
           submit={async () => {
@@ -815,8 +826,10 @@ export default function EditSavedGroupPage() {
             alert={
               deleteConflict.hasConflict ? (
                 <HelperText status="warning" icon={null}>
-                  The list changed while you were editing, so this removal no
-                  longer matches it.
+                  <Trans>
+                    The list changed while you were editing, so this removal no
+                    longer matches it.
+                  </Trans>
                 </HelperText>
               ) : undefined
             }
@@ -826,7 +839,9 @@ export default function EditSavedGroupPage() {
             <ConflictShell
               resolved={false}
               message={
-                <Text>Reload to remove items from the current list.</Text>
+                <Text>
+                  <Trans>Reload to remove items from the current list.</Trans>
+                </Text>
               }
               choices={
                 <Button
@@ -838,7 +853,7 @@ export default function EditSavedGroupPage() {
                     setDeleteItemsModal(false);
                   }}
                 >
-                  Reload
+                  <Trans>Reload</Trans>
                 </Button>
               }
             />
@@ -856,8 +871,8 @@ export default function EditSavedGroupPage() {
           size="lg"
           header={
             importOperation === "append"
-              ? "Add List Items"
-              : "Overwrite List Contents"
+              ? t`Add List Items`
+              : t`Overwrite List Contents`
           }
           cta={addCta.label}
           submitColor={addCta.bypass ? "danger" : "primary"}
@@ -942,8 +957,11 @@ export default function EditSavedGroupPage() {
             />
             {importOperation === "replace" && replacedCount > 0 ? (
               <Text as="p" mb="3">
-                These replace all {replacedCount} current item
-                {replacedCount === 1 ? "" : "s"}.
+                <Plural
+                  value={replacedCount}
+                  one="These replace all # current item."
+                  other="These replace all # current items."
+                />
               </Text>
             ) : null}
             <IdListItemInput
@@ -1113,7 +1131,7 @@ export default function EditSavedGroupPage() {
       )}
       <PageHead
         breadcrumb={[
-          { display: "Saved Groups", href: "/saved-groups" },
+          { display: t`Saved Groups`, href: "/saved-groups" },
           { display: displayedSavedGroup?.groupName || savedGroup.groupName },
         ]}
       />
@@ -1123,7 +1141,9 @@ export default function EditSavedGroupPage() {
         onRename={editInfo}
         renameBlockedReason={editInfoBlockedReason}
         badges={
-          savedGroup.archived ? <Badge label="Archived" color="gray" /> : null
+          savedGroup.archived ? (
+            <Badge label={t`Archived`} color="gray" />
+          ) : null
         }
         actions={
           <DetailsPageActions
@@ -1145,9 +1165,11 @@ export default function EditSavedGroupPage() {
         onValueChange={(v) => setTabAndScroll(v as SavedGroupTab)}
         triggers={
           <>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
             <TabsTrigger value="review">
-              Review &amp; Publish
+              <Trans>Review &amp; Publish</Trans>
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
             </TabsTrigger>
           </>
@@ -1198,7 +1220,7 @@ export default function EditSavedGroupPage() {
             onEditInfo={editInfo}
             editInfoBlockedReason={editInfoBlockedReason}
             references={{
-              rows: savedGroupReferenceSections(references ?? {}),
+              rows: savedGroupReferenceSections(references ?? {}, i18n),
               loading: referencesLoading,
               error: !!referencesError,
             }}
@@ -1321,11 +1343,11 @@ export default function EditSavedGroupPage() {
                   !isSavedGroupRevisionArchiveOnly(
                     panelRevision?.target.proposedChanges,
                   )
-                    ? REMOTE_LOCKED_REASON
+                    ? remoteLockedReason
                     : undefined
                 }
                 revertBlockedReason={
-                  remoteLocked ? REMOTE_LOCKED_REASON : undefined
+                  remoteLocked ? remoteLockedReason : undefined
                 }
                 onCompareRevisions={
                   allRevisions.length >= 2
@@ -1342,13 +1364,15 @@ export default function EditSavedGroupPage() {
                 {savedGroup.type === "list" &&
                   !isIdListSupportedAttribute(attr) && (
                     <Callout status="error" my="3">
-                      The attribute for this Saved Group has an unsupported
-                      datatype. It cannot be edited and it may produce
-                      unexpected behavior when used in SDKs. Try using a{" "}
-                      <Link href="/saved-groups#conditionGroups">
-                        Condition Group
-                      </Link>{" "}
-                      instead
+                      <Trans>
+                        The attribute for this Saved Group has an unsupported
+                        datatype. It cannot be edited and it may produce
+                        unexpected behavior when used in SDKs. Try using a{" "}
+                        <Link href="/saved-groups#conditionGroups">
+                          Condition Group
+                        </Link>{" "}
+                        instead
+                      </Trans>
                     </Callout>
                   )}
                 {upgradeModal && (
@@ -1360,12 +1384,14 @@ export default function EditSavedGroupPage() {
                 )}
                 {remoteLocked && (
                   <Callout status="warning" mb="4">
-                    Changing Remote Groups needs an Enterprise plan. Feature
-                    Flags and experiments that use this group keep working, and
-                    you can still archive or unarchive it, but you can&apos;t
-                    upload IDs, change its version, publish other drafts or roll
-                    back.{" "}
-                    <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
+                    <Trans>
+                      Changing Remote Groups needs an Enterprise plan. Feature
+                      Flags and experiments that use this group keep working,
+                      and you can still archive or unarchive it, but you
+                      can&apos;t upload IDs, change its version, publish other
+                      drafts or roll back.{" "}
+                      <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
+                    </Trans>
                   </Callout>
                 )}
                 {savedGroup.type === "remote" ? (
@@ -1387,13 +1413,11 @@ export default function EditSavedGroupPage() {
                       savedGroup,
                       NO_ENVIRONMENT_BINDING,
                     )}
-                    planLockedReason={
-                      remoteLocked ? REMOTE_LOCKED_REASON : null
-                    }
+                    planLockedReason={remoteLocked ? remoteLockedReason : null}
                     viewing={isLive ? "live" : isDraft ? "draft" : "other"}
                     viewedVersion={displayedSavedGroup?.currentUploadVersion}
                     useVersionDisabledReason={
-                      remoteLocked ? REMOTE_LOCKED_REASON : editBlockedReason
+                      remoteLocked ? remoteLockedReason : editBlockedReason
                     }
                     onUseVersion={(version) =>
                       setUseUploadModal({
@@ -1404,7 +1428,7 @@ export default function EditSavedGroupPage() {
                   />
                 ) : savedGroup.type === "condition" ? (
                   <SectionFrame
-                    title="Condition"
+                    title={t`Condition`}
                     actions={
                       canEditView ? (
                         <Tooltip
@@ -1418,17 +1442,19 @@ export default function EditSavedGroupPage() {
                               setEditConditionModal(stateOf(editTarget))
                             }
                           >
-                            Edit
+                            <Trans>Edit</Trans>
                           </Button>
                         </Tooltip>
                       ) : null
                     }
                   >
                     <Text as="div" weight="semibold" mb="3">
-                      Include all users who match:
+                      <Trans>Include all users who match:</Trans>
                     </Text>
                     <Flex direction="row" gap="2">
-                      <Text weight="medium">IF</Text>
+                      <Text weight="medium">
+                        <Trans>IF</Trans>
+                      </Text>
                       <Box flexGrow="1" minWidth="0">
                         <ConditionDisplay
                           condition={displayedSavedGroup?.condition || ""}
@@ -1439,17 +1465,17 @@ export default function EditSavedGroupPage() {
                   </SectionFrame>
                 ) : (
                   <SectionFrame
-                    title="List Items"
+                    title={t`List Items`}
                     titleAddon={
                       <>
                         <TabCount count={displayedValues.length} />
                         {canEditView && selected.size > 0 ? (
                           <Flex align="center" gap="4" ml="2">
                             <Text color="text-mid">
-                              {selected.size} selected
+                              <Trans>{selectedCount} selected</Trans>
                             </Text>
                             <Link onClick={() => setSelected(new Set())}>
-                              Clear
+                              <Trans>Clear</Trans>
                             </Link>
                             <Tooltip
                               content={editLockReason}
@@ -1473,7 +1499,7 @@ export default function EditSavedGroupPage() {
                                   setDeleteItemsModal(true);
                                 }}
                               >
-                                Remove
+                                <Trans>Remove</Trans>
                               </Button>
                             </Tooltip>
                           </Flex>
@@ -1493,7 +1519,7 @@ export default function EditSavedGroupPage() {
                               disabled={!!editLockReason}
                               onClick={() => openItemsModal("replace")}
                             >
-                              Overwrite list
+                              <Trans>Overwrite list</Trans>
                             </Button>
                             <Button
                               variant="outline"
@@ -1501,7 +1527,7 @@ export default function EditSavedGroupPage() {
                               icon={<PiPlus />}
                               onClick={() => openItemsModal("append")}
                             >
-                              Add items
+                              <Trans>Add items</Trans>
                             </Button>
                           </Flex>
                         </Tooltip>
@@ -1552,8 +1578,8 @@ export default function EditSavedGroupPage() {
                               <Box style={{ width: 240 }}>
                                 <Field
                                   size="sm"
-                                  placeholder="Search..."
-                                  aria-label="Search list items"
+                                  placeholder={t`Search...`}
+                                  aria-label={t`Search list items`}
                                   type="search"
                                   value={filter}
                                   onChange={(e) => {
@@ -1604,8 +1630,8 @@ export default function EditSavedGroupPage() {
                               style={{ textAlign: "center" }}
                             >
                               {displayedValues.length
-                                ? "No items match the current search."
-                                : "This group doesn't have any items yet."}
+                                ? t`No items match the current search.`
+                                : t`This group doesn't have any items yet.`}
                             </TableCell>
                           </TableRow>
                         )}
@@ -1622,11 +1648,13 @@ export default function EditSavedGroupPage() {
                     {!displayedValues.length &&
                       !displayedSavedGroup?.useEmptyListGroup && (
                         <Callout status="info">
-                          This Saved Group has legacy behavior when empty and
-                          will be completely ignored when used for targeting.{" "}
-                          <DocLink useRadix={false} docSection="idLists">
-                            Learn more
-                          </DocLink>
+                          <Trans>
+                            This Saved Group has legacy behavior when empty and
+                            will be completely ignored when used for targeting.{" "}
+                            <DocLink useRadix={false} docSection="idLists">
+                              Learn more
+                            </DocLink>
+                          </Trans>
                         </Callout>
                       )}
                   </SectionFrame>

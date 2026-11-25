@@ -8,6 +8,9 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { PiDownloadSimple, PiTrash, PiWarningCircle } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -36,36 +39,39 @@ export function UploadStatusBadge({
 }: {
   status: ApiSavedGroupUpload["status"];
 }) {
+  const { t } = useLingui();
   switch (status.type) {
     case "pending":
-      return <Badge label="Validating" color="gray" />;
-    case "valid":
+      return <Badge label={t`Validating`} color="gray" />;
+    case "valid": {
+      const idCount = status.idCount.toLocaleString();
+      return <Badge label={t`Valid: ${idCount} IDs`} color="green" />;
+    }
+    case "invalid": {
+      const invalidLineCount = status.invalidLineCount.toLocaleString();
       return (
-        <Badge
-          label={`Valid: ${status.idCount.toLocaleString()} IDs`}
-          color="green"
-        />
+        <Badge label={t`Invalid: ${invalidLineCount} bad lines`} color="red" />
       );
-    case "invalid":
-      return (
-        <Badge
-          label={`Invalid: ${status.invalidLineCount.toLocaleString()} bad lines`}
-          color="red"
-        />
-      );
+    }
   }
 }
 
-function describeLoad(status: Load["status"]): string {
+function describeLoad(status: Load["status"], i18n: I18n): string {
   switch (status.type) {
     case "loading":
-      return "Loading";
-    case "loaded":
-      return `Loaded ${status.rowCount.toLocaleString()} IDs`;
-    case "invalid":
-      return `Invalid (${status.invalidLineCount.toLocaleString()} bad lines)`;
-    case "failed":
-      return `Failed: ${status.error}`;
+      return i18n._(msg`Loading`);
+    case "loaded": {
+      const rowCount = status.rowCount.toLocaleString();
+      return i18n._(msg`Loaded ${rowCount} IDs`);
+    }
+    case "invalid": {
+      const invalidLineCount = status.invalidLineCount.toLocaleString();
+      return i18n._(msg`Invalid (${invalidLineCount} bad lines)`);
+    }
+    case "failed": {
+      const error = status.error;
+      return i18n._(msg`Failed: ${error}`);
+    }
   }
 }
 
@@ -78,17 +84,24 @@ export function LoadSummary({
   /** The file's ID count, to flag stores that loaded a different number. */
   idCount?: number;
 }) {
-  if (!loads.length) return <Text color="text-low">Not reported</Text>;
-  const labels: Record<Load["status"]["type"], string> = {
-    loaded: "loaded",
-    loading: "loading",
-    invalid: "invalid",
-    failed: "failed",
+  const { t } = useLingui();
+  if (!loads.length) {
+    return (
+      <Text color="text-low">
+        <Trans>Not reported</Trans>
+      </Text>
+    );
+  }
+  const labels: Record<Load["status"]["type"], (count: number) => string> = {
+    loaded: (count) => t`${count} loaded`,
+    loading: (count) => t`${count} loading`,
+    invalid: (count) => t`${count} invalid`,
+    failed: (count) => t`${count} failed`,
   };
   const parts = (Object.keys(labels) as Load["status"]["type"][])
     .map((type) => {
       const count = loads.filter((l) => l.status.type === type).length;
-      return count ? `${count} ${labels[type]}` : null;
+      return count ? labels[type](count) : null;
     })
     .filter(Boolean);
   const differs =
@@ -104,17 +117,18 @@ export function LoadSummary({
   );
 }
 
-const LOAD_COUNT_DIFFERS =
-  "The number of values loaded doesn't match the file. The file may contain duplicates, which are removed at load time.";
+const LOAD_COUNT_DIFFERS = msg`The number of values loaded doesn't match the file. The file may contain duplicates, which are removed at load time.`;
 
 function LoadCountWarning() {
+  const { i18n } = useLingui();
+  const loadCountDiffers = i18n._(LOAD_COUNT_DIFFERS);
   return (
-    <Tooltip content={LOAD_COUNT_DIFFERS}>
+    <Tooltip content={loadCountDiffers}>
       {/* Focusable with a name, so keyboard and screen reader users get the note */}
       <span
         tabIndex={0}
         role="img"
-        aria-label={LOAD_COUNT_DIFFERS}
+        aria-label={loadCountDiffers}
         style={{ display: "inline-flex" }}
       >
         <PiWarningCircle style={{ color: "var(--amber-11)" }} />
@@ -145,23 +159,24 @@ export function isAwaitingLoads(upload: ApiSavedGroupUpload): boolean {
  * like the activity log shows them.
  */
 export function Uploader({ createdBy }: { createdBy: string }) {
+  const { t } = useLingui();
   const { getUserDisplay } = useUser();
   const permissionsUtils = usePermissionsUtil();
   const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
     shouldRun: () => permissionsUtils.canCreateApiKey(),
   });
-  if (!createdBy) return <>Unknown</>;
+  if (!createdBy) return <Trans>Unknown</Trans>;
   if (!createdBy.startsWith("key_")) {
     return <>{getUserDisplay(createdBy, true)}</>;
   }
   const description = data?.keys.find((k) => k.id === createdBy)?.description;
-  if (!description) return <>API key</>;
+  if (!description) return <Trans>API key</Trans>;
   return (
     <Flex as="span" display="inline-flex" align="center" gap="1">
       {description}
-      <Tooltip content="via API key">
+      <Tooltip content={t`via API key`}>
         <span>
-          <Badge variant="outline" label="API" size="xs" />
+          <Badge variant="outline" label={t`API`} size="xs" />
         </span>
       </Tooltip>
     </Flex>
@@ -170,10 +185,11 @@ export function Uploader({ createdBy }: { createdBy: string }) {
 
 /** A store's load status, explaining a count that differs from the file's. */
 function LoadStatusCell({ load, idCount }: { load: Load; idCount?: number }) {
+  const { i18n } = useLingui();
   const { status } = load;
   return (
     <Flex align="center" gap="1">
-      <Text>{describeLoad(status)}</Text>
+      <Text>{describeLoad(status, i18n)}</Text>
       {status.type === "loaded" &&
         idCount !== undefined &&
         status.rowCount !== idCount && <LoadCountWarning />}
@@ -186,6 +202,7 @@ function LoadStatusCell({ load, idCount }: { load: Load; idCount?: number }) {
  * left open never uses an expired one.
  */
 export function useDownloadUpload(savedGroupId: string) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const [downloadingVersion, setDownloadingVersion] = useState<number | null>(
     null,
@@ -201,7 +218,8 @@ export function useDownloadUpload(savedGroupId: string) {
       );
       window.location.assign(url);
     } catch (e) {
-      setDownloadError(`Could not download version ${version}: ${e.message}`);
+      const message = e.message;
+      setDownloadError(t`Could not download version ${version}: ${message}`);
     } finally {
       setDownloadingVersion(null);
     }
@@ -227,6 +245,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
   onDelete: () => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { download, downloadingVersion, downloadError } =
     useDownloadUpload(savedGroupId);
   const { data, error } = useApi<SavedGroupUploadDetails>(
@@ -245,6 +264,14 @@ export default function RemoteSavedGroupUploadDetailsModal({
   const upload = data?.upload;
   const file = data?.file;
   const status = upload?.status;
+  const loadErrorMessage = error?.message;
+  const fileSize = upload ? formatByteSizeString(upload.size) : null;
+  const byteCount = upload?.size.toLocaleString();
+  const uploadedAt = upload ? datetime(upload.dateCreated) : null;
+  const moreProblemCount =
+    status?.type === "invalid"
+      ? (status.invalidLineCount - status.errors.length).toLocaleString()
+      : null;
 
   return (
     <Modal.Root
@@ -256,20 +283,24 @@ export default function RemoteSavedGroupUploadDetailsModal({
       trackingEventModalType="remote-saved-group-upload-details"
     >
       <Modal.Header>
-        <Modal.Title>Version {version}</Modal.Title>
+        <Modal.Title>
+          <Trans>Version {version}</Trans>
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {error ? (
           <Callout status="error" size="sm">
-            Could not load this upload: {error.message}
+            <Trans>Could not load this upload: {loadErrorMessage}</Trans>
           </Callout>
         ) : !upload || !status ? (
-          <Text color="text-low">Loading...</Text>
+          <Text color="text-low">
+            <Trans>Loading...</Trans>
+          </Text>
         ) : (
           <>
             {!file && (
               <Callout status="warning" size="sm" mb="4">
-                The file is missing from storage.
+                <Trans>The file is missing from storage.</Trans>
               </Callout>
             )}
             {downloadError && (
@@ -282,55 +313,57 @@ export default function RemoteSavedGroupUploadDetailsModal({
               mb="4"
               data={[
                 {
-                  label: "Status",
+                  label: t`Status`,
                   value: <UploadStatusBadge status={status} />,
                 },
-                { label: "File name", value: upload.fileName ?? "Unnamed" },
                 {
-                  label: "Size",
-                  value: `${formatByteSizeString(upload.size)} (${upload.size.toLocaleString()} bytes)`,
+                  label: t`File name`,
+                  value: upload.fileName ?? t`Unnamed`,
                 },
                 {
-                  label: "Uploaded",
+                  label: t`Size`,
+                  value: t`${fileSize} (${byteCount} bytes)`,
+                },
+                {
+                  label: t`Uploaded`,
                   value: (
-                    <>
-                      {datetime(upload.dateCreated)} by{" "}
-                      <Uploader createdBy={upload.createdBy} />
-                    </>
+                    <Trans>
+                      {uploadedAt} by <Uploader createdBy={upload.createdBy} />
+                    </Trans>
                   ),
                 },
                 {
-                  label: "Content type",
-                  value: file?.contentType ?? "Unknown",
+                  label: t`Content type`,
+                  value: file?.contentType ?? t`Unknown`,
                 },
                 {
-                  label: "Last modified in storage",
+                  label: t`Last modified in storage`,
                   value: file?.lastModified
                     ? datetime(file.lastModified)
-                    : "Unknown",
+                    : t`Unknown`,
                 },
                 {
                   label: "SHA-256",
                   value: upload.sha256 ? (
                     <CopyableValue value={upload.sha256} />
                   ) : status.type === "pending" ? (
-                    "Computed when validated"
+                    t`Computed when validated`
                   ) : (
-                    "Not available"
+                    t`Not available`
                   ),
                 },
                 {
-                  label: "Checksum (ETag)",
+                  label: t`Checksum (ETag)`,
                   value: file?.etag ? (
                     <CopyableValue value={file.etag} />
                   ) : (
-                    "Unknown"
+                    t`Unknown`
                   ),
                 },
                 ...(data.storageLocation
                   ? [
                       {
-                        label: "Storage location",
+                        label: t`Storage location`,
                         value: <CopyableValue value={data.storageLocation} />,
                       },
                     ]
@@ -341,7 +374,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
             {status.type === "invalid" && (
               <Box mb="4">
                 <Heading as="h3" size="sm" mb="2">
-                  Problems
+                  <Trans>Problems</Trans>
                 </Heading>
                 <Flex direction="column" gap="1">
                   {status.errors.map((e, i) => (
@@ -351,11 +384,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
                   ))}
                   {status.invalidLineCount > status.errors.length && (
                     <Text color="text-low">
-                      and{" "}
-                      {(
-                        status.invalidLineCount - status.errors.length
-                      ).toLocaleString()}{" "}
-                      more
+                      <Trans>and {moreProblemCount} more</Trans>
                     </Text>
                   )}
                 </Flex>
@@ -363,19 +392,25 @@ export default function RemoteSavedGroupUploadDetailsModal({
             )}
 
             <Heading as="h3" size="sm" mb="2">
-              Data Stores
+              <Trans>Data Stores</Trans>
             </Heading>
             {!upload.loads.length ? (
               <Text color="text-low">
-                No data stores have reported on this upload.
+                <Trans>No data stores have reported on this upload.</Trans>
               </Text>
             ) : (
               <Table variant="list">
                 <TableHeader>
                   <TableRow>
-                    <TableColumnHeader>Store</TableColumnHeader>
-                    <TableColumnHeader>Status</TableColumnHeader>
-                    <TableColumnHeader>Updated</TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Store</Trans>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Status</Trans>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                      <Trans>Updated</Trans>
+                    </TableColumnHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -406,7 +441,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
       <Modal.Footer justify="between">
         <Modal.Close>
           <Button variant="ghost" onClick={close}>
-            Close
+            <Trans>Close</Trans>
           </Button>
         </Modal.Close>
         <Flex gap="3">
@@ -424,7 +459,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
                 disabled={!!deleteDisabledReason}
                 onClick={onDelete}
               >
-                Delete
+                <Trans>Delete</Trans>
               </Button>
             </span>
           </Tooltip>
@@ -434,7 +469,7 @@ export default function RemoteSavedGroupUploadDetailsModal({
             loading={downloadingVersion === version}
             onClick={() => download(version)}
           >
-            Download CSV
+            <Trans>Download CSV</Trans>
           </Button>
         </Flex>
       </Modal.Footer>

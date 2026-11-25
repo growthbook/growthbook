@@ -1,4 +1,5 @@
 import { SavedGroupUploadDetails } from "shared/validators";
+import { Trans } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
@@ -41,11 +42,16 @@ export default function RemoteGroupNotLoadedWarning({
     <HelperText status="warning" size="sm" mt="1">
       <span>
         {failed ? (
-          <>Loading {name} failed in a data store.</>
+          <Trans>
+            Loading {name} failed in a data store. Until it is, &quot;not in
+            group&quot; checks for it match everyone.
+          </Trans>
         ) : (
-          <>{name} hasn&apos;t been loaded by any data store yet.</>
-        )}{" "}
-        Until it is, &quot;not in group&quot; checks for it match everyone.
+          <Trans>
+            {name} hasn&apos;t been loaded by any data store yet. Until it is,
+            &quot;not in group&quot; checks for it match everyone.
+          </Trans>
+        )}
       </span>
     </HelperText>
   );

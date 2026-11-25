@@ -7,6 +7,7 @@ import {
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -92,6 +93,7 @@ export default function LargeSavedGroupPerformanceWarning({
   connections,
   type = "list",
 }: LargeSavedGroupSupportWarningProps) {
+  const { t } = useLingui();
   const [ownUpgradeModal, setOwnUpgradeModal] = useState(false);
 
   if (!hasLargeSavedGroupFeature) {
@@ -105,14 +107,16 @@ export default function LargeSavedGroupPerformanceWarning({
           />
         )}
         <Callout status="info" mb="4" size="sm">
-          Performance improvements for Saved Groups are available with an
-          Enterprise plan.{" "}
-          <a
-            role="button"
-            onClick={openUpgradeModal ?? (() => setOwnUpgradeModal(true))}
-          >
-            Upgrade &gt;
-          </a>
+          <Trans>
+            Performance improvements for Saved Groups are available with an
+            Enterprise plan.{" "}
+            <a
+              role="button"
+              onClick={openUpgradeModal ?? (() => setOwnUpgradeModal(true))}
+            >
+              Upgrade &gt;
+            </a>
+          </Trans>
         </Callout>
       </>
     );
@@ -139,10 +143,14 @@ export default function LargeSavedGroupPerformanceWarning({
 
   const action =
     needsSettingChanged && needsUpgrade
-      ? "Tip: upgrade your SDKs and change how they pass Saved Groups to improve performance."
+      ? t`Tip: upgrade your SDKs and change how they pass Saved Groups to improve performance.`
       : needsUpgrade
-        ? "Tip: upgrade your SDKs to improve performance."
-        : "Tip: change how your SDK Connections pass Saved Groups to improve performance.";
+        ? t`Tip: upgrade your SDKs to improve performance.`
+        : t`Tip: change how your SDK Connections pass Saved Groups to improve performance.`;
+  const conditionNote =
+    isCondition && needsUpgrade
+      ? t`Condition Groups need a newer SDK version than ID Lists do.`
+      : null;
 
   return (
     <Callout
@@ -159,9 +167,7 @@ export default function LargeSavedGroupPerformanceWarning({
       <Box as="span">
         <Text mr="2">
           {action}
-          {isCondition && needsUpgrade
-            ? " Condition Groups need a newer SDK version than ID Lists do."
-            : ""}
+          {conditionNote !== null ? ` ${conditionNote}` : ""}
         </Text>
         <IncompatibleSDKsPopover
           connections={connections}

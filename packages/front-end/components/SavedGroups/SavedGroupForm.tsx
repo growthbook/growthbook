@@ -29,6 +29,9 @@ import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -67,10 +70,13 @@ import { draftModeCta } from "@/components/DraftSelector";
 type SavedGroupFormValues = CreateSavedGroupProps &
   Pick<UpdateSavedGroupProps, "currentUploadVersion">;
 
-export const SAVED_GROUP_TYPE_LABELS: Record<SavedGroupType, string> = {
-  condition: "Condition Group",
-  list: "ID List",
-  remote: "Remote Group",
+export const SAVED_GROUP_TYPE_LABELS: Record<
+  SavedGroupType,
+  MessageDescriptor
+> = {
+  condition: msg`Condition Group`,
+  list: msg`ID List`,
+  remote: msg`Remote Group`,
 };
 
 const SavedGroupForm: FC<{
@@ -111,6 +117,7 @@ const SavedGroupForm: FC<{
   autoBypassApproval = false,
   mutate,
 }) => {
+  const { t } = useLingui();
   const { apiCall, orgId } = useAuth();
   const router = useRouter();
   const settings = useOrgSettings();
@@ -180,7 +187,7 @@ const SavedGroupForm: FC<{
   });
   const cta = draftModeCta(draftMode, {
     bypassesApproval: isApprovalFlowRequired && !autoBypassApproval,
-    publishLabel: editInfoOnly ? "Save" : "Publish",
+    publishLabel: editInfoOnly ? t`Save` : t`Publish`,
   });
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
@@ -268,13 +275,13 @@ const SavedGroupForm: FC<{
           : { values: current.values ?? [] }),
     },
     labels: {
-      groupName: "Name",
-      owner: "Owner",
-      description: "Description",
-      projects: "Projects",
-      condition: "Condition",
-      values: "IDs",
-      currentUploadVersion: "Upload version",
+      groupName: t`Name`,
+      owner: t`Owner`,
+      description: t`Description`,
+      projects: t`Projects`,
+      condition: t`Condition`,
+      values: t`IDs`,
+      currentUploadVersion: t`Upload version`,
     },
     formatters: {
       projects: namedProjectsFormatter(getProjectById),
@@ -423,33 +430,48 @@ const SavedGroupForm: FC<{
 
   const getCtaDisabledMessage = (): string | undefined => {
     if (isEditBlocked) {
-      return "This revision is discarded and cannot be edited.";
+      return t`This revision is discarded and cannot be edited.`;
     }
     if (!hasProjectPermission && !editContentOnly) {
       if (!selectedProjects.length && projectsOptions.length > 0) {
-        return "Select a project to continue.";
+        return t`Select a project to continue.`;
       }
-      return `You don't have permission to ${current.id ? "update" : "create"} Saved Groups.`;
+      return current.id
+        ? t`You don't have permission to update Saved Groups.`
+        : t`You don't have permission to create Saved Groups.`;
     }
     if (isValid) return undefined;
     if (editConditionOnly) {
       return form.watch("condition")
         ? undefined
-        : "Add a condition to continue.";
+        : t`Add a condition to continue.`;
     }
-    if (!form.watch("groupName")) return "Enter a name to continue.";
+    if (!form.watch("groupName")) return t`Enter a name to continue.`;
     if (editInfoOnly) return undefined;
     if (type !== "condition") {
       if (!form.watch("attributeKey")) {
-        return "Select an attribute key to continue.";
+        return t`Select an attribute key to continue.`;
       }
       return listAboveSizeLimit && !adminBypassSizeLimit
-        ? "List size exceeds limit. Enable bypass or reduce size."
+        ? t`List size exceeds limit. Enable bypass or reduce size.`
         : undefined;
     }
-    return form.watch("condition") ? undefined : "Add a condition to continue.";
+    return form.watch("condition")
+      ? undefined
+      : t`Add a condition to continue.`;
   };
   const ctaDisabledMessage = getCtaDisabledMessage();
+
+  const getAddOrEditHeader = (): string => {
+    if (current.id) {
+      if (type === "condition") return t`Edit Condition Group`;
+      if (type === "list") return t`Edit ID List`;
+      return t`Edit Remote Group`;
+    }
+    if (type === "condition") return t`Add Condition Group`;
+    if (type === "list") return t`Add ID List`;
+    return t`Add Remote Group`;
+  };
 
   const isSupportedAttribute =
     type === "remote"
@@ -471,14 +493,14 @@ const SavedGroupForm: FC<{
       size="lg"
       header={
         editUploadOnly
-          ? `Use Version ${useUploadVersion}`
+          ? t`Use Version ${useUploadVersion}`
           : editInfoOnly
-            ? "Edit Information"
+            ? t`Edit Information`
             : editConditionOnly
-              ? "Edit Condition"
-              : `${current.id ? "Edit" : "Add"} ${SAVED_GROUP_TYPE_LABELS[type]}`
+              ? t`Edit Condition`
+              : getAddOrEditHeader()
       }
-      cta={current.id ? cta.label : "Submit"}
+      cta={current.id ? cta.label : t`Submit`}
       submitColor={current.id && cta.bypass ? "danger" : "primary"}
       ctaEnabled={
         isValid &&
@@ -501,7 +523,7 @@ const SavedGroupForm: FC<{
             !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
-            throw new Error("Condition cannot be empty");
+            throw new Error(t`Condition cannot be empty`);
           }
         }
 
@@ -649,7 +671,7 @@ const SavedGroupForm: FC<{
             (responseData) => {
               if (responseData.status === 413) {
                 setErrorMessage(
-                  "Cannot import such a large CSV. Try again with a smaller payload",
+                  t`Cannot import such a large CSV. Try again with a smaller payload`,
                 );
               }
             },
@@ -685,7 +707,9 @@ const SavedGroupForm: FC<{
       {isEditBlocked && currentRevision && (
         <Callout status="warning" mb="4">
           <Text size="2">
-            {`This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`}
+            {currentRevision.status === "discarded"
+              ? t`This revision is discarded and cannot be edited. You can view it here in read-only mode.`
+              : t`This revision is merged and cannot be edited. You can view it here in read-only mode.`}
           </Text>
         </Callout>
       )}
@@ -697,32 +721,36 @@ const SavedGroupForm: FC<{
             openUpgradeModal={() => setUpgradeModal(true)}
           />
           <div className="form-group">
-            Updating this group will automatically update any associated
-            Features and Experiments.
+            <Trans>
+              Updating this group will automatically update any associated
+              Features and Experiments.
+            </Trans>
           </div>
         </>
       )}
       {editUploadOnly && (
         <Text as="p" mb="3">
-          The group will use the IDs from version {useUploadVersion}.
+          <Trans>
+            The group will use the IDs from version {useUploadVersion}.
+          </Trans>
         </Text>
       )}
       {!editContentOnly && (
         <>
           <Field
             size="legacy"
-            label={`${type === "list" ? "List" : "Group"} Name`}
+            label={type === "list" ? t`List Name` : t`Group Name`}
             labelClassName="font-weight-bold"
             required
             {...form.register("groupName")}
-            placeholder="e.g. beta-users or internal-team-members"
+            placeholder={t`e.g. beta-users or internal-team-members`}
           />
           <ConflictCallout field="groupName" />
           {showDescription || descriptionContested ? (
             <>
               <Field
                 size="legacy"
-                label="Description"
+                label={t`Description`}
                 labelClassName="font-weight-bold"
                 required={false}
                 textarea
@@ -745,16 +773,18 @@ const SavedGroupForm: FC<{
             >
               <Flex align="center" gap="1">
                 <PiPlus />
-                <Text weight="medium">Add a description</Text>
+                <Text weight="medium">
+                  <Trans>Add a description</Trans>
+                </Text>
               </Flex>
             </Link>
           )}
           <MultiSelectField
             legacyHeight
-            label="Projects"
+            label={t`Projects`}
             labelClassName="font-weight-bold"
             placeholder={
-              canCreateWithoutProject ? "All Projects" : "Select projects..."
+              canCreateWithoutProject ? t`All Projects` : t`Select projects...`
             }
             value={selectedProjects}
             onChange={(projects) => form.setValue("projects", projects)}
@@ -765,7 +795,7 @@ const SavedGroupForm: FC<{
           <ConflictCallout field="projects" />
           {current.id && (
             <SelectOwner
-              placeholder="Optional"
+              placeholder={t`Optional`}
               value={form.watch("owner")}
               onChange={(v) => form.setValue("owner", v)}
             />
@@ -796,13 +826,13 @@ const SavedGroupForm: FC<{
           <>
             <SelectField
               size="legacy"
-              label="Attribute Key"
+              label={t`Attribute Key`}
               labelClassName="font-weight-bold"
               required
               value={form.watch("attributeKey") || ""}
               disabled={!!current.attributeKey}
               onChange={(v) => form.setValue("attributeKey", v)}
-              placeholder="Choose one..."
+              placeholder={t`Choose one...`}
               options={attributeSchema
                 .filter((a) => !isInternalAttributeName(a.property))
                 .map((a) => ({
@@ -831,19 +861,19 @@ const SavedGroupForm: FC<{
                         <Tooltip
                           body={
                             type === "remote"
-                              ? "Remote Groups need a string or number attribute."
-                              : "The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                              ? t`Remote Groups need a string or number attribute.`
+                              : t`The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead`
                           }
                           tipPosition="top"
                         >
-                          unsupported datatype
+                          <Trans>unsupported datatype</Trans>
                         </Tooltip>
                       </span>
                     )}
                   </div>
                 );
               }}
-              helpText={current.attributeKey && "This field cannot be edited."}
+              helpText={current.attributeKey && t`This field cannot be edited.`}
             />
             {!current.id && type === "list" && (
               <IdListItemInput

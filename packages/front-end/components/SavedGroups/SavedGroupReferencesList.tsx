@@ -1,4 +1,7 @@
 import { FC } from "react";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import ReferencesList, {
   ReferenceSection,
 } from "@/components/References/ReferencesList";
@@ -22,16 +25,19 @@ interface SavedGroupReferencesListProps {
   savedGroups?: SavedGroupRef[];
 }
 
-export function savedGroupReferenceSections({
-  features = [],
-  experiments = [],
-  contextualBandits = [],
-  interleavings = [],
-  savedGroups = [],
-}: SavedGroupReferencesListProps): ReferenceSection[] {
+export function savedGroupReferenceSections(
+  {
+    features = [],
+    experiments = [],
+    contextualBandits = [],
+    interleavings = [],
+    savedGroups = [],
+  }: SavedGroupReferencesListProps,
+  i18n: I18n,
+): ReferenceSection[] {
   return [
     {
-      title: "Feature Flags",
+      title: i18n._(msg`Feature Flags`),
       resourceType: "feature",
       items: features.map((f) => ({
         id: f.id,
@@ -41,7 +47,7 @@ export function savedGroupReferenceSections({
       })),
     },
     {
-      title: "Experiments",
+      title: i18n._(msg`Experiments`),
       resourceType: "experiment",
       items: experiments.map((e) => ({
         id: e.id,
@@ -55,7 +61,7 @@ export function savedGroupReferenceSections({
       })),
     },
     {
-      title: "Contextual Bandits",
+      title: i18n._(msg`Contextual Bandits`),
       resourceType: "contextual bandit",
       items: contextualBandits.map((cb) => ({
         id: cb.id,
@@ -65,7 +71,7 @@ export function savedGroupReferenceSections({
       })),
     },
     {
-      title: "Interleaving Experiments",
+      title: i18n._(msg`Interleaving Experiments`),
       resourceType: "interleaving",
       items: interleavings.map((il) => ({
         id: il.id,
@@ -75,7 +81,7 @@ export function savedGroupReferenceSections({
       })),
     },
     {
-      title: "Saved Groups",
+      title: i18n._(msg`Saved Groups`),
       resourceType: "saved group",
       items: savedGroups.map((sg) => ({
         id: sg.id,
@@ -87,8 +93,9 @@ export function savedGroupReferenceSections({
   ];
 }
 
-const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = (props) => (
-  <ReferencesList sections={savedGroupReferenceSections(props)} />
-);
+const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = (props) => {
+  const { i18n } = useLingui();
+  return <ReferencesList sections={savedGroupReferenceSections(props, i18n)} />;
+};
 
 export default SavedGroupReferencesList;
