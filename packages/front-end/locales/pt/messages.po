@@ -54,7 +54,7 @@ msgstr "Atributos"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr "Bandits"
+msgstr "Bandidos"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
@@ -62,7 +62,7 @@ msgstr "Faturamento"
 
 #: components/Layout/Layout.tsx
 msgid "Build:"
-msgstr "Build:"
+msgstr "Compilação:"
 
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
@@ -82,7 +82,7 @@ msgstr "Nome da empresa"
 
 #: components/Layout/sidebarNav.ts
 msgid "Configs"
-msgstr "Configs"
+msgstr "Configurações dinâmicas"
 
 #: components/Layout/sidebarNav.ts
 msgid "Constants"
@@ -90,7 +90,7 @@ msgstr "Constantes"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Bandits contextuais"
+msgstr "Bandidos contextuais"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -112,11 +112,11 @@ msgstr "Escuro"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Dashboard"
-msgstr "Dashboard"
+msgstr "Painel"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dashboards"
-msgstr "Dashboards"
+msgstr "Painéis"
 
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
@@ -172,7 +172,7 @@ msgstr "Tabelas fato"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Feature flags"
+msgstr "Sinalizadores de funcionalidades"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -224,7 +224,7 @@ msgstr "Oi!"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdouts"
+msgstr "Grupos de exclusão"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
@@ -237,11 +237,11 @@ msgstr "Importar dados"
 
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
-msgstr "Insights"
+msgstr "Percepções"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Intercalação"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"
@@ -332,7 +332,7 @@ msgstr "Nome"
 
 #: components/Layout/sidebarNav.ts
 msgid "Namespaces"
-msgstr "Namespaces"
+msgstr "Espaços de nomes"
 
 #: pages/reset-password.tsx
 msgid "New Password"
@@ -472,7 +472,7 @@ msgstr "Padrão do sistema"
 
 #: components/Layout/sidebarNav.ts
 msgid "Tags"
-msgstr "Tags"
+msgstr "Etiquetas"
 
 #: components/Layout/sidebarNav.ts
 msgid "Templates"

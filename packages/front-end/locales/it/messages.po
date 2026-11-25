@@ -54,7 +54,7 @@ msgstr "Attributi"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr "Bandits"
+msgstr "Banditi"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
@@ -62,7 +62,7 @@ msgstr "Fatturazione"
 
 #: components/Layout/Layout.tsx
 msgid "Build:"
-msgstr "Build:"
+msgstr "Compilazione:"
 
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
@@ -90,7 +90,7 @@ msgstr "Costanti"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Bandits contestuali"
+msgstr "Banditi contestuali"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -112,11 +112,11 @@ msgstr "Scuro"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Dashboard"
-msgstr "Dashboard"
+msgstr "Cruscotto"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dashboards"
-msgstr "Dashboards"
+msgstr "Cruscotti"
 
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
@@ -172,7 +172,7 @@ msgstr "Tabelle dei fatti"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Feature flags"
+msgstr "Indicatori di funzionalità"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -224,12 +224,12 @@ msgstr "Ciao!"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdouts"
+msgstr "Gruppi di esclusione"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Home"
-msgstr "Home"
+msgstr "Inizio"
 
 #: components/Layout/sidebarNav.ts
 msgid "Import Your Data"
@@ -237,11 +237,11 @@ msgstr "Importazione dati"
 
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
-msgstr "Insights"
+msgstr "Approfondimenti"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Intercalazione"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"
@@ -332,7 +332,7 @@ msgstr "Nome"
 
 #: components/Layout/sidebarNav.ts
 msgid "Namespaces"
-msgstr "Namespaces"
+msgstr "Spazi dei nomi"
 
 #: pages/reset-password.tsx
 msgid "New Password"

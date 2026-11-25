@@ -54,7 +54,7 @@ msgstr "Attributs"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr "Bandits"
+msgstr "Bandits manchots"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
@@ -90,7 +90,7 @@ msgstr "Constantes"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Bandits contextuels"
+msgstr "Bandits manchots contextuels"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -172,7 +172,7 @@ msgstr "Tables de faits"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Feature Flags"
+msgstr "Indicateurs de fonctionnalités"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -224,7 +224,7 @@ msgstr "Bonjour !"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdouts"
+msgstr "Groupes d'exclusion"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
@@ -237,11 +237,11 @@ msgstr "Import de données"
 
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
-msgstr "Insights"
+msgstr "Perspectives"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Entrelacement"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"
@@ -472,7 +472,7 @@ msgstr "Par défaut du système"
 
 #: components/Layout/sidebarNav.ts
 msgid "Tags"
-msgstr "Tags"
+msgstr "Étiquettes"
 
 #: components/Layout/sidebarNav.ts
 msgid "Templates"

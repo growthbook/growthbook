@@ -224,7 +224,7 @@ msgstr "Selam!"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdout grupları"
+msgstr "Hariç tutulan gruplar"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
@@ -241,7 +241,7 @@ msgstr "İçgörüler"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Serpiştirme"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"

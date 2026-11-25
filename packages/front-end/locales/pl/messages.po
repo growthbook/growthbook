@@ -54,7 +54,7 @@ msgstr "Atrybuty"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr "Bandits"
+msgstr "Bandyci"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
@@ -62,7 +62,7 @@ msgstr "Rozliczenia"
 
 #: components/Layout/Layout.tsx
 msgid "Build:"
-msgstr "Build:"
+msgstr "Kompilacja:"
 
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
@@ -90,7 +90,7 @@ msgstr "Stałe"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Contextual Bandits"
+msgstr "Bandyci kontekstowi"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -112,11 +112,11 @@ msgstr "Ciemny"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Dashboard"
-msgstr "Dashboard"
+msgstr "Pulpit"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dashboards"
-msgstr "Dashboardy"
+msgstr "Pulpity"
 
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
@@ -172,7 +172,7 @@ msgstr "Tabele faktów"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Feature Flags"
+msgstr "Flagi funkcji"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
@@ -224,7 +224,7 @@ msgstr "Hej!"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdouts"
+msgstr "Grupy wyłączeń"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
@@ -241,7 +241,7 @@ msgstr "Spostrzeżenia"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Przeplatanie"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"

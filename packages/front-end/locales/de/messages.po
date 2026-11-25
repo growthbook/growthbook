@@ -54,7 +54,7 @@ msgstr "Attribute"
 
 #: components/Layout/sidebarNav.ts
 msgid "Bandits"
-msgstr "Bandits"
+msgstr "Banditen"
 
 #: components/Layout/sidebarNav.ts
 msgid "Billing"
@@ -62,7 +62,7 @@ msgstr "Abrechnung"
 
 #: components/Layout/Layout.tsx
 msgid "Build:"
-msgstr "Build:"
+msgstr "Version:"
 
 #: components/Layout/TopNav.tsx
 msgid "Change Password"
@@ -90,7 +90,7 @@ msgstr "Konstanten"
 
 #: components/Layout/sidebarNav.ts
 msgid "Contextual Bandits"
-msgstr "Contextual Bandits"
+msgstr "Kontextuelle Banditen"
 
 #: components/Auth/Welcome.tsx
 msgid "Create Account"
@@ -112,11 +112,11 @@ msgstr "Dunkel"
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
 msgid "Dashboard"
-msgstr "Dashboard"
+msgstr "Übersicht"
 
 #: components/Layout/sidebarNav.ts
 msgid "Dashboards"
-msgstr "Dashboards"
+msgstr "Übersichten"
 
 #: components/Layout/sidebarNav.ts
 msgid "Data Sources"
@@ -172,11 +172,11 @@ msgstr "Faktentabellen"
 
 #: components/Layout/sidebarNav.ts
 msgid "Feature Flags"
-msgstr "Feature Flags"
+msgstr "Funktionsschalter"
 
 #: components/Layout/sidebarNav.ts
 msgid "Features"
-msgstr "Features"
+msgstr "Funktionen"
 
 #: components/Auth/Welcome.tsx
 msgid "Forgot Password"
@@ -188,7 +188,7 @@ msgstr "Passwort vergessen?"
 
 #: components/Layout/sidebarNav.ts
 msgid "Funnels"
-msgstr "Funnels"
+msgstr "Trichter"
 
 #: components/Layout/sidebarNav.ts
 msgid "General"
@@ -224,7 +224,7 @@ msgstr "Hallo!"
 
 #: components/Layout/sidebarNav.ts
 msgid "Holdouts"
-msgstr "Holdouts"
+msgstr "Rückhaltegruppen"
 
 #: components/Layout/Layout.tsx
 #: components/Layout/sidebarNav.ts
@@ -237,11 +237,11 @@ msgstr "Datenimport"
 
 #: components/Layout/sidebarNav.ts
 msgid "Insights"
-msgstr "Insights"
+msgstr "Einblicke"
 
 #: components/Layout/sidebarNav.ts
 msgid "Interleaving"
-msgstr "Interleaving"
+msgstr "Verschachtelung"
 
 #: pages/reset-password.tsx
 msgid "Invalid reset token"
@@ -332,7 +332,7 @@ msgstr "Name"
 
 #: components/Layout/sidebarNav.ts
 msgid "Namespaces"
-msgstr "Namespaces"
+msgstr "Namensräume"
 
 #: pages/reset-password.tsx
 msgid "New Password"
@@ -426,7 +426,7 @@ msgstr "An die falsche E-Mail-Adresse gesendet oder erneut senden? <0>Zurück</0
 
 #: components/Layout/sidebarNav.ts
 msgid "Session Replay"
-msgstr "Session Replay"
+msgstr "Sitzungswiedergabe"
 
 #: components/Auth/Welcome.tsx
 msgid "Set up your first account"
@@ -472,7 +472,7 @@ msgstr "Systemstandard"
 
 #: components/Layout/sidebarNav.ts
 msgid "Tags"
-msgstr "Tags"
+msgstr "Schlagwörter"
 
 #: components/Layout/sidebarNav.ts
 msgid "Templates"
@@ -493,7 +493,7 @@ msgstr "Zeitleiste"
 
 #: components/Layout/Layout.tsx
 msgid "Upgrade"
-msgstr "Upgrade"
+msgstr "Tarif erweitern"
 
 #: components/Layout/sidebarNav.ts
 msgid "Usage"
@@ -501,7 +501,7 @@ msgstr "Nutzung"
 
 #: components/Layout/sidebarNav.ts
 msgid "User Journeys"
-msgstr "User Journeys"
+msgstr "Nutzerpfade"
 
 #: components/Layout/Layout.tsx
 msgid "View docs"
