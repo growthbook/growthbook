@@ -81,6 +81,10 @@ $pinned-hover-tints:
   :global(.rt-TableBody .rt-TableRow .rt-TableCell) {
     box-sizing: border-box;
     overflow: visible;
+  }
+
+  // Centered unless the row sets its own `align`.
+  :global(.rt-TableBody .rt-TableRow:not([class*="rt-r-va-"]) .rt-TableCell) {
     vertical-align: middle;
   }
 

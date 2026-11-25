@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface CustomFieldRowMenuProps {
+  name: string;
   canEdit: boolean;
   canDelete: boolean;
   canMoveUp: boolean;
@@ -23,6 +23,7 @@ interface CustomFieldRowMenuProps {
 }
 
 export default function CustomFieldRowMenu({
+  name,
   canEdit,
   canDelete,
   canMoveUp,
@@ -39,16 +40,12 @@ export default function CustomFieldRowMenu({
   return (
     <DropdownMenu
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
+        <MoreMenuTrigger
+          label={`Actions for ${name}`}
+          size="sm"
+          // Inside the cell's padding, not the ghost button's outset.
           style={{ margin: 0 }}
-        >
-          <BsThreeDotsVertical size={18} />
-        </IconButton>
+        />
       }
       open={open}
       onOpenChange={setOpen}

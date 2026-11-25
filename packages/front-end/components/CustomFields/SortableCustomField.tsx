@@ -12,6 +12,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 
@@ -67,7 +68,8 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 }
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
-  dragHandle: 30,
+  // The handle and the menu mirror each other at the row's two ends.
+  dragHandle: 32,
   menu: 32,
   name: "10%",
   key: "14%",
@@ -114,30 +116,35 @@ interface SortableProps {
   isDuplicateId?: boolean;
 }
 
-const tdStyle: React.CSSProperties = { verticalAlign: "top" };
-
 function RowCells({
   customField,
   showRequired,
   isDuplicateId,
+  onEdit,
 }: {
   customField: CustomField;
   showRequired: boolean;
   isDuplicateId?: boolean;
+  // Opens the field's editor from its name, for those who can edit it.
+  onEdit?: () => void;
 }) {
   const isDisabled = customField.active === false;
 
   return (
     <>
-      <TableCell style={tdStyle}>
+      <TableCell>
         <Flex wrap="wrap" align="center" gap="2">
-          <Text weight="semibold" color={isDisabled ? "text-low" : "text-mid"}>
-            {customField.name}
-          </Text>
+          {onEdit ? (
+            <Link onClick={onEdit}>{customField.name}</Link>
+          ) : (
+            <Text size="inherit" color={isDisabled ? "text-low" : undefined}>
+              {customField.name}
+            </Text>
+          )}
           {isDisabled && <Badge label="disabled" color="gray" variant="soft" />}
         </Flex>
       </TableCell>
-      <TableCell style={tdStyle}>
+      <TableCell>
         <Flex align="center">
           {isDuplicateId && (
             <Tooltip
@@ -156,20 +163,18 @@ function RowCells({
           <CopyableCode value={customField.id} />
         </Flex>
       </TableCell>
-      <TableCell style={tdStyle}>
-        <Text color="text-mid">
+      <TableCell>
+        <Text size="inherit">
           {customField.description && customField.description.length > 80
             ? customField.description.substring(0, 80).trim() + "..."
             : (customField.description ?? "")}
         </Text>
       </TableCell>
-      <TableCell style={tdStyle}>
-        <Text color="text-mid">
-          {formatSectionsLabel(customField.sections)}
-        </Text>
+      <TableCell>
+        <Text size="inherit">{formatSectionsLabel(customField.sections)}</Text>
       </TableCell>
-      <TableCell style={tdStyle}>
-        <Text color="text-mid">
+      <TableCell>
+        <Text size="inherit">
           {customField.type}
           {(customField.type === "enum" ||
             customField.type === "multiselect") && (
@@ -177,7 +182,7 @@ function RowCells({
           )}
         </Text>
       </TableCell>
-      <TableCell style={tdStyle}>
+      <TableCell>
         <ProjectBadges
           resourceType="custom field"
           projectIds={
@@ -186,8 +191,8 @@ function RowCells({
         />
       </TableCell>
       {showRequired && (
-        <TableCell style={tdStyle}>
-          <Text color="text-mid">{customField.required ? "yes" : ""}</Text>
+        <TableCell>
+          <Text size="inherit">{customField.required ? "yes" : ""}</Text>
         </TableCell>
       )}
     </>
@@ -214,14 +219,8 @@ export function SortableCustomFieldRow(props: SortableProps) {
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style}>
-      <TableCell
-        style={{
-          ...tdStyle,
-          padding: "0.65rem 0",
-          textAlign: "center",
-        }}
-      >
+    <TableRow ref={setNodeRef} style={style} align="start">
+      <TableCell justify="center" px="0">
         <Flex direction="column">
           <div
             style={{
@@ -240,15 +239,13 @@ export function SortableCustomFieldRow(props: SortableProps) {
         customField={customField}
         showRequired={showRequired}
         isDuplicateId={isDuplicateId}
+        onEdit={
+          props.canManage ? () => props.setEditModal(customField) : undefined
+        }
       />
-      <TableCell
-        style={{
-          ...tdStyle,
-          padding: "0.5rem 0",
-          textAlign: "center",
-        }}
-      >
+      <TableCell justify="center" px="0">
         <CustomFieldRowMenu
+          name={customField.name}
           canEdit={props.canManage}
           canDelete={props.canManage}
           canMoveUp={props.canMoveUp}
@@ -273,14 +270,8 @@ export function StaticCustomFieldRow({
   showRequired?: boolean;
 }) {
   return (
-    <TableRow style={{ opacity: 0.6 }}>
-      <TableCell
-        style={{
-          ...tdStyle,
-          padding: "0.5rem 0",
-          textAlign: "center",
-        }}
-      >
+    <TableRow style={{ opacity: 0.6 }} align="start">
+      <TableCell justify="center" px="0">
         <Flex direction="column">
           <div
             style={{
@@ -294,13 +285,7 @@ export function StaticCustomFieldRow({
         </Flex>
       </TableCell>
       <RowCells customField={customField} showRequired={showRequired} />
-      <TableCell
-        style={{
-          ...tdStyle,
-          padding: "1rem 0.5rem",
-          textAlign: "center",
-        }}
-      />
+      <TableCell px="0" />
     </TableRow>
   );
 }

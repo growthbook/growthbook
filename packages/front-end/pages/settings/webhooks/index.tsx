@@ -107,7 +107,7 @@ const WebhooksPage: FC = () => {
           </TableHeader>
           <TableBody>
             {webhookSecrets.map((secret) => (
-              <TableRow key={secret.id} align="center">
+              <TableRow key={secret.id} align="start">
                 <TableCell>
                   <CopyableCode value={secret.key} />
                 </TableCell>
@@ -129,6 +129,7 @@ const WebhooksPage: FC = () => {
                         <MoreMenuTrigger
                           label={`Actions for ${secret.key}`}
                           size="sm"
+                          style={{ margin: 0 }}
                         />
                       }
                       menuPlacement="end"
