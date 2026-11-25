@@ -459,7 +459,7 @@ export default function ResultsTable({
     (showValue || compactResults);
   // With fewer columns, the name takes the room the graph otherwise would.
   const labelColumnWidth =
-    260 + (redesign && compactResults ? 80 : 0) + (showValue ? 0 : 60);
+    260 + (redesign && compactResults ? 55 : 0) + (showValue ? 0 : 40);
   const columnCount =
     columnsToDisplay.filter(
       (col) => col !== "Baseline Average" && col !== "Variation Averages",
