@@ -1,5 +1,16 @@
-import { DataSourceSettings } from "shared/types/datasource";
+import { getExposureQueryProjects } from "shared/util";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { applyApiDataSourceSettings } from "back-end/src/api/data-sources/manageDataSource";
+import {
+  assertCanUpdateDataSource,
+  withSavedUnreadableExposureQueries,
+} from "back-end/src/services/datasourceChanges";
+import { withReadableExposureQueries } from "back-end/src/services/datasourceResponse";
+import { ApiReqContext } from "back-end/types/api";
 
 describe("applyApiDataSourceSettings", () => {
   const existing: DataSourceSettings = {
@@ -193,5 +204,103 @@ describe("applyApiDataSourceSettings", () => {
     );
     expect(settings.userIdTypes).toStrictEqual(managed.userIdTypes);
     expect(settings.queries?.exposure).toStrictEqual(managed.queries?.exposure);
+  });
+});
+
+describe("REST update with assignment queries the user can't read", () => {
+  const query = (id: string, projects: string[]): ExposureQuery => ({
+    id,
+    name: id,
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    query: `SELECT '${id}'`,
+    dimensions: [],
+    projects,
+  });
+  const visible = query("exq_a", ["prj_a"]);
+  const hidden = query("exq_b", ["prj_b"]);
+  const datasource = {
+    id: "ds_1",
+    projects: ["prj_a", "prj_b"],
+    settings: { queries: { exposure: [visible, hidden] } },
+  } as DataSourceInterface;
+  // A member of prj_a only
+  const context = {
+    permissions: {
+      canReadMultiProjectResource: (projects: string[]) =>
+        !projects.length || projects.includes("prj_a"),
+      canUpdateDataSourceSettings: () => false,
+      canUpdateExposureQuery: (
+        q: Pick<ExposureQuery, "projects">,
+        ds: Pick<DataSourceInterface, "projects">,
+      ) => {
+        const projects = getExposureQueryProjects(q, ds.projects);
+        return projects.length > 0 && projects.every((p) => p === "prj_a");
+      },
+      throwPermissionError: () => {
+        throw new Error("Forbidden");
+      },
+    },
+  } as unknown as ApiReqContext;
+
+  // What the REST handler hands to updateDataSourceWithChecks, and what that
+  // checks and saves
+  const save = (input: Parameters<typeof applyApiDataSourceSettings>[0]) => {
+    const settings = withSavedUnreadableExposureQueries(
+      context,
+      datasource,
+      applyApiDataSourceSettings(
+        input,
+        withReadableExposureQueries(context, datasource),
+      ),
+    );
+    assertCanUpdateDataSource(context, datasource, { settings });
+    return settings;
+  };
+
+  it("keeps hidden queries when what GET showed is sent back", () => {
+    const settings = save({
+      assignmentQueries: [{ id: "exq_a", name: "exq_a", sql: visible.query }],
+    });
+    expect(settings?.queries?.exposure).toEqual([visible, hidden]);
+  });
+
+  it("keeps hidden queries when a visible one is edited", () => {
+    const settings = save({
+      assignmentQueries: [{ id: "exq_a", name: "Renamed", sql: "SELECT 2" }],
+    });
+    expect(settings?.queries?.exposure).toEqual([
+      { ...visible, name: "Renamed", query: "SELECT 2" },
+      hidden,
+    ]);
+  });
+
+  it("refuses a write that reuses a hidden query's id", () => {
+    expect(() =>
+      save({
+        assignmentQueries: [
+          { id: "exq_a", name: "exq_a", sql: visible.query },
+          {
+            id: "exq_b",
+            name: "Taken",
+            sql: "SELECT 9",
+            identifierType: "user_id",
+            projects: ["prj_a"],
+          },
+        ],
+      }),
+    ).toThrow("Forbidden");
+  });
+
+  it("restores hidden queries when assignment queries aren't sent", () => {
+    const settings = withSavedUnreadableExposureQueries(
+      context,
+      datasource,
+      applyApiDataSourceSettings(
+        { queryCacheTTLMins: 5 },
+        withReadableExposureQueries(context, datasource),
+      ),
+    );
+    expect(settings?.queries?.exposure).toEqual([visible, hidden]);
   });
 });

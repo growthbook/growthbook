@@ -2,6 +2,7 @@ import { PastExperimentResult } from "shared/types/integrations";
 import { PastExperiment } from "shared/types/past-experiments";
 import {
   getPastExperimentsWatermark,
+  getReadablePastExperiments,
   mergePastExperimentResults,
   rollupPastExperimentQueryStatus,
   withCountedIdentifierTypes,
@@ -292,6 +293,55 @@ describe("withCountedIdentifierTypes", () => {
       ["dropped", undefined],
       ["counted", "user_id"],
     ]);
+  });
+});
+
+describe("getReadablePastExperiments", () => {
+  const query = (id: string, projects?: string[]) => ({
+    id,
+    name: id,
+    query: "",
+    userIdType: "user_id",
+    dimensions: [],
+    projects,
+  });
+  const rows = [
+    row({ trackingKey: "a", exposureQueryId: "eq_a" }),
+    row({ trackingKey: "b", exposureQueryId: "eq_b" }),
+    row({ trackingKey: "inherited", exposureQueryId: "eq_inherited" }),
+    row({ trackingKey: "removed", exposureQueryId: "eq_removed" }),
+  ];
+  const datasource = {
+    projects: ["prj_ds"],
+    settings: {
+      queries: {
+        exposure: [
+          query("eq_a", ["prj_a"]),
+          query("eq_b", ["prj_b"]),
+          query("eq_inherited"),
+        ],
+      },
+    },
+  };
+
+  it("keeps rows whose query's projects, else the data source's, are readable", () => {
+    const checked: string[][] = [];
+    const readable = getReadablePastExperiments(rows, datasource, (p) => {
+      checked.push(p);
+      return p.includes("prj_a") || p.includes("prj_ds");
+    });
+
+    expect(readable.map((e) => e.trackingKey)).toEqual(["a", "inherited"]);
+    expect(checked).toEqual([["prj_a"], ["prj_b"], ["prj_ds"]]);
+  });
+
+  it("drops rows from queries no longer on the data source", () => {
+    expect(
+      getReadablePastExperiments(rows, datasource, () => true).map(
+        (e) => e.trackingKey,
+      ),
+    ).toEqual(["a", "b", "inherited"]);
+    expect(getReadablePastExperiments(rows, {}, () => true)).toEqual([]);
   });
 });
 
