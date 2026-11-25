@@ -8,7 +8,12 @@ import type {
   ShowAs,
 } from "../../../validators/product-analytics";
 import { configHasPopulation } from "../populations";
-import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
+import {
+  dividesByPopulationCount,
+  getDraftOrSavedMetric,
+  getShowAsChoice,
+  getShowAsLabel,
+} from "./show-as";
 import { getSharedUnit } from "./units";
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -27,16 +32,16 @@ export function getDefaultValueAxisName({
   sharedUnit,
 }: ExplorationRenderOpts): string {
   if (primaryAxisShowAs === null) return "";
-  if (primaryAxisShowAs === "total") return "Total";
-  if (primaryAxisShowAs === "percent_of_population") return "% of Population";
-  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+  return getShowAsLabel(primaryAxisShowAs, sharedUnit);
 }
 
 export function getSecondaryValueAxisName(
   renderOpts: ExplorationRenderOpts,
 ): string | null {
-  if (!renderOpts.values.some((v) => v.valueAxis === "secondary")) return null;
-  return "% of Population";
+  const secondaryShowAs =
+    renderOpts.values.find((v) => v.valueAxis === "secondary")?.showAs ?? null;
+  if (secondaryShowAs === null) return null;
+  return getShowAsLabel(secondaryShowAs, renderOpts.sharedUnit);
 }
 
 /**
@@ -70,13 +75,14 @@ function getAnnotatedName(
   sharedUnit: string | null,
 ): string {
   const name = getValueName(value, index);
-  if (showAs === "total") return `${name} (total)`;
-  if (showAs === "percent_of_population") return `${name} (% of Population)`;
-  const unit =
-    ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
-    sharedUnit ||
-    "unit";
-  return `${name} (per ${unit})`;
+  const valueUnit =
+    "unit" in value && typeof value.unit === "string" ? value.unit : null;
+  const label = getShowAsLabel(showAs, valueUnit || sharedUnit);
+  return `${name} (${lowercaseFirstLetter(label)})`;
+}
+
+function lowercaseFirstLetter(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /**
@@ -87,8 +93,8 @@ function getAnnotatedName(
  *
  * `populationCount` is the result row's population member count, undefined
  * when the request has no population. Required so no caller can forget it.
- * "% of Population" is null (no data) when the row has no members, since a
- * share of nobody isn't 0%.
+ * Modes that divide by it are null (no data) when the row has no members,
+ * since a share of nobody isn't 0%.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
@@ -96,18 +102,30 @@ export function getEffectiveMetricValue(
   populationCount: number | undefined,
 ): number | null {
   const num = v.numerator ?? 0;
-  if (opts?.isRatio) {
+  if (!opts) return num;
+  if (opts.isRatio) {
     return v.denominator ? num / v.denominator : num;
   }
-  if (opts?.showAs === "per_unit") {
-    return v.denominator ? num / v.denominator : num;
+  // No mode (e.g. a quantile): the raw value.
+  if (opts.showAs === null) return num;
+  switch (opts.showAs) {
+    case "total":
+      return num;
+    case "per_unit":
+      return v.denominator ? num / v.denominator : num;
+    case "percent_of_population": {
+      if (!populationCount) return null;
+      const shareOfPopulation = num / populationCount;
+      return shareOfPopulation * 100;
+    }
+    case "per_population_member":
+      if (!populationCount) return null;
+      return num / populationCount;
+    default: {
+      const exhaustiveCheck: never = opts.showAs;
+      return exhaustiveCheck;
+    }
   }
-  if (opts?.showAs === "percent_of_population") {
-    if (!populationCount) return null;
-    const shareOfPopulation = num / populationCount;
-    return shareOfPopulation * 100;
-  }
-  return num;
 }
 
 /** Whether a dataset value is a ratio metric. Only metric values can be. */
@@ -121,22 +139,22 @@ export function isRatioValue(
   );
 }
 
-function isProportionValue(
-  value: ProductAnalyticsValue,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean {
-  return (
-    value.type === "metric" &&
-    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "proportion"
-  );
-}
-
 /** The value axis a value is drawn against. */
 export type ValueAxis = "primary" | "secondary";
 
+/**
+ * Whether a mode moves to the secondary axis when other modes share the chart:
+ * "% of Population" is a percentage, on a different scale from every other
+ * mode.
+ */
+function usesOwnAxisWhenMixed(showAs: ShowAs | null): boolean {
+  return showAs === "percent_of_population";
+}
+
 /** How one dataset value renders. */
 export type ValueRenderOpts = {
-  showAs: ShowAs;
+  /** Null when the value has no mode (ratios, quantiles). */
+  showAs: ShowAs | null;
   isRatio: boolean;
   /** Chart legend and tooltip name. */
   seriesName: string;
@@ -151,9 +169,12 @@ export type ValueRenderOpts = {
 export type ExplorationRenderOpts = {
   /** Index-aligned with `dataset.values`; empty for funnels and journeys. */
   values: ValueRenderOpts[];
-  /** The mode every value renders in; null when modes differ or no value offers a choice. */
+  /**
+   * The mode every value renders in; null when modes differ or no value has a
+   * mode (ratios, quantiles).
+   */
   sharedShowAs: ShowAs | null;
-  /** Some values render as totals and others per unit. */
+  /** Values render in more than one mode, e.g. totals beside per unit. */
   modesAreMixed: boolean;
   /**
    * The mode every value on the left axis renders in; null when they differ or
@@ -186,40 +207,39 @@ export function getExplorationRenderOpts(
   const choices = values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
-  const someValueOffersShowAs = choices.some(
-    (choice) => choice.options.length > 0,
+  const modes = new Set(
+    choices
+      .map((choice) => choice.showAs)
+      .filter((showAs): showAs is ShowAs => showAs !== null),
   );
-  const modes = new Set(choices.map((choice) => choice.showAs));
-  const sharedShowAs =
-    someValueOffersShowAs && modes.size === 1 ? [...modes][0] : null;
-  const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
+  // Ratios and quantiles have no mode, so a chart with one shares none. A
+  // metric that isn't found doesn't count, since its type is unknown.
+  const hasMetricWithoutMode = values.some(
+    (v, i) =>
+      choices[i].showAs === null &&
+      v.type === "metric" &&
+      getDraftOrSavedMetric(v, getFactMetricById) !== null,
+  );
+  const onlyMode = (set: Set<ShowAs>) =>
+    set.size === 1 && !hasMetricWithoutMode ? [...set][0] : null;
+  const sharedShowAs = onlyMode(modes);
+  const modesAreMixed = modes.size > 0 && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
-  // "% of Population" is on a different scale from every other mode, so when
-  // it's mixed with them it moves to its own axis. Then each axis keeps a title.
-  const otherModes = new Set<ShowAs>();
-  for (const choice of choices) {
-    if (choice.showAs !== "percent_of_population")
-      otherModes.add(choice.showAs);
-  }
+  // When other values share the chart, values whose mode uses its own axis
+  // (see usesOwnAxisWhenMixed) move to the secondary axis. The primary axis is
+  // then titled by the modes left on it, and has no title when they differ.
+  const primaryModes = new Set(
+    [...modes].filter((mode) => !usesOwnAxisWhenMixed(mode)),
+  );
   const hasSecondAxis =
-    choices.some((choice) => choice.showAs === "percent_of_population") &&
-    otherModes.size > 0;
-  const valueAxisFor = (showAs: ShowAs): ValueAxis =>
-    hasSecondAxis && showAs === "percent_of_population"
-      ? "secondary"
-      : "primary";
-  let primaryAxisShowAs = sharedShowAs;
-  if (hasSecondAxis) {
-    primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
-  } else if (
-    !someValueOffersShowAs &&
-    values.every((v) => isProportionValue(v, getFactMetricById))
-  ) {
-    // Proportions offer no choice without a population but still plot a count
-    // of units. Ratios and quantiles don't, so they stay untitled.
-    primaryAxisShowAs = "total";
-  }
+    [...modes].some(usesOwnAxisWhenMixed) &&
+    (primaryModes.size > 0 || hasMetricWithoutMode);
+  const valueAxisFor = (showAs: ShowAs | null): ValueAxis =>
+    hasSecondAxis && usesOwnAxisWhenMixed(showAs) ? "secondary" : "primary";
+  const primaryAxisShowAs = hasSecondAxis
+    ? onlyMode(primaryModes)
+    : sharedShowAs;
 
   // Annotate series names when the axis title can't tell readers how the
   // values are calculated.
@@ -228,17 +248,21 @@ export function getExplorationRenderOpts(
   const annotateNames =
     modesAreMixed ||
     (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit) ||
-    (sharedShowAs === "percent_of_population" && hasCustomAxisTitle);
+    (dividesByPopulationCount(sharedShowAs) && hasCustomAxisTitle);
 
   return {
-    values: values.map((v, i) => ({
-      showAs: choices[i].showAs,
-      isRatio: isRatioValue(v, getFactMetricById),
-      seriesName: annotateNames
-        ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
-        : getValueName(v, i),
-      valueAxis: valueAxisFor(choices[i].showAs),
-    })),
+    values: values.map((v, i) => {
+      const { showAs } = choices[i];
+      return {
+        showAs,
+        isRatio: isRatioValue(v, getFactMetricById),
+        seriesName:
+          annotateNames && showAs !== null
+            ? getAnnotatedName(v, i, showAs, sharedUnit)
+            : getValueName(v, i),
+        valueAxis: valueAxisFor(showAs),
+      };
+    }),
     sharedShowAs,
     modesAreMixed,
     primaryAxisShowAs,
@@ -362,11 +386,12 @@ export function buildExplorationColumns(
     // A plain header means total, unless other modes' columns sit beside it.
     const annotate =
       showAs === "per_unit" ||
-      showAs === "percent_of_population" ||
+      dividesByPopulationCount(showAs) ||
       modesAreMixed;
-    const singleLabel = annotate
-      ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
-      : name;
+    const singleLabel =
+      annotate && showAs !== null
+        ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
+        : name;
     cols.push({
       kind: "metric",
       key: `__metric_${metricIndex}__`,
@@ -421,12 +446,13 @@ export function getExplorationCellValue(
       return v.numerator / v.denominator;
     return null;
   }
-  // With population members that day, no converting units is a real 0%
+  // With population members that day, no events from them is a real 0
   // (getEffectiveMetricValue handles no members). Other modes can't tell 0
   // from no data.
-  const isShareOfMembers =
-    renderOpts.values[col.metricIndex]?.showAs === "percent_of_population";
-  if (v.numerator == null && !isShareOfMembers) return null;
+  const isOverMembers = dividesByPopulationCount(
+    renderOpts.values[col.metricIndex]?.showAs,
+  );
+  if (v.numerator == null && !isOverMembers) return null;
   return getEffectiveMetricValue(
     v,
     renderOpts.values[col.metricIndex],

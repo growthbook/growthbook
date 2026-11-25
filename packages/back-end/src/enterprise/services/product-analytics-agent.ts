@@ -11,8 +11,10 @@ import {
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
+  MetricValue,
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
+  ShowAs,
 } from "shared/validators";
 import {
   ColumnInterface,
@@ -37,6 +39,7 @@ import {
   sanitizeDimensions,
   getValidDateGranularities,
   calculateProductAnalyticsDateRange,
+  dividesByPopulationCount,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -110,15 +113,23 @@ If you omit unit on a standard metric, the backend will fill in userIdTypes[0] a
 </unit_rules>
 
 <show_as_rules>
-showAs is an optional field on each metric value that sets how that value renders: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user). Each mean metric in a chart can use a different mode.
+showAs is an optional field on each metric value that sets how that value renders:
+- "total" shows the raw numerator.
+- "per_unit" divides it by the unit count (mean metrics only, e.g. average per user).
+- "percent_of_population" divides a proportion's numerator by the Population member count and multiplies by 100 (proportion metrics with a Population only).
+- "per_population_member" divides a mean's numerator by the Population member count, so members with no events count as 0 (mean metrics with a Population only).
 
-DEFAULT: Omit showAs in almost all cases. Each value gets a sensible default from its metric — totals, except per-unit for mean metrics whose aggregation makes totals incoherent (max, count distinct).
+DEFAULT: Omit showAs in almost all cases.
+- With a Population: "percent_of_population" for a proportion, "per_population_member" for a mean (every aggregation).
+- Without a Population: "per_unit" for a mean whose aggregation is max or count distinct (a total is incoherent), otherwise "total".
 
 SET showAs on a value explicitly ONLY when the user's request clearly asks for one view of that metric:
 - "per user", "per device", "average per X", "rate" → "per_unit"
 - "total X", "sum of X", "how much X did we have" → "total"
+- "percent of the Population", "share of members" → "percent_of_population" (a proportion with a Population)
+- "per Population member", "average per member, including members with no events" → "per_population_member" (a mean with a Population)
 
-showAs only applies to mean metrics. Do not set it on proportion, retention, dailyParticipation, ratio, or quantile metric values (per-unit is either degenerate or self-contained, so it is dropped), and fact_table / data_source values have no showAs.
+Do not set showAs on ratio or quantile metric values (it is dropped). Do not set "percent_of_population" or "per_population_member" unless the dataset has a Population (they are dropped). Retention and dailyParticipation only render as "total", and so do proportions without a Population. fact_table / data_source values have no showAs.
 
 Never set a top-level showAs; it is deprecated.
 </show_as_rules>
@@ -162,7 +173,8 @@ runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCs
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
 
 resultCsv column conventions (so you describe the same numbers the user sees on the chart):
-- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> (per <unit>)" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" is a total, "<name> (per <unit>)" is per unit (numerator/unit count), "<name> (% of Population)" is the percentage of Population members, and "<name> (per Population member)" is the average per member (numerator/member count; members with no events count as 0). Report the numbers in the header's mode.
+- A "Population count" column is that member count. A day without Population members has no row; the chart shows a gap there, so don't report it as 0.
 - Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
 - The column headers reflect each value's effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>
@@ -255,7 +267,7 @@ function buildConfigSchemaSummary(): string {
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters, showAs? }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"matches_pattern"|"not_matches_pattern"|"is_null"|"not_null", column: string, values: string[] }]',
-    'showAs (optional, per metric value): "total" | "per_unit" — raw totals or per-unit averages for a mean metric. Omit to use the smart default (see show_as_rules).',
+    'showAs (optional, per metric value): "total" | "per_unit" | "percent_of_population" | "per_population_member". "total" is the raw numerator, "per_unit" divides by the unit count (means only), "percent_of_population" is a proportion divided by the Population member count as a percentage, and "per_population_member" is a mean divided by the Population member count. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
   ].join("\n");
@@ -272,13 +284,13 @@ function describeShowAs(
   if (config.dataset?.type !== "metric") return "";
   return config.dataset.values
     .flatMap((v) => {
-      const { options, showAs } = getShowAsChoice(
+      const { showAs } = getShowAsChoice(
         v,
         config.showAs,
         getFactMetricById,
         configHasPopulation(config),
       );
-      return options.length ? [`${v.name}: ${showAs}`] : [];
+      return showAs === null ? [] : [`${v.name}: ${showAs}`];
     })
     .join(", ");
 }
@@ -402,13 +414,13 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : String(raw);
     }
     // value (ratio) and single: 4dp for divided values (ratios, per unit,
-    // % of Population), integer for totals.
+    // per Population member, % of Population), integer for totals.
     if (typeof raw === "number") {
       const showAs = renderOpts.values[col.metricIndex]?.showAs;
       const isDividedValue =
         col.sub === "value" ||
         showAs === "per_unit" ||
-        showAs === "percent_of_population";
+        dividesByPopulationCount(showAs);
       return isDividedValue ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
@@ -733,6 +745,41 @@ async function withMetricsOf(
   return (id) => getFactMetricById(id) ?? metricById.get(id) ?? null;
 }
 
+/**
+ * Why a value's showAs was dropped, what it allows, and what it renders as
+ * instead, e.g. `"Revenue": per_population_member needs a Population (renders
+ * as total)` or `"Signups": per_unit isn't an option; options: total (renders
+ * as total)`.
+ */
+function describeDroppedShowAs(
+  value: MetricValue,
+  droppedMode: ShowAs,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+  hasPopulation: boolean,
+): string {
+  const { options, showAs } = getShowAsChoice(
+    value,
+    undefined,
+    getFactMetricById,
+    hasPopulation,
+  );
+  // No mode (e.g. ratio, quantile) means the metric renders as computed.
+  if (showAs === null) {
+    return `"${value.name}": ${droppedMode} isn't an option (this metric has no showAs options)`;
+  }
+  // Only modes this metric type gains from a Population, e.g. not
+  // per_population_member on a proportion.
+  const needsPopulation =
+    !hasPopulation &&
+    getShowAsChoice(value, undefined, getFactMetricById, true).options.includes(
+      droppedMode,
+    );
+  const reason = needsPopulation
+    ? `${droppedMode} needs a Population`
+    : `${droppedMode} isn't an option; options: ${options.join(", ")}`;
+  return `"${value.name}": ${reason} (renders as ${showAs})`;
+}
+
 async function normalizeConfigForExplorer(
   ctx: ReqContext,
   config: ExplorationConfig,
@@ -870,15 +917,26 @@ async function normalizeConfigForExplorer(
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
   const valuesAfter =
     normalized.dataset.type === "metric" ? normalized.dataset.values : [];
-  const dropped = valuesBefore.filter(
-    (v, i) =>
-      (v.showAs ?? legacyShowAs) !== undefined &&
-      valuesAfter[i]?.showAs === undefined,
-  );
-  if (dropped.length) {
-    warnings.push(
-      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics, and proportion metrics with a population, offer showAs). These values render in their default mode (ratio and quantile metrics as computed, others as totals).`,
+  // Values the agent set a showAs on that normalizing removed, with the mode
+  // that was removed.
+  const droppedShowAs: { value: MetricValue; droppedMode: ShowAs }[] = [];
+  valuesAfter.forEach((value, i) => {
+    const droppedMode = valuesBefore[i]?.showAs ?? legacyShowAs;
+    if (droppedMode !== undefined && value.showAs === undefined) {
+      droppedShowAs.push({ value, droppedMode });
+    }
+  });
+  if (droppedShowAs.length) {
+    const hasPopulation = configHasPopulation(normalized);
+    const described = droppedShowAs.map(({ value, droppedMode }) =>
+      describeDroppedShowAs(
+        value,
+        droppedMode,
+        getFactMetricByIdResolver,
+        hasPopulation,
+      ),
     );
+    warnings.push(`Dropped showAs: ${described.join("; ")}.`);
   }
 
   return {

@@ -11,73 +11,152 @@ import type {
 } from "../../../validators/product-analytics";
 import { configHasPopulation } from "../populations";
 
-/**
- * How a value renders when its metric type offers no Show as options: its raw
- * value. Ratios ignore it and always render numerator / denominator.
- */
-const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
+/** The parts of a metric definition that decide how its values can render. */
+type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
+
+/** How a metric type's values can render. */
+type MetricTypeShowAs = {
+  /** Modes without a population, in display order. */
+  options: readonly ShowAs[];
+  /**
+   * Modes a population adds after `options`. Each divides by the row's
+   * population member count.
+   */
+  populationOptions: readonly ShowAs[];
+  /**
+   * The mode until the user picks one, without a population; null when there
+   * are no options, so the value renders its raw value.
+   */
+  getDefaultShowAs: (metric: ShowAsMetric) => ShowAs | null;
+  /**
+   * The default with a population, over `getDefaultShowAs`: measuring its
+   * members is what a population is for. Null keeps `getDefaultShowAs`.
+   */
+  populationDefaultShowAs: ShowAs | null;
+};
+
+const NO_SHOW_AS: MetricTypeShowAs = {
+  options: [],
+  populationOptions: [],
+  getDefaultShowAs: () => null,
+  populationDefaultShowAs: null,
+};
 
 /**
- * The Show as options each metric type offers, in display order. A type that
- * isn't listed offers no choice and renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
+ * Every metric type's Show as modes and defaults.
  *
- * - mean: the numerator sums each unit's value, so dividing by the unit count
- *   gives a real per-unit average.
- * - proportion / retention / dailyParticipation: not listed. They emit one row
- *   per qualifying unit, so the unit count equals the numerator and per unit
- *   would always be ~1. Proportions get options only with a population (see
- *   `SHOW_AS_OPTIONS_WITH_POPULATION`).
- * - ratio / quantile: not listed. Ratios already divide by their own
- *   denominator, and quantiles emit no denominator.
+ * If you change a default, also update the two places that describe them in
+ * words:
+ * - the DEFAULT rules in the AI agent's prompt (`show_as_rules` in
+ *   back-end/src/enterprise/services/product-analytics-agent.ts)
+ * - the `showAs` description in shared/src/validators/product-analytics.ts,
+ *   which is published in the REST API docs
  */
-const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
-  Record<FactMetricType, readonly ShowAs[]>
-> = {
-  mean: ["total", "per_unit"],
+const SHOW_AS_BY_METRIC_TYPE: Record<FactMetricType, MetricTypeShowAs> = {
+  // The numerator sums each unit's value, so dividing by the unit count gives
+  // a real per-unit average. With a population, its total averages over every
+  // member, counting members without events as 0.
+  mean: {
+    options: ["total", "per_unit"],
+    populationOptions: ["per_population_member"],
+    // A total is incoherent for `max` (a sum of per-unit maxes has no
+    // interpretation) and `count distinct` (double-counts values shared
+    // across units).
+    getDefaultShowAs: ({ numerator }) => {
+      const agg = numerator?.aggregation ?? "sum";
+      return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
+    },
+    populationDefaultShowAs: "per_population_member",
+  },
+  // A count of converting units. Each unit counts once, so per unit would
+  // always be 1. With a population, it's a share of the members.
+  proportion: {
+    options: ["total"],
+    populationOptions: ["percent_of_population"],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: "percent_of_population",
+  },
+  // A count of retained units, like a proportion.
+  retention: {
+    options: ["total"],
+    populationOptions: [],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: null,
+  },
+  // Each unit's active days, summed.
+  dailyParticipation: {
+    options: ["total"],
+    populationOptions: [],
+    getDefaultShowAs: () => "total",
+    populationDefaultShowAs: null,
+  },
+  // Ratios render numerator / denominator.
+  ratio: NO_SHOW_AS,
+  // Quantiles render a percentile.
+  quantile: NO_SHOW_AS,
+  // Explorations can't chart these.
+  funnel: NO_SHOW_AS,
+  compound: NO_SHOW_AS,
 };
 
-/**
- * The Show as options a metric type offers when the dataset has a population.
- * A proportion's converting units can then be shown as a share of the
- * population's members.
- */
-const SHOW_AS_OPTIONS_WITH_POPULATION: Partial<
-  Record<FactMetricType, readonly ShowAs[]>
-> = {
-  proportion: ["total", "percent_of_population"],
-};
-
-/** The Show as options a metric type offers; empty when it offers none. */
+/** The Show as modes a metric type renders in; empty when it has none. */
 export function getShowAsOptions(
   metricType: FactMetricType | undefined,
   hasPopulation: boolean,
 ): readonly ShowAs[] {
   if (!metricType) return [];
-  if (hasPopulation) {
-    const populationOptions = SHOW_AS_OPTIONS_WITH_POPULATION[metricType];
-    if (populationOptions) return populationOptions;
-  }
-  return SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
+  const { options, populationOptions } = SHOW_AS_BY_METRIC_TYPE[metricType];
+  return hasPopulation ? [...options, ...populationOptions] : options;
 }
 
-/** How one dataset value renders, and which Show as options it offers. */
+/** Whether a mode divides by the row's population member count. */
+export function dividesByPopulationCount(
+  showAs: ShowAs | null | undefined,
+): boolean {
+  if (!showAs) return false;
+  return Object.values(SHOW_AS_BY_METRIC_TYPE).some(({ populationOptions }) =>
+    populationOptions.includes(showAs),
+  );
+}
+
+/**
+ * A mode's display name, shared by the Show as picker, the axis title and the
+ * series names, e.g. "Per user_id" or "% of Population".
+ */
+export function getShowAsLabel(showAs: ShowAs, unit: string | null): string {
+  switch (showAs) {
+    case "total":
+      return "Total";
+    case "per_unit":
+      return unit ? `Per ${unit}` : "Per unit";
+    case "percent_of_population":
+      return "% of Population";
+    case "per_population_member":
+      return "Per Population member";
+    default: {
+      const exhaustiveCheck: never = showAs;
+      return exhaustiveCheck;
+    }
+  }
+}
+
+/** How one dataset value renders, and which Show as modes it offers. */
 export type ShowAsChoice = {
-  /** Empty when the value's metric type offers no choice. */
+  /** Empty when the value's metric type has no modes. */
   options: readonly ShowAs[];
-  showAs: ShowAs;
+  /** Null when there are no options: the value renders its raw value. */
+  showAs: ShowAs | null;
 };
 
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
-  showAs: NO_SHOW_AS_CHOICE_DEFAULT,
+  showAs: null,
 };
-
-/** The parts of a metric definition that decide how its values can render. */
-type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
 
 /**
  * The definition a metric value renders: its unsaved draft in the metric
- * editor preview, otherwise the saved metric. Null while definitions load.
+ * editor preview, otherwise the saved metric. Null when no metric is picked
+ * or its id isn't found (e.g. the metric was deleted).
  */
 export function getDraftOrSavedMetric(
   value: MetricValue,
@@ -87,31 +166,25 @@ export function getDraftOrSavedMetric(
 }
 
 /**
- * The default `showAs` for a value without an explicit choice:
- * - `per_unit` for mean metrics whose total is incoherent — numerator
- *   aggregation `max` (a sum of per-unit maxes has no interpretation) or
- *   `count distinct` (double-counts values shared across units).
- * - `percent_of_population` for proportions when the dataset has a
- *   population, since a share of its members is what a population is for.
- * - Otherwise `total`.
+ * The default `showAs` for a value without an explicit choice, from
+ * `SHOW_AS_BY_METRIC_TYPE`.
  */
 export function inferShowAs(
   metric: ShowAsMetric | null,
   hasPopulation: boolean,
-): ShowAs {
-  if (metric?.metricType === "proportion" && hasPopulation) {
-    return "percent_of_population";
+): ShowAs | null {
+  if (!metric) return null;
+  const { getDefaultShowAs, populationDefaultShowAs } =
+    SHOW_AS_BY_METRIC_TYPE[metric.metricType];
+  if (hasPopulation && populationDefaultShowAs !== null) {
+    return populationDefaultShowAs;
   }
-  if (metric?.metricType === "mean") {
-    const agg = metric.numerator?.aggregation ?? "sum";
-    return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
-  }
-  return NO_SHOW_AS_CHOICE_DEFAULT;
+  return getDefaultShowAs(metric);
 }
 
 /**
  * Returns the showAs options and selected mode for a metric value. A value
- * whose metric hasn't resolved renders its saved choice, the one
+ * whose metric isn't found renders its saved choice, the one
  * `normalizeShowAs` keeps for it, as the only option.
  */
 export function getShowAsChoice(
@@ -123,8 +196,8 @@ export function getShowAsChoice(
   if (value.type !== "metric") return NO_SHOW_AS_CHOICE;
   const metric = getDraftOrSavedMetric(value, getFactMetricById);
   if (metric === null) {
-    // The other options depend on the metric type, which is unknown until
-    // the metric loads.
+    // The other options depend on the metric type, which is unknown without
+    // the metric.
     const showAs = value.showAs ?? legacyShowAs;
     if (value.metricId && showAs !== undefined) {
       return { options: [showAs], showAs };
@@ -136,7 +209,9 @@ export function getShowAsChoice(
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric, hasPopulation)].find(
       (candidate): candidate is ShowAs =>
-        candidate !== undefined && options.includes(candidate),
+        candidate !== undefined &&
+        candidate !== null &&
+        options.includes(candidate),
     ) ?? options[0];
   return { options, showAs };
 }
@@ -145,8 +220,8 @@ export function getShowAsChoice(
  * Write-time counterpart to `getShowAsChoice`: moves the deprecated
  * config-level `showAs` onto the metric values that offer it as an option and
  * strips `showAs` that isn't one of the value's options, so a stored config
- * never claims a mode that won't render. Values whose metric hasn't resolved
- * yet keep theirs until their options are known. Call it alongside the other
+ * never claims a mode that won't render. Values whose metric isn't found keep
+ * theirs, since their options are unknown. Call it alongside the other
  * write-time normalizers (validateDimensions, fillMissingUnits).
  *
  * Returns the same reference when nothing changed so callers can use identity
@@ -161,7 +236,7 @@ export function normalizeShowAs<T extends ExplorationConfig>(
 
   const legacyShowAs = config.showAs;
   const hasLegacyShowAs = legacyShowAs !== undefined;
-  // Removing the population strips `percent_of_population` from its values.
+  // Removing the population strips its modes from its values.
   const hasPopulation = configHasPopulation(config);
   let valuesChanged = false;
 
@@ -170,8 +245,8 @@ export function normalizeShowAs<T extends ExplorationConfig>(
     if (showAs === undefined) return value;
 
     const metric = getDraftOrSavedMetric(value, getFactMetricById);
-    // No metric yet (not picked, or definitions still loading): its options
-    // are unknown, so keep the choice rather than lose it.
+    // No metric (not picked, or its id isn't found): its options are
+    // unknown, so keep the choice rather than lose it.
     const optionsAreUnknown = metric === null;
     const metricOffersShowAs =
       metric !== null &&

@@ -243,18 +243,16 @@ export default function MetricTabContent() {
               getFactMetricById,
             )}
             filterActions={
-              showAsOptions.length > 0 && (
-                <ShowAsInput
-                  options={showAsOptions}
-                  value={showAs}
-                  setValue={(next) =>
-                    updateValueInDataset(idx, { ...v, showAs: next })
-                  }
-                  unit={v.unit}
-                  metricName={v.name.trim() || `Metric ${idx + 1}`}
-                  metricType={getFactMetricById(v.metricId)?.metricType}
-                />
-              )
+              <ShowAsInput
+                options={showAsOptions}
+                value={showAs}
+                setValue={(next) =>
+                  updateValueInDataset(idx, { ...v, showAs: next })
+                }
+                unit={v.unit}
+                metricName={v.name.trim() || `Metric ${idx + 1}`}
+                metricType={getFactMetricById(v.metricId)?.metricType}
+              />
             }
           >
             <Flex direction="column">

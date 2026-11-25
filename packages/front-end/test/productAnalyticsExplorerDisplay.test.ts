@@ -175,7 +175,7 @@ describe("describeExplorerDisplay", () => {
           "These metrics' Fact Tables share no identifier type. Remove or change a metric to pick one.",
       },
       cards: [
-        { showAsOptions: [], showAs: "total", readOnlyUnit: "user_id" },
+        { showAsOptions: ["total"], showAs: "total", readOnlyUnit: "user_id" },
         {
           showAsOptions: ["total", "per_unit"],
           showAs: "total",
@@ -194,7 +194,7 @@ describe("describeExplorerDisplay", () => {
       seriesNames: ["p95"],
       columnHeaders: ["p95"],
       unitPicker: null,
-      cards: [{ showAsOptions: [], showAs: "total", readOnlyUnit: null }],
+      cards: [{ showAsOptions: [], showAs: null, readOnlyUnit: null }],
     });
   });
 });
