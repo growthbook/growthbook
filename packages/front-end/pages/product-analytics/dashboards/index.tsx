@@ -43,6 +43,8 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
+import DefaultDashboardMenuItems from "@/enterprise/components/Dashboards/DefaultDashboardMenuItems";
+import DefaultDashboardBadge from "@/enterprise/components/Dashboards/DefaultDashboardBadge";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -398,6 +400,7 @@ export default function DashboardsPage() {
                                   }
                                   isOwner={d.userId === userId}
                                 />
+                                <DefaultDashboardBadge dashboard={d} />
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (
@@ -462,6 +465,10 @@ export default function DashboardsPage() {
                                       >
                                         Share...
                                       </DropdownMenuItem>
+
+                                      <DefaultDashboardMenuItems
+                                        dashboard={d}
+                                      />
 
                                       {canDelete && (
                                         <>

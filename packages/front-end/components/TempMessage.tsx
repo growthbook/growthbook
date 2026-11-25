@@ -54,7 +54,8 @@ const TempMessage: FC<TempMessageProps> = ({
         ...style,
       }}
     >
-      <Callout status="success">
+      {/* No Save button follows some of these, so announce the confirmation. */}
+      <Callout status="success" role="status">
         <Text as="div" align="center">
           {children}
         </Text>

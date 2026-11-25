@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
+import { isDashboardEligibleAsProjectDefault } from "shared/enterprise";
 import { TeamInterface } from "shared/types/team";
 import {
   OAuthGrantInterface,
@@ -102,6 +103,34 @@ export class ProjectModel extends BaseClass {
 
   protected canUpdate(doc: ProjectInterface) {
     return this.context.permissions.canUpdateProject(doc.id);
+  }
+
+  public async setDefaultDashboard(
+    project: ProjectInterface,
+    dashboardId: string | null,
+  ) {
+    if (dashboardId !== null) {
+      // Clearing stays allowed, so an org that lost the feature can remove it.
+      if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support dashboards.",
+        );
+      }
+      const dashboard =
+        await this.context.models.dashboards.getById(dashboardId);
+      if (
+        !dashboard ||
+        !isDashboardEligibleAsProjectDefault(dashboard, project.id)
+      ) {
+        this.context.throwBadRequestError(
+          "Dashboard is not available for this Project.",
+        );
+      }
+    }
+    // undefined unsets the field.
+    await this.update(project, {
+      defaultDashboardId: dashboardId ?? undefined,
+    });
   }
 
   protected canDelete(doc: ProjectInterface) {

@@ -4,11 +4,11 @@ import {
   DropdownMenu as RadixDropdownMenu,
   IconButton,
   Text,
+  VisuallyHidden,
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { amber } from "@radix-ui/colors";
 import React, {
   forwardRef,
   ReactElement,
@@ -247,6 +247,9 @@ type DropdownItemProps = {
   className?: string;
   disabled?: boolean;
   onClick?: (event: Event) => Promise<void> | void;
+  // Keeps the menu open while an async onClick runs, so a failure shows on
+  // this item, and closes it on success.
+  keepOpenWhileLoading?: boolean;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
@@ -275,6 +278,7 @@ export function DropdownMenuItem({
   confirmation,
   tooltip,
   tooltipSide = "bottom",
+  keepOpenWhileLoading = false,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -315,7 +319,8 @@ export function DropdownMenuItem({
 
   const menuItem = (
     <RadixDropdownMenu.Item
-      disabled={disabled || !!error || !!loading}
+      // Stays enabled after an error, so selecting it again retries.
+      disabled={disabled || !!loading}
       onSelect={async (event) => {
         if (confirmation) {
           // Prevent Radix from closing the menu so the confirmation modal can
@@ -332,10 +337,12 @@ export function DropdownMenuItem({
           return;
         }
         if (onClick) {
+          if (keepOpenWhileLoading) event.preventDefault();
           setError(null);
           setLoading(true);
           try {
             await onClick(event);
+            if (keepOpenWhileLoading) closeDropdown?.();
           } catch (e) {
             setError(e.message);
             console.error(e);
@@ -346,23 +353,38 @@ export function DropdownMenuItem({
       color={color}
       shortcut={shortcut}
       {...props}
+      // The error renders as a second line, past the item's fixed height.
+      style={
+        error
+          ? { height: "auto", paddingBlock: 4, ...props.style }
+          : props.style
+      }
     >
       {loading || error ? (
-        <Flex as="div" justify="between" align="center">
-          <Box as="span" className={loading ? "font-italic" : ""}>
-            {children}
-          </Box>
-          <Box width="14px" className="ml-3">
-            {loading ? <LoadingSpinner /> : null}
-            {error ? (
-              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
-                {/* An icon can't hold the tooltip's ref. */}
-                <span>
-                  <PiWarningFill color={amber.amber11} />
-                </span>
-              </Tooltip>
-            ) : null}
-          </Box>
+        <Flex as="div" direction="column">
+          <Flex as="div" justify="between" align="center">
+            <Box as="span" className={loading ? "font-italic" : ""}>
+              {children}
+            </Box>
+            <Box width="14px" className="ml-3">
+              {loading ? <LoadingSpinner /> : null}
+              {error ? (
+                <PiWarningFill color="var(--red-11)" aria-hidden />
+              ) : null}
+            </Box>
+          </Flex>
+          {error ? (
+            // Visible text, not a hover tooltip, so keyboard and touch users
+            // get the reason too.
+            <Text
+              as="div"
+              size="1"
+              color="red"
+              style={{ whiteSpace: "normal", maxWidth: 280 }}
+            >
+              {error}
+            </Text>
+          ) : null}
         </Flex>
       ) : (
         children
@@ -372,6 +394,14 @@ export function DropdownMenuItem({
 
   return (
     <>
+      {/* A menu item's children are presentational, so a live region inside
+          it may not be announced. This one sits outside the menu. */}
+      {error
+        ? createPortal(
+            <VisuallyHidden role="alert">{error}</VisuallyHidden>,
+            document.body,
+          )
+        : null}
       {confirmation && confirming && (
         <ModalStandard
           trackingEventModalType=""

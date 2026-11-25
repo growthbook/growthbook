@@ -381,3 +381,33 @@ export const putProjectSettings = async (
     settings,
   });
 };
+
+type PutProjectDefaultDashboardRequest = AuthRequest<
+  { defaultDashboardId: string | null },
+  { id: string }
+>;
+export const putProjectDefaultDashboard = async (
+  req: PutProjectDefaultDashboardRequest,
+  res: Response<{ status: 200 } | ApiErrorResponse>,
+) => {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const project = await context.models.projects.getById(id);
+  if (!project) {
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
+  }
+
+  await context.models.projects.setDefaultDashboard(
+    project,
+    req.body.defaultDashboardId,
+  );
+  res.status(200).json({ status: 200 });
+};

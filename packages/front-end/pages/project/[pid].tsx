@@ -5,6 +5,7 @@ import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
+import { projectSettingsValidator } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -46,6 +47,7 @@ import CopyableCode from "@/components/Settings/CopyableCode";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
+import ProjectDefaultDashboardSection from "@/components/Projects/ProjectDefaultDashboardSection";
 import TruncatedText from "@/ui/TruncatedText";
 
 // An ID row item, free to shrink: its value gives way, not its label.
@@ -101,19 +103,27 @@ const ProjectPage: FC = () => {
 
   const checklist = data?.checklist;
 
+  // Keyed on the stored values, not the settings object: any definitions
+  // refresh, like a default dashboard change, makes a new object, and
+  // resetting then would drop unsaved edits.
+  const storedSettings = JSON.stringify(settings ?? {});
   useEffect(() => {
-    if (settings) {
-      const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
-      });
-      if (typeof newVal.confidenceLevel === "number") {
-        newVal.confidenceLevel = newVal.confidenceLevel * 100;
-      }
-      form.reset(newVal);
-      setOriginalValue(newVal);
+    const stored: ProjectSettings = JSON.parse(storedSettings);
+    // Every settings field, so one this Project hasn't set is cleared rather
+    // than kept from the previous Project.
+    const newVal: ProjectSettings = Object.fromEntries(
+      Object.keys(projectSettingsValidator.shape).map((k) => [
+        k,
+        stored[k as keyof ProjectSettings],
+      ]),
+    );
+    // The form shows confidence as a percentage.
+    if (typeof newVal.confidenceLevel === "number") {
+      newVal.confidenceLevel = newVal.confidenceLevel * 100;
     }
-  }, [form, settings]);
+    form.reset(newVal);
+    setOriginalValue(newVal);
+  }, [form, storedSettings]);
 
   const isValid = form.formState.isValid;
   const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
@@ -489,6 +499,21 @@ const ProjectPage: FC = () => {
                     Save
                   </RadixButton>
                 </Flex>
+                {/* Below the Save row because it saves on change, not on Save. */}
+                {/* Without the plan, the section stays while a default is
+                    stored, so it can still be cleared. */}
+                {(hasCommercialFeature("product-analytics-dashboards") ||
+                  p?.defaultDashboardId) && (
+                  <Box mt="5">
+                    <ProjectDefaultDashboardSection
+                      projectId={pid}
+                      defaultDashboardId={p?.defaultDashboardId}
+                      canChoose={hasCommercialFeature(
+                        "product-analytics-dashboards",
+                      )}
+                    />
+                  </Box>
+                )}
               </TabsContent>
               <TabsContent value="approvals">
                 <ProjectApprovalSettings project={pid} projectName={p.name} />

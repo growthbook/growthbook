@@ -1,8 +1,9 @@
 import React from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { DashboardInterface } from "shared/enterprise";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
+import Text from "@/ui/Text";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export interface DashboardSelectorProps {
@@ -15,6 +16,9 @@ export interface DashboardSelectorProps {
   style?: React.CSSProperties;
   showIcon?: boolean;
   disabled?: boolean;
+  // Shown while `value` is "", which matches no dashboard.
+  placeholder?: string;
+  "aria-label"?: string;
 }
 
 export default function DashboardSelector({
@@ -27,6 +31,8 @@ export default function DashboardSelector({
   style,
   showIcon = true,
   disabled = false,
+  placeholder,
+  "aria-label": ariaLabel,
 }: DashboardSelectorProps) {
   return (
     <Select
@@ -43,6 +49,8 @@ export default function DashboardSelector({
         setValue(newValue);
       }}
       disabled={disabled}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
     >
       {defaultDashboard && (
         <>
