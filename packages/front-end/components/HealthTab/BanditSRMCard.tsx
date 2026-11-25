@@ -1,5 +1,6 @@
 import { BanditEvent } from "shared/validators";
 import React, { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -29,6 +30,7 @@ export default function BanditSRMCard({
   phase,
   onNotify,
 }: Props) {
+  const { t } = useLingui();
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
 
@@ -54,31 +56,35 @@ export default function BanditSRMCard({
   if (srm === undefined) {
     return (
       <div className="box my-4 p-3">
-        <Callout status="error">Traffic data is missing</Callout>
+        <Callout status="error">
+          <Trans>Traffic data is missing</Trans>
+        </Callout>
       </div>
     );
   }
 
   return (
     <SRMCardShell
-      title="Experiment Balance Check"
-      description="Shows actual unit split compared to percent selected for the experiment"
+      title={t`Experiment Balance Check`}
+      description={t`Shows actual unit split compared to percent selected for the experiment`}
       srmHealth={overallHealth}
       className="box"
     >
       <div>
         <div className="mb-3">
-          <label className="uppercase-title">Chart</label>
+          <label className="uppercase-title">
+            <Trans>Chart</Trans>
+          </label>
           <ButtonSelectField
             value={chartMode}
             setValue={(v) => setChartMode(v)}
             options={[
               {
-                label: "Actual & Expected Traffic",
+                label: t`Actual & Expected Traffic`,
                 value: "users",
               },
               {
-                label: "Actual & Expected Traffic Split",
+                label: t`Actual & Expected Traffic Split`,
                 value: "weights",
               },
             ]}
@@ -99,8 +105,14 @@ export default function BanditSRMCard({
           boldLowTrafficMessage
           pValue={
             <Text as="div" color="text-low" mx="3" mb="2">
-              p-value:{" "}
-              {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
+              <Trans>p-value:</Trans>{" "}
+              {srm !== undefined ? (
+                pValueFormatter(srm, 4)
+              ) : (
+                <em>
+                  <Trans>n/a</Trans>
+                </em>
+              )}
             </Text>
           }
         />

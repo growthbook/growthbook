@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { setupI18n } from "@lingui/core";
+import { messages } from "@/locales/en/messages.po";
 import {
   rampCompletedAt,
   rampScheduleDates,
@@ -7,6 +9,7 @@ import {
 } from "@/services/scheduleRules";
 
 const now = new Date("2026-11-05T12:00:00Z");
+const i18n = setupI18n({ locale: "en", messages: { en: messages } });
 
 describe("scheduleVerb", () => {
   it.each([
@@ -56,7 +59,7 @@ describe("rampCompletedAt", () => {
 
 describe("rampScheduleDates", () => {
   const labels = (rs: Schedule) => {
-    const { start, end } = rampScheduleDates(rs, now);
+    const { start, end } = rampScheduleDates(rs, i18n, now);
     return [start, end].map((d) => d && [d.label, d.date.toISOString()]);
   };
   const completedEvent = (iso: string) => [

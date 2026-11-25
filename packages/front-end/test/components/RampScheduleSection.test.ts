@@ -14,6 +14,7 @@ vi.mock("@/services/auth", () => ({ useAuth: vi.fn() }));
 vi.mock("@/services/UserContext", () => ({ useUser: vi.fn() }));
 
 import type { RampScheduleTemplateInterface } from "shared/validators";
+import { setupI18n } from "@lingui/core";
 import {
   formatRampStepSummary,
   isMonitoredTemplate,
@@ -25,6 +26,9 @@ import {
   reconstructUIPatch,
   type RampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+import { messages } from "@/locales/en/messages.po";
+
+const i18n = setupI18n({ locale: "en", messages: { en: messages } });
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -68,29 +72,29 @@ describe("formatRampStepSummary", () => {
   };
 
   it("'1 step' for a single interval step", () => {
-    expect(formatRampStepSummary([interval])).toBe("1 step");
+    expect(formatRampStepSummary([interval], i18n)).toBe("1 step");
   });
 
   it("'3 steps' for three interval steps with no approvals", () => {
-    expect(formatRampStepSummary([interval, interval, interval])).toBe(
+    expect(formatRampStepSummary([interval, interval, interval], i18n)).toBe(
       "3 steps",
     );
   });
 
   it("'2 steps, 1 approval' when one step is an approval", () => {
-    expect(formatRampStepSummary([interval, approval, interval])).toBe(
+    expect(formatRampStepSummary([interval, approval, interval], i18n)).toBe(
       "3 steps, 1 approval",
     );
   });
 
   it("'2 steps, 2 approvals' when two steps are approvals", () => {
-    expect(formatRampStepSummary([approval, interval, approval])).toBe(
+    expect(formatRampStepSummary([approval, interval, approval], i18n)).toBe(
       "3 steps, 2 approvals",
     );
   });
 
   it("'0 steps' for empty array", () => {
-    expect(formatRampStepSummary([])).toBe("0 steps");
+    expect(formatRampStepSummary([], i18n)).toBe("0 steps");
   });
 });
 

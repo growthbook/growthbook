@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { isReadyForApproval, isAwaitingStartApproval } from "shared/validators";
 
 // Single source of truth: a timeline node's status → label + colors. The dot,
@@ -22,7 +24,7 @@ export type NodeStatusToken =
 
 export interface NodeStatusVisual {
   token: NodeStatusToken;
-  label: string;
+  label: MessageDescriptor;
   dotColor: string;
   labelColor: string;
   // Color of the connector segment leaving this node.
@@ -38,7 +40,7 @@ const STATUS_VISUALS: Record<
   Omit<NodeStatusVisual, "token">
 > = {
   completed: {
-    label: "Completed",
+    label: msg`Completed`,
     dotColor: "var(--violet-9)",
     labelColor: "var(--violet-12)",
     connectorColor: "var(--violet-9)",
@@ -47,7 +49,7 @@ const STATUS_VISUALS: Record<
   // Approval is a hard stop — outgoing edge stays gray so it doesn't read as
   // "already advanced"; the orange dot + "approval" label carry the signal.
   "awaiting-approval": {
-    label: "Needs approval",
+    label: msg`Needs approval`,
     dotColor: "var(--orange-9)",
     labelColor: "var(--orange-11)",
     connectorColor: FUTURE_CONNECTOR,
@@ -56,49 +58,49 @@ const STATUS_VISUALS: Record<
   // Pre-start hold: the rule is off (0% traffic) until a human approves. Like
   // approval, the outgoing edge stays gray so it doesn't read as "advanced".
   "awaiting-start-approval": {
-    label: "Awaiting approval",
+    label: msg`Awaiting approval`,
     dotColor: "var(--amber-9)",
     labelColor: "var(--amber-11)",
     connectorColor: FUTURE_CONNECTOR,
     pulse: false,
   },
   monitoring: {
-    label: "Monitoring",
+    label: msg`Monitoring`,
     dotColor: "var(--blue-9)",
     labelColor: "var(--blue-11)",
     connectorColor: "var(--blue-9)",
     pulse: true,
   },
   running: {
-    label: "Running",
+    label: msg`Running`,
     dotColor: "var(--green-9)",
     labelColor: "var(--green-11)",
     connectorColor: "var(--green-9)",
     pulse: true,
   },
   paused: {
-    label: "Paused",
+    label: msg`Paused`,
     dotColor: "var(--amber-9)",
     labelColor: "var(--amber-11)",
     connectorColor: "var(--amber-9)",
     pulse: false,
   },
   scheduled: {
-    label: "Scheduled",
+    label: msg`Scheduled`,
     dotColor: "var(--amber-9)",
     labelColor: "var(--amber-11)",
     connectorColor: "var(--amber-9)",
     pulse: false,
   },
   "rolled-back": {
-    label: "Rolled back",
+    label: msg`Rolled back`,
     dotColor: "var(--gray-8)",
     labelColor: "var(--gray-10)",
     connectorColor: "var(--gray-8)",
     pulse: false,
   },
   future: {
-    label: "Upcoming",
+    label: msg`Upcoming`,
     dotColor: "var(--ramp-future-dot)",
     labelColor: "var(--ramp-future-label)",
     connectorColor: FUTURE_CONNECTOR,

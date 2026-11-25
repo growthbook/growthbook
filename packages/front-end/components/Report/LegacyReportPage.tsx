@@ -7,6 +7,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -66,6 +67,7 @@ export default function LegacyReportPage({
   error?: Error;
   mutate: () => Promise<unknown> | unknown;
 }) {
+  const { t } = useLingui();
   const router = useRouter();
 
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -160,6 +162,11 @@ export default function LegacyReportPage({
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
   const differenceType = report.args.differenceType ?? "relative";
 
+  const userDisplay = report.userId ? getUserDisplay(report.userId) : "";
+  const createdDate = date(report.dateCreated);
+  const startedAgo = ago(report.args.startDate);
+  const reportError = report.error;
+
   const hasMetrics =
     report.args.goalMetrics.length > 0 ||
     report.args.secondaryMetrics.length > 0 ||
@@ -170,11 +177,11 @@ export default function LegacyReportPage({
       <PageHead
         breadcrumb={[
           {
-            display: `Experiments`,
+            display: t`Experiments`,
             href: `/experiments`,
           },
           {
-            display: `${experimentData?.experiment.name ?? "Report"}`,
+            display: experimentData?.experiment.name ?? t`Report`,
             href: experimentData?.experiment.id
               ? `/experiment/${experimentData.experiment.id}`
               : undefined,
@@ -197,12 +204,12 @@ export default function LegacyReportPage({
             close={() => {
               setEditModalOpen(false);
             }}
-            header="Edit Report"
+            header={t`Edit Report`}
           >
-            <Field size="legacy" label="Title" {...form.register("title")} />
+            <Field size="legacy" label={t`Title`} {...form.register("title")} />
             <div className="form-group">
               <Text as="label" weight="semibold">
-                Description
+                <Trans>Description</Trans>
               </Text>
               <MarkdownInput
                 setValue={(value) => {
@@ -214,8 +221,8 @@ export default function LegacyReportPage({
             <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
-              label="Publish"
-              description="A published report will be visible to other users of your team"
+              label={t`Publish`}
+              description={t`A published report will be visible to other users of your team`}
               onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
@@ -227,17 +234,17 @@ export default function LegacyReportPage({
           {report?.experimentId && (
             <Link href={`/experiment/${report.experimentId}#results`}>
               <GBCircleArrowLeft className="mr-2" />
-              Go to experiment results
+              <Trans>Go to experiment results</Trans>
             </Link>
           )}
           {canDeleteReport &&
             (userId === report?.userId || !report?.userId) && (
               <DeleteButton
                 useRadix={false}
-                displayName="Custom Report"
+                displayName={t`Custom Report`}
                 link={false}
                 className="float-right btn-sm"
-                text="delete"
+                text={t`delete`}
                 useIcon={true}
                 onClick={async () => {
                   await apiCall<{ status: number; message?: string }>(
@@ -270,11 +277,18 @@ export default function LegacyReportPage({
           </h1>
           <div className="mb-1">
             <small className="text-muted">
-              Created{" "}
-              {report?.userId && <>by {getUserDisplay(report.userId)} </>} on{" "}
-              {date(report.dateCreated)} -{" "}
+              {report?.userId ? (
+                <Trans>
+                  Created by {userDisplay} on {createdDate}
+                </Trans>
+              ) : (
+                <Trans>Created on {createdDate}</Trans>
+              )}{" "}
+              -{" "}
               <span className="badge badge-secondary">
-                {form.watch("status") === "published" ? "Published" : "Private"}
+                {form.watch("status") === "published"
+                  ? t`Published`
+                  : t`Private`}
               </span>
             </small>
           </div>
@@ -288,8 +302,12 @@ export default function LegacyReportPage({
         <Tabs value={tab} onValueChange={setTab}>
           {canUpdateReport && (
             <TabsList>
-              <TabsTrigger value="results">Results</TabsTrigger>
-              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+              <TabsTrigger value="results">
+                <Trans>Results</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="configuration">
+                <Trans>Configuration</Trans>
+              </TabsTrigger>
             </TabsList>
           )}
 
@@ -298,7 +316,9 @@ export default function LegacyReportPage({
               <div className="pt-3 px-3 ">
                 <div className="row align-items-center mb-2">
                   <div className="col">
-                    <h2>Results</h2>
+                    <h2>
+                      <Trans>Results</Trans>
+                    </h2>
                   </div>
                   <div className="flex-1"></div>
                   <div className="col-auto d-flex align-items-end mr-3">
@@ -327,14 +347,14 @@ export default function LegacyReportPage({
                   <div className="col-auto d-flex align-items-end mr-3">
                     <div>
                       <div className="uppercase-title text-muted">
-                        Date range
+                        <Trans>Date range</Trans>
                       </div>
                       <div className="relative">
                         <span className="date-label">
                           {date(report.args.startDate)} —{" "}
                           {report.args.endDate
                             ? date(report.args.endDate)
-                            : "now"}
+                            : t`now`}
                         </span>
                       </div>
                     </div>
@@ -352,7 +372,7 @@ export default function LegacyReportPage({
                           className="font-weight-bold"
                           style={{ lineHeight: 1.2 }}
                         >
-                          updated
+                          <Trans>updated</Trans>
                         </div>
                         <div
                           className="d-inline-block"
@@ -369,7 +389,7 @@ export default function LegacyReportPage({
                     {canUpdateReport && (
                       <RunQueriesButton
                         icon="refresh"
-                        cta="Refresh Data"
+                        cta={t`Refresh Data`}
                         mutate={mutate}
                         model={report}
                         cancelEndpoint={`/report/${report.id}/cancel`}
@@ -444,18 +464,22 @@ export default function LegacyReportPage({
                 </div>
                 {report.error ? (
                   <Callout status="error">
-                    <strong>Error generating the report: </strong>{" "}
-                    {report.error}
+                    <Trans>
+                      <strong>Error generating the report: </strong>{" "}
+                      {reportError}
+                    </Trans>
                   </Callout>
                 ) : null}
                 {refreshError && (
                   <Callout status="error">
-                    <strong>Error refreshing data: </strong> {refreshError}
+                    <Trans>
+                      <strong>Error refreshing data: </strong> {refreshError}
+                    </Trans>
                   </Callout>
                 )}
                 {!hasMetrics && (
                   <Callout status="info">
-                    Add at least 1 metric to view results.
+                    <Trans>Add at least 1 metric to view results.</Trans>
                   </Callout>
                 )}
                 {!hasData &&
@@ -463,18 +487,26 @@ export default function LegacyReportPage({
                   queryStatusData.status !== "running" &&
                   hasMetrics && (
                     <Callout status="info">
-                      No data yet.{" "}
-                      {report.results &&
-                        phaseAgeMinutes >= 120 &&
-                        "Make sure your experiment is tracking properly."}
-                      {report.results &&
-                        phaseAgeMinutes < 120 &&
-                        "It was just started " +
-                          ago(report.args.startDate) +
-                          ". Give it a little longer and click the 'Refresh' button to check again."}
-                      {!report.results &&
-                        canUpdateReport &&
-                        `Click the "Refresh" button.`}
+                      {report.results ? (
+                        phaseAgeMinutes >= 120 ? (
+                          <Trans>
+                            No data yet. Make sure your experiment is tracking
+                            properly.
+                          </Trans>
+                        ) : (
+                          <Trans>
+                            No data yet. It was just started {startedAgo}. Give
+                            it a little longer and click the &apos;Refresh&apos;
+                            button to check again.
+                          </Trans>
+                        )
+                      ) : canUpdateReport ? (
+                        <Trans>
+                          No data yet. Click the &quot;Refresh&quot; button.
+                        </Trans>
+                      ) : (
+                        <Trans>No data yet.</Trans>
+                      )}
                     </Callout>
                   )}
               </div>
@@ -607,14 +639,16 @@ export default function LegacyReportPage({
                 <div className="row align-items-center mx-2 my-3">
                   <div className="col-auto small" style={{ lineHeight: 1.2 }}>
                     <div className="text-muted mb-1">
-                      The above results were computed with:
+                      <Trans>The above results were computed with:</Trans>
                     </div>
                     <div>
-                      <span className="text-muted">Engine:</span>{" "}
+                      <span className="text-muted">
+                        <Trans>Engine:</Trans>
+                      </span>{" "}
                       <span>
                         {report.args?.statsEngine === "frequentist"
-                          ? "Frequentist"
-                          : "Bayesian"}
+                          ? t`Frequentist`
+                          : t`Bayesian`}
                       </span>
                     </div>
                     <div>
@@ -623,25 +657,27 @@ export default function LegacyReportPage({
                       </span>{" "}
                       <span>
                         {report.args?.regressionAdjustmentEnabled
-                          ? "Enabled"
-                          : "Disabled"}
+                          ? t`Enabled`
+                          : t`Disabled`}
                       </span>
                     </div>
 
                     {report.args?.statsEngine === "frequentist" && (
                       <div>
                         <span className="text-muted">
-                          <GBSequential size={13} /> Sequential:
+                          <GBSequential size={13} /> <Trans>Sequential:</Trans>
                         </span>{" "}
                         <span>
                           {report.args?.sequentialTestingEnabled
-                            ? "Enabled"
-                            : "Disabled"}
+                            ? t`Enabled`
+                            : t`Disabled`}
                         </span>
                       </div>
                     )}
                     <div>
-                      <span className="text-muted">Run date:</span>{" "}
+                      <span className="text-muted">
+                        <Trans>Run date:</Trans>
+                      </span>{" "}
                       <span>
                         {getValidDate(report.runStarted).toLocaleString([], {
                           year: "numeric",
@@ -659,7 +695,9 @@ export default function LegacyReportPage({
             {canUpdateReport && (
               <TabsContent value="configuration">
                 <Box p="4">
-                  <h2>Configuration</h2>
+                  <h2>
+                    <Trans>Configuration</Trans>
+                  </h2>
                   <ConfigureLegacyReport
                     mutate={mutate}
                     report={report as ExperimentReportInterface}

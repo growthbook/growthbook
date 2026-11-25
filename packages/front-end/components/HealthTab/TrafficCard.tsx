@@ -9,6 +9,7 @@ import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SegmentedControl from "@/ui/SegmentedControl";
 import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
@@ -45,8 +46,8 @@ export default function TrafficCard({
   isBandit,
   disableDimensions,
   disableDimensionSRM,
-  cardTitle = "Traffic",
-  overTimeTitle = "Experiment Traffic Over Time",
+  cardTitle,
+  overTimeTitle,
   containerClassName = "box p-3 my-4",
   cluster,
 }: {
@@ -65,6 +66,12 @@ export default function TrafficCard({
     traffic?: ExperimentSnapshotTraffic;
   };
 }) {
+  const { t } = useLingui();
+  const cardTitleText = cardTitle === undefined ? t`Traffic` : cardTitle;
+  const overTimeTitleText =
+    overTimeTitle === undefined
+      ? t`Experiment Traffic Over Time`
+      : overTimeTitle;
   const [cumulative, setCumulative] = useState(true);
   const [showClusters, setShowClusters] = useState(false);
   const clusterTrafficMissing = showClusters && !cluster?.traffic;
@@ -105,6 +112,7 @@ export default function TrafficCard({
   const dimensionWithIssues = availableDimensions.find(
     (d) => d.value === selectedDimension,
   );
+  const dimensionLabel = dimensionWithIssues?.label ?? t`Dimension`;
 
   useEffect(() => {
     // Reset selected dimension if traffic changes and dimension is no longer available
@@ -149,16 +157,18 @@ export default function TrafficCard({
   return (
     <div className={containerClassName}>
       <div className="mx-2">
-        {(cardTitle || !disableDimensions || cluster) && (
+        {(cardTitleText || !disableDimensions || cluster) && (
           <div className="d-flex flex-row mt-1">
-            {cardTitle && <h2 className="d-inline">{cardTitle}</h2>}
+            {cardTitleText && <h2 className="d-inline">{cardTitleText}</h2>}
             <div className="flex-1" />
             {cluster && (
               <Box px="3">
-                <div className="uppercase-title text-muted">Unit</div>
+                <div className="uppercase-title text-muted">
+                  <Trans>Unit</Trans>
+                </div>
                 <SegmentedControl
                   size="normal"
-                  aria-label="Unit"
+                  aria-label={t`Unit`}
                   value={showClusters ? "cluster" : "subunit"}
                   setValue={(v) => setShowClusters(v === "cluster")}
                   options={[
@@ -177,11 +187,13 @@ export default function TrafficCard({
             {!disableDimensions && (
               <>
                 <div className="col-auto">
-                  <div className="uppercase-title text-muted">Dimension</div>
+                  <div className="uppercase-title text-muted">
+                    <Trans>Dimension</Trans>
+                  </div>
                   <SelectField
                     size="legacy"
                     containerClassName={"select-dropdown-underline"}
-                    initialOption="Over Time"
+                    initialOption={t`Over Time`}
                     options={availableDimensions}
                     value={selectedDimension}
                     onChange={(v) => {
@@ -200,15 +212,13 @@ export default function TrafficCard({
         <div className="mt-3 mb-4 d-flex align-items-center">
           <h3 className="mb-0">
             {selectedDimension
-              ? `Experiment Traffic by ${
-                  dimensionWithIssues?.label ?? "Dimension"
-                }`
-              : overTimeTitle}
+              ? t`Experiment Traffic by ${dimensionLabel}`
+              : overTimeTitleText}
           </h3>
           {!selectedDimension && (
             <div className="ml-auto flex-shrink-0">
               <Switch
-                label="Cumulative"
+                label={t`Cumulative`}
                 value={cumulative}
                 onChange={setCumulative}
               />
@@ -218,8 +228,10 @@ export default function TrafficCard({
       </div>
       {clusterTrafficMissing ? (
         <Callout status="info" mx="2" mb="2">
-          Traffic per <IdentifierCode>{cluster?.identifier}</IdentifierCode>{" "}
-          isn&apos;t available for this experiment yet.
+          <Trans>
+            Traffic per <IdentifierCode>{cluster?.identifier}</IdentifierCode>{" "}
+            isn&apos;t available for this experiment yet.
+          </Trans>
         </Callout>
       ) : selectedDimension ? (
         <table className="table w-auto" style={{ minWidth: "70%" }}>
@@ -233,8 +245,12 @@ export default function TrafficCard({
                   <VariationLabel number={v.index} name={v.name} size="md" />
                 </th>
               ))}
-              <th className="border-top-0">Expected %</th>
-              <th className="border-top-0">Actual %</th>
+              <th className="border-top-0">
+                <Trans>Expected %</Trans>
+              </th>
+              <th className="border-top-0">
+                <Trans>Actual %</Trans>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -250,8 +266,8 @@ export default function TrafficCard({
                         <Tooltip
                           body={
                             showWarning
-                              ? "Issues detected"
-                              : "No issues detected"
+                              ? t`Issues detected`
+                              : t`No issues detected`
                           }
                           tipPosition="top"
                         >
@@ -304,7 +320,7 @@ export default function TrafficCard({
           <ExperimentDateGraph
             yaxis="users"
             variations={variations}
-            label="Units"
+            label={t`Units`}
             datapoints={usersPerDate}
             formatter={formatNumber}
             cumulative={cumulative}

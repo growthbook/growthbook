@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
+import { useLingui } from "@lingui/react/macro";
 import { extent } from "@visx/vendor/d3-array";
 import { MetricTimeSeries, RampScheduleInterface } from "shared/validators";
 import { getValidDate } from "shared/dates";
@@ -51,6 +52,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   safeRolloutId,
   mutateRule,
 }) => {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
   const dummySeedQuery = router.query["dummySeed"];
@@ -276,8 +278,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   }, [filteredTs]);
 
   const eventMarkers = useMemo(
-    () => buildEventMarkers(rampSchedule.eventHistory ?? []),
-    [rampSchedule.eventHistory],
+    () => buildEventMarkers(rampSchedule.eventHistory ?? [], i18n),
+    [rampSchedule.eventHistory, i18n],
   );
 
   const dateExtent = useMemo((): [Date, Date] | [undefined, undefined] => {
@@ -285,7 +287,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       t.dataPoints.map((d) => getValidDate(d.date)),
     );
     const stepEventDates = eventMarkers
-      .filter((m) => m.label !== "Start")
+      .filter((m) => !m.isStart)
       .map((m) => m.date);
 
     const dates = [...dataDates, ...stepEventDates];
@@ -315,8 +317,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       : snapshotCtx.safeRollout,
   });
   const monitoringOverview = useMemo(
-    () => getRampHealthOverview(rampSchedule, monitoringSignals),
-    [rampSchedule, monitoringSignals],
+    () => getRampHealthOverview(rampSchedule, monitoringSignals, i18n),
+    [rampSchedule, monitoringSignals, i18n],
   );
   const shouldAutoExpand = monitoringOverview.autoExpand || hasQueryIssue;
 
@@ -382,8 +384,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
             {guardrailMetricIds.length > 0 && (
               <MetricSection
-                title="Guardrail Metrics"
-                subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
+                title={t`Guardrail Metrics`}
+                subtitle={t`Automatically roll back the ramp-up if any of these metrics show a statistically significant regression`}
                 metricIds={guardrailMetricIds}
                 resultGroup="guardrail"
                 snapshotMetrics={snapshotMetrics}
@@ -398,8 +400,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
             {signalMetricIds.length > 0 && (
               <MetricSection
-                title="Signal Metrics"
-                subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
+                title={t`Signal Metrics`}
+                subtitle={t`If any of these metrics show a regression, hold at the current step until healthy or manual advancement`}
                 metricIds={signalMetricIds}
                 resultGroup="secondary"
                 snapshotMetrics={snapshotMetrics}

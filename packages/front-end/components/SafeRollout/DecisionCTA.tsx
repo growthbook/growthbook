@@ -5,6 +5,7 @@ import {
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "shared/validators";
+import { useLingui } from "@lingui/react/macro";
 import Button, { Color, Variant } from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
@@ -16,6 +17,7 @@ const DecisionCTA = ({
   openStatusModal: () => void;
   rule: SafeRolloutRule;
 }) => {
+  const { t } = useLingui();
   const { safeRollout, snapshot: snapshotWithResults } =
     useSafeRolloutSnapshot();
 
@@ -52,7 +54,7 @@ const DecisionCTA = ({
     return null;
   }
 
-  let buttonCopy = "End rollout";
+  let buttonCopy = t`End rollout`;
   let variant: Variant = "soft";
   let color: Color = "violet";
 
@@ -60,11 +62,11 @@ const DecisionCTA = ({
     decisionStatus?.status === "unhealthy" ||
     decisionStatus?.status === "rollback-now"
   ) {
-    buttonCopy = "Revert Now";
+    buttonCopy = t`Revert Now`;
     variant = "solid";
     color = "red";
   } else if (decisionStatus?.status === "ship-now") {
-    buttonCopy = "Ship Now";
+    buttonCopy = t`Ship Now`;
     variant = "solid";
   }
 

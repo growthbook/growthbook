@@ -2,6 +2,7 @@ import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
@@ -65,6 +66,7 @@ export default function ReportMetaInfo({
   showPrivateLink?: boolean;
   isPublic?: boolean;
 }) {
+  const { t } = useLingui();
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.uid
     ? `${HOST}/public/r/${report.uid}`
@@ -215,7 +217,7 @@ export default function ReportMetaInfo({
     report.shareLevel !== "public" ||
     publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
-        Link copied
+        <Trans>Link copied</Trans>
       </Button>
     ) : (
       <Button
@@ -231,7 +233,7 @@ export default function ReportMetaInfo({
         }}
         style={{ width: 130 }}
       >
-        Copy Link
+        <Trans>Copy Link</Trans>
       </Button>
     );
 
@@ -240,7 +242,7 @@ export default function ReportMetaInfo({
       <Button>
         <Tooltip
           state={true}
-          body="Link copied"
+          body={t`Link copied`}
           style={{ pointerEvents: "none" }}
           tipMinWidth="80"
         >
@@ -266,6 +268,7 @@ export default function ReportMetaInfo({
   const isHoldout = experiment?.type === "holdout";
 
   const { metricGroups } = useDefinitions();
+  const reportTitle = report.title;
 
   return (
     <>
@@ -300,7 +303,7 @@ export default function ReportMetaInfo({
             <Flex gap="3" mt="2" mb="1">
               {showEditControls && (
                 <Metadata
-                  label="Report by"
+                  label={t`Report by`}
                   value={
                     <Owner
                       ownerId={report.userId}
@@ -311,12 +314,12 @@ export default function ReportMetaInfo({
                 />
               )}
               <Metadata
-                label="Report created"
+                label={t`Report created`}
                 value={date(report.dateCreated)}
               />
               <Metadata
                 label={
-                  isBandit ? `Bandit` : isHoldout ? `Holdout` : `Experiment`
+                  isBandit ? t`Bandit` : isHoldout ? t`Holdout` : t`Experiment`
                 }
                 value={
                   <ConditionalWrapper
@@ -343,7 +346,7 @@ export default function ReportMetaInfo({
                   >
                     {experiment?.name ||
                       experiment?.id ||
-                      "(unknown experiment)"}
+                      t`(unknown experiment)`}
                   </ConditionalWrapper>
                 }
               />
@@ -353,7 +356,7 @@ export default function ReportMetaInfo({
             <Flex align="center" gap="3">
               {showPrivateLink && (
                 <LinkButton variant="outline" href={`/report/${report.id}`}>
-                  Edit Report
+                  <Trans>Edit Report</Trans>
                 </LinkButton>
               )}
               {showEditControls ? (
@@ -361,12 +364,12 @@ export default function ReportMetaInfo({
                   {shareLevel === "public" && !publicSharingDisabled ? (
                     <SplitButton menu={shareLinkButtonTiny}>
                       <Button onClick={() => setShareModalOpen(true)}>
-                        Share...
+                        <Trans>Share...</Trans>
                       </Button>
                     </SplitButton>
                   ) : (
                     <Button onClick={() => setShareModalOpen(true)}>
-                      Share...
+                      <Trans>Share...</Trans>
                     </Button>
                   )}
                 </div>
@@ -436,15 +439,17 @@ export default function ReportMetaInfo({
             }
             mutate?.();
           })}
-          header={`Edit "${report.title}"`}
+          header={t`Edit "${reportTitle}"`}
         >
           <Field
             size="legacy"
-            label="Report Name"
+            label={t`Report Name`}
             {...generalForm.register("title")}
           />
 
-          <label>Description</label>
+          <label>
+            <Trans>Description</Trans>
+          </label>
           <MarkdownInput
             value={generalForm.watch("description") || ""}
             setValue={(v) => generalForm.setValue("description", v)}
@@ -457,50 +462,56 @@ export default function ReportMetaInfo({
           open={true}
           trackingEventModalType="share-report-settings"
           close={() => setShareModalOpen(false)}
-          closeCta="Close"
-          header={`Share "${report.title}"`}
+          closeCta={t`Close`}
+          header={t`Share "${reportTitle}"`}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
             {shareLevel === "organization" ? (
               <Callout status="info" size="sm">
-                This report is discoverable within your organization.
+                <Trans>
+                  This report is discoverable within your organization.
+                </Trans>
               </Callout>
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
                   {publicSharingDisabled
-                    ? `Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. ${
-                        isOwner || isAdmin
-                          ? 'To revoke it, set View access to "Only organization members" or "Only me".'
-                          : "Ask the report owner or an admin to revoke it."
-                      }`
-                    : "Anyone with the link can view this report, even those outside your organization."}
+                    ? isOwner || isAdmin
+                      ? t`Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members" or "Only me".`
+                      : t`Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. Ask the report owner or an admin to revoke it.`
+                    : t`Anyone with the link can view this report, even those outside your organization.`}
                 </Callout>
               </>
             ) : shareLevel === "private" ? (
               <Callout status="info" size="sm">
-                This report is currently unlisted
-                {editLevel === "private" ? " — only you can view or edit" : ""}.
+                {editLevel === "private" ? (
+                  <Trans>
+                    This report is currently unlisted — only you can view or
+                    edit.
+                  </Trans>
+                ) : (
+                  <Trans>This report is currently unlisted.</Trans>
+                )}
               </Callout>
             ) : null}
           </div>
 
           <SelectField
             size="legacy"
-            label="View access"
+            label={t`View access`}
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
             containerClassName="mb-2"
             sort={false}
             disabled={!isOwner && !isAdmin}
             options={[
-              { value: "private", label: "Only me" },
-              { value: "organization", label: "Only organization members" },
+              { value: "private", label: t`Only me` },
+              { value: "organization", label: t`Only organization members` },
               // Kept for an already-public report so it can be switched off.
               ...(publicSharingDisabled && report.shareLevel !== "public"
                 ? []
-                : [{ value: "public", label: "Anyone with the link" }]),
+                : [{ value: "public", label: t`Anyone with the link` }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -510,18 +521,18 @@ export default function ReportMetaInfo({
               </div>
             ) : saveShareLevelStatus === "success" ? (
               <HelperText status="success" size="sm">
-                Sharing status has been updated
+                <Trans>Sharing status has been updated</Trans>
               </HelperText>
             ) : saveShareLevelStatus === "fail" ? (
               <HelperText status="error" size="sm">
-                Unable to update sharing status
+                <Trans>Unable to update sharing status</Trans>
               </HelperText>
             ) : null}
           </div>
 
           <SelectField
             size="legacy"
-            label="Edit access"
+            label={t`Edit access`}
             value={editLevel}
             onChange={(v: EditLevel) => setEditLevel(v)}
             containerClassName="mb-2"
@@ -530,9 +541,9 @@ export default function ReportMetaInfo({
             options={[
               {
                 value: "organization",
-                label: "Any organization members with editing permissions",
+                label: t`Any organization members with editing permissions`,
               },
-              { value: "private", label: "Only me" },
+              { value: "private", label: t`Only me` },
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
@@ -542,11 +553,11 @@ export default function ReportMetaInfo({
               </div>
             ) : saveEditLevelStatus === "success" ? (
               <HelperText status="success" size="sm">
-                Editing status has been updated
+                <Trans>Editing status has been updated</Trans>
               </HelperText>
             ) : saveEditLevelStatus === "fail" ? (
               <HelperText status="error" size="sm">
-                Unable to update editing status
+                <Trans>Unable to update editing status</Trans>
               </HelperText>
             ) : null}
           </div>

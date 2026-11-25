@@ -1,5 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -268,6 +269,7 @@ function TemplateRowCells({
   canUpdate: boolean;
   onEdit: () => void;
 }) {
+  const { i18n } = useLingui();
   return (
     <>
       <TableCell>
@@ -295,7 +297,7 @@ function TemplateRowCells({
             )}
           </Flex>
           <Text color="text-low" size="sm">
-            {formatRampStepSummary(template.steps)}
+            {formatRampStepSummary(template.steps, i18n)}
           </Text>
         </Flex>
       </TableCell>

@@ -15,6 +15,7 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import Link from "next/link";
+import { Trans } from "@lingui/react/macro";
 import { FaTimes } from "react-icons/fa";
 import {
   expandMetricGroups,
@@ -262,15 +263,19 @@ export function getRenderLabelColumn({
       </Tooltip>
     );
 
+    const cupedDisabledReason =
+      row?.metricSnapshotSettings?.regressionAdjustmentReason;
     const cupedIconDisplay =
       regressionAdjustmentEnabled &&
       !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
         <Tooltip
           className="ml-1"
           body={
-            row?.metricSnapshotSettings?.regressionAdjustmentReason
-              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
-              : `CUPED disabled`
+            cupedDisabledReason ? (
+              <Trans>CUPED disabled: {cupedDisabledReason}</Trans>
+            ) : (
+              <Trans>CUPED disabled</Trans>
+            )
           }
         >
           <div
@@ -289,7 +294,7 @@ export function getRenderLabelColumn({
 
     const metricInverseIconDisplay = metric.inverse ? (
       <Tooltip
-        body="metric is inverse, lower is better"
+        body={<Trans>metric is inverse, lower is better</Trans>}
         className="inverse-indicator ml-1"
       >
         <MdSwapCalls />

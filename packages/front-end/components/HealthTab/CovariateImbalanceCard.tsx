@@ -2,6 +2,7 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -29,6 +30,7 @@ export default function CovariateImbalanceCard({
   snapshot,
   onNotify,
 }: Props) {
+  const { t } = useLingui();
   const { metricGroups } = useDefinitions();
   const covariateImbalanceResult = snapshot?.health?.covariateImbalance;
 
@@ -80,11 +82,11 @@ export default function CovariateImbalanceCard({
   useEffect(() => {
     if (isImbalanced && onNotify) {
       onNotify({
-        label: "Pre-Exposure Bias",
+        label: t`Pre-Exposure Bias`,
         value: "covariateBalanceCheck",
       });
     }
-  }, [isImbalanced, onNotify, covariateImbalanceResult]);
+  }, [isImbalanced, onNotify, covariateImbalanceResult, t]);
 
   const goalAndGuardrailMetricsTested =
     (covariateImbalanceResult?.numGoalMetrics ?? 0) +
@@ -113,12 +115,14 @@ export default function CovariateImbalanceCard({
         (snapshot.settings.guardrailMetrics?.length ?? 0)),
   );
 
+  const significanceLevel = DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
+
   const learnMore = (
     <Link
       href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
       external
     >
-      Learn more
+      <Trans>Learn more</Trans>
       <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
     </Link>
   );
@@ -129,7 +133,7 @@ export default function CovariateImbalanceCard({
         <Flex justify="between" align="center">
           <Flex align="center" gap="2" wrap="wrap">
             <Heading as="h2" size="lg" mb="0">
-              Pre-Exposure Bias Check
+              <Trans>Pre-Exposure Bias Check</Trans>
             </Heading>
             {isImbalanced && <StatusBadge status="unhealthy" />}
           </Flex>
@@ -148,7 +152,9 @@ export default function CovariateImbalanceCard({
           </Box>
         </Flex>
         <Text as="p" mt="1">
-          Detects differences in pre-exposure baseline and variation means
+          <Trans>
+            Detects differences in pre-exposure baseline and variation means
+          </Trans>
         </Text>
         <Separator size="4" my="3" />
         <Box pt="2">
@@ -157,30 +163,40 @@ export default function CovariateImbalanceCard({
               <Text color="text-low">
                 <i>
                   {experimentHasMetrics
-                    ? "No pre-exposure checks found in results."
-                    : "No metrics have been added."}
+                    ? t`No pre-exposure checks found in results.`
+                    : t`No metrics have been added.`}
                 </i>
               </Text>
             </Box>
           ) : !isImbalanced ? (
             <Callout status="success" contentAlign="center" action={learnMore}>
-              {goalAndGuardrailMetricsTested} goal or guardrail{" "}
-              {goalAndGuardrailMetricsTested > 1
-                ? "results show"
-                : "result shows"}{" "}
-              no pre-exposure imbalance.
+              <Plural
+                value={goalAndGuardrailMetricsTested}
+                _0="# goal or guardrail result shows no pre-exposure imbalance."
+                one="# goal or guardrail result shows no pre-exposure imbalance."
+                other="# goal or guardrail results show no pre-exposure imbalance."
+              />
             </Callout>
           ) : (
             <Callout status="warning" contentAlign="center" action={learnMore}>
-              Pre-exposure imbalance detected in{" "}
-              <Text weight="semibold">
-                {goalAndGuardrailMetricsImbalanced} goal and guardrail metric
-                {goalAndGuardrailMetricsImbalanced !== 1 ? "s" : ""}
-              </Text>{" "}
-              (significance level{" "}
-              {DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE},
-              Bonferroni-corrected for {numBonferroniTests} test
-              {numBonferroniTests !== 1 ? "s" : ""}).
+              <Trans>
+                Pre-exposure imbalance detected in{" "}
+                <Text weight="semibold">
+                  <Plural
+                    value={goalAndGuardrailMetricsImbalanced}
+                    one="# goal and guardrail metric"
+                    other="# goal and guardrail metrics"
+                  />
+                </Text>{" "}
+                (significance level {significanceLevel}, Bonferroni-corrected
+                for{" "}
+                <Plural
+                  value={numBonferroniTests}
+                  one="# test"
+                  other="# tests"
+                />
+                ).
+              </Trans>
             </Callout>
           )}
         </Box>

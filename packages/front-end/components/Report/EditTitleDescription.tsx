@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ReportInterface } from "shared/types/report";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -15,6 +16,7 @@ export default function EditTitleDescription({
   report: ReportInterface;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const form = useForm({
     defaultValues: {
@@ -35,11 +37,13 @@ export default function EditTitleDescription({
         mutate();
       })}
       close={cancel}
-      header="Edit Report"
+      header={t`Edit Report`}
     >
-      <Field size="legacy" label="Title" {...form.register("title")} />
+      <Field size="legacy" label={t`Title`} {...form.register("title")} />
       <div className="form-group">
-        <label>Description</label>
+        <label>
+          <Trans>Description</Trans>
+        </label>
         <MarkdownInput
           setValue={(value) => {
             form.setValue("description", value);

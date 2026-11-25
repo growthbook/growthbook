@@ -7,6 +7,7 @@ import {
 import React, { RefObject, useCallback, useMemo, useState } from "react";
 import { getClusterSubUnit } from "shared/experiments";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate } from "shared/dates";
 import { DifferenceType } from "shared/types/stats";
@@ -49,7 +50,9 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeMessage, {
+  OVERRIDE_METRICS_UPGRADE,
+} from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 type TabOptions = "overview" | "metrics" | "analysis" | "variations";
@@ -66,6 +69,7 @@ export default function ConfigureReport({
   canEdit?: boolean;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
+  const { t, i18n } = useLingui();
   const {
     getDatasourceById,
     segments,
@@ -116,12 +120,12 @@ export default function ConfigureReport({
     const settings = value.experimentAnalysisSettings;
     if (isClusterExperiment && settings) {
       if (!settings.clusterSubUnitIdentifier) {
-        throw new Error("Choose a subunit identifier type.");
+        throw new Error(t`Choose a subunit identifier type.`);
       }
       settings.activationMetric = "";
       const { droppedIds, groupNames } = ineligibleClusterMetrics;
       if (groupNames.length) {
-        throw new Error(getIneligibleGroupsMessage(groupNames));
+        throw new Error(getIneligibleGroupsMessage(groupNames, i18n));
       }
       if (droppedIds.size) {
         const keep = (ids: string[] = []) =>
@@ -271,6 +275,11 @@ export default function ConfigureReport({
     getExperimentMetricById,
   ]);
 
+  const latestPhaseNumber = latestPhaseIndex + 1;
+  const defaultTuningParameter =
+    orgSettings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
   const hasMetrics =
     goalMetrics.length > 0 ||
     guardrailMetrics.length > 0 ||
@@ -290,8 +299,8 @@ export default function ConfigureReport({
       open={true}
       trackingEventModalType="configure-report"
       close={close}
-      header={`Edit Analysis`}
-      cta="Save and refresh"
+      header={t`Edit Analysis`}
+      cta={t`Save and refresh`}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -308,10 +317,18 @@ export default function ConfigureReport({
         >
           <TabsList>
             <div className="ml-3" />
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="metrics">Metrics</TabsTrigger>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
-            <TabsTrigger value="variations">Variations & Traffic</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="metrics">
+              <Trans>Metrics</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="analysis">
+              <Trans>Analysis</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="variations">
+              <Trans>Variations & Traffic</Trans>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -344,7 +361,7 @@ export default function ConfigureReport({
             />
             <SelectField
               size="legacy"
-              label="Difference Type"
+              label={t`Difference Type`}
               value={
                 form.watch("experimentAnalysisSettings.differenceType") ||
                 "relative"
@@ -358,25 +375,25 @@ export default function ConfigureReport({
               sort={false}
               options={[
                 {
-                  label: "Relative",
+                  label: t`Relative`,
                   value: "relative",
                 },
                 {
-                  label: "Absolute",
+                  label: t`Absolute`,
                   value: "absolute",
                 },
                 {
-                  label: "Scaled Impact",
+                  label: t`Scaled Impact`,
                   value: "scaled",
                 },
               ]}
-              helpText="Choose the units to display lifts in"
+              helpText={t`Choose the units to display lifts in`}
             />
             <div className="d-flex" style={{ gap: "1rem" }}>
               <div style={{ width: "50%" }}>
                 <DatePicker
                   key={`${datePickerKey}_date1`}
-                  label="Analysis start"
+                  label={t`Analysis start`}
                   timeZone="utc"
                   containerClassName="mb-2"
                   date={form.watch("experimentAnalysisSettings.dateStarted")}
@@ -401,7 +418,11 @@ export default function ConfigureReport({
                   }}
                 >
                   <div style={{ lineHeight: 1.25 }}>
-                    Use {isBandit ? "Bandit" : "Experiment"} start date
+                    {isBandit ? (
+                      <Trans>Use Bandit start date</Trans>
+                    ) : (
+                      <Trans>Use Experiment start date</Trans>
+                    )}
                     <br />
                     <small>
                       {date(experiment?.phases?.[0]?.dateStarted ?? "", "UTC")}{" "}
@@ -428,7 +449,9 @@ export default function ConfigureReport({
                       }}
                     >
                       <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
-                        Use latest phase ({latestPhaseIndex + 1}) start date
+                        <Trans>
+                          Use latest phase ({latestPhaseNumber}) start date
+                        </Trans>
                         <br />
                         <small>
                           {date(
@@ -447,16 +470,16 @@ export default function ConfigureReport({
                 {useToday ? (
                   <Field
                     size="legacy"
-                    label="End (UTC)"
+                    label={t`End (UTC)`}
                     containerClassName="mb-2"
                     readOnly
-                    value="today"
+                    value={t`today`}
                     style={{ height: 38 }}
                   />
                 ) : (
                   <DatePicker
                     key={`${datePickerKey}_date2`}
-                    label="End"
+                    label={t`End`}
                     timeZone="utc"
                     containerClassName="mb-2"
                     date={
@@ -492,7 +515,11 @@ export default function ConfigureReport({
                         }}
                       >
                         <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
-                          Use {isBandit ? "Bandit" : "Experiment"} end date
+                          {isBandit ? (
+                            <Trans>Use Bandit end date</Trans>
+                          ) : (
+                            <Trans>Use Experiment end date</Trans>
+                          )}
                           <br />
                           <small>
                             {date(
@@ -508,7 +535,7 @@ export default function ConfigureReport({
                   ) : null}
                   <div className="d-flex align-items-center mr-2">
                     <Checkbox
-                      label="Today"
+                      label={t`Today`}
                       mb="0"
                       value={useToday}
                       setValue={(v) => setUseToday(v as boolean)}
@@ -632,13 +659,15 @@ export default function ConfigureReport({
                 <div className="form-group mt-4 mb-2">
                   <PremiumTooltip commercialFeature="override-metrics">
                     <label className="font-weight-bold mb-0">
-                      Metric Overrides
+                      <Trans>Metric Overrides</Trans>
                     </label>
                   </PremiumTooltip>
                   <small className="form-text text-muted mb-2">
-                    Override metric behaviors within this experiment. Anything
-                    you don&apos;t override follows the metric&apos;s own
-                    settings.
+                    <Trans>
+                      Override metric behaviors within this experiment. Anything
+                      you don&apos;t override follows the metric&apos;s own
+                      settings.
+                    </Trans>
                   </small>
                   <MetricsOverridesSelector
                     experiment={experiment}
@@ -664,7 +693,7 @@ export default function ConfigureReport({
                     <UpgradeMessage
                       showUpgradeModal={() => setUpgradeModal(true)}
                       commercialFeature="override-metrics"
-                      upgradeMessage="override metrics"
+                      upgradeMessage={OVERRIDE_METRICS_UPGRADE}
                     />
                   )}
                 </div>
@@ -704,9 +733,9 @@ export default function ConfigureReport({
             />
             <Field
               size="legacy"
-              label="Tracking Key"
+              label={t`Tracking Key`}
               {...form.register(`experimentAnalysisSettings.trackingKey`)}
-              helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
+              helpText={t`Unique identifier for this Experiment, used to track impressions and analyze results`}
             />
             <MetricSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
@@ -720,7 +749,7 @@ export default function ConfigureReport({
               includeFacts={true}
               label={
                 <>
-                  Activation Metric{" "}
+                  <Trans>Activation Metric</Trans>{" "}
                   <MetricsSelectorTooltip
                     onlyBinomial={true}
                     noFactFunnelMetrics={true}
@@ -728,7 +757,7 @@ export default function ConfigureReport({
                   />
                 </>
               }
-              initialOption="None"
+              initialOption={t`None`}
               onlyBinomial
               filterFactFunnelMetrics
               value={
@@ -746,14 +775,14 @@ export default function ConfigureReport({
               disabled={isClusterExperiment}
               helpText={
                 isClusterExperiment
-                  ? "Activation metrics aren't supported for cluster experiments."
-                  : "Users must convert on this metric before being included"
+                  ? t`Activation metrics aren't supported for cluster experiments.`
+                  : t`Users must convert on this metric before being included`
               }
             />
             {datasourceProperties?.experimentSegments && (
               <SelectField
                 size="legacy"
-                label="Segment"
+                label={t`Segment`}
                 value={form.watch("experimentAnalysisSettings.segment") || ""}
                 onChange={(value) =>
                   form.setValue(
@@ -761,20 +790,20 @@ export default function ConfigureReport({
                     value || "",
                   )
                 }
-                initialOption="None (All Users)"
+                initialOption={t`None (All Users)`}
                 options={filteredSegments.map((s) => {
                   return {
                     label: s.name,
                     value: s.id,
                   };
                 })}
-                helpText="Only users in this segment will be included"
+                helpText={t`Only users in this segment will be included`}
               />
             )}
             {datasourceProperties?.separateExperimentResultQueries && (
               <SelectField
                 size="legacy"
-                label="Metric Conversion Windows"
+                label={t`Metric Conversion Windows`}
                 value={
                   form.watch("experimentAnalysisSettings.skipPartialData")
                     ? "strict"
@@ -788,15 +817,15 @@ export default function ConfigureReport({
                 }}
                 options={[
                   {
-                    label: "Include In-Progress Conversions",
+                    label: t`Include In-Progress Conversions`,
                     value: "loose",
                   },
                   {
-                    label: "Exclude In-Progress Conversions",
+                    label: t`Exclude In-Progress Conversions`,
                     value: "strict",
                   },
                 ]}
-                helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                helpText={t`How to treat users not enrolled in the experiment long enough to complete conversion window.`}
               />
             )}
 
@@ -815,7 +844,7 @@ export default function ConfigureReport({
               label={
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <GBCuped className="mr-1" />
-                  Use Regression Adjustment (CUPED)
+                  <Trans>Use Regression Adjustment (CUPED)</Trans>
                 </PremiumTooltip>
               }
               value={
@@ -833,11 +862,11 @@ export default function ConfigureReport({
               }}
               options={[
                 {
-                  label: "On",
+                  label: t`On`,
                   value: "on",
                 },
                 {
-                  label: "Off",
+                  label: t`Off`,
                   value: "off",
                 },
               ]}
@@ -852,7 +881,7 @@ export default function ConfigureReport({
                     label={
                       <PremiumTooltip commercialFeature="sequential-testing">
                         <GBSequential className="mr-1" />
-                        Use Sequential Testing
+                        <Trans>Use Sequential Testing</Trans>
                       </PremiumTooltip>
                     }
                     value={
@@ -870,15 +899,15 @@ export default function ConfigureReport({
                     }}
                     options={[
                       {
-                        label: "On",
+                        label: t`On`,
                         value: "on",
                       },
                       {
-                        label: "Off",
+                        label: t`Off`,
                         value: "off",
                       },
                     ]}
-                    helpText="Only applicable to Frequentist analyses"
+                    helpText={t`Only applicable to Frequentist analyses`}
                     disabled={!hasSequentialTestingFeature}
                   />
                 </div>
@@ -888,17 +917,16 @@ export default function ConfigureReport({
                   <div style={{ width: 250 }}>
                     <Field
                       size="legacy"
-                      label="Tuning parameter"
+                      label={t`Tuning parameter`}
                       type="number"
                       min="0"
                       disabled={!hasSequentialTestingFeature || hasFileConfig()}
                       helpText={
                         <>
                           <span className="ml-2">
-                            (
-                            {orgSettings.sequentialTestingTuningParameter ??
-                              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                            is organization default)
+                            <Trans>
+                              ({defaultTuningParameter} is organization default)
+                            </Trans>
                           </span>
                         </>
                       }
@@ -925,16 +953,16 @@ export default function ConfigureReport({
                 <div className="col pr-3">
                   <Field
                     size="legacy"
-                    label="Custom SQL Filter"
+                    label={t`Custom SQL Filter`}
                     labelClassName="font-weight-bold"
                     {...form.register("experimentAnalysisSettings.queryFilter")}
                     textarea
                     placeholder="e.g. user_id NOT IN ('123', '456')"
-                    helpText="WHERE clause to add to the default experiment query"
+                    helpText={t`WHERE clause to add to the default experiment query`}
                   />
                 </div>
                 <div className="pt-2 pl-3 border-left col-sm-4 col-lg-6">
-                  Available columns:
+                  <Trans>Available columns:</Trans>
                   <div className="mb-2 d-flex flex-wrap">
                     {["timestamp", "variation_id"]
                       .concat(
@@ -952,9 +980,11 @@ export default function ConfigureReport({
                       })}
                   </div>
                   <div>
-                    <strong>Tip:</strong> Use a subquery inside an{" "}
-                    <code>IN</code> or <code>NOT IN</code> clause for more
-                    advanced filtering.
+                    <Trans>
+                      <strong>Tip:</strong> Use a subquery inside an{" "}
+                      <code>IN</code> or <code>NOT IN</code> clause for more
+                      advanced filtering.
+                    </Trans>
                   </div>
                 </div>
               </div>
@@ -964,7 +994,7 @@ export default function ConfigureReport({
           <TabsContent value="variations">
             <FeatureVariationsInput
               label={null}
-              coverageTooltip="Used to compute scaled impact (Difference type: scaled)"
+              coverageTooltip={t`Used to compute scaled impact (Difference type: scaled)`}
               setWeight={(i, weight) => {
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,

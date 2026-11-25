@@ -6,6 +6,7 @@ import {
 } from "shared/types/report";
 import React from "react";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
@@ -44,6 +45,7 @@ export default function ReportResultMoreMenu({
   canDelete?: boolean;
   setNameModalOpen?: (o: boolean) => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -57,7 +59,7 @@ export default function ReportResultMoreMenu({
           className="dropdown-item py-2"
           onClick={() => setNameModalOpen(true)}
         >
-          Edit Name &amp; Description
+          <Trans>Edit Name &amp; Description</Trans>
         </button>
       ) : null}
       {(queries?.length ?? 0) > 0 && (
@@ -70,7 +72,7 @@ export default function ReportResultMoreMenu({
       )}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
-        body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
+        body={t`To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info.`}
       >
         <button
           className="dropdown-item py-2"
@@ -99,7 +101,7 @@ export default function ReportResultMoreMenu({
             el.click();
           }}
         >
-          Download Notebook
+          <Trans>Download Notebook</Trans>
         </button>
       </Tooltip>
       {results && (
@@ -119,10 +121,10 @@ export default function ReportResultMoreMenu({
             useRadix={false}
             className="dropdown-item text-danger"
             useIcon={false}
-            text="Delete report"
-            displayName="Report"
-            deleteMessage="Are you sure you want to delete this report?"
-            additionalMessage="This cannot be undone"
+            text={t`Delete report`}
+            displayName={t`Report`}
+            deleteMessage={t`Are you sure you want to delete this report?`}
+            additionalMessage={t`This cannot be undone`}
             onClick={async () => {
               await apiCall<{ status: number; message?: string }>(
                 `/report/${report.id}`,

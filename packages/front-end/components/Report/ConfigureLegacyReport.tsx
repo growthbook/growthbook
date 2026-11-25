@@ -6,6 +6,7 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
@@ -62,6 +63,7 @@ export default function ConfigureLegacyReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
+  const { t } = useLingui();
   const orgSettings = useOrgSettings();
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
@@ -218,6 +220,10 @@ export default function ConfigureLegacyReport({
     keepCurrentSelection: true,
   });
 
+  const defaultTuningParameter =
+    orgSettings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -252,17 +258,19 @@ export default function ConfigureLegacyReport({
         mutate();
         viewResults();
       })}
-      cta="Save and Run"
+      cta={t`Save and Run`}
     >
       <Field
         size="legacy"
-        label="Tracking Key"
+        label={t`Tracking Key`}
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your experiment assignment table"
+        helpText={t`Will match against the experiment_id column in your experiment assignment table`}
       />
       <div className="form-group">
-        <label className="font-weight-bold">Variation Ids</label>
+        <label className="font-weight-bold">
+          <Trans>Variation Ids</Trans>
+        </label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div
@@ -284,11 +292,15 @@ export default function ConfigureLegacyReport({
           ))}
         </div>
         <small className="form-text text-muted">
-          Will match against the variation_id column in your data source
+          <Trans>
+            Will match against the variation_id column in your data source
+          </Trans>
         </small>
       </div>
       <div className="form-group">
-        <label className="font-weight-bold">Variation Weights</label>
+        <label className="font-weight-bold">
+          <Trans>Variation Weights</Trans>
+        </label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div
@@ -311,8 +323,10 @@ export default function ConfigureLegacyReport({
           ))}
         </div>
         <small className="form-text text-muted">
-          Will use this to check for a Sample Ratio Mismatch (SRM) in the
-          results
+          <Trans>
+            Will use this to check for a Sample Ratio Mismatch (SRM) in the
+            results
+          </Trans>
         </small>
       </div>
       {datasource?.properties?.userIds && (
@@ -325,7 +339,7 @@ export default function ConfigureLegacyReport({
       <div className="row">
         <div className="col">
           <DatePicker
-            label="Start date"
+            label={t`Start date`}
             timeZone="utc"
             date={form.watch("startDate")}
             setDate={(v) => {
@@ -337,7 +351,7 @@ export default function ConfigureLegacyReport({
         </div>
         <div className="col">
           <DatePicker
-            label="End date"
+            label={t`End date`}
             timeZone="utc"
             date={form.watch("endDate")}
             setDate={(v) => {
@@ -348,7 +362,9 @@ export default function ConfigureLegacyReport({
             containerClassName=""
           />
           <div className="mb-3 mt-1 small">
-            Leave blank to use latest data whenever report is run.{" "}
+            <Trans>
+              Leave blank to use latest data whenever report is run.
+            </Trans>{" "}
             <a
               role="button"
               className="a"
@@ -357,7 +373,7 @@ export default function ConfigureLegacyReport({
                 form.setValue("endDate", "");
               }}
             >
-              Clear Input
+              <Trans>Clear Input</Trans>
             </a>
           </div>
         </div>
@@ -397,26 +413,26 @@ export default function ConfigureLegacyReport({
       />
       <SelectField
         size="legacy"
-        label="Difference Type"
+        label={t`Difference Type`}
         labelClassName="font-weight-bold"
         value={form.watch("differenceType")}
         onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
         sort={false}
         options={[
           {
-            label: "Relative",
+            label: t`Relative`,
             value: "relative",
           },
           {
-            label: "Absolute",
+            label: t`Absolute`,
             value: "absolute",
           },
           {
-            label: "Scaled Impact",
+            label: t`Scaled Impact`,
             value: "scaled",
           },
         ]}
-        helpText="Choose the units to display lifts in"
+        helpText={t`Choose the units to display lifts in`}
       />
       <MetricSelector
         datasource={form.watch("datasource")}
@@ -425,7 +441,7 @@ export default function ConfigureLegacyReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric{" "}
+            <Trans>Activation Metric</Trans>{" "}
             <MetricsSelectorTooltip
               onlyBinomial={true}
               noFactFunnelMetrics={true}
@@ -434,35 +450,35 @@ export default function ConfigureLegacyReport({
           </>
         }
         labelClassName="font-weight-bold"
-        initialOption="None"
+        initialOption={t`None`}
         onlyBinomial
         filterFactFunnelMetrics
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
-        helpText="Users must convert on this metric before being included"
+        helpText={t`Users must convert on this metric before being included`}
       />
       {datasourceProperties?.experimentSegments && (
         <SelectField
           size="legacy"
-          label="Segment"
+          label={t`Segment`}
           labelClassName="font-weight-bold"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
           onChange={(value) => form.setValue("segment", value || "")}
-          initialOption="None (All Users)"
+          initialOption={t`None (All Users)`}
           options={filteredSegments.map((s) => {
             return {
               label: s.name,
               value: s.id,
             };
           })}
-          helpText="Only users in this segment will be included"
+          helpText={t`Only users in this segment will be included`}
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           size="legacy"
-          label="Handling In-Progress Conversions"
+          label={t`Handling In-Progress Conversions`}
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
           onChange={(v) => {
@@ -470,15 +486,15 @@ export default function ConfigureLegacyReport({
           }}
           options={[
             {
-              label: "Include In-Progress Conversions",
+              label: t`Include In-Progress Conversions`,
               value: "loose",
             },
             {
-              label: "Exclude In-Progress Conversions",
+              label: t`Exclude In-Progress Conversions`,
               value: "strict",
             },
           ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+          helpText={t`How to treat users not enrolled in the experiment long enough to complete conversion window.`}
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
@@ -486,7 +502,10 @@ export default function ConfigureLegacyReport({
           size="legacy"
           label={
             <AttributionModelTooltip>
-              <strong>Conversion Window Override</strong> <FaQuestionCircle />
+              <strong>
+                <Trans>Conversion Window Override</Trans>
+              </strong>{" "}
+              <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -496,11 +515,11 @@ export default function ConfigureLegacyReport({
           }}
           options={[
             {
-              label: "Respect Conversion Windows",
+              label: t`Respect Conversion Windows`,
               value: "firstExposure",
             },
             {
-              label: "Ignore Conversion Windows",
+              label: t`Ignore Conversion Windows`,
               value: "experimentDuration",
             },
           ]}
@@ -523,7 +542,7 @@ export default function ConfigureLegacyReport({
               size="legacy"
               label={
                 <PremiumTooltip commercialFeature="sequential-testing">
-                  <GBSequential /> Use Sequential Testing
+                  <GBSequential /> <Trans>Use Sequential Testing</Trans>
                 </PremiumTooltip>
               }
               labelClassName="font-weight-bold"
@@ -533,15 +552,15 @@ export default function ConfigureLegacyReport({
               }}
               options={[
                 {
-                  label: "On",
+                  label: t`On`,
                   value: "on",
                 },
                 {
-                  label: "Off",
+                  label: t`Off`,
                   value: "off",
                 },
               ]}
-              helpText="Only applicable to frequentist analyses"
+              helpText={t`Only applicable to frequentist analyses`}
               disabled={!hasSequentialTestingFeature}
             />
           </div>
@@ -553,7 +572,7 @@ export default function ConfigureLegacyReport({
           >
             <Field
               size="legacy"
-              label="Tuning parameter"
+              label={t`Tuning parameter`}
               type="number"
               containerClassName="mb-0"
               min="0"
@@ -561,10 +580,9 @@ export default function ConfigureLegacyReport({
               helpText={
                 <>
                   <span className="ml-2">
-                    (
-                    {orgSettings.sequentialTestingTuningParameter ??
-                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                    is organization default)
+                    <Trans>
+                      ({defaultTuningParameter} is organization default)
+                    </Trans>
                   </span>
                 </>
               }
@@ -583,8 +601,8 @@ export default function ConfigureLegacyReport({
         <div className="align-items-center">
           <Switch
             id="useLatestPriorSettings"
-            label="Use latest metric prior settings"
-            description="Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
+            label={t`Use latest metric prior settings`}
+            description={t`Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change.`}
             value={form.watch("useLatestPriorSettings")}
             onChange={(v) => form.setValue("useLatestPriorSettings", v)}
           />
@@ -596,7 +614,7 @@ export default function ConfigureLegacyReport({
             size="legacy"
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
+                <GBCuped /> <Trans>Use Regression Adjustment (CUPED)</Trans>
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
@@ -606,11 +624,11 @@ export default function ConfigureLegacyReport({
             }}
             options={[
               {
-                label: "On",
+                label: t`On`,
                 value: "on",
               },
               {
-                label: "Off",
+                label: t`Off`,
                 value: "off",
               },
             ]}
@@ -624,16 +642,16 @@ export default function ConfigureLegacyReport({
           <div className="col">
             <Field
               size="legacy"
-              label="Custom SQL Filter"
+              label={t`Custom SQL Filter`}
               labelClassName="font-weight-bold"
               {...form.register("queryFilter")}
               textarea
               placeholder="e.g. user_id NOT IN ('123', '456')"
-              helpText="WHERE clause to add to the default experiment query"
+              helpText={t`WHERE clause to add to the default experiment query`}
             />
           </div>
           <div className="pt-2 border-left col-sm-4 col-lg-6">
-            Available columns:
+            <Trans>Available columns:</Trans>
             <div className="mb-2 d-flex flex-wrap">
               {["timestamp", "variation_id"]
                 .concat(
@@ -651,8 +669,10 @@ export default function ConfigureLegacyReport({
                 })}
             </div>
             <div>
-              <strong>Tip:</strong> Use a subquery inside an <code>IN</code> or{" "}
-              <code>NOT IN</code> clause for more advanced filtering.
+              <Trans>
+                <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
+                or <code>NOT IN</code> clause for more advanced filtering.
+              </Trans>
             </div>
           </div>
         </div>

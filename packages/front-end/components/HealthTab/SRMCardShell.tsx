@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentReportVariation } from "shared/types/report";
 import { getSRMHealthData, SRMHealthStatus } from "shared/health";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
@@ -26,6 +27,7 @@ export function useSrmHealth({
   onNotify?: (issue: IssueValue) => void;
   snapshotId?: string;
 }): SRMHealthStatus {
+  const { t } = useLingui();
   const { settings } = useUser();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -43,11 +45,11 @@ export function useSrmHealth({
 
   useEffect(() => {
     if (srmHealth === "unhealthy" && onNotify) {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
+      onNotify({ label: t`Experiment Balance`, value: "balanceCheck" });
     }
     // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
     // the parent even when `srmHealth` and `onNotify` are unchanged.
-  }, [srmHealth, onNotify, snapshotId]);
+  }, [srmHealth, onNotify, snapshotId, t]);
 
   return srmHealth;
 }
@@ -69,9 +71,9 @@ export function SRMWarningFooter({
   pValue?: ReactNode;
   boldLowTrafficMessage?: boolean;
 }) {
+  const { t } = useLingui();
   if (srmHealth === "not-enough-traffic") {
-    const message =
-      "More traffic is required to detect a Sample Ratio Mismatch (SRM).";
+    const message = t`More traffic is required to detect a Sample Ratio Mismatch (SRM).`;
     return (
       <Callout status="info">
         {boldLowTrafficMessage ? (

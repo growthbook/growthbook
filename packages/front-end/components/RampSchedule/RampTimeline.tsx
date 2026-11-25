@@ -1,4 +1,7 @@
 import { Fragment, useState, type ReactNode } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
@@ -49,14 +52,18 @@ export function formatStepGate(
       return (
         <div style={{ textAlign: "center", lineHeight: 1 }}>
           <div>
-            <Text size="sm">approval</Text>
+            <Text size="sm">
+              <Trans>approval</Trans>
+            </Text>
           </div>
         </div>
       );
     return (
       <div style={{ textAlign: "center", lineHeight: 1 }}>
         <div>
-          <Text size="sm">instant</Text>
+          <Text size="sm">
+            <Trans>instant</Trans>
+          </Text>
         </div>
       </div>
     );
@@ -83,7 +90,9 @@ export function formatStepGate(
           <Text size="sm">{duration},</Text>
         </div>
         <div>
-          <Text size="sm">approval</Text>
+          <Text size="sm">
+            <Trans>approval</Trans>
+          </Text>
         </div>
       </div>
     );
@@ -99,11 +108,13 @@ export function formatStepGate(
 
 // Plain inline string for tooltips/popovers (no multi-line wrapper).
 export function formatStepGateInline(
+  i18n: I18n,
   interval: number | null,
   holdConditions?: StepHoldConditions,
 ): string {
   const requiresApproval = !!holdConditions?.requiresApproval;
-  if (interval == null) return requiresApproval ? "approval" : "instant";
+  if (interval == null)
+    return requiresApproval ? i18n._(msg`approval`) : i18n._(msg`instant`);
   const s = interval;
   let duration: string;
   if (s < 60) duration = `${s}s`;
@@ -119,7 +130,7 @@ export function formatStepGateInline(
       }
     }
   }
-  return requiresApproval ? `${duration}, approval` : duration;
+  return requiresApproval ? i18n._(msg`${duration}, approval`) : duration;
 }
 
 // Scheduled datetime label. Two-line by default (for node sublabels);
@@ -153,7 +164,12 @@ export function formatScheduledDate(
 }
 
 function formatRemaining(ms: number): ReactNode {
-  if (ms <= 0) return <Text size="sm">any moment</Text>;
+  if (ms <= 0)
+    return (
+      <Text size="sm">
+        <Trans>any moment</Trans>
+      </Text>
+    );
   const future = new Date(Date.now() + ms);
   const label = abbreviateAgo(future).replace(/^in /, "");
   return <Text size="sm">{label}</Text>;
@@ -193,6 +209,7 @@ function PopoverPatchDisplay({
   syntheticEnabled?: boolean;
   afterCoverage?: ReactNode;
 }) {
+  const { t } = useLingui();
   const coverageItems: ReactNode[] = [];
   const additionalItems: ReactNode[] = [];
 
@@ -203,7 +220,7 @@ function PopoverPatchDisplay({
 
     if (p.coverage !== null && p.coverage !== undefined) {
       coverageItems.push(
-        <PopoverEffectRow key={k("cov")} label="Rollout %">
+        <PopoverEffectRow key={k("cov")} label={t`Rollout %`}>
           {coveragePercentFormatter.format(p.coverage)}
         </PopoverEffectRow>,
       );
@@ -216,19 +233,19 @@ function PopoverPatchDisplay({
             ? p.force
             : stringify(p.force as object);
       additionalItems.push(
-        <PopoverEffectRow key={k("force")} label="Value">
+        <PopoverEffectRow key={k("force")} label={t`Value`}>
           <InlineCode language="json" code={forceStr} />
         </PopoverEffectRow>,
       );
     }
     if ("condition" in p) {
       additionalItems.push(
-        <PopoverEffectRow key={k("cond")} label="Attribute targeting">
+        <PopoverEffectRow key={k("cond")} label={t`Attribute targeting`}>
           {p.condition && p.condition !== "{}" ? (
             <ConditionDisplay condition={p.condition} />
           ) : (
             <Text size="sm" fontStyle="italic">
-              None
+              <Trans>None</Trans>
             </Text>
           )}
         </PopoverEffectRow>,
@@ -236,12 +253,12 @@ function PopoverPatchDisplay({
     }
     if ("savedGroups" in p) {
       additionalItems.push(
-        <PopoverEffectRow key={k("sg")} label="Saved groups">
+        <PopoverEffectRow key={k("sg")} label={t`Saved groups`}>
           {p.savedGroups && p.savedGroups.length > 0 ? (
             <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
           ) : (
             <Text size="sm" fontStyle="italic">
-              None
+              <Trans>None</Trans>
             </Text>
           )}
         </PopoverEffectRow>,
@@ -249,12 +266,12 @@ function PopoverPatchDisplay({
     }
     if ("prerequisites" in p) {
       additionalItems.push(
-        <PopoverEffectRow key={k("prereq")} label="Prerequisites">
+        <PopoverEffectRow key={k("prereq")} label={t`Prerequisites`}>
           {p.prerequisites && p.prerequisites.length > 0 ? (
             <ConditionDisplay prerequisites={p.prerequisites} />
           ) : (
             <Text size="sm" fontStyle="italic">
-              None
+              <Trans>None</Trans>
             </Text>
           )}
         </PopoverEffectRow>,
@@ -264,14 +281,16 @@ function PopoverPatchDisplay({
       const allEnvironments = p.allEnvironments === true;
       const selectedEnvironments = p.environments ?? [];
       additionalItems.push(
-        <PopoverEffectRow key={k("env-scope")} label="Environments">
+        <PopoverEffectRow key={k("env-scope")} label={t`Environments`}>
           {allEnvironments ? (
-            <Text size="sm">All environments</Text>
+            <Text size="sm">
+              <Trans>All environments</Trans>
+            </Text>
           ) : selectedEnvironments.length > 0 ? (
             <Text size="sm">{selectedEnvironments.join(", ")}</Text>
           ) : (
             <Text size="sm" fontStyle="italic">
-              None
+              <Trans>None</Trans>
             </Text>
           )}
         </PopoverEffectRow>,
@@ -279,14 +298,14 @@ function PopoverPatchDisplay({
     }
     if (p.enabled === false && syntheticEnabled === undefined) {
       additionalItems.push(
-        <PopoverEffectRow key={k("enabled")} label="Rule">
-          disabled
+        <PopoverEffectRow key={k("enabled")} label={t`Rule`}>
+          <Trans>disabled</Trans>
         </PopoverEffectRow>,
       );
     } else if (p.enabled === true && syntheticEnabled === undefined) {
       additionalItems.push(
-        <PopoverEffectRow key={k("enabled")} label="Rule">
-          enabled
+        <PopoverEffectRow key={k("enabled")} label={t`Rule`}>
+          <Trans>enabled</Trans>
         </PopoverEffectRow>,
       );
     }
@@ -294,14 +313,14 @@ function PopoverPatchDisplay({
 
   if (syntheticEnabled === false) {
     additionalItems.push(
-      <PopoverEffectRow key="syn-enabled" label="Rule">
-        disabled
+      <PopoverEffectRow key="syn-enabled" label={t`Rule`}>
+        <Trans>disabled</Trans>
       </PopoverEffectRow>,
     );
   } else if (syntheticEnabled === true) {
     additionalItems.push(
-      <PopoverEffectRow key="syn-enabled" label="Rule">
-        enabled
+      <PopoverEffectRow key="syn-enabled" label={t`Rule`}>
+        <Trans>enabled</Trans>
       </PopoverEffectRow>,
     );
   }
@@ -322,7 +341,7 @@ function PopoverPatchDisplay({
             mb="2"
             size="sm"
           >
-            Additional effects
+            <Trans>Additional effects</Trans>
           </Text>,
         ]
       : []),
@@ -332,7 +351,7 @@ function PopoverPatchDisplay({
   if (items.length === 0) {
     return (
       <Text size="sm" color="text-low">
-        No changes
+        <Trans>No changes</Trans>
       </Text>
     );
   }
@@ -386,6 +405,7 @@ function NodePopoverContent({
   isDisableNode,
   ctaLabelOverride,
 }: NodePopoverContentProps) {
+  const { t, i18n } = useLingui();
   const [loading, setLoading] = useState(false);
 
   const canAct = !isActive && isRampScheduleServing(rs);
@@ -393,12 +413,15 @@ function NodePopoverContent({
   let ctaLabel: string | null = null;
   if (canAct) {
     if (ctaLabelOverride) ctaLabel = ctaLabelOverride;
-    else if (stepIndex === "start") ctaLabel = "Roll back to start";
+    else if (stepIndex === "start") ctaLabel = t`Roll back to start`;
     else if (stepIndex === "end")
       ctaLabel = isDisableNode
-        ? "Complete ramp and disable rule"
-        : "Complete ramp";
-    else ctaLabel = `Jump to Step ${(stepIndex as number) + 1}`;
+        ? t`Complete ramp and disable rule`
+        : t`Complete ramp`;
+    else {
+      const stepNumber = (stepIndex as number) + 1;
+      ctaLabel = t`Jump to Step ${stepNumber}`;
+    }
   }
 
   const endHandler = isDisableNode ? onCompleteAndDisable : onComplete;
@@ -436,12 +459,12 @@ function NodePopoverContent({
             {nodeState === "active" && (
               <Text as="span" weight="regular">
                 {" "}
-                (current)
+                <Trans>(current)</Trans>
               </Text>
             )}{" "}
             —{" "}
             <span className={styles.popoverStatusLabel}>
-              {statusVisual.label}
+              {i18n._(statusVisual.label)}
             </span>
           </Text>
         </span>
@@ -450,7 +473,9 @@ function NodePopoverContent({
       {monitored && (
         <Flex align="center" gap="1" mb="2" style={{ color: "var(--blue-9)" }}>
           <MonitoredIcon size={16} />
-          <Text size="sm">Monitored</Text>
+          <Text size="sm">
+            <Trans>Monitored</Trans>
+          </Text>
         </Flex>
       )}
 
@@ -465,9 +490,9 @@ function NodePopoverContent({
         <>
           {interval !== null && interval !== undefined && (
             <Box mb="2">
-              <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
+              <PopoverEffectRow label={monitored ? t`Min hold` : t`Hold`}>
                 <Text size="sm">
-                  {formatStepGateInline(interval, undefined)}
+                  {formatStepGateInline(i18n, interval, undefined)}
                 </Text>
               </PopoverEffectRow>
             </Box>
@@ -476,28 +501,30 @@ function NodePopoverContent({
             !holdConditions?.requiresApproval &&
             !holdConditions?.minSampleSize && (
               <Box mb="2">
-                <PopoverEffectRow label="Hold">
-                  <Text size="sm">instant</Text>
+                <PopoverEffectRow label={t`Hold`}>
+                  <Text size="sm">
+                    <Trans>instant</Trans>
+                  </Text>
                 </PopoverEffectRow>
               </Box>
             )}
           {holdConditions?.requiresApproval && (
             <Box mb="2">
-              <PopoverEffectRow label="Approval">
+              <PopoverEffectRow label={t`Approval`}>
                 <Text size="sm">
                   {isActive &&
                   rs.stepApproval?.stepIndex === rs.currentStepIndex
-                    ? "Approved"
+                    ? t`Approved`
                     : isActive
-                      ? "Pending"
-                      : "Required"}
+                      ? t`Pending`
+                      : t`Required`}
                 </Text>
               </PopoverEffectRow>
             </Box>
           )}
           {!!holdConditions?.minSampleSize && (
             <Box mb="2">
-              <PopoverEffectRow label="Min. sample">
+              <PopoverEffectRow label={t`Min. sample`}>
                 <Text size="sm">
                   {holdConditions.minSampleSize.toLocaleString()}
                 </Text>
@@ -516,7 +543,7 @@ function NodePopoverContent({
           const remainingMs = new Date(rs.nextStepAt).getTime() - Date.now();
           return (
             <Box mb="2">
-              <PopoverEffectRow label="Remaining">
+              <PopoverEffectRow label={t`Remaining`}>
                 {formatRemaining(remainingMs)}
               </PopoverEffectRow>
             </Box>
@@ -706,7 +733,15 @@ interface Props {
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
 
-export function getRampStatusLabel(rs: RampScheduleInterface): string {
+// English without `i18n`, for callers not translated yet (RampScheduleSection).
+export function getRampStatusLabel(
+  rs: RampScheduleInterface,
+  i18n?: I18n,
+): string {
+  if (i18n) {
+    const message = getRampStatusMessage(rs);
+    return message ? i18n._(message) : rs.status;
+  }
   if (getRampRetry(rs)) {
     return "Retrying";
   }
@@ -724,6 +759,30 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     "rolled-back": "Rolled back",
   };
   return labels[rs.status] ?? rs.status;
+}
+
+// The status label as a message to translate; null for an unknown status,
+// which callers show as the raw status.
+export function getRampStatusMessage(
+  rs: RampScheduleInterface,
+): MessageDescriptor | null {
+  if (getRampRetry(rs)) {
+    return msg`Retrying`;
+  }
+  if (rs.status === "ready") {
+    return msg`Scheduled`;
+  }
+  if (isReadyForApproval(rs)) {
+    return msg`Needs approval`;
+  }
+  const labels: Partial<Record<RampScheduleStatus, MessageDescriptor>> = {
+    pending: msg`Schedule start is pending`,
+    running: msg`Running`,
+    paused: msg`Paused`,
+    completed: msg`Completed`,
+    "rolled-back": msg`Rolled back`,
+  };
+  return labels[rs.status] ?? null;
 }
 
 export function getRampBadgeColor(
@@ -769,10 +828,11 @@ export default function RampTimeline({
   onComplete,
   onCompleteAndDisable,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
   const activatingRevisionVersion = targets.find(
-    (t) => !!t.activatingRevisionVersion,
+    (target) => !!target.activatingRevisionVersion,
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
   const awaitingStartApproval = isAwaitingStartApproval(rs);
@@ -804,19 +864,19 @@ export default function RampTimeline({
   const showStartDate =
     !!startDate && (status === "pending" || status === "ready");
   const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
-  const scheduleDates = rampScheduleDates(rs);
+  const scheduleDates = rampScheduleDates(rs, i18n);
   const stepReached = (i: number): ScheduleDate[] => {
     const at = getState(i + 1) === "future" ? null : rampStepReachedAt(rs, i);
-    return at ? [{ label: "Reached", date: at }] : [];
+    return at ? [{ label: t`Reached`, date: at }] : [];
   };
   const nodes: NodeMeta[] = [
     {
       key: "start",
-      label: "start",
+      label: t`start`,
       sublabel: startSublabel,
       popoverContent: (
         <NodePopoverContent
-          heading="Start"
+          heading={t`Start`}
           nodeState={getState(0)}
           interval={null}
           dates={scheduleDates.start ? [scheduleDates.start] : []}
@@ -835,6 +895,7 @@ export default function RampTimeline({
     },
     ...steps.map((step, i) => {
       const state = getState(i + 1);
+      const stepNumber = i + 1;
       return {
         key: `step-${i}`,
         label: step.monitored ? (
@@ -850,14 +911,16 @@ export default function RampTimeline({
         connectorLabel:
           i === 0 ? (
             !startDate ? (
-              <Text size="sm">auto</Text>
+              <Text size="sm">
+                <Trans>auto</Trans>
+              </Text>
             ) : undefined
           ) : (
             formatStepGate(steps[i - 1].interval, steps[i - 1].holdConditions)
           ),
         popoverContent: (
           <NodePopoverContent
-            heading={`Step ${i + 1}`}
+            heading={t`Step ${stepNumber}`}
             nodeState={state}
             interval={step.interval}
             dates={stepReached(i)}
@@ -889,12 +952,12 @@ export default function RampTimeline({
         return [
           {
             key: "end-ramp",
-            label: "end",
+            label: t`end`,
             sublabel: null,
             connectorLabel: lastStepConnector,
             popoverContent: (
               <NodePopoverContent
-                heading="End"
+                heading={t`End`}
                 nodeState={getState(rampEndIdx)}
                 interval={null}
                 actions={rs.endActions ?? []}
@@ -908,11 +971,11 @@ export default function RampTimeline({
           },
           {
             key: "end-cutoff",
-            label: "disable",
+            label: t`disable`,
             sublabel: formatScheduledDate(rs.cutoffDate!),
             popoverContent: (
               <NodePopoverContent
-                heading="Disable"
+                heading={t`Disable`}
                 nodeState={getState(cutoffIdx)}
                 interval={null}
                 dates={scheduleDates.end ? [scheduleDates.end] : []}
@@ -941,12 +1004,12 @@ export default function RampTimeline({
       return [
         {
           key: "end",
-          label: hasDisableDate ? "disable" : "end",
+          label: hasDisableDate ? t`disable` : t`end`,
           sublabel: singleDate ? formatScheduledDate(singleDate) : null,
           connectorLabel: lastStepConnector,
           popoverContent: (
             <NodePopoverContent
-              heading={hasDisableDate ? "Disable" : "End"}
+              heading={hasDisableDate ? t`Disable` : t`End`}
               nodeState={getState(endNodeIndex)}
               interval={null}
               dates={scheduleDates.end ? [scheduleDates.end] : []}
@@ -958,7 +1021,7 @@ export default function RampTimeline({
               onJump={onJump}
               onComplete={onComplete}
               ctaLabelOverride={
-                hasDisableDate ? "Complete schedule and disable" : undefined
+                hasDisableDate ? t`Complete schedule and disable` : undefined
               }
             />
           ),
@@ -973,12 +1036,22 @@ export default function RampTimeline({
 
   const revisionSublabel = (
     <>
-      {sublabelLine(<Text size="sm">awaiting publish</Text>)}
+      {sublabelLine(
+        <Text size="sm">
+          <Trans>awaiting publish</Trans>
+        </Text>,
+      )}
       {awaitingStartApproval &&
-        sublabelLine(<Text size="sm">starts on approval</Text>)}
+        sublabelLine(
+          <Text size="sm">
+            <Trans>starts on approval</Trans>
+          </Text>,
+        )}
       {!!activatingRevisionVersion &&
         sublabelLine(
-          <Text size="sm">Revision {activatingRevisionVersion}</Text>,
+          <Text size="sm">
+            <Trans>Revision {activatingRevisionVersion}</Trans>
+          </Text>,
         )}
     </>
   );
@@ -987,7 +1060,9 @@ export default function RampTimeline({
   // off until approved. Surface a pre-Start indicator so it reads the same as
   // the draft-preview hold.
   const approvalSublabel = sublabelLine(
-    <Text size="sm">awaiting approval</Text>,
+    <Text size="sm">
+      <Trans>awaiting approval</Trans>
+    </Text>,
   );
 
   // Resolve each node's visuals once, shared by the node and its connector.
@@ -1008,7 +1083,7 @@ export default function RampTimeline({
               <Node
                 node={{
                   key: "pending-removal",
-                  label: "removal",
+                  label: t`removal`,
                   sublabel: revisionSublabel,
                 }}
                 state="active"
@@ -1028,8 +1103,8 @@ export default function RampTimeline({
                     key: "pre-indicator",
                     label:
                       awaitingStartApproval && status === "ready"
-                        ? "approve"
-                        : "pending",
+                        ? t`approve`
+                        : t`pending`,
                     sublabel:
                       awaitingStartApproval && status === "ready"
                         ? approvalSublabel

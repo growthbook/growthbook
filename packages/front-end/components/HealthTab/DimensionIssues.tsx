@@ -13,6 +13,7 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
 import { PiCaretRight } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
@@ -107,6 +108,7 @@ export const DimensionIssues = ({
   canConfigHealthTab,
   isBandit,
 }: Props) => {
+  const { t } = useLingui();
   const { settings } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
   const [setupModalOpen, setSetupModalOpen] = useState(false);
@@ -195,12 +197,16 @@ export const DimensionIssues = ({
         trackingEventModalType="srm-dimension-issues"
         close={() => setModalOpen(false)}
         open={modalOpen}
-        closeCta={"Close"}
+        closeCta={t`Close`}
         header={
           <div>
-            <h2>Explore Dimensions</h2>
+            <h2>
+              <Trans>Explore Dimensions</Trans>
+            </h2>
             <p className="mb-0">
-              Break down traffic by dimension to identify source of issues.
+              <Trans>
+                Break down traffic by dimension to identify source of issues.
+              </Trans>
             </p>
           </div>
         }
@@ -208,7 +214,9 @@ export const DimensionIssues = ({
       >
         <div className="m-3">
           <div className="mb-4" style={{ maxWidth: 200 }}>
-            <div className="uppercase-title text-muted">Dimension</div>
+            <div className="uppercase-title text-muted">
+              <Trans>Dimension</Trans>
+            </div>
             <SelectField
               size="legacy"
               containerClassName={"select-dropdown-underline"}
@@ -227,7 +235,7 @@ export const DimensionIssues = ({
             <IssueTags issues={issues} />
             {!!issues?.length && (
               <span className="col-auto ml-auto text-muted">
-                Sorted by unit counts
+                <Trans>Sorted by unit counts</Trans>
               </span>
             )}
           </div>
@@ -235,13 +243,12 @@ export const DimensionIssues = ({
           {selectedDimension && (
             <>
               {dimensionSlicesWithHealth?.map((d) => {
+                const totalUnits = numberFormatter.format(d.totalUsers);
                 return (
                   <HealthCard
                     id={d.name}
                     title={d.name}
-                    helpText={`${numberFormatter.format(
-                      d.totalUsers,
-                    )} total units`}
+                    helpText={t`${totalUnits} total units`}
                     status={d.health}
                     key={d.name}
                   >
@@ -265,8 +272,10 @@ export const DimensionIssues = ({
                           ) : (
                             <Callout status="info">
                               <b>
-                                More traffic is required to detect a Sample
-                                Ratio Mismatch (SRM).
+                                <Trans>
+                                  More traffic is required to detect a Sample
+                                  Ratio Mismatch (SRM).
+                                </Trans>
                               </b>
                             </Callout>
                           )}
@@ -283,8 +292,12 @@ export const DimensionIssues = ({
 
       <div className="d-flex flex-column h-100">
         <div className="px-4">
-          <h3>Dimensions</h3>
-          <p className="mt-1">Highlights perceived issues across dimensions</p>
+          <h3>
+            <Trans>Dimensions</Trans>
+          </h3>
+          <p className="mt-1">
+            <Trans>Highlights perceived issues across dimensions</Trans>
+          </p>
         </div>
 
         <Separator size="4" my="0" />
@@ -315,11 +328,15 @@ export const DimensionIssues = ({
                     <p>
                       {d.issues.length ? (
                         <>
-                          <b>Issues: </b>
+                          <b>
+                            <Trans>Issues:</Trans>{" "}
+                          </b>
                           {d.issues.join(", ")}
                         </>
                       ) : (
-                        <i className="text-muted">No issues detected</i>
+                        <i className="text-muted">
+                          <Trans>No issues detected</Trans>
+                        </i>
                       )}
                     </p>
                   </div>
@@ -342,7 +359,7 @@ export const DimensionIssues = ({
                 }}
               >
                 <Flex align="center" gap="1">
-                  Explore dimensions <PiCaretRight />
+                  <Trans>Explore dimensions</Trans> <PiCaretRight />
                 </Flex>
               </Link>
             </div>
@@ -351,11 +368,9 @@ export const DimensionIssues = ({
           <>
             <div className="pt-4 px-4">
               <i className="text-muted">
-                {`No experiment dimensions ${
-                  (exposureQuery?.dimensions ?? []).length > 0
-                    ? "with pre-defined slices available"
-                    : "available"
-                }`}
+                {(exposureQuery?.dimensions ?? []).length > 0
+                  ? t`No experiment dimensions with pre-defined slices available`
+                  : t`No experiment dimensions available`}
               </i>
             </div>
             {exposureQuery?.dimensions &&
@@ -374,7 +389,7 @@ export const DimensionIssues = ({
                     setSetupModalOpen(true);
                   }}
                 >
-                  Configure dimension slices
+                  <Trans>Configure dimension slices</Trans>
                 </Button>
                 {setupModalOpen ? (
                   <HealthTabOnboardingModal

@@ -7,6 +7,7 @@ import {
 } from "shared/types/datasource";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
@@ -57,7 +58,9 @@ export default function SRMCard({
   if (!traffic?.overall?.variationUnits?.length) {
     return (
       <div className="appbox my-4 p-3">
-        <Callout status="error">Traffic data is missing</Callout>
+        <Callout status="error">
+          <Trans>Traffic data is missing</Trans>
+        </Callout>
       </div>
     );
   }
@@ -77,11 +80,15 @@ export default function SRMCard({
     >
       <div className={clsx("overflow-hidden", { row: !hideDimensions })}>
         <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
-          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+          <h2 className="d-inline">
+            <Trans>Experiment Balance Check</Trans>
+          </h2>{" "}
           {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
           <p className="mt-1">
-            Shows actual unit split compared to percent selected for the
-            experiment
+            <Trans>
+              Shows actual unit split compared to percent selected for the
+              experiment
+            </Trans>
           </p>
           <hr className="mb-0"></hr>
           <div style={{ paddingTop: "10px" }}>

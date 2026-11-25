@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   isReadyForApproval,
   RampScheduleInterface,
@@ -50,7 +53,7 @@ export type SignalResult = {
 };
 
 const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
-const MULTIPLE_ISSUES_LABEL = "Multiple issues detected";
+const MULTIPLE_ISSUES_LABEL = msg`Multiple issues detected`;
 
 function buildDummySignalData({
   seed,
@@ -126,11 +129,6 @@ function buildDummySignalData({
       },
     } as unknown as SafeRolloutInterface,
   };
-}
-
-function getHoldStatusPrefix(rampSchedule: RampScheduleInterface): string {
-  const activeHold = isHoldingNow(rampSchedule);
-  return activeHold ? "Holding" : "Step may hold when complete";
 }
 
 export function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
@@ -215,22 +213,28 @@ export function conservativeActionForSignals(
 function signalSummaryPart(
   signal: RampHealthSignal,
   details: SignalDetails,
+  i18n: I18n,
 ): string {
   switch (signal) {
     case "guardrail-failing":
-      return "guardrail metric regressing";
+      return i18n._(msg`guardrail metric regressing`);
     case "signal-regression":
-      return "signal metric regressing";
+      return i18n._(msg`signal metric regressing`);
     case "srm":
-      return details["srm"] ?? "sample ratio mismatch detected";
+      return details["srm"] ?? i18n._(msg`sample ratio mismatch detected`);
     case "multiple-exposures":
-      return details["multiple-exposures"] ?? "multiple exposures detected";
+      return (
+        details["multiple-exposures"] ??
+        i18n._(msg`multiple exposures detected`)
+      );
     case "no-traffic":
-      return "no monitored traffic yet";
+      return i18n._(msg`no monitored traffic yet`);
     case "below-min-sample":
-      return details["below-min-sample"] ?? "building minimum sample size";
+      return (
+        details["below-min-sample"] ?? i18n._(msg`building minimum sample size`)
+      );
     case "awaiting-data":
-      return "monitoring recently started";
+      return i18n._(msg`monitoring recently started`);
     default:
       return signal;
   }
@@ -244,6 +248,7 @@ function computeSignals(
   meMinPercent: number,
   expandedGuardrailIds: string[],
   expandedSignalIds: string[],
+  i18n: I18n,
 ): SignalResult {
   const signals: RampHealthSignal[] = [];
   const actions: Partial<Record<RampHealthSignal, SignalAction>> = {};
@@ -300,8 +305,10 @@ function computeSignals(
     if (srmHealth === "unhealthy") {
       signals.push("srm");
       actions["srm"] = (mc?.srmAction as SignalAction) ?? "hold";
-      details["srm"] =
-        `SRM p-value ${pValueFormatter(srmPValue)} is below threshold ${srmThreshold}`;
+      const pValue = pValueFormatter(srmPValue);
+      details["srm"] = i18n._(
+        msg`SRM p-value ${pValue} is below threshold ${srmThreshold}`,
+      );
     }
   }
 
@@ -315,8 +322,10 @@ function computeSignals(
     signals.push("multiple-exposures");
     actions["multiple-exposures"] =
       (mc?.multipleExposureAction as SignalAction) ?? "hold";
-    details["multiple-exposures"] =
-      `${(meHealth.rawDecimal * 100).toFixed(1)}% of users saw multiple variations`;
+    const percent = (meHealth.rawDecimal * 100).toFixed(1);
+    details["multiple-exposures"] = i18n._(
+      msg`${percent}% of users saw multiple variations`,
+    );
   }
 
   const currentStep =
@@ -329,8 +338,11 @@ function computeSignals(
   // showing it would create false alarm noise.
   if (minSample && totalUsers < minSample && isNearingStepEnd(rampSchedule)) {
     signals.push("below-min-sample");
-    details["below-min-sample"] =
-      `${totalUsers.toLocaleString()} of ${minSample.toLocaleString()} required users collected`;
+    const collected = totalUsers.toLocaleString();
+    const required = minSample.toLocaleString();
+    details["below-min-sample"] = i18n._(
+      msg`${collected} of ${required} required users collected`,
+    );
   }
 
   const resultsStatus = safeRollout?.analysisSummary?.resultsStatus;
@@ -367,10 +379,10 @@ function computeSignals(
   return { signals, actions, details };
 }
 
-function actionSuffix(action?: SignalAction): string {
-  if (action === "hold") return " · Holding";
-  if (action === "rollback") return " · Rolling back";
-  if (action === "warn") return " · Warning";
+function actionSuffix(i18n: I18n, action?: SignalAction): string {
+  if (action === "hold") return ` · ${i18n._(msg`Holding`)}`;
+  if (action === "rollback") return ` · ${i18n._(msg`Rolling back`)}`;
+  if (action === "warn") return ` · ${i18n._(msg`Warning`)}`;
   return "";
 }
 
@@ -432,6 +444,7 @@ function severityBadgeColor(
 
 function signalToBadge(
   signal: RampHealthSignal,
+  i18n: I18n,
   action?: SignalAction,
 ): React.ReactNode {
   switch (signal) {
@@ -440,7 +453,7 @@ function signalToBadge(
         <Badge
           color="red"
           variant="soft"
-          label="Guardrail failing"
+          label={i18n._(msg`Guardrail failing`)}
           radius="full"
         />
       );
@@ -449,7 +462,7 @@ function signalToBadge(
         <Badge
           color="orange"
           variant="soft"
-          label="Signal regressing"
+          label={i18n._(msg`Signal regressing`)}
           radius="full"
         />
       );
@@ -458,7 +471,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`SRM${actionSuffix(action)}`}
+          label={`${i18n._(msg`SRM`)}${actionSuffix(i18n, action)}`}
           radius="full"
         />
       );
@@ -467,7 +480,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`Multiple exposures${actionSuffix(action)}`}
+          label={`${i18n._(msg`Multiple exposures`)}${actionSuffix(i18n, action)}`}
           radius="full"
         />
       );
@@ -476,7 +489,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`No traffic${actionSuffix(action)}`}
+          label={`${i18n._(msg`No traffic`)}${actionSuffix(i18n, action)}`}
           radius="full"
         />
       );
@@ -485,7 +498,7 @@ function signalToBadge(
         <Badge
           color="blue"
           variant="soft"
-          label="Awaiting sample"
+          label={i18n._(msg`Awaiting sample`)}
           radius="full"
         />
       );
@@ -501,6 +514,7 @@ export function useRampMonitoringSignals(
     safeRollout?: SafeRolloutInterface;
   },
 ): SignalResult {
+  const { i18n } = useLingui();
   const { snapshot, safeRollout } = useSafeRolloutSnapshot();
   const router = useRouter();
   const { settings } = useUser();
@@ -556,6 +570,7 @@ export function useRampMonitoringSignals(
         meMinPercent,
         expandedGuardrailIds,
         expandedSignalIds,
+        i18n,
       ),
     [
       rampSchedule,
@@ -565,6 +580,7 @@ export function useRampMonitoringSignals(
       meMinPercent,
       expandedGuardrailIds,
       expandedSignalIds,
+      i18n,
     ],
   );
 }
@@ -594,10 +610,10 @@ export function isOnMonitoredStep(
 export function getRampHealthOverview(
   rampSchedule: RampScheduleInterface,
   result: SignalResult,
+  i18n: I18n,
 ): RampHealthOverview {
   const { signals, actions, details } = result;
   const holdingNow = isHoldingNow(rampSchedule);
-  const holdPrefix = getHoldStatusPrefix(rampSchedule);
   const displaySignals = holdingNow
     ? signals
     : signals.filter((s) => s !== "below-min-sample");
@@ -606,19 +622,19 @@ export function getRampHealthOverview(
   );
 
   if (rampSchedule.status === "rolled-back") {
-    const reason = formatRollbackReason(rampSchedule.lastRollbackReason);
+    const reason = formatRollbackReason(rampSchedule.lastRollbackReason, i18n);
     return {
       severity: "critical",
-      label: "Rolled back",
-      summary: reason ?? "Ramp was rolled back",
+      label: i18n._(msg`Rolled back`),
+      summary: reason ?? i18n._(msg`Ramp was rolled back`),
       autoExpand: false,
     };
   }
   if (rampSchedule.status === "completed") {
     return {
       severity: "inactive",
-      label: "Complete",
-      summary: "Ramp completed. Monitoring has ended.",
+      label: i18n._(msg`Complete`),
+      summary: i18n._(msg`Ramp completed. Monitoring has ended.`),
       autoExpand: false,
     };
   }
@@ -628,13 +644,14 @@ export function getRampHealthOverview(
   // shouldn't be asked to sign off on a step that's actively unhealthy.
   // We defer this check to after the signal-driven branches below.
   if (rampSchedule.status === "pending" || rampSchedule.status === "ready") {
+    const stepNumber = firstMonitoredStepIndex + 1;
     return {
       severity: "inactive",
-      label: "Not started",
+      label: i18n._(msg`Not started`),
       summary:
         firstMonitoredStepIndex >= 0
-          ? `Monitoring begins on Step ${firstMonitoredStepIndex + 1}`
-          : "No monitored steps configured",
+          ? i18n._(msg`Monitoring begins on Step ${stepNumber}`)
+          : i18n._(msg`No monitored steps configured`),
       autoExpand: false,
     };
   }
@@ -644,8 +661,8 @@ export function getRampHealthOverview(
   if (rampSchedule.status === "paused" && currentStepMonitored) {
     return {
       severity: "inactive",
-      label: "Paused",
-      summary: "Click Resume to continue monitored ramp-up",
+      label: i18n._(msg`Paused`),
+      summary: i18n._(msg`Click Resume to continue monitored ramp-up`),
       autoExpand: false,
     };
   }
@@ -657,10 +674,10 @@ export function getRampHealthOverview(
     const approvalNotes = currentStep?.approvalNotes?.trim();
     return {
       severity: "inactive" as const,
-      label: "Awaiting approval",
+      label: i18n._(msg`Awaiting approval`),
       summary:
         approvalNotes ||
-        "This step requires approval before the ramp can advance",
+        i18n._(msg`This step requires approval before the ramp can advance`),
       autoExpand: false,
     };
   }
@@ -676,16 +693,17 @@ export function getRampHealthOverview(
       return -1;
     })();
 
+    const nextStepNumber = nextMonitoredStepIndex + 1;
     const summary =
       nextMonitoredStepIndex >= 0
-        ? `Monitoring begins on Step ${nextMonitoredStepIndex + 1}`
+        ? i18n._(msg`Monitoring begins on Step ${nextStepNumber}`)
         : previousMonitoredStepIndex >= 0
-          ? "Monitoring was active on earlier steps"
-          : "No monitored steps configured";
+          ? i18n._(msg`Monitoring was active on earlier steps`)
+          : i18n._(msg`No monitored steps configured`);
 
     return {
       severity: "inactive",
-      label: "Unmonitored step",
+      label: i18n._(msg`Unmonitored step`),
       summary,
       autoExpand: false,
     };
@@ -697,15 +715,9 @@ export function getRampHealthOverview(
       activeSignals,
       actions,
     );
-    const prefix =
-      conservativeAction === "rollback"
-        ? "Rolling back"
-        : conservativeAction === "hold"
-          ? holdPrefix
-          : conservativeAction === "warn"
-            ? "Warning"
-            : MULTIPLE_ISSUES_LABEL;
-    const parts = activeSignals.map((s) => signalSummaryPart(s, details));
+    const parts = activeSignals
+      .map((s) => signalSummaryPart(s, details, i18n))
+      .join(" · ");
     return {
       severity:
         conservativeAction === "rollback"
@@ -713,8 +725,17 @@ export function getRampHealthOverview(
           : conservativeAction === "hold" || conservativeAction === "warn"
             ? "warning"
             : "info",
-      label: MULTIPLE_ISSUES_LABEL,
-      summary: `${prefix} — ${parts.join(" · ")}`,
+      label: i18n._(MULTIPLE_ISSUES_LABEL),
+      summary:
+        conservativeAction === "rollback"
+          ? i18n._(msg`Rolling back — ${parts}`)
+          : conservativeAction === "hold"
+            ? holdingNow
+              ? i18n._(msg`Holding — ${parts}`)
+              : i18n._(msg`Step may hold when complete — ${parts}`)
+            : conservativeAction === "warn"
+              ? i18n._(msg`Warning — ${parts}`)
+              : i18n._(msg`Multiple issues detected — ${parts}`),
       autoExpand: true,
     };
   }
@@ -722,19 +743,23 @@ export function getRampHealthOverview(
   if (displaySignals.includes("guardrail-failing")) {
     return {
       severity: "critical",
-      label: "Guardrail failing",
+      label: i18n._(msg`Guardrail failing`),
       summary:
         actions["guardrail-failing"] === "rollback"
-          ? "A guardrail metric is regressing — rolling back"
-          : "A guardrail metric is regressing",
+          ? i18n._(msg`A guardrail metric is regressing — rolling back`)
+          : i18n._(msg`A guardrail metric is regressing`),
       autoExpand: true,
     };
   }
   if (displaySignals.includes("signal-regression")) {
     return {
       severity: "warning",
-      label: "Signal regressing",
-      summary: `${holdPrefix} — a signal metric is regressing`,
+      label: i18n._(msg`Signal regressing`),
+      summary: holdingNow
+        ? i18n._(msg`Holding — a signal metric is regressing`)
+        : i18n._(
+            msg`Step may hold when complete — a signal metric is regressing`,
+          ),
       autoExpand: true,
     };
   }
@@ -743,17 +768,19 @@ export function getRampHealthOverview(
     const detail = details["srm"];
     return {
       severity: action === "rollback" ? "critical" : "warning",
-      label: "SRM detected",
+      label: i18n._(msg`SRM detected`),
       summary:
         action === "rollback"
           ? detail
-            ? `Rolling back — ${detail}`
-            : "Sample ratio mismatch — rolling back"
+            ? i18n._(msg`Rolling back — ${detail}`)
+            : i18n._(msg`Sample ratio mismatch — rolling back`)
           : action === "warn"
-            ? (detail ?? "Sample ratio mismatch detected")
+            ? (detail ?? i18n._(msg`Sample ratio mismatch detected`))
             : detail
-              ? `${holdPrefix} — ${detail}`
-              : "Sample ratio mismatch — holding",
+              ? holdingNow
+                ? i18n._(msg`Holding — ${detail}`)
+                : i18n._(msg`Step may hold when complete — ${detail}`)
+              : i18n._(msg`Sample ratio mismatch — holding`),
       autoExpand: true,
     };
   }
@@ -762,17 +789,19 @@ export function getRampHealthOverview(
     const detail = details["multiple-exposures"];
     return {
       severity: action === "rollback" ? "critical" : "warning",
-      label: "Multiple exposures",
+      label: i18n._(msg`Multiple exposures`),
       summary:
         action === "rollback"
           ? detail
-            ? `Rolling back — ${detail}`
-            : "Multiple-exposure issue — rolling back"
+            ? i18n._(msg`Rolling back — ${detail}`)
+            : i18n._(msg`Multiple-exposure issue — rolling back`)
           : action === "warn"
-            ? (detail ?? "Users exposed to multiple variations")
+            ? (detail ?? i18n._(msg`Users exposed to multiple variations`))
             : detail
-              ? `${holdPrefix} — ${detail}`
-              : "Multiple-exposure issue — holding",
+              ? holdingNow
+                ? i18n._(msg`Holding — ${detail}`)
+                : i18n._(msg`Step may hold when complete — ${detail}`)
+              : i18n._(msg`Multiple-exposure issue — holding`),
       autoExpand: true,
     };
   }
@@ -780,13 +809,17 @@ export function getRampHealthOverview(
     const action = actions["no-traffic"];
     return {
       severity: action === "rollback" ? "critical" : "warning",
-      label: "No traffic",
+      label: i18n._(msg`No traffic`),
       summary:
         action === "rollback"
-          ? "No monitored traffic — rolling back"
+          ? i18n._(msg`No monitored traffic — rolling back`)
           : action === "warn"
-            ? "No monitored traffic yet — warning only"
-            : `${holdPrefix} — no monitored traffic yet`,
+            ? i18n._(msg`No monitored traffic yet — warning only`)
+            : holdingNow
+              ? i18n._(msg`Holding — no monitored traffic yet`)
+              : i18n._(
+                  msg`Step may hold when complete — no monitored traffic yet`,
+                ),
       autoExpand: true,
     };
   }
@@ -794,17 +827,18 @@ export function getRampHealthOverview(
     const detail = details["below-min-sample"];
     return {
       severity: "info",
-      label: "Awaiting sample",
-      summary: detail ?? "Building up to the minimum sample size",
+      label: i18n._(msg`Awaiting sample`),
+      summary: detail ?? i18n._(msg`Building up to the minimum sample size`),
       autoExpand: false,
     };
   }
   if (displaySignals.includes("awaiting-data")) {
     return {
       severity: "info",
-      label: "No data yet",
-      summary:
-        "Monitoring recently started. Check back soon for updated status.",
+      label: i18n._(msg`No data yet`),
+      summary: i18n._(
+        msg`Monitoring recently started. Check back soon for updated status.`,
+      ),
       autoExpand: false,
     };
   }
@@ -817,18 +851,18 @@ export function getRampHealthOverview(
     const approvalNotes = currentStep?.approvalNotes?.trim();
     return {
       severity: "inactive" as const,
-      label: "Awaiting approval",
+      label: i18n._(msg`Awaiting approval`),
       summary:
         approvalNotes ||
-        "This step requires approval before the ramp can advance",
+        i18n._(msg`This step requires approval before the ramp can advance`),
       autoExpand: false,
     };
   }
 
   return {
     severity: "healthy",
-    label: "Healthy",
-    summary: "All monitored metrics are within bounds",
+    label: i18n._(msg`Healthy`),
+    summary: i18n._(msg`All monitored metrics are within bounds`),
     autoExpand: false,
   };
 }
@@ -838,12 +872,13 @@ export function RampMonitoringBadges({
 }: {
   rampSchedule: RampScheduleInterface;
 }) {
+  const { i18n } = useLingui();
   const result = useRampMonitoringSignals(rampSchedule);
 
   if (!isOnMonitoredStep(rampSchedule)) return null;
 
   const badgeSignals = result.signals.filter((s) =>
-    signalToBadge(s, result.actions[s]),
+    signalToBadge(s, i18n, result.actions[s]),
   );
 
   if (badgeSignals.length > 1) {
@@ -853,7 +888,7 @@ export function RampMonitoringBadges({
           maxSignalSeverity(badgeSignals, result.actions),
         )}
         variant="soft"
-        label={MULTIPLE_ISSUES_LABEL}
+        label={i18n._(MULTIPLE_ISSUES_LABEL)}
         radius="full"
       />
     );
@@ -862,7 +897,7 @@ export function RampMonitoringBadges({
   return (
     <>
       {badgeSignals.map((s, i) => {
-        const badge = signalToBadge(s, result.actions[s]);
+        const badge = signalToBadge(s, i18n, result.actions[s]);
         return badge ? <span key={`${s}-${i}`}>{badge}</span> : null;
       })}
     </>
@@ -948,7 +983,7 @@ export function RampMonitoringCTAs({
   if (rampSchedule.status === "rolled-back" && onRestart) {
     return (
       <Button size={size} variant="solid" onClick={onRestart}>
-        Restart
+        <Trans>Restart</Trans>
       </Button>
     );
   }
@@ -960,7 +995,7 @@ export function RampMonitoringCTAs({
   ) {
     return (
       <Button size={size} variant="solid" onClick={onResume}>
-        Resume
+        <Trans>Resume</Trans>
       </Button>
     );
   }
@@ -994,7 +1029,7 @@ export function RampMonitoringCTAs({
       color="red"
       onClick={() => onRollback(rollbackReason)}
     >
-      Rollback
+      <Trans>Rollback</Trans>
     </Button>
   );
   const hasHoldSignal =
@@ -1030,7 +1065,7 @@ export function RampMonitoringCTAs({
             await onAdvance();
           }}
         >
-          Approve & continue
+          <Trans>Approve & continue</Trans>
         </Button>
         {rollbackButton("outline")}
       </div>
@@ -1050,7 +1085,7 @@ export function RampMonitoringCTAs({
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Button size={size} variant="solid" onClick={onAdvance}>
-          Continue
+          <Trans>Continue</Trans>
         </Button>
         {rollbackButton("outline")}
       </div>
@@ -1078,7 +1113,7 @@ export function RampMonitoringCTAs({
   if (onApproveStep && approvalReady && !monitoredBlocksApproval) {
     return (
       <Button size={size} variant="solid" onClick={onApproveStep}>
-        Approve step
+        <Trans>Approve step</Trans>
       </Button>
     );
   }

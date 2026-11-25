@@ -1,4 +1,5 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import { useLingui } from "@lingui/react/macro";
 import { RowResults } from "@/services/experiments";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 
@@ -16,6 +17,7 @@ export default function StatusColumn({
   rowResults,
   hideScaledImpact = false,
 }: Props) {
+  const { t } = useLingui();
   const isFailing =
     rowResults.resultsStatus === "lost" && rowResults.significant;
   const conclusive = rowResults.enoughData && rowResults.significant;
@@ -23,25 +25,25 @@ export default function StatusColumn({
   const status = (() => {
     if (isFailing) {
       return {
-        text: "Failing",
+        text: t`Failing`,
         color: "var(--red-11)",
         emphasizeWhenConclusive: true,
       } as const;
     } else if (!rowResults.enoughData) {
       return {
-        text: "Not enough data",
+        text: t`Not enough data`,
         color: "var(--gray-9)",
         emphasizeWhenConclusive: true,
       } as const;
     } else if (!baseline || !stats) {
       return {
-        text: "No data",
+        text: t`No data`,
         color: "var(--gray-9)",
         emphasizeWhenConclusive: true,
       } as const;
     } else {
       return {
-        text: "Within bounds",
+        text: t`Within bounds`,
         color: "var(--blue-11)",
         emphasizeWhenConclusive: false,
       } as const;

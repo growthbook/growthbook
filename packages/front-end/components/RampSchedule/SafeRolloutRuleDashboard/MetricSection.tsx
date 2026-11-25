@@ -18,6 +18,9 @@ import {
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { PiCaretDownBold, PiInfo } from "react-icons/pi";
 import { ExperimentReportVariation } from "shared/types/report";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -65,25 +68,27 @@ function isRegressionEvent(e: RampEvent): boolean {
   return false;
 }
 
-function eventLabel(e: RampEvent): string {
+function eventLabel(e: RampEvent, i18n: I18n): string {
   switch (e.type) {
     case "started":
-      return "Start";
+      return i18n._(msg`Start`);
     case "step-advanced":
     case "step-jumped":
       return stepLabel(e.stepIndex);
     case "rollback":
-      return e.stepIndex === -1 ? "Rollback" : stepLabel(e.stepIndex);
+      return e.stepIndex === -1
+        ? i18n._(msg`Rollback`)
+        : stepLabel(e.stepIndex);
     case "reset":
-      return "Reset";
+      return i18n._(msg`Reset`);
     case "completed":
-      return "Done";
+      return i18n._(msg`Done`);
     default:
       return e.type;
   }
 }
 
-function eventTooltip(e: RampEvent): React.ReactNode {
+function eventTooltip(e: RampEvent, i18n: I18n): React.ReactNode {
   const ts = getValidDate(e.timestamp);
   const time = ts.toLocaleString(undefined, {
     month: "short",
@@ -91,33 +96,34 @@ function eventTooltip(e: RampEvent): React.ReactNode {
     hour: "numeric",
     minute: "2-digit",
   });
+  const step = stepLabel(e.stepIndex);
   let action: string;
   switch (e.type) {
     case "started":
-      action = "Started";
+      action = i18n._(msg`Started`);
       break;
     case "step-advanced":
-      action = `Advanced to Step ${stepLabel(e.stepIndex)}`;
+      action = i18n._(msg`Advanced to Step ${step}`);
       break;
     case "step-jumped":
       action =
         e.previousStepIndex !== undefined &&
         e.stepIndex !== undefined &&
         e.stepIndex < e.previousStepIndex
-          ? `Jumped back to Step ${stepLabel(e.stepIndex)}`
-          : `Jumped to Step ${stepLabel(e.stepIndex)}`;
+          ? i18n._(msg`Jumped back to Step ${step}`)
+          : i18n._(msg`Jumped to Step ${step}`);
       break;
     case "rollback":
       action =
         e.stepIndex === -1
-          ? "Rolled back"
-          : `Rolled back to Step ${stepLabel(e.stepIndex)}`;
+          ? i18n._(msg`Rolled back`)
+          : i18n._(msg`Rolled back to Step ${step}`);
       break;
     case "reset":
-      action = "Reset";
+      action = i18n._(msg`Reset`);
       break;
     case "completed":
-      action = "Completed";
+      action = i18n._(msg`Completed`);
       break;
     default:
       action = e.type;
@@ -143,19 +149,24 @@ const DEDUP_THRESHOLD_MS = 5_000;
 type MarkerWithPriority = Omit<TimeSeriesEventMarker, "tooltips"> & {
   tooltips: React.ReactNode[];
   _priority: number;
+  isStart: boolean;
 };
 
 const MARKER_LABEL_CLUSTER_PX = 14;
 
-export function buildEventMarkers(events: RampEvent[]): MarkerWithPriority[] {
+export function buildEventMarkers(
+  events: RampEvent[],
+  i18n: I18n,
+): MarkerWithPriority[] {
   const raw: MarkerWithPriority[] = events
     .filter((e) => STEP_EVENT_TYPES.has(e.type))
     .map((e) => ({
       date: getValidDate(e.timestamp),
-      label: eventLabel(e),
+      label: eventLabel(e, i18n),
       color: isRegressionEvent(e) ? ("red" as const) : ("indigo" as const),
-      tooltips: [eventTooltip(e)],
+      tooltips: [eventTooltip(e, i18n)],
       _priority: EVENT_PRIORITY[e.type] ?? 99,
+      isStart: e.type === "started",
     }));
 
   const deduped: MarkerWithPriority[] = [];
@@ -402,6 +413,7 @@ function SafeRolloutMetricDrilldownModal({
   endDate: Date;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { metric } = row;
   const variations = useMemo(
     (): ExperimentReportVariation[] =>
@@ -422,7 +434,7 @@ function SafeRolloutMetricDrilldownModal({
       }
       close={close}
       size="max"
-      cta="Close"
+      cta={t`Close`}
       submit={close}
       autoFocusSelector=""
       trackingEventModalType="safe-rollout-metric-drilldown"
@@ -585,31 +597,35 @@ export function MetricSection({
                   className="axis-col noStickyHeader label"
                   style={{ width: 280, whiteSpace: "nowrap" }}
                 >
-                  Metric
+                  <Trans>Metric</Trans>
                 </th>
                 <th className="axis-col noStickyHeader label">
-                  Metric Boundary
+                  <Trans>Metric Boundary</Trans>
                 </th>
                 <th
                   className="axis-col noStickyHeader label"
                   style={{ width: 200, whiteSpace: "nowrap" }}
                 >
-                  Status
+                  <Trans>Status</Trans>
                   <Tooltip
                     usePortal
                     tipPosition="top"
                     body={
                       <>
                         <Text as="div" mb="2">
-                          Guardrails are either <strong>within bounds</strong>{" "}
-                          or <strong>failing</strong>. Once statistically
-                          significant in the undesirable direction, the status
-                          changes to <strong>failing</strong>.
+                          <Trans>
+                            Guardrails are either <strong>within bounds</strong>{" "}
+                            or <strong>failing</strong>. Once statistically
+                            significant in the undesirable direction, the status
+                            changes to <strong>failing</strong>.
+                          </Trans>
                         </Text>
                         <Text as="div">
-                          Safe rollouts use frequentist sequential testing to
-                          detect and revert issues early without increasing
-                          false positive rates.
+                          <Trans>
+                            Safe rollouts use frequentist sequential testing to
+                            detect and revert issues early without increasing
+                            false positive rates.
+                          </Trans>
                         </Text>
                       </>
                     }
@@ -745,6 +761,7 @@ export function HealthChecks({
 }: {
   snapshot: SafeRolloutSnapshotInterface | undefined;
 }) {
+  const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
   const [srmModalOpen, setSrmModalOpen] = useState(false);
   const { settings } = useUser();
@@ -797,15 +814,21 @@ export function HealthChecks({
       ? "var(--amber-a3)"
       : "var(--blue-a3)";
   const overallLabel = !hasData
-    ? "No data yet"
+    ? t`No data yet`
     : hasIssue
-      ? "Issues detected"
-      : "All clear";
+      ? t`Issues detected`
+      : t`All clear`;
 
   const variations = [
-    { name: "Treatment", expected: 0.5 },
-    { name: "Control", expected: 0.5 },
+    { name: t`Treatment`, expected: 0.5 },
+    { name: t`Control`, expected: 0.5 },
   ];
+
+  const srmPValueText = srmPValue !== undefined ? pValueFmt(srmPValue) : "—";
+  const totalUsersText = numberFmt.format(totalUsers);
+  const meCountText = numberFmt.format(meCount);
+  const mePercentText = pctFmt.format(meHealth.rawDecimal);
+  const meMinPercentText = pctFmt.format(meMinPercent);
 
   return (
     <Box mt="3">
@@ -816,29 +839,35 @@ export function HealthChecks({
               <Box>
                 <AlertDialog.Title>
                   <Text as="div" size="xl" weight="medium">
-                    Sample Ratio Mismatch (SRM)
+                    <Trans>Sample Ratio Mismatch (SRM)</Trans>
                   </Text>
                 </AlertDialog.Title>
                 <AlertDialog.Description>
                   <Text as="div" size="md" color="text-low">
-                    When actual traffic splits are significantly different from
-                    expected, we raise an SRM issue.
+                    <Trans>
+                      When actual traffic splits are significantly different
+                      from expected, we raise an SRM issue.
+                    </Trans>
                   </Text>
                 </AlertDialog.Description>
               </Box>
 
               {srmHealth !== "unhealthy" ? (
                 <Callout status="info">
-                  There is not enough evidence to raise an issue. Any imbalances
-                  in the percentages you see may be due to chance and
-                  aren&apos;t cause for concern at this time.
+                  <Trans>
+                    There is not enough evidence to raise an issue. Any
+                    imbalances in the percentages you see may be due to chance
+                    and aren&apos;t cause for concern at this time.
+                  </Trans>
                 </Callout>
               ) : (
                 <Callout status="warning">
-                  The threshold for firing an SRM warning is{" "}
-                  <b>{srmThreshold}</b> and the p-value is{" "}
-                  <b>{srmPValue !== undefined ? pValueFmt(srmPValue) : "—"}</b>.
-                  This is a strong indicator that your traffic is imbalanced.
+                  <Trans>
+                    The threshold for firing an SRM warning is{" "}
+                    <b>{srmThreshold}</b> and the p-value is{" "}
+                    <b>{srmPValueText}</b>. This is a strong indicator that your
+                    traffic is imbalanced.
+                  </Trans>
                 </Callout>
               )}
 
@@ -859,27 +888,31 @@ export function HealthChecks({
               {srmHealth === "unhealthy" && (
                 <Box>
                   <Text as="div" size="sm" mb="2">
-                    Most common causes:
+                    <Trans>Most common causes:</Trans>
                   </Text>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
                     <li>
                       <Text size="sm">
-                        Broken event firing or SDK trackingCallback issues
+                        <Trans>
+                          Broken event firing or SDK trackingCallback issues
+                        </Trans>
                       </Text>
                     </li>
                     <li>
                       <Text size="sm">
-                        Mismatch between SDK attribute and data ID
+                        <Trans>
+                          Mismatch between SDK attribute and data ID
+                        </Trans>
                       </Text>
                     </li>
                     <li>
                       <Text size="sm">
-                        Coverage or targeting changes mid-rollout
+                        <Trans>Coverage or targeting changes mid-rollout</Trans>
                       </Text>
                     </li>
                     <li>
                       <Text size="sm">
-                        Step jumps that re-randomize traffic
+                        <Trans>Step jumps that re-randomize traffic</Trans>
                       </Text>
                     </li>
                   </ul>
@@ -889,14 +922,16 @@ export function HealthChecks({
                       rel="noreferrer"
                       href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
                     >
-                      Read about troubleshooting in our docs
+                      <Trans>Read about troubleshooting in our docs</Trans>
                     </a>
                   </Text>
                 </Box>
               )}
 
               <Flex justify="end">
-                <Link onClick={() => setSrmModalOpen(false)}>Close</Link>
+                <Link onClick={() => setSrmModalOpen(false)}>
+                  <Trans>Close</Trans>
+                </Link>
               </Flex>
             </Flex>
           </AlertDialog.Content>
@@ -930,7 +965,7 @@ export function HealthChecks({
             }}
           />
           <Text size="md" weight="medium">
-            Health Checks
+            <Trans>Health Checks</Trans>
           </Text>
         </span>
         <span
@@ -951,8 +986,10 @@ export function HealthChecks({
         <Box mt="2">
           {!hasData ? (
             <Text as="div" size="sm" color="text-low">
-              No traffic data yet. Monitoring recently started, check back soon
-              for updated status.
+              <Trans>
+                No traffic data yet. Monitoring recently started, check back
+                soon for updated status.
+              </Trans>
             </Text>
           ) : (
             <div
@@ -964,12 +1001,14 @@ export function HealthChecks({
               }}
             >
               <div>
-                Total Users: <strong>{numberFmt.format(totalUsers)}</strong>
+                <Trans>
+                  Total Users: <strong>{totalUsersText}</strong>
+                </Trans>
               </div>
 
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  Experiment Balance
+                  <Trans>Experiment Balance</Trans>
                 </div>
                 <table
                   className="table-sm"
@@ -981,20 +1020,22 @@ export function HealthChecks({
                 >
                   <thead>
                     <tr>
-                      {["Variation", "Users", "Actual", "Expected"].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            fontWeight: 500,
-                            width: "25%",
-                            padding: "6px 8px",
-                            borderBottom: "1px solid var(--slate-a5)",
-                            textAlign: "left",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
+                      {[t`Variation`, t`Users`, t`Actual`, t`Expected`].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            style={{
+                              fontWeight: 500,
+                              width: "25%",
+                              padding: "6px 8px",
+                              borderBottom: "1px solid var(--slate-a5)",
+                              textAlign: "left",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ),
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -1033,28 +1074,33 @@ export function HealthChecks({
                 <div style={{ marginTop: 8 }}>
                   {srmHealth === "unhealthy" ? (
                     <Callout status="warning" size="sm">
-                      <strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}
-                      P-value {pValueFmt(srmPValue!)} is below {srmThreshold}.{" "}
+                      <Trans>
+                        <strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}
+                        P-value {srmPValueText} is below {srmThreshold}.
+                      </Trans>{" "}
                       <a
                         className="a"
                         role="button"
                         onClick={() => setSrmModalOpen(true)}
                       >
-                        Learn More {">"}
+                        <Trans>Learn More</Trans> {">"}
                       </a>
                     </Callout>
                   ) : (
                     <Callout status="success" size="sm">
-                      No Sample Ratio Mismatch (SRM) detected.
+                      <Trans>No Sample Ratio Mismatch (SRM) detected.</Trans>
                       {srmHealth === "healthy" && (
-                        <> P-value above {srmThreshold}.</>
+                        <>
+                          {" "}
+                          <Trans>P-value above {srmThreshold}.</Trans>
+                        </>
                       )}{" "}
                       <a
                         className="a"
                         role="button"
                         onClick={() => setSrmModalOpen(true)}
                       >
-                        Learn More {">"}
+                        <Trans>Learn More</Trans> {">"}
                       </a>
                     </Callout>
                   )}
@@ -1064,25 +1110,28 @@ export function HealthChecks({
               {meHealth.status !== "not-enough-traffic" && (
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                    Multiple Exposures
+                    <Trans>Multiple Exposures</Trans>
                   </div>
                   <div>
-                    {numberFmt.format(meCount)} users (
-                    {pctFmt.format(meHealth.rawDecimal)})
+                    <Trans>
+                      {meCountText} users ({mePercentText})
+                    </Trans>
                   </div>
                   <div style={{ marginTop: 8 }}>
                     {meHealth.status === "unhealthy" ? (
                       <Callout status="warning" size="sm">
-                        <strong>Multiple Exposures Warning.</strong>{" "}
-                        {numberFmt.format(meCount)} users saw multiple
-                        variations. Check for bugs in your implementation, event
-                        tracking, or data pipeline.
+                        <Trans>
+                          <strong>Multiple Exposures Warning.</strong>{" "}
+                          {meCountText} users saw multiple variations. Check for
+                          bugs in your implementation, event tracking, or data
+                          pipeline.
+                        </Trans>
                       </Callout>
                     ) : (
                       <Callout status="success" size="sm">
                         {meCount === 0
-                          ? "No multiple exposures detected."
-                          : `${numberFmt.format(meCount)} multiple exposures detected, below the ${pctFmt.format(meMinPercent)} threshold.`}
+                          ? t`No multiple exposures detected.`
+                          : t`${meCountText} multiple exposures detected, below the ${meMinPercentText} threshold.`}
                       </Callout>
                     )}
                   </div>

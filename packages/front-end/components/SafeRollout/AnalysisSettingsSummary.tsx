@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
 import { SafeRolloutInterface } from "shared/validators";
 import { differenceInHours } from "date-fns";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -25,6 +26,7 @@ export interface Props {
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
 }: Props) {
+  const { t } = useLingui();
   const { getDatasourceById, getExperimentMetricById, metricGroups } =
     useDefinitions();
 
@@ -71,10 +73,12 @@ export default function SafeRolloutAnalysisSettingsSummary({
     <div className="pr-2 pl-4 pt-3 pb-2 analysis-settings-top">
       <div className="row align-items-center justify-content-between">
         <div className="col-auto">
-          <h4>Guardrail Metrics</h4>
+          <h4>
+            <Trans>Guardrail Metrics</Trans>
+          </h4>
           <div>
             <Metadata
-              label="Total units"
+              label={t`Total units`}
               value={numberFormatter.format(
                 safeRollout.analysisSummary?.health?.totalUsers ?? 0,
               )}
@@ -122,7 +126,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
             <div className="col-auto">
               {hasData &&
                 (outdated && status !== "running" ? (
-                  <OutdatedBadge reasons={["Snapshot is over a day old."]} />
+                  <OutdatedBadge reasons={[t`Snapshot is over a day old.`]} />
                 ) : (
                   <QueriesLastRun
                     status={status}
@@ -191,7 +195,10 @@ export default function SafeRolloutAnalysisSettingsSummary({
       </div>
       {refreshError && (
         <Callout status="error" mt="2">
-          <strong>Error updating data: </strong> {refreshError}
+          <strong>
+            <Trans>Error updating data:</Trans>{" "}
+          </strong>{" "}
+          {refreshError}
         </Callout>
       )}
     </div>

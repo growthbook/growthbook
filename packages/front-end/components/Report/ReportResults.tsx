@@ -17,6 +17,7 @@ import {
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -57,6 +58,7 @@ export default function ReportResults({
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
   showDetails?: boolean;
 }) {
+  const { t } = useLingui();
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
@@ -143,6 +145,8 @@ export default function ReportResults({
     !!analysis &&
     !analysis?.settings?.dimensions?.length;
 
+  const snapshotErrorMessage = snapshotError?.message ?? t`Unknown error`;
+
   return (
     <>
       <ReportAnalysisSettingsBar
@@ -159,14 +163,17 @@ export default function ReportResults({
         {snapshotError ? (
           <div className="mx-3 mb-3">
             <Callout status="error">
-              Report error
-              {showDetails && (
-                <>: {snapshotError?.message ?? "Unknown error"}</>
+              {showDetails ? (
+                <Trans>Report error: {snapshotErrorMessage}</Trans>
+              ) : (
+                <Trans>Report error</Trans>
               )}
               {canEdit && (
                 <div className="mt-2 text-muted">
-                  Try refreshing this report, or click &quot;View Queries&quot;
-                  from the report menu to debug.
+                  <Trans>
+                    Try refreshing this report, or click &quot;View
+                    Queries&quot; from the report menu to debug.
+                  </Trans>
                 </div>
               )}
             </Callout>
@@ -174,10 +181,10 @@ export default function ReportResults({
         ) : snapshot && !analysis ? (
           <div className="mx-3 mb-3">
             <Callout status="error">
-              Missing analysis
+              <Trans>Missing analysis</Trans>
               {canEdit && (
                 <div className="mt-2 text-muted">
-                  Try refreshing this report to resolve.
+                  <Trans>Try refreshing this report to resolve.</Trans>
                 </div>
               )}
             </Callout>
@@ -331,7 +338,7 @@ export default function ReportResults({
             ) : (
               <div className="mx-3 mb-3">
                 <Callout status="error">
-                  No analysis found for this report
+                  <Trans>No analysis found for this report</Trans>
                 </Callout>
               </div>
             )}

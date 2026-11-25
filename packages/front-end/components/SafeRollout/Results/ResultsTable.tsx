@@ -25,6 +25,7 @@ import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
@@ -323,7 +324,7 @@ export default function ResultsTable({
                         overflowWrap: "anywhere",
                       }}
                     >
-                      Metric
+                      <Trans>Metric</Trans>
                     </div>
                     {editMetrics ? (
                       <div className="col d-flex align-items-end px-0">
@@ -347,7 +348,7 @@ export default function ResultsTable({
                       style={{ width: 100 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
                     >
-                      Time series
+                      <Trans>Time series</Trans>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
@@ -358,17 +359,19 @@ export default function ResultsTable({
                         innerClassName={"text-left"}
                         body={
                           <div style={{ lineHeight: 1.5 }}>
-                            Guardrails are either within bounds or failing. Once
-                            a guardrail is statistically significant in the
-                            undesirable direction, the status is changed to
-                            failing. All safe rollouts use frequentist
-                            sequential testing to enable reverting issues as
-                            soon as they appear without increased false positive
-                            rates.
+                            <Trans>
+                              Guardrails are either within bounds or failing.
+                              Once a guardrail is statistically significant in
+                              the undesirable direction, the status is changed
+                              to failing. All safe rollouts use frequentist
+                              sequential testing to enable reverting issues as
+                              soon as they appear without increased false
+                              positive rates.
+                            </Trans>
                           </div>
                         }
                       >
-                        Status
+                        <Trans>Status</Trans>
                         <RxInfoCircled className="ml-1" />
                       </Tooltip>
                     </th>
@@ -432,7 +435,7 @@ export default function ResultsTable({
                                 </div>
                               ) : null}
                               <Callout status="error" mb="1" ml="1" size="sm">
-                                Query error
+                                <Trans>Query error</Trans>
                               </Callout>
                             </>
                           ),
@@ -568,7 +571,7 @@ export default function ResultsTable({
                                   position="relative"
                                   width="100%"
                                 >
-                                  No time series data
+                                  <Trans>No time series data</Trans>
                                 </Flex>
                               ) : null}
                             </td>
@@ -617,11 +620,13 @@ export default function ResultsTable({
           {noMetrics ? (
             <div className="metric-label py-2" style={{ marginLeft: 10 }}>
               <div className="metriclabel text-muted font-weight-bold">
-                No metrics yet
+                <Trans>No metrics yet</Trans>
               </div>
               <div className="small mt-1 mb-2">
-                Add metrics to start tracking the performance of your
-                experiment.
+                <Trans>
+                  Add metrics to start tracking the performance of your
+                  experiment.
+                </Trans>
               </div>
             </div>
           ) : null}

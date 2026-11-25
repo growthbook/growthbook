@@ -11,6 +11,7 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   getResultsSubUnitTotal,
@@ -50,6 +51,7 @@ export default function ReportAnalysisSettingsBar({
   setEditAnalysisOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");
@@ -111,50 +113,59 @@ export default function ReportAnalysisSettingsBar({
 
   if (!snapshot) return null;
 
+  const updatedAgo = ago(getSnapshotDataAsOfDate(snapshot));
+  const lookbackEndLabel = snapshot.settings.endDate
+    ? date(snapshot.settings.endDate, "UTC")
+    : t`now`;
+
   return (
     <>
       <div className="mb-1 d-flex align-items-center justify-content-between">
-        <div className="h3 mb-1">Analysis</div>
+        <div className="h3 mb-1">
+          <Trans>Analysis</Trans>
+        </div>
         <Popover
           trigger={
             <Link>
               <PiEye className="mr-1" />
-              View details
+              <Trans>View details</Trans>
             </Link>
           }
           align="end"
           content={
             <div style={{ minWidth: 250 }}>
-              <h5>Results computed with:</h5>
+              <h5>
+                <Trans>Results computed with:</Trans>
+              </h5>
               <Metadata
-                label="Engine"
+                label={t`Engine`}
                 value={
                   analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"
+                    ? t`Frequentist`
+                    : t`Bayesian`
                 }
               />
               <Metadata
                 label="CUPED"
                 value={
                   analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"
+                    ? t`Enabled`
+                    : t`Disabled`
                 }
               />
               {analysis?.settings?.statsEngine === "frequentist" && (
                 <Metadata
-                  label="Sequential"
+                  label={t`Sequential`}
                   value={
                     analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"
+                      ? t`Enabled`
+                      : t`Disabled`
                   }
                 />
               )}
               <div className="text-right mt-3">
                 <Metadata
-                  label="Run date"
+                  label={t`Run date`}
                   value={datetime(getSnapshotDataAsOfDate(snapshot))}
                 />
               </div>
@@ -190,13 +201,15 @@ export default function ReportAnalysisSettingsBar({
           </div>
           <div className="col-auto d-flex align-items-end">
             <div>
-              <div className="uppercase-title text-muted">Date range</div>
+              <div className="uppercase-title text-muted">
+                <Trans>Date range</Trans>
+              </div>
               <div className="relative">
                 <span className="date-label">
                   {date(snapshot.settings.startDate)} —{" "}
                   {snapshot.settings.endDate
                     ? date(snapshot.settings.endDate)
-                    : "now"}
+                    : t`now`}
                 </span>
               </div>
             </div>
@@ -205,11 +218,11 @@ export default function ReportAnalysisSettingsBar({
             <div className="col-auto d-flex align-items-end">
               <div>
                 <div className="uppercase-title text-muted">
-                  Lookback Enforced
+                  <Trans>Lookback Enforced</Trans>
                 </div>
                 <div className="relative">
                   {lookbackOverride.type === "date"
-                    ? `${date(lookbackOverride.value, "UTC")} - ${snapshot.settings.endDate ? date(snapshot.settings.endDate, "UTC") : "now"}`
+                    ? `${date(lookbackOverride.value, "UTC")} - ${lookbackEndLabel}`
                     : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`}
                 </div>
               </div>
@@ -227,7 +240,9 @@ export default function ReportAnalysisSettingsBar({
                   <Metadata
                     label={unitDisplayName}
                     value={
-                      <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
+                      <Tooltip
+                        content={t`Cluster counts aren't available when results are broken down by a dimension.`}
+                      >
                         <span tabIndex={0} style={{ cursor: "help" }}>
                           —
                         </span>
@@ -259,7 +274,7 @@ export default function ReportAnalysisSettingsBar({
                   weight="medium"
                   style={{ color: "var(--color-text-mid)" }}
                 >
-                  Updated {ago(getSnapshotDataAsOfDate(snapshot))}
+                  <Trans>Updated {updatedAgo}</Trans>
                 </Text>
               </Box>
             ) : null}
@@ -269,7 +284,7 @@ export default function ReportAnalysisSettingsBar({
               <RunQueriesButton
                 ref={runQueriesButtonRef}
                 icon="refresh"
-                cta="Refresh"
+                cta={t`Refresh`}
                 mutate={async () => {
                   await mutateReport();
                   await mutateSnapshot();
@@ -301,7 +316,7 @@ export default function ReportAnalysisSettingsBar({
                 ml="2"
                 onClick={() => setEditAnalysisOpen(true)}
               >
-                Edit Analysis
+                <Trans>Edit Analysis</Trans>
               </Button>
             </div>
           ) : null}
@@ -310,12 +325,14 @@ export default function ReportAnalysisSettingsBar({
 
       {refreshError && (
         <Callout status="error" size="sm" mb="4">
-          <strong>Error refreshing data:</strong> {refreshError}
+          <Trans>
+            <strong>Error refreshing data:</strong> {refreshError}
+          </Trans>
         </Callout>
       )}
       {!hasMetrics && (
         <Callout status="info" size="sm" mb="4">
-          Add at least 1 metric to view results.
+          <Trans>Add at least 1 metric to view results.</Trans>
         </Callout>
       )}
     </>

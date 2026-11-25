@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { isEqual } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
@@ -88,6 +89,7 @@ export default function ExposureLogsCard({
   isTabActive,
   phase,
 }: Props) {
+  const { t } = useLingui();
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
@@ -176,7 +178,7 @@ export default function ExposureLogsCard({
     () => [
       {
         key: "timestamp",
-        header: "Timestamp",
+        header: t`Timestamp`,
         render: (r) => (
           <Text size="sm" mono>
             {formatTimestamp(r.timestamp)}
@@ -201,7 +203,7 @@ export default function ExposureLogsCard({
         : []),
       {
         key: "variationId",
-        header: "Variation",
+        header: t`Variation`,
         render: (r) => {
           // An id the experiment no longer defines is shown raw, so it is not
           // mistaken for a real variation.
@@ -226,7 +228,7 @@ export default function ExposureLogsCard({
           r.dimensions[dim] ? <>{r.dimensions[dim]}</> : <Empty />,
       })),
     ],
-    [dimensions, variationsById, subUnitIdColumn, unitIdColumn],
+    [dimensions, variationsById, subUnitIdColumn, unitIdColumn, t],
   );
 
   // A filter names the warehouse column, because that is what the query has to
@@ -264,17 +266,20 @@ export default function ExposureLogsCard({
       ...(subUnitIdColumn
         ? [[subUnitIdColumn, subUnitIdColumn] as [string, string]]
         : []),
-      [VARIATION_COLUMN, "Variation"],
+      [VARIATION_COLUMN, t`Variation`],
       ...dimensions.map((d): [string, string] => [d, d]),
     ];
 
     const topValues = new Map<string, ColumnTopValue[]>();
     topValues.set(
       VARIATION_COLUMN,
-      getLatestPhaseVariations(experiment).map((v) => ({
-        label: v.name ? `${v.index}: ${v.name}` : `Variation ${v.index}`,
-        value: v.key || String(v.index),
-      })),
+      getLatestPhaseVariations(experiment).map((v) => {
+        const index = v.index;
+        return {
+          label: v.name ? `${index}: ${v.name}` : t`Variation ${index}`,
+          value: v.key || String(index),
+        };
+      }),
     );
     for (const dim of dimensions) {
       const seen = new Set<string>();
@@ -295,13 +300,13 @@ export default function ExposureLogsCard({
         topValues: (column && topValues.get(column)) || [],
       }),
     };
-  }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn]);
+  }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn, t]);
 
   // Keyed by identifier type to match the column headers
   const renderDetail = useCallback(
     (row: ExperimentExposureRecord) => (
       <RecordDetail
-        title="Full exposure record"
+        title={t`Full exposure record`}
         fields={flattenRecord(
           {
             [TIMESTAMP_COLUMN]: row.timestamp,
@@ -317,7 +322,7 @@ export default function ExposureLogsCard({
         )}
       />
     ),
-    [unitIdColumn, subUnitIdColumn],
+    [unitIdColumn, subUnitIdColumn, t],
   );
 
   if (!canRun) return null;
@@ -338,38 +343,64 @@ export default function ExposureLogsCard({
   // The picker rounds custom ranges to whole days, so a reset can still be
   // flagged; a link is only offered when it would change the range.
   const entirePhase = entirePhaseRange(phaseBounds);
-  const resets = [
-    { label: "last 24 hours of the selected phase", range: defaultDateRange },
-    { label: "entire selected phase length", range: entirePhase },
-  ].filter(
-    (reset): reset is { label: string; range: ExplorationDateRange } =>
-      reset.range !== null && !isEqual(reset.range, query.dateRange),
-  );
+  const lastDayReset: ExplorationDateRange | null = !isEqual(
+    defaultDateRange,
+    query.dateRange,
+  )
+    ? defaultDateRange
+    : null;
+  const entirePhaseReset: ExplorationDateRange | null =
+    entirePhase !== null && !isEqual(entirePhase, query.dateRange)
+      ? entirePhase
+      : null;
+  const resetTo = (range: ExplorationDateRange) => () =>
+    query.applyControls({ dateRange: range });
   const phaseNote =
     experiment.phases.length > 1 &&
     rangeExceedsPhase(query.dateRange, phaseBounds) ? (
       <Callout status="warning" size="sm">
-        Selected date range exceeds phase date range and may include exposures
-        from other phases.
-        {resets.length > 0 && (
+        <Trans>
+          Selected date range exceeds phase date range and may include exposures
+          from other phases.
+        </Trans>
+        {lastDayReset && entirePhaseReset ? (
           <>
             {" "}
-            Reset to the{" "}
-            {resets.map((reset, i) => (
-              <span key={reset.label}>
-                {i > 0 && " or the "}
-                <Link
-                  onClick={() =>
-                    query.applyControls({ dateRange: reset.range })
-                  }
-                >
-                  {reset.label}
-                </Link>
-              </span>
-            ))}
-            .
+            <Trans>
+              Reset to the{" "}
+              <Link onClick={resetTo(lastDayReset)}>
+                last 24 hours of the selected phase
+              </Link>{" "}
+              or the{" "}
+              <Link onClick={resetTo(entirePhaseReset)}>
+                entire selected phase length
+              </Link>
+              .
+            </Trans>
           </>
-        )}
+        ) : lastDayReset ? (
+          <>
+            {" "}
+            <Trans>
+              Reset to the{" "}
+              <Link onClick={resetTo(lastDayReset)}>
+                last 24 hours of the selected phase
+              </Link>
+              .
+            </Trans>
+          </>
+        ) : entirePhaseReset ? (
+          <>
+            {" "}
+            <Trans>
+              Reset to the{" "}
+              <Link onClick={resetTo(entirePhaseReset)}>
+                entire selected phase length
+              </Link>
+              .
+            </Trans>
+          </>
+        ) : null}
       </Callout>
     ) : null;
 
@@ -383,7 +414,7 @@ export default function ExposureLogsCard({
 
   return (
     <RecordsPanel
-      title="Exposure Logs"
+      title={t`Exposure Logs`}
       query={query}
       columns={columns}
       getRowId={(r, i) =>
@@ -393,9 +424,9 @@ export default function ExposureLogsCard({
       getFilterValue={getFilterValue}
       columnSource={columnSource}
       renderDetail={renderDetail}
-      searchPlaceholder="Search exposures..."
-      emptyMessage="No exposures found for this time range."
-      idleMessage="No recent results. Click Refresh to load exposure records."
+      searchPlaceholder={t`Search exposures...`}
+      emptyMessage={t`No exposures found for this time range.`}
+      idleMessage={t`No recent results. Click Refresh to load exposure records.`}
       warning={warning}
     />
   );

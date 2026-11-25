@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ReportInterface } from "shared/types/report";
 import { ExperimentInterface } from "shared/types/experiment";
 import { datetime, ago } from "shared/dates";
+import { Trans, useLingui } from "@lingui/react/macro";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -16,6 +17,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 
 const ReportsPage = (): React.ReactElement => {
+  const { t } = useLingui();
   const router = useRouter();
   const { project } = useDefinitions();
 
@@ -85,7 +87,12 @@ const ReportsPage = (): React.ReactElement => {
     });
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -94,29 +101,45 @@ const ReportsPage = (): React.ReactElement => {
   if (!reports.length) {
     return (
       <div className="container">
-        <h1>Reports</h1>
+        <h1>
+          <Trans>Reports</Trans>
+        </h1>
         <p>
-          A report is a standalone ad-hoc analysis of an experiment. Use them to
-          explore results in an isolated environment without affecting the main
-          experiment.
+          <Trans>
+            A report is a standalone ad-hoc analysis of an experiment. Use them
+            to explore results in an isolated environment without affecting the
+            main experiment.
+          </Trans>
         </p>
 
-        <p>To create your first report:</p>
+        <p>
+          <Trans>To create your first report:</Trans>
+        </p>
         <ol>
-          <li>Go to an experiment</li>
-          <li>Click on the Results tab</li>
-          <li>Open the more menu (3 dots next to the Update button)</li>
-          <li>Select &quot;New Custom Report&quot;</li>
+          <li>
+            <Trans>Go to an experiment</Trans>
+          </li>
+          <li>
+            <Trans>Click on the Results tab</Trans>
+          </li>
+          <li>
+            <Trans>Open the more menu (3 dots next to the Update button)</Trans>
+          </li>
+          <li>
+            <Trans>Select &quot;New Custom Report&quot;</Trans>
+          </li>
         </ol>
 
         <Link href="/experiments" className="btn btn-primary mb-2">
-          Go to Experiments
+          <Trans>Go to Experiments</Trans>
         </Link>
 
         <p>
-          <em>Note:</em> you will not see the &quot;New Custom Report&quot;
-          option if your experiment does not have results yet or is not hooked
-          up to a valid data source.
+          <Trans>
+            <em>Note:</em> you will not see the &quot;New Custom Report&quot;
+            option if your experiment does not have results yet or is not hooked
+            up to a valid data source.
+          </Trans>
         </p>
       </div>
     );
@@ -127,16 +150,18 @@ const ReportsPage = (): React.ReactElement => {
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto">
           <h3>
-            Custom Reports{" "}
+            <Trans>Custom Reports</Trans>{" "}
             <small className="text-muted">
-              <Tooltip body="Reports are used by data teams to explore experiment results" />
+              <Tooltip
+                body={t`Reports are used by data teams to explore experiment results`}
+              />
             </small>
           </h3>
         </div>
         <div className="col-lg-3 col-md-4 col-6">
           <Field
             size="legacy"
-            placeholder="Search..."
+            placeholder={t`Search...`}
             type="search"
             {...searchInputProps}
           />
@@ -144,7 +169,7 @@ const ReportsPage = (): React.ReactElement => {
         <Switch
           id={"onlymine"}
           value={onlyMyReports}
-          label="Show only my reports"
+          label={t`Show only my reports`}
           onChange={setOnlyMyReports}
         />
         <div style={{ flex: 1 }} />
@@ -152,12 +177,24 @@ const ReportsPage = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <SortableTH field="title">Title</SortableTH>
-            <SortableTH field="description">Description</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="experimentName">Experiment</SortableTH>
-            <SortableTH field="userName">Created By</SortableTH>
-            <SortableTH field="dateUpdated">Last Updated</SortableTH>
+            <SortableTH field="title">
+              <Trans>Title</Trans>
+            </SortableTH>
+            <SortableTH field="description">
+              <Trans>Description</Trans>
+            </SortableTH>
+            <SortableTH field="status">
+              <Trans>Status</Trans>
+            </SortableTH>
+            <SortableTH field="experimentName">
+              <Trans>Experiment</Trans>
+            </SortableTH>
+            <SortableTH field="userName">
+              <Trans>Created By</Trans>
+            </SortableTH>
+            <SortableTH field="dateUpdated">
+              <Trans>Last Updated</Trans>
+            </SortableTH>
           </tr>
         </thead>
         <tbody>
@@ -214,10 +251,10 @@ const ReportsPage = (): React.ReactElement => {
             <tr>
               <td colSpan={6} align={"center"}>
                 {isFiltered
-                  ? "No matching reports"
+                  ? t`No matching reports`
                   : onlyMyReports
-                    ? "You have no reports"
-                    : "No reports"}
+                    ? t`You have no reports`
+                    : t`No reports`}
               </td>
             </tr>
           )}

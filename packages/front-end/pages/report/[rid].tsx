@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { ReportInterface } from "shared/types/report";
 import React, { useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -18,6 +19,7 @@ import ConfigureReport from "@/components/Report/ConfigureReport";
 import Callout from "@/ui/Callout";
 
 export default function ReportPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -104,10 +106,10 @@ export default function ReportPage() {
         breadcrumb={[
           {
             display: isBandit
-              ? `Bandits`
+              ? t`Bandits`
               : isHoldout
-                ? `Holdouts`
-                : `Experiments`,
+                ? t`Holdouts`
+                : t`Experiments`,
             href: isBandit
               ? `/bandits`
               : isHoldout
@@ -115,7 +117,7 @@ export default function ReportPage() {
                 : `/experiments`,
           },
           {
-            display: `${experiment?.name ?? "Report"}`,
+            display: experiment?.name ?? t`Report`,
             href: !isHoldout
               ? experiment?.id
                 ? `/${isBandit ? `bandit` : `experiment`}/${experiment.id}`
@@ -161,7 +163,7 @@ export default function ReportPage() {
             : snapshot?.error
               ? new Error(snapshot.error)
               : snapshot?.status === "error"
-                ? new Error("Report analysis failed")
+                ? new Error(t`Report analysis failed`)
                 : undefined
         }
         mutateReport={mutate}

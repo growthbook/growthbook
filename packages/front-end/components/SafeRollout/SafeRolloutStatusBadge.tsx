@@ -5,11 +5,13 @@ import {
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "shared/validators";
+import { useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Badge from "@/ui/Badge";
 
 const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
+  const { t } = useLingui();
   const { safeRollout, snapshot: snapshotWithResults } =
     useSafeRolloutSnapshot();
 
@@ -42,31 +44,32 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
 
   if (rule.status === "rolled-back") {
     color = "red";
-    label = "Reverted";
+    label = t`Reverted`;
   } else if (rule.status === "released") {
     color = "green";
-    label = "Released";
+    label = t`Released`;
   } else if (!useSnapshotData) {
     color = "violet";
-    label = "Running";
+    label = t`Running`;
   } else if (decisionStatus?.status === "no-data") {
     color = "amber";
-    label = "No Data";
+    label = t`No Data`;
   } else if (decisionStatus?.status === "unhealthy") {
     color = "amber";
-    label = "Unhealthy";
+    label = t`Unhealthy`;
   } else if (decisionStatus?.status === "rollback-now") {
     color = "red";
-    label = "Guardrails Failing";
+    label = t`Guardrails Failing`;
   } else if (decisionStatus?.status === "data-incomplete") {
     color = "amber";
-    label = "Data incomplete";
+    label = t`Data incomplete`;
   } else if (decisionStatus?.status === "ship-now") {
     color = "green";
-    label = "Ready to ship";
+    label = t`Ready to ship`;
   } else {
     color = "violet";
-    label = `${Math.ceil(daysLeft).toFixed(0)} days left`;
+    const daysLeftText = Math.ceil(daysLeft).toFixed(0);
+    label = t`${daysLeftText} days left`;
   }
 
   if (!label) return null;

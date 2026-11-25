@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo } from "react";
+import { Trans } from "@lingui/react/macro";
 import { getClusterIssueHealthData } from "shared/health";
 import { DEFAULT_CLUSTER_ISSUE_THRESHOLD } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -61,7 +62,9 @@ export default function ClusterIssueCard({
   if (error) {
     return (
       <HealthCard title={title} description={description} status="healthy">
-        <Callout status="error">Unable to run this check: {error}</Callout>
+        <Callout status="error">
+          <Trans>Unable to run this check: {error}</Trans>
+        </Callout>
       </HealthCard>
     );
   }

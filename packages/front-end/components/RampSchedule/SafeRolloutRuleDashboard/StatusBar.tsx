@@ -10,6 +10,7 @@ import {
   PiLightning,
   PiLightningSlash,
 } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
@@ -50,13 +51,14 @@ export function SafeRolloutStatusBar({
   onToggleExpanded: () => void;
   useDummyData?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const signalResult = useRampMonitoringSignals(rampSchedule, {
     snapshot,
     safeRollout,
   });
   const overview = useMemo(
-    () => getRampHealthOverview(rampSchedule, signalResult),
-    [rampSchedule, signalResult],
+    () => getRampHealthOverview(rampSchedule, signalResult, i18n),
+    [rampSchedule, signalResult, i18n],
   );
   const firstMonitoredStepIndex = useMemo(
     () => rampSchedule.steps.findIndex((s) => !!s.monitored),
@@ -95,6 +97,8 @@ export function SafeRolloutStatusBar({
     inactive: "var(--gray-9)",
   };
   const statusIconColor = iconColorBySeverity[overview.severity];
+  const totalUsersText =
+    totalUsers !== undefined ? numberFmt.format(totalUsers) : "";
 
   return (
     <Box>
@@ -138,7 +142,7 @@ export function SafeRolloutStatusBar({
           <Flex align="center" gap="2" flexShrink="0">
             {useDummyData && (
               <Badge
-                label="Using dummy data"
+                label={t`Using dummy data`}
                 color="cyan"
                 variant="soft"
                 size="sm"
@@ -155,7 +159,7 @@ export function SafeRolloutStatusBar({
                   ·
                 </Text>
                 <Text size="md" color="text-mid" whiteSpace="nowrap">
-                  {numberFmt.format(totalUsers)} users
+                  <Trans>{totalUsersText} users</Trans>
                 </Text>
               </>
             )}
@@ -191,6 +195,7 @@ export function MonitoringControls({
   latest?: SafeRolloutSnapshotInterface;
   mutateSnapshot: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const snapshotCtx = useSafeRolloutSnapshot();
@@ -230,14 +235,15 @@ export function MonitoringControls({
     rampSchedule.status === "running" &&
     currentStepIsMonitored &&
     autoSnapshots;
+  const rampStatus = rampSchedule.status;
   const blockedReason =
     monitoringMode === "manual"
-      ? "Manual mode enabled"
-      : rampSchedule.status !== "running"
-        ? `Ramp is ${rampSchedule.status}`
+      ? t`Manual mode enabled`
+      : rampStatus !== "running"
+        ? t`Ramp is ${rampStatus}`
         : currentStepIsMonitored
           ? null
-          : "Current step is not monitored";
+          : t`Current step is not monitored`;
 
   const [queriesOpen, setQueriesOpen] = useState(false);
   const [refreshError, setRefreshError] = useState("");
@@ -283,24 +289,23 @@ export function MonitoringControls({
     let statusLine: string;
     let actionLine: string;
     if (monitoringMode === "manual") {
-      statusLine =
-        "Auto-updates are disabled. Currently, monitored steps can only be progressed by manual updates.";
-      actionLine = "Click to re-enable automatic updates.";
+      statusLine = t`Auto-updates are disabled. Currently, monitored steps can only be progressed by manual updates.`;
+      actionLine = t`Click to re-enable automatic updates.`;
     } else {
       if (!effectiveAutoUpdate) {
         statusLine = blockedReason
-          ? `Auto-updates enabled, currently blocked: ${blockedReason}.`
-          : "Auto-updates are enabled, but currently blocked.";
+          ? t`Auto-updates enabled, currently blocked: ${blockedReason}.`
+          : t`Auto-updates are enabled, but currently blocked.`;
       } else if (nextUpdate && nextUpdate > new Date()) {
         const mins = Math.max(
           1,
           Math.round((nextUpdate.getTime() - Date.now()) / 60_000),
         );
-        statusLine = `Auto-updates are enabled. Next update in ~${mins}m.`;
+        statusLine = t`Auto-updates are enabled. Next update in ~${mins}m.`;
       } else {
-        statusLine = "Auto-updates are enabled.";
+        statusLine = t`Auto-updates are enabled.`;
       }
-      actionLine = "Click to disable auto-updates.";
+      actionLine = t`Click to disable auto-updates.`;
     }
     return (
       <div style={{ maxWidth: 340 }}>
@@ -327,6 +332,10 @@ export function MonitoringControls({
   const lastUpdated = snapshot?.dateCreated
     ? getValidDate(snapshot.dateCreated)
     : undefined;
+  const lastUpdatedText = lastUpdated
+    ? getValidDate(lastUpdated).toLocaleString()
+    : "";
+  const lastUpdatedAgo = lastUpdated ? formatShortAgo(lastUpdated) : "";
 
   return (
     <>
@@ -340,7 +349,7 @@ export function MonitoringControls({
         <Flex align="center" gap="3">
           {totalUsers !== undefined && (
             <Metadata
-              label="Monitored Users"
+              label={t`Monitored Users`}
               value={numberFmt.format(totalUsers)}
               style={{ whiteSpace: "nowrap" }}
             />
@@ -355,7 +364,7 @@ export function MonitoringControls({
                   <IconButton
                     variant="ghost"
                     radius="full"
-                    aria-label="Disable auto-monitoring"
+                    aria-label={t`Disable auto-monitoring`}
                     disabled={!canRunQueries}
                     onClick={
                       canRunQueries ? handleToggleMonitoringMode : undefined
@@ -373,7 +382,7 @@ export function MonitoringControls({
                   <IconButton
                     variant="ghost"
                     radius="full"
-                    aria-label="Enable auto-monitoring"
+                    aria-label={t`Enable auto-monitoring`}
                     disabled={!canRunQueries}
                     onClick={
                       canRunQueries ? handleToggleMonitoringMode : undefined
@@ -385,27 +394,23 @@ export function MonitoringControls({
                 )}
               </Tooltip>
               {lastUpdated && (
-                <Tooltip
-                  body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
-                >
+                <Tooltip body={t`Last update: ${lastUpdatedText}`}>
                   <Text size="md" color="text-mid" whiteSpace="nowrap">
-                    Updated: {formatShortAgo(lastUpdated)}
+                    <Trans>Updated: {lastUpdatedAgo}</Trans>
                   </Text>
                 </Tooltip>
               )}
               {!lastUpdated && (
                 <span style={{ color: "var(--color-text-mid)" }}>
-                  Not updated yet
+                  <Trans>Not updated yet</Trans>
                 </span>
               )}
             </Flex>
           )}
           {!showMonitoringControls && lastUpdated && (
-            <Tooltip
-              body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
-            >
+            <Tooltip body={t`Last update: ${lastUpdatedText}`}>
               <Text size="md" color="text-mid" whiteSpace="nowrap">
-                Updated: {formatShortAgo(lastUpdated)}
+                <Trans>Updated: {lastUpdatedAgo}</Trans>
               </Text>
             </Tooltip>
           )}
@@ -424,10 +429,10 @@ export function MonitoringControls({
                     <Tooltip
                       body={
                         hasError
-                          ? "Query error — click to inspect"
+                          ? t`Query error — click to inspect`
                           : isRunning
-                            ? "Queries running — click to inspect"
-                            : "View queries"
+                            ? t`Queries running — click to inspect`
+                            : t`View queries`
                       }
                       tipMinWidth="50"
                     >
@@ -443,7 +448,7 @@ export function MonitoringControls({
                           color="violet"
                           size="1"
                           onClick={() => setQueriesOpen(true)}
-                          aria-label="View queries"
+                          aria-label={t`View queries`}
                           style={{ marginTop: "auto", marginBottom: "auto" }}
                         >
                           <PiDatabase size={16} />
@@ -468,7 +473,7 @@ export function MonitoringControls({
                 })()}
               {canRunQueries && (
                 <RunQueriesButton
-                  cta="Update"
+                  cta={t`Update`}
                   cancelEndpoint={
                     latestSnap
                       ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
@@ -504,7 +509,10 @@ export function MonitoringControls({
 
       {refreshError && (
         <Callout status="error" mb="2">
-          <strong>Error updating data: </strong> {refreshError}
+          <strong>
+            <Trans>Error updating data:</Trans>{" "}
+          </strong>{" "}
+          {refreshError}
         </Callout>
       )}
 

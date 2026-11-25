@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { FeatureRule, ScheduleRule } from "shared/types/feature";
 import { RampScheduleInterface } from "shared/validators";
 
@@ -57,6 +59,7 @@ export function rampCompletedAt(rs: ScheduleDateFields): Date | null {
   return at ? new Date(at) : null;
 }
 
+// `label` is translated.
 export type ScheduleDate = { label: string; date: Date };
 
 // A schedule's dates as they stand: when it starts (or actually started), and
@@ -65,6 +68,7 @@ export type ScheduleDate = { label: string; date: Date };
 // its disable date, so it reads as those.
 export function rampScheduleDates(
   rs: ScheduleDateFields,
+  i18n: I18n,
   now: Date = new Date(),
 ): { start: ScheduleDate | null; end: ScheduleDate | null } {
   const simple = rs.steps.length === 0;
@@ -75,24 +79,31 @@ export function rampScheduleDates(
   if (simple) {
     if (rs.startDate) {
       start = startedAt
-        ? { label: "Enabled", date: new Date(startedAt) }
-        : { label: "Enables", date: new Date(rs.startDate) };
+        ? { label: i18n._(msg`Enabled`), date: new Date(startedAt) }
+        : { label: i18n._(msg`Enables`), date: new Date(rs.startDate) };
     }
   } else if (startedAt) {
-    start = { label: "Started", date: new Date(startedAt) };
+    start = { label: i18n._(msg`Started`), date: new Date(startedAt) };
   } else if (rs.startDate) {
-    start = { label: "Starts", date: new Date(rs.startDate) };
+    start = { label: i18n._(msg`Starts`), date: new Date(rs.startDate) };
   }
   let end: ScheduleDate | null = null;
   if (rs.cutoffDate) {
     const cutoff = new Date(rs.cutoffDate);
     end = {
-      label: scheduleVerb(cutoff, "Disables", "Disabled", now),
+      label: scheduleVerb(
+        cutoff,
+        i18n._(msg`Disables`),
+        i18n._(msg`Disabled`),
+        now,
+      ),
       date: cutoff,
     };
   } else if (!simple) {
     const completedAt = rampCompletedAt(rs);
-    if (completedAt) end = { label: "Completed", date: completedAt };
+    if (completedAt) {
+      end = { label: i18n._(msg`Completed`), date: completedAt };
+    }
   }
   return { start, end };
 }

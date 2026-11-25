@@ -23,15 +23,23 @@ vi.mock("@/components/RampSchedule/rollbackReason", () => ({
   formatRollbackReason: (r: string | null | undefined) => r ?? null,
 }));
 
+import { setupI18n } from "@lingui/core";
 import type { RampScheduleInterface } from "shared/validators";
 import type { SignalResult } from "@/components/RampSchedule/RampMonitoringSignals";
 import {
   isHoldingNow,
   isNearingStepEnd,
   conservativeActionForSignals,
-  getRampHealthOverview,
+  getRampHealthOverview as getRampHealthOverviewWithI18n,
   isOnMonitoredStep,
 } from "@/components/RampSchedule/RampMonitoringSignals";
+
+// No catalog: messages resolve to their English source text.
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+const getRampHealthOverview = (
+  rampSchedule: RampScheduleInterface,
+  result: SignalResult,
+) => getRampHealthOverviewWithI18n(rampSchedule, result, i18n);
 
 // ---------------------------------------------------------------------------
 // Fixtures

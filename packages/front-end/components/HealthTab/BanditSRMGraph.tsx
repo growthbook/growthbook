@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { FC, Fragment, useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -77,13 +78,21 @@ const getTooltipContents = (
           <tr>
             <td className="border-bottom-0" />
             <td className="border-bottom-0" colSpan={3}>
-              {mode === "users" ? "Users" : "Traffic Split"}
+              {mode === "users" ? (
+                <Trans>Users</Trans>
+              ) : (
+                <Trans>Traffic Split</Trans>
+              )}
             </td>
           </tr>
           <tr>
             <td />
-            <td>Expected</td>
-            <td>Actual</td>
+            <td>
+              <Trans>Expected</Trans>
+            </td>
+            <td>
+              <Trans>Actual</Trans>
+            </td>
             <td>Δ</td>
           </tr>
         </thead>
@@ -113,7 +122,9 @@ const getTooltipContents = (
                   ) : userRatio ? (
                     percentFormatter.format(userRatio)
                   ) : (
-                    <em>n/a</em>
+                    <em>
+                      <Trans>n/a</Trans>
+                    </em>
                   )}
                 </td>
                 <td>
@@ -122,7 +133,9 @@ const getTooltipContents = (
                   ) : userRatio ? (
                     percentFormatter.format(userRatio - weight)
                   ) : (
-                    <em>n/a</em>
+                    <em>
+                      <Trans>n/a</Trans>
+                    </em>
                   )}
                 </td>
               </tr>
@@ -169,6 +182,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
   phase,
   mode,
 }) => {
+  const { t } = useLingui();
   const formatter = formatNumber;
 
   const variations: GraphVariation[] = getLatestPhaseVariations(experiment).map(
@@ -358,7 +372,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   ) : (
                     <BiRadioCircle size={24} />
                   )}
-                  Show all
+                  <Trans>Show all</Trans>
                 </div>
                 {variations.map((v, i) => {
                   return (
@@ -404,7 +418,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                           }}
                         />
                       </td>
-                      <td>Actual</td>
+                      <td>
+                        <Trans>Actual</Trans>
+                      </td>
                     </tr>
                     <tr>
                       <td>
@@ -415,7 +431,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                           }}
                         />
                       </td>
-                      <td>Expected</td>
+                      <td>
+                        <Trans>Expected</Trans>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -584,7 +602,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                     dx: -5,
                     dy: 3,
                   })}
-                  label={mode === "users" ? "Users" : "Traffic Split"}
+                  label={mode === "users" ? t`Users` : t`Traffic Split`}
                   labelClassName="h5"
                 />
               </Group>

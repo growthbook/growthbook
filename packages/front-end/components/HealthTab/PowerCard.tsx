@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useSWRConfig } from "swr";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -24,6 +25,7 @@ export function PowerCard({
   snapshot: ExperimentSnapshotInterface;
   onNotify: (issue: IssueValue) => void;
 }) {
+  const { t } = useLingui();
   const { apiCall, orgId } = useAuth();
   const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
@@ -55,17 +57,17 @@ export function PowerCard({
   useEffect(() => {
     if (isLowPowered && !experiment.dismissedWarnings?.includes("low-power")) {
       onNotify({
-        label: "Low powered",
+        label: t`Low powered`,
         value: "power-card",
       });
     }
-  }, [experiment.dismissedWarnings, isLowPowered, onNotify]);
+  }, [experiment.dismissedWarnings, isLowPowered, onNotify, t]);
 
   const renderUpsell = () => (
     <Callout status="info">
-      Learn more about Power Analysis.{" "}
+      <Trans>Learn more about Power Analysis.</Trans>{" "}
       <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
-        View docs
+        <Trans>View docs</Trans>
         <Box display="inline-block" ml="1">
           <PiArrowSquareOut />
         </Box>
@@ -75,15 +77,19 @@ export function PowerCard({
 
   const renderNoPowerData = () => (
     <Callout status="info">
-      We have not calculated power for this experiment yet. Refresh the Results
-      to see the power data.
+      <Trans>
+        We have not calculated power for this experiment yet. Refresh the
+        Results to see the power data.
+      </Trans>
     </Callout>
   );
 
   const renderHealthyExperiment = () => (
     <Callout status="success">
-      Your experiment is healthy. Conclusive results are likely before the
-      anticipated experiment duration.
+      <Trans>
+        Your experiment is healthy. Conclusive results are likely before the
+        anticipated experiment duration.
+      </Trans>
     </Callout>
   );
 
@@ -91,35 +97,43 @@ export function PowerCard({
     const recommendations: React.ReactNode[] = [];
 
     if (phase.coverage !== 1) {
+      const coverage = coveragePercentFormatter.format(phase.coverage);
       recommendations.push(
         <li key="coverage">
-          Consider increasing the traffic percentage above{" "}
-          {coveragePercentFormatter.format(phase.coverage)}
+          <Trans>
+            Consider increasing the traffic percentage above {coverage}
+          </Trans>
         </li>,
       );
     }
 
     if (snapshot.settings.variations.length > 2) {
       recommendations.push(
-        <li key="variations">Consider reducing the number of variations</li>,
+        <li key="variations">
+          <Trans>Consider reducing the number of variations</Trans>
+        </li>,
       );
     }
 
     if (snapshot.settings.goalMetrics.length > 3) {
       recommendations.push(
-        <li key="metrics">Consider reducing the number of goal metrics</li>,
+        <li key="metrics">
+          <Trans>Consider reducing the number of goal metrics</Trans>
+        </li>,
       );
     }
 
     return (
       <>
         <Callout status="warning" mb="2">
-          Your experiment is low-powered. Conclusive results are unlikely by the
-          anticipated experiment duration.
+          <Trans>
+            Your experiment is low-powered. Conclusive results are unlikely by
+            the anticipated experiment duration.
+          </Trans>
         </Callout>
         {recommendations.length > 0 && (
           <>
-            Recommendations:
+            <Trans>Recommendations:</Trans>
             <ul>{recommendations}</ul>
           </>
         )}
@@ -140,7 +154,9 @@ export function PowerCard({
       <div className="appbox container-fluid mb-4 pl-3 py-3">
         <Flex justify="between" mb="2">
           <Flex align="center" gap="2">
-            <h2 className="d-flex mb-0">Experiment Power</h2>
+            <h2 className="d-flex mb-0">
+              <Trans>Experiment Power</Trans>
+            </h2>
             <PremiumTooltip commercialFeature="decision-framework" />
             {hasMidExperimentPowerFeature && isLowPowered ? (
               <StatusBadge status="unhealthy" />
@@ -148,7 +164,7 @@ export function PowerCard({
           </Flex>
 
           {canBeMuted && !isMuted ? (
-            <Tooltip content={"Mute this alert"}>
+            <Tooltip content={t`Mute this alert`}>
               <Button onClick={toggleMuteAlert} variant="ghost">
                 <PiX />
               </Button>
@@ -159,15 +175,19 @@ export function PowerCard({
         {canBeMuted && isMuted ? (
           <Text size="2" color="gray">
             <PiInfo />
-            This alert was muted, it will not consider the experiment Unhealthy
-            even if problems are detected. Click{" "}
-            <Link onClick={toggleMuteAlert}>here</Link> to re-enable it.
+            <Trans>
+              This alert was muted, it will not consider the experiment
+              Unhealthy even if problems are detected. Click{" "}
+              <Link onClick={toggleMuteAlert}>here</Link> to re-enable it.
+            </Trans>
           </Text>
         ) : null}
 
         <p className="mt-1">
-          Shows the likelihood of conclusive results before the experiment
-          duration
+          <Trans>
+            Shows the likelihood of conclusive results before the experiment
+            duration
+          </Trans>
         </p>
         <Separator size="4" my="3" />
         {content}

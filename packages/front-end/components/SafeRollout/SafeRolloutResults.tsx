@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import dynamic from "next/dynamic";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -41,6 +42,7 @@ const SafeRolloutResults: FC<{
   significanceThresholds: SignificanceThresholds;
   draftMode?: boolean;
 }> = ({ safeRollout, significanceThresholds, draftMode = false }) => {
+  const { t } = useLingui();
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -132,6 +134,8 @@ const SafeRolloutResults: FC<{
   }
 
   const hasMetrics = safeRollout?.guardrailMetricIds?.length > 0;
+  const startRelative = relativeDate(safeRollout.startedAt ?? "");
+  const startedAgo = ago(safeRollout.startedAt ?? "");
 
   return (
     <Box>
@@ -139,7 +143,8 @@ const SafeRolloutResults: FC<{
         weight="medium"
         onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
       >
-        {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />} View results{" "}
+        {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />}{" "}
+        <Trans>View results</Trans>{" "}
         {(showHealthWarning || showGuardrailWarning) && <WarningIcon />}
       </Link>
 
@@ -159,24 +164,25 @@ const SafeRolloutResults: FC<{
               hasMetrics &&
               !snapshotLoading && (
                 <Callout status="info" mx="3" my="4">
-                  No data yet.{" "}
+                  <Trans>No data yet.</Trans>{" "}
                   {snapshot &&
                     phaseAgeMinutes >= 120 &&
-                    "Make sure your safe rollout is tracking properly."}
+                    t`Make sure your safe rollout is tracking properly.`}
                   {snapshot &&
                     phaseAgeMinutes < 120 &&
                     (phaseAgeMinutes < 0
-                      ? "This safe rollout will start " +
-                        relativeDate(safeRollout.startedAt ?? "") +
-                        ". Wait until it's been running for a little while and click the 'Update' button above to check again."
-                      : "It was just started " +
-                        ago(safeRollout.startedAt ?? "") +
-                        ". Give it a little longer and click the 'Update' button above to check again.")}
+                      ? t`This safe rollout will start ${startRelative}. Wait until it's been running for a little while and click the 'Update' button above to check again.`
+                      : t`It was just started ${startedAgo}. Give it a little longer and click the 'Update' button above to check again.`)}
                   {!snapshot &&
                     datasource &&
                     permissionsUtil.canRunExperimentQueries(datasource) &&
-                    `Click the "Update" button above.`}
-                  {snapshotLoading && <div> Snapshot loading...</div>}
+                    t`Click the "Update" button above.`}
+                  {snapshotLoading && (
+                    <div>
+                      {" "}
+                      <Trans>Snapshot loading...</Trans>
+                    </div>
+                  )}
                 </Callout>
               )}
 
@@ -213,7 +219,8 @@ const SafeRolloutResults: FC<{
                 onClick={() => setIsHealthExpanded(!isHealthExpanded)}
               >
                 {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />}
-                View Traffic {showHealthWarning && <WarningIcon />}
+                <Trans>View Traffic</Trans>{" "}
+                {showHealthWarning && <WarningIcon />}
               </Link>
 
               {isHealthExpanded ? (
@@ -238,11 +245,11 @@ const SafeRolloutResults: FC<{
                   </>
                 ) : traffic ? (
                   <Callout status="info" mt="3">
-                    No data yet.
+                    <Trans>No data yet.</Trans>
                   </Callout>
                 ) : (
                   <Callout status="info" mt="3">
-                    Please run a query to see health data.
+                    <Trans>Please run a query to see health data.</Trans>
                   </Callout>
                 )
               ) : null}

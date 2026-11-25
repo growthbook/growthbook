@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { FeatureInterface } from "shared/types/feature";
 import { getAttributeScopeProjectIds } from "shared/util";
 import type { Environment } from "shared/types/organization";
@@ -137,6 +138,7 @@ export default function RampScheduleModal({
   onSave,
   onClose,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useLocalAttributeScopePicker(
@@ -157,7 +159,7 @@ export default function RampScheduleModal({
   // ── Save ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!rampState.name.trim()) throw new Error("Ramp name is required");
+    if (!rampState.name.trim()) throw new Error(t`Ramp name is required`);
 
     if (isEdit) {
       await apiCall(`/ramp-schedule/${rs.id}`, {
@@ -224,27 +226,39 @@ export default function RampScheduleModal({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const rsName = rs?.name;
+  const targetCount = rs?.targets.length ?? 0;
+
   return (
     <ModalStandard
       open
       close={onClose}
-      header={isEdit ? `Edit: ${rs.name}` : "Create Ramp Schedule"}
+      header={isEdit ? t`Edit: ${rsName}` : t`Create Ramp Schedule`}
       size="lg"
       submit={handleSubmit}
-      cta={isEdit ? "Save" : "Create"}
+      cta={isEdit ? t`Save` : t`Create`}
       trackingEventModalType="ramp-schedule-modal"
     >
       {noImplementations && (
         <Callout status="warning" mb="3">
-          This ramp has no implementations yet. Link it to a rollout rule from
-          the rule editor to start applying it.
+          <Trans>
+            This ramp has no implementations yet. Link it to a rollout rule from
+            the rule editor to start applying it.
+          </Trans>
         </Callout>
       )}
 
       {multiTarget && (
         <Callout status="info" mb="3">
-          This ramp has {rs.targets.length} implementations. Saving will apply
-          these step settings to all of them.
+          <Trans>
+            This ramp has{" "}
+            <Plural
+              value={targetCount}
+              one="# implementation"
+              other="# implementations"
+            />
+            . Saving will apply these step settings to all of them.
+          </Trans>
         </Callout>
       )}
 

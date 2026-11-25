@@ -5,11 +5,13 @@ import {
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "shared/validators";
+import { Trans, useLingui } from "@lingui/react/macro";
 import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
+  const { t } = useLingui();
   const { safeRollout, snapshot: snapshotWithResults } =
     useSafeRolloutSnapshot();
 
@@ -49,15 +51,19 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   if (rule.status === "rolled-back") {
     return (
       <HelperText status="info" mb="3">
-        All users will receive the control value. If this is no longer needed,
-        you can disable or delete this rule.
+        <Trans>
+          All users will receive the control value. If this is no longer needed,
+          you can disable or delete this rule.
+        </Trans>
       </HelperText>
     );
   } else if (rule.status === "released") {
     return (
       <HelperText status="info" mb="3">
-        All users will receive the rollout value. If this is no longer needed,
-        you can disable or delete this rule.
+        <Trans>
+          All users will receive the rollout value. If this is no longer needed,
+          you can disable or delete this rule.
+        </Trans>
       </HelperText>
     );
   }
@@ -69,8 +75,10 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   if (decisionStatus.status === "no-data" && !snapshotWithResults) {
     return (
       <HelperText status="warning" mb="3">
-        Your safe rollout is over 24 hours old but has never updated. Please
-        check your experiment update schedule or manually run an update below.
+        <Trans>
+          Your safe rollout is over 24 hours old but has never updated. Please
+          check your experiment update schedule or manually run an update below.
+        </Trans>
       </HelperText>
     );
   }
@@ -78,9 +86,11 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   else if (decisionStatus.status === "no-data" && snapshotWithResults) {
     return (
       <HelperText status="warning" mb="3">
-        Your safe rollout has been running for over 24 hours and no traffic has
-        come in. Check your implementation and ensure that the tracking callback
-        is firing as expected.
+        <Trans>
+          Your safe rollout has been running for over 24 hours and no traffic
+          has come in. Check your implementation and ensure that the tracking
+          callback is firing as expected.
+        </Trans>
       </HelperText>
     );
   } else if (decisionStatus.status === "unhealthy") {
@@ -88,16 +98,18 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
 
     if (decisionStatus.unhealthyData.srm) {
       messages.push(
-        "SRM Warning - Traffic is imbalanced and the Safe Rollout should be reverted.",
+        t`SRM Warning - Traffic is imbalanced and the Safe Rollout should be reverted.`,
       );
     }
     if (decisionStatus.unhealthyData.multipleExposures) {
+      const exposedUsers = numberFormatter.format(
+        decisionStatus.unhealthyData.multipleExposures.multipleExposedUsers,
+      );
+      const exposedPercent = percentFormatter.format(
+        decisionStatus.unhealthyData.multipleExposures.rawDecimal,
+      );
       messages.push(
-        `Multiple Exposures Warning - ${numberFormatter.format(
-          decisionStatus.unhealthyData.multipleExposures.multipleExposedUsers,
-        )} users (${percentFormatter.format(
-          decisionStatus.unhealthyData.multipleExposures.rawDecimal,
-        )}) saw multiple variations and were automatically removed from results.`,
+        t`Multiple Exposures Warning - ${exposedUsers} users (${exposedPercent}) saw multiple variations and were automatically removed from results.`,
       );
     }
 
@@ -113,20 +125,26 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   } else if (decisionStatus.status === "rollback-now") {
     return (
       <HelperText status="error" mb="3">
-        Guardrails are failing and the Safe Rollout should be reverted.
+        <Trans>
+          Guardrails are failing and the Safe Rollout should be reverted.
+        </Trans>
       </HelperText>
     );
   } else if (decisionStatus.status === "data-incomplete") {
     return (
       <HelperText status="warning" mb="3">
-        Some guardrail metrics could not be computed, so no ship recommendation
-        is available.
+        <Trans>
+          Some guardrail metrics could not be computed, so no ship
+          recommendation is available.
+        </Trans>
       </HelperText>
     );
   } else if (decisionStatus.status === "ship-now") {
     return (
       <HelperText status="success" mb="3">
-        The Safe Rollout has finished and no guardrails are failing. Ship Now.
+        <Trans>
+          The Safe Rollout has finished and no guardrails are failing. Ship Now.
+        </Trans>
       </HelperText>
     );
   } else {

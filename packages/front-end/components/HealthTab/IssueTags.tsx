@@ -1,3 +1,5 @@
+import { Trans } from "@lingui/react/macro";
+
 export type IssueValue = {
   label: string;
   value: string;
@@ -9,12 +11,18 @@ interface Props {
 
 export const IssueTags = ({ issues }: Props) => {
   if (!issues?.length) {
-    return <h4 className="mt-2 mb-4">No issues found. 🎉</h4>;
+    return (
+      <h4 className="mt-2 mb-4">
+        <Trans>No issues found.</Trans> 🎉
+      </h4>
+    );
   }
 
   return (
     <div className="d-flex flex-row">
-      <h4 className="col-auto pl-0 mb-0">Jump to issues found: </h4>
+      <h4 className="col-auto pl-0 mb-0">
+        <Trans>Jump to issues found:</Trans>{" "}
+      </h4>
       <div className="flex-wrap">
         {issues.map((issue) => {
           return (

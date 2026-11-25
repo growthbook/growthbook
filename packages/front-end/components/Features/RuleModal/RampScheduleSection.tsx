@@ -58,7 +58,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import type { I18n, MessageDescriptor } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
+import { msg, plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   getRampBadgeColor,
@@ -383,15 +383,18 @@ export function formatRampStepSummary(
     interval: number | null;
     holdConditions?: StepHoldConditions;
   }[],
+  i18n: I18n,
 ): string {
   const count = steps.length;
   const approvals = steps.filter(
     (s) => !!s.holdConditions?.requiresApproval,
   ).length;
-  const parts = [`${count} step${count !== 1 ? "s" : ""}`];
-  if (approvals)
-    parts.push(`${approvals} approval${approvals !== 1 ? "s" : ""}`);
-  return parts.join(", ");
+  if (approvals) {
+    return i18n._(
+      msg`${plural(count, { one: "# step", other: "# steps" })}, ${plural(approvals, { one: "# approval", other: "# approvals" })}`,
+    );
+  }
+  return i18n._(msg`${plural(count, { one: "# step", other: "# steps" })}`);
 }
 
 // A template is "monitored" if it carries monitoring config or any monitored
@@ -3293,7 +3296,7 @@ export default function RampScheduleSection({
         {state.monitoring.datasourceId &&
         assignmentQuerySelection.identifierTypes.length === 0 ? (
           <HelperText status="warning" size="sm">
-            {getNoAssignmentQueriesMessage(assignmentQuerySelection)}
+            {getNoAssignmentQueriesMessage(assignmentQuerySelection, i18n)}
           </HelperText>
         ) : null}
         <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
@@ -3734,7 +3737,7 @@ export default function RampScheduleSection({
                     </Flex>
                     <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
                       <Text as="span" size="sm" color="text-low">
-                        {formatRampStepSummary(t.steps)}
+                        {formatRampStepSummary(t.steps, i18n)}
                       </Text>
                       {/* Fixed-width slot keeps the icon column aligned across
                           rows (empty for non-monitored templates). */}
@@ -4370,7 +4373,7 @@ export default function RampScheduleSection({
               label={
                 pendingDetach
                   ? t`pending removal – save to reinstate`
-                  : getRampStatusLabel(ruleRampSchedule)
+                  : getRampStatusLabel(ruleRampSchedule, i18n)
               }
               color={
                 pendingDetach ? "red" : getRampBadgeColor(ruleRampSchedule)

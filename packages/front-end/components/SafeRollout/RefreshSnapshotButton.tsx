@@ -2,6 +2,7 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
+import { Trans } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 
@@ -32,7 +33,9 @@ const RefreshSnapshotButton: FC<{
   return (
     <>
       {loading && longResult && (
-        <small className="text-muted mr-3">this may take several minutes</small>
+        <small className="text-muted mr-3">
+          <Trans>this may take several minutes</Trans>
+        </small>
       )}
       <Button
         color="outline-primary"
@@ -55,7 +58,7 @@ const RefreshSnapshotButton: FC<{
           }
         }}
       >
-        <BsArrowRepeat /> Update
+        <BsArrowRepeat /> <Trans>Update</Trans>
       </Button>
     </>
   );
