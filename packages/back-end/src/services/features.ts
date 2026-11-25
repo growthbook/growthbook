@@ -153,6 +153,7 @@ import {
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
+import { getApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import {
   FeatureValues,
@@ -3522,6 +3523,7 @@ export function getApiFeatureObjV2({
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
   const baseConfig = feature.baseConfig ?? null;
+  const jsonSchema = getApiJsonSchema(feature);
 
   return {
     id: feature.id,
@@ -3535,6 +3537,7 @@ export function getApiFeatureObjV2({
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
+    ...(jsonSchema !== undefined && { jsonSchema }),
     owner: feature.owner || "",
     project: feature.project || "",
     targetingAllProjects: feature.targetingAllProjects ?? false,
@@ -3758,6 +3761,8 @@ export function getApiFeatureObj({
     };
   });
 
+  const jsonSchema = getApiJsonSchema(feature);
+
   const featureRecord: ApiFeatureWithRevisions = {
     id: feature.id,
     description: feature.description || "",
@@ -3769,6 +3774,7 @@ export function getApiFeatureObj({
     ...(defaultValueConfig !== null && { defaultValueConfig }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
+    ...(jsonSchema !== undefined && { jsonSchema }),
     owner: feature.owner || "",
     project: feature.project || "",
     targetingAllProjects: feature.targetingAllProjects ?? false,

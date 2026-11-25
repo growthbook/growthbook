@@ -1115,6 +1115,46 @@ describe("getApiFeatureObj: revision author summary", () => {
   });
 });
 
+describe("getApiFeatureObj: jsonSchema", () => {
+  const organization = { id: "org_test" } as unknown as OrganizationInterface;
+  const ctx = { org: organization } as unknown as ReqContext;
+
+  const jsonSchema: FeatureInterface["jsonSchema"] = {
+    schemaType: "schema",
+    schema: '{"type":"string"}',
+    simple: { type: "object", fields: [] },
+    date: new Date("2024-01-02"),
+    enabled: true,
+  };
+
+  const args = (schema: FeatureInterface["jsonSchema"]) => ({
+    feature: {
+      ...migrateRawFeatureToV2(failingV0Feature(), ctx),
+      jsonSchema: schema,
+    },
+    organization,
+    groupMap: new Map() as GroupMap,
+    experimentMap: new Map<string, ExperimentInterface>(),
+    safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    revision: null,
+  });
+
+  it("returns an enabled schema as the string create and update accept", () => {
+    expect(getApiFeatureObj(args(jsonSchema)).jsonSchema).toBe(
+      '{"type":"string"}',
+    );
+    expect(getApiFeatureObjV2(args(jsonSchema)).jsonSchema).toBe(
+      '{"type":"string"}',
+    );
+  });
+
+  it("leaves out a disabled schema", () => {
+    const disabled = args({ ...jsonSchema, enabled: false });
+    expect(getApiFeatureObj(disabled)).not.toHaveProperty("jsonSchema");
+    expect(getApiFeatureObjV2(disabled)).not.toHaveProperty("jsonSchema");
+  });
+});
+
 describe("scrubConfigExtends", () => {
   it("drops @config: from $extends but keeps @const: (round-trippable)", () => {
     expect(
