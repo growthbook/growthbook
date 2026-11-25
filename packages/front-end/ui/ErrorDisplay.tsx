@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -17,6 +18,7 @@ export default function ErrorDisplay({
   details?: string | null;
   maxLines?: number;
 } & MarginProps) {
+  const { t } = useLingui();
   // Keyed to the details text so a new error starts collapsed.
   const [openDetails, setOpenDetails] = useState<string | null>(null);
   const showDetails = !!details && openDetails === details;
@@ -57,14 +59,18 @@ export default function ErrorDisplay({
                 color="red"
                 onClick={() => setOpenDetails(showDetails ? null : details)}
               >
-                {showDetails ? "Hide details" : "Show details"}
+                {showDetails ? (
+                  <Trans>Hide details</Trans>
+                ) : (
+                  <Trans>Show details</Trans>
+                )}
               </Link>
               {showDetails && (
                 <Box mt="2">
                   <Code
                     code={details}
                     language="none"
-                    filename="Details"
+                    filename={t`Details`}
                     showLineNumbers={false}
                     maxHeight="240px"
                   />

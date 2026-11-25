@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { PiGlobeSimpleBold, PiTrashBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $isLinkNode, $toggleLink, LinkNode } from "@lexical/link";
 import { $findMatchingParent } from "@lexical/utils";
@@ -109,6 +110,7 @@ export default function RichTextEditorLinkEditor({
   onEdit: () => void;
   onClose: () => void;
 }) {
+  const { t } = useLingui();
   const [editor] = useLexicalComposerContext();
   const [title, setTitle] = useState(target.title);
   const [url, setUrl] = useState(target.url);
@@ -217,7 +219,7 @@ export default function RichTextEditorLinkEditor({
             <TextField
               size="sm"
               labelSize="sm"
-              label="URL"
+              label={t`URL`}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com"
@@ -227,10 +229,10 @@ export default function RichTextEditorLinkEditor({
             <TextField
               size="sm"
               labelSize="sm"
-              label="Link title"
+              label={t`Link title`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Link title"
+              placeholder={t`Link title`}
               autoFocus={!!target.node}
               onKeyDown={onFieldKeyDown}
             />
@@ -244,7 +246,7 @@ export default function RichTextEditorLinkEditor({
                     color="gray"
                     onClick={remove}
                   >
-                    <PiTrashBold size={13} /> Remove link
+                    <PiTrashBold size={13} /> <Trans>Remove link</Trans>
                   </Button>
                 </Flex>
               </>
@@ -259,7 +261,7 @@ export default function RichTextEditorLinkEditor({
               </Text>
             </span>
             <Button size="sm" variant="ghost" color="gray" onClick={onEdit}>
-              Edit
+              <Trans>Edit</Trans>
             </Button>
           </Flex>
         )

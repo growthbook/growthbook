@@ -9,6 +9,7 @@ import {
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";
@@ -58,6 +59,7 @@ export default forwardRef<
   },
   ref,
 ) {
+  const { t } = useLingui();
   const [dismissed, setDismissed] = useLocalStorage(`callout:${id}`, false);
 
   if (dismissible && dismissed && id) {
@@ -137,13 +139,13 @@ export default forwardRef<
       </Flex>
       {dismissible && id ? (
         <Box className={slotClass}>
-          <Tooltip content="Dismiss">
+          <Tooltip content={t`Dismiss`}>
             <IconButton
               variant="ghost"
               color="gray"
               size="1"
               onClick={() => setDismissed(true)}
-              aria-label="Dismiss"
+              aria-label={t`Dismiss`}
             >
               <PiX />
             </IconButton>

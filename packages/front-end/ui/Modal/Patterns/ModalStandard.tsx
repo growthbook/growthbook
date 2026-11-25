@@ -1,5 +1,6 @@
 import { ComponentProps, CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
@@ -109,7 +110,7 @@ export default function ModalStandard({
   header,
   headerAction,
   subheader,
-  cta = "Save",
+  cta,
   ctaColor = "violet",
   ctaEnabled = true,
   ctaIcon,
@@ -120,7 +121,7 @@ export default function ModalStandard({
   secondaryAction,
   aboveFooterContent,
   close,
-  closeCta = "Cancel",
+  closeCta,
   children,
   trackingEventModalType,
   trackingEventModalSource,
@@ -128,6 +129,9 @@ export default function ModalStandard({
   trackOnSubmit = true,
   dismissible,
 }: Props) {
+  const { t } = useLingui();
+  const ctaText = cta ?? t`Save`;
+  const closeCtaText = closeCta ?? t`Cancel`;
   const content = (
     <>
       <Modal.Header>
@@ -156,10 +160,10 @@ export default function ModalStandard({
           <Box ml="3">{secondaryAction}</Box>
         ) : null}
         <Flex gap="3" align="center">
-          <CloseButton closeCta={closeCta} close={close} />
+          <CloseButton closeCta={closeCtaText} close={close} />
           {submit && (
             <SubmitButton
-              cta={cta}
+              cta={ctaText}
               ctaColor={ctaColor}
               ctaEnabled={ctaEnabled}
               ctaIcon={ctaIcon}

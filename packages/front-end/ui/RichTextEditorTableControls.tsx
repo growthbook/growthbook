@@ -1,6 +1,9 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowDown,
   PiArrowLeft,
@@ -51,12 +54,12 @@ import styles from "./RichTextEditor.module.scss";
 // Left is markdown's default, so choosing it clears the column's alignment.
 const ALIGNMENTS: {
   align: ColumnAlign;
-  label: string;
+  label: MessageDescriptor;
   Icon: IconType;
 }[] = [
-  { align: "", label: "Align left", Icon: PiTextAlignLeftBold },
-  { align: "center", label: "Align center", Icon: PiTextAlignCenterBold },
-  { align: "right", label: "Align right", Icon: PiTextAlignRightBold },
+  { align: "", label: msg`Align left`, Icon: PiTextAlignLeftBold },
+  { align: "center", label: msg`Align center`, Icon: PiTextAlignCenterBold },
+  { align: "right", label: msg`Align right`, Icon: PiTextAlignRightBold },
 ];
 
 // The column menu's top row: one item per alignment, icons side by side.
@@ -67,8 +70,9 @@ function ColumnAlignControl({
   current: ColumnAlign;
   onChange: (align: ColumnAlign) => void;
 }) {
+  const { t, i18n } = useLingui();
   return (
-    <Flex gap="1" px="2" py="1" role="group" aria-label="Align column">
+    <Flex gap="1" px="2" py="1" role="group" aria-label={t`Align column`}>
       {ALIGNMENTS.map(({ align, label, Icon }) => (
         <DropdownMenuItem
           key={align}
@@ -79,7 +83,7 @@ function ColumnAlignControl({
           onClick={() => onChange(align)}
         >
           <Icon size={18} />
-          <VisuallyHidden>{label}</VisuallyHidden>
+          <VisuallyHidden>{i18n._(label)}</VisuallyHidden>
         </DropdownMenuItem>
       ))}
     </Flex>
@@ -354,6 +358,7 @@ function AddLine({
 
 /** Grips on a hovered table's borders, for the row and column under the pointer. */
 export default function RichTextEditorTableControls() {
+  const { t } = useLingui();
   const [editor] = useLexicalComposerContext();
   const overlay = useRef<HTMLDivElement>(null);
   const hovered = useRef<HTMLTableCellElement | null>(null);
@@ -462,7 +467,7 @@ export default function RichTextEditorTableControls() {
     <div ref={overlay} className={styles.tableControls}>
       {controls.addRow ? (
         <AddLine
-          label="Add a row"
+          label={t`Add a row`}
           kind="row"
           placed={controls.addRow}
           onAdd={addRow}
@@ -470,7 +475,7 @@ export default function RichTextEditorTableControls() {
       ) : null}
       {controls.addColumn ? (
         <AddLine
-          label="Add a column"
+          label={t`Add a column`}
           kind="column"
           placed={controls.addColumn}
           onAdd={addColumn}
@@ -478,7 +483,7 @@ export default function RichTextEditorTableControls() {
       ) : null}
       {controls.row ? (
         <Grip
-          label="Row options"
+          label={t`Row options`}
           kind="row"
           placed={controls.row}
           onOpenChange={onOpenChange}
@@ -486,25 +491,25 @@ export default function RichTextEditorTableControls() {
           <DropdownMenuItem
             onClick={() => run(() => $insertTableRowAtSelection(false))}
           >
-            <InsertIcon Arrow={PiArrowUp} /> Insert row above
+            <InsertIcon Arrow={PiArrowUp} /> <Trans>Insert row above</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => run(() => $insertTableRowAtSelection(true))}
           >
-            <InsertIcon Arrow={PiArrowDown} /> Insert row below
+            <InsertIcon Arrow={PiArrowDown} /> <Trans>Insert row below</Trans>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={controls.firstRow}
             onClick={() => run((cell) => $moveRow(cell, -1))}
           >
-            <PiCaretUp /> Move up
+            <PiCaretUp /> <Trans>Move up</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={controls.lastRow}
             onClick={() => run((cell) => $moveRow(cell, 1))}
           >
-            <PiCaretDown /> Move down
+            <PiCaretDown /> <Trans>Move down</Trans>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -515,19 +520,19 @@ export default function RichTextEditorTableControls() {
               })
             }
           >
-            <PiEraser /> Clear contents
+            <PiEraser /> <Trans>Clear contents</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             color="red"
             onClick={() => run($deleteTableRowAtSelection)}
           >
-            <PiTrash /> Delete row
+            <PiTrash /> <Trans>Delete row</Trans>
           </DropdownMenuItem>
         </Grip>
       ) : null}
       {controls.column ? (
         <Grip
-          label="Column options"
+          label={t`Column options`}
           kind="column"
           placed={controls.column}
           onOpenChange={onOpenChange}
@@ -540,25 +545,26 @@ export default function RichTextEditorTableControls() {
           <DropdownMenuItem
             onClick={() => run(() => $insertTableColumnAtSelection(false))}
           >
-            <InsertIcon Arrow={PiArrowLeft} /> Insert column left
+            <InsertIcon Arrow={PiArrowLeft} /> <Trans>Insert column left</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => run(() => $insertTableColumnAtSelection(true))}
           >
-            <InsertIcon Arrow={PiArrowRight} /> Insert column right
+            <InsertIcon Arrow={PiArrowRight} />{" "}
+            <Trans>Insert column right</Trans>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={controls.firstColumn}
             onClick={() => run((cell) => $moveColumn(cell, -1))}
           >
-            <PiCaretLeft /> Move left
+            <PiCaretLeft /> <Trans>Move left</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={controls.lastColumn}
             onClick={() => run((cell) => $moveColumn(cell, 1))}
           >
-            <PiCaretRight /> Move right
+            <PiCaretRight /> <Trans>Move right</Trans>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -569,13 +575,13 @@ export default function RichTextEditorTableControls() {
               })
             }
           >
-            <PiEraser /> Clear contents
+            <PiEraser /> <Trans>Clear contents</Trans>
           </DropdownMenuItem>
           <DropdownMenuItem
             color="red"
             onClick={() => run($deleteTableColumnAtSelection)}
           >
-            <PiTrash /> Delete column
+            <PiTrash /> <Trans>Delete column</Trans>
           </DropdownMenuItem>
         </Grip>
       ) : null}

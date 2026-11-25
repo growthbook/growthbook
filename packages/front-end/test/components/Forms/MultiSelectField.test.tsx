@@ -5,6 +5,7 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 import MultiSelectField from "@/ui/MultiSelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import { RadixTheme } from "@/services/RadixTheme";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 // Helper to create a paste event with clipboard data
 const createPasteEvent = (text: string) => {
@@ -20,6 +21,7 @@ const renderWithProviders = (component: React.ReactElement) => {
     <RadixTheme>
       <TooltipProvider>{component}</TooltipProvider>
     </RadixTheme>,
+    { wrapper: I18nTestProvider },
   );
 };
 

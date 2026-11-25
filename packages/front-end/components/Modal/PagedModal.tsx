@@ -12,6 +12,7 @@ import React, {
 import { MdCheck } from "react-icons/md";
 import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
 import { v4 as uuidv4 } from "uuid";
+import { Trans } from "@lingui/react/macro";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
@@ -317,7 +318,7 @@ const PagedModal: FC<Props> = (props) => {
             }}
           >
             <PiArrowLeft className="mr-1" />
-            Back
+            <Trans>Back</Trans>
           </button>
         ) : null
       }
@@ -333,7 +334,7 @@ const PagedModal: FC<Props> = (props) => {
               onSkip();
             }}
           >
-            Skip
+            <Trans>Skip</Trans>
           </button>
         ) : null
       }
@@ -344,7 +345,7 @@ const PagedModal: FC<Props> = (props) => {
           cta
         ) : (
           <>
-            Next{" "}
+            <Trans>Next</Trans>{" "}
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         )
