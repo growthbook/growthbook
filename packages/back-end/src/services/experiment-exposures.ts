@@ -23,6 +23,7 @@ export interface ExposuresCacheKeyParams {
   dimensions: string[];
   window: ExposuresWindow;
   rowFilters: RowFilter[];
+  multipleExposuresWindow?: { startDate: Date; endDate: Date };
   limit: number;
   phase?: PhaseSQLVar;
   customFields?: Record<string, unknown>;
@@ -54,6 +55,13 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
         params.limit,
         params.phase?.index ?? "",
         params.customFields ?? {},
+        // Only when set, so existing cache keys stay unchanged
+        ...(params.multipleExposuresWindow
+          ? [
+              params.multipleExposuresWindow.startDate.toISOString(),
+              params.multipleExposuresWindow.endDate.toISOString(),
+            ]
+          : []),
       ]),
     )
     .digest("hex");

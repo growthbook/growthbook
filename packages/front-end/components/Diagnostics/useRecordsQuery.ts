@@ -47,6 +47,11 @@ export interface RecordsQueryConfig<TRow, TResponse> {
   /** Gates auto-running until the surface is visible. */
   isActive?: boolean;
   defaultDateRange?: ExplorationDateRange;
+  /**
+   * Whether these filters still hold on a shorter timeframe, so loaded rows
+   * can be narrowed locally instead of re-querying. Defaults to true.
+   */
+  canNarrowTimeframe?: (filters: RowFilter[]) => boolean;
 }
 
 export interface UseRecordsQueryResult<TRow, TResponse> {
@@ -71,6 +76,8 @@ export interface UseRecordsQueryResult<TRow, TResponse> {
   applyControls: (next: {
     rowFilters?: RowFilter[];
     dateRange?: ExplorationDateRange;
+    /** Query even when nothing is loaded yet, as an explicit Refresh would. */
+    run?: boolean;
   }) => void;
   appliedRowFilters: RowFilter[] | null;
   visibleWindow: ResolvedWindow | null;
@@ -92,6 +99,7 @@ export default function useRecordsQuery<TRow, TResponse>({
   autoRun,
   isActive = true,
   defaultDateRange = DEFAULT_RECORDS_DATE_RANGE,
+  canNarrowTimeframe,
 }: RecordsQueryConfig<TRow, TResponse>): UseRecordsQueryResult<
   TRow,
   TResponse
@@ -124,12 +132,14 @@ export default function useRecordsQuery<TRow, TResponse>({
     selectRows,
     selectMeta,
     selectNoCachedResult,
+    canNarrowTimeframe,
   });
   configRef.current = {
     buildParams,
     selectRows,
     selectMeta,
     selectNoCachedResult,
+    canNarrowTimeframe,
   };
 
   const run = useCallback(
@@ -241,17 +251,27 @@ export default function useRecordsQuery<TRow, TResponse>({
   });
 
   const applyControls = useCallback(
-    (next: { rowFilters?: RowFilter[]; dateRange?: ExplorationDateRange }) => {
+    (next: {
+      rowFilters?: RowFilter[];
+      dateRange?: ExplorationDateRange;
+      run?: boolean;
+    }) => {
       const filters = next.rowFilters ?? rowFilters;
       const range = next.dateRange ?? dateRange;
       if (next.rowFilters) setRowFilters(next.rowFilters);
       if (next.dateRange) setDateRange(next.dateRange);
-      if (inFlight !== null) return;
+      // An explicit run may supersede the cache probe, but not a real query.
+      if (inFlight === "query" || (inFlight === "cache" && !next.run)) return;
 
       const sameRange = isEqual(range, appliedDateRange);
       let nextWindow: ResolvedWindow | null = visibleWindow;
       let rangeCanNarrow = sameRange;
-      if (!sameRange && appliedWindow !== null && !loadedRowsAreLossy) {
+      if (
+        !sameRange &&
+        appliedWindow !== null &&
+        !loadedRowsAreLossy &&
+        (configRef.current.canNarrowTimeframe?.(filters) ?? true)
+      ) {
         const resolvedRange = calculateProductAnalyticsDateRange(range);
         const candidate: ResolvedWindow = {
           startDate: resolvedRange.startDate.toISOString(),
@@ -280,7 +300,7 @@ export default function useRecordsQuery<TRow, TResponse>({
         setVisibleWindow(nextWindow);
         return;
       }
-      if (appliedRowFilters !== null) {
+      if (appliedRowFilters !== null || next.run) {
         run({ filters, range, cache: "preferred" });
       }
     },
