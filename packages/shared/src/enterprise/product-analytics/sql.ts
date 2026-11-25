@@ -49,12 +49,12 @@ import {
   getRowFilterSQL,
   getColumnExpression,
   getFactTableIdColumnExpression,
-  getAggregateFilters,
   getFactTableTimestampColumn,
   isFactCompoundMetric,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
+import { parseAggregateFilter } from "../../aggregate-filters";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
@@ -902,52 +902,244 @@ function createSimpleMetric(
   };
 }
 
+/**
+ * What a metric's ColumnRef measures. This is the only place that reads the
+ * special column names ($$count, $$distinctUsers, $$distinctDates) and the
+ * aggregation; everything after it works from the kind.
+ */
+type Measure =
+  | { kind: "rowCount" }
+  | { kind: "distinctUnits"; qualifier: UnitQualifier | null }
+  | { kind: "distinctDays" }
+  | {
+      kind: "column";
+      column: string;
+      aggregation: "sum" | "max" | "count distinct";
+    }
+  | { kind: "hllSketch"; column: string }
+  | { kind: "kllSketch"; column: string };
+
+/** Keeps only units whose total passes `filter`, such as revenue ">10". */
+type UnitQualifier = {
+  filter: string;
+  total: { kind: "rowCount" } | { kind: "column"; column: string };
+};
+
+// `aggregation` means nothing for the special columns, so it's dropped here.
+// Validation already rejects distinct-count and sketch aggregations on them.
+function parseMeasure(columnRef: ColumnRef): Measure {
+  switch (columnRef.column) {
+    case "$$count":
+      return { kind: "rowCount" };
+    case "$$distinctDates":
+      return { kind: "distinctDays" };
+    case "$$distinctUsers": {
+      const { aggregateFilter, aggregateFilterColumn } = columnRef;
+      return {
+        kind: "distinctUnits",
+        qualifier:
+          aggregateFilter && aggregateFilterColumn
+            ? {
+                filter: aggregateFilter,
+                total:
+                  aggregateFilterColumn === "$$count"
+                    ? { kind: "rowCount" }
+                    : { kind: "column", column: aggregateFilterColumn },
+              }
+            : null,
+      };
+    }
+  }
+
+  const { column, aggregation } = columnRef;
+  switch (aggregation) {
+    case "hll merge":
+      return { kind: "hllSketch", column };
+    case "kll merge":
+      return { kind: "kllSketch", column };
+    case "max":
+    case "count distinct":
+      return { kind: "column", column, aggregation };
+    case "sum":
+    case undefined:
+      return { kind: "column", column, aggregation: "sum" };
+  }
+  return assertNever(aggregation);
+}
+
+type RollupContext = {
+  /** The quantile a quantile metric reports; null reports a sum. */
+  quantile: number | null;
+  /** Whether the rollup reads per-unit values rather than per-row values. */
+  fromUnitAggregation: boolean;
+};
+
+/** The SQL for one kind of measured value, at each stage of the query. */
+type MeasurePlan = {
+  /** What each matching row contributes, before capping and row filters. */
+  rowValue: (factTable: MinimalFactTable, dialect: SqlDialect) => string;
+  /** Combines a unit's row values into one value per unit. */
+  perUnit: (alias: string, dialect: SqlDialect) => string;
+  /** Combines the per-unit (or per-row) values into the reported number. */
+  rollup: (alias: string, dialect: SqlDialect, ctx: RollupContext) => string;
+  /** Must be aggregated per unit; can't fall back to a per-row rollup. */
+  requiresUnitAggregation: boolean;
+  /**
+   * Counts rather than sums, so next to other series a unit with no matching
+   * rows would count as zero instead of being left out.
+   */
+  needsPresenceGuard: boolean;
+};
+
+function sumOrQuantile(
+  alias: string,
+  dialect: SqlDialect,
+  { quantile }: RollupContext,
+): string {
+  return quantile === null
+    ? `SUM(${alias})`
+    : dialect.percentileApprox(alias, quantile);
+}
+
+// Expands virtual (computed) columns into their SQL expression and resolves
+// JSON columns. A plain column returns its own name.
+function columnValue(
+  column: string,
+  factTable: MinimalFactTable,
+  dialect: SqlDialect,
+): string {
+  return getColumnExpression(
+    column,
+    factTable,
+    dialect.jsonExtract,
+    "",
+    dialect.identifierQuote,
+  );
+}
+
+function getMeasurePlan(measure: Measure): MeasurePlan {
+  switch (measure.kind) {
+    case "rowCount":
+      return {
+        rowValue: () => "1",
+        perUnit: (alias) => `SUM(${alias})`,
+        rollup: sumOrQuantile,
+        requiresUnitAggregation: false,
+        needsPresenceGuard: false,
+      };
+
+    case "distinctUnits": {
+      const { qualifier } = measure;
+      return {
+        // With a qualifier, each row adds to the total the unit is checked against
+        rowValue: (factTable, dialect) =>
+          qualifier?.total.kind === "column"
+            ? columnValue(qualifier.total.column, factTable, dialect)
+            : "1",
+        // 1 for a unit that counts and NULL, never 0, for one that doesn't:
+        // rollups keep a Population's members with IS NOT NULL.
+        perUnit: (alias) => {
+          const conditions = qualifier
+            ? parseAggregateFilter(qualifier.filter).conditions
+            : [];
+          if (!conditions.length) return `MAX(${alias})`;
+          const tests = conditions.map(
+            ({ operator, value }) => `SUM(${alias}) ${operator} ${value}`,
+          );
+          return `CASE WHEN (${tests.join(" AND ")}) THEN 1 ELSE NULL END`;
+        },
+        rollup: sumOrQuantile,
+        requiresUnitAggregation: true,
+        needsPresenceGuard: false,
+      };
+    }
+
+    case "distinctDays":
+      return {
+        rowValue: (factTable, dialect) => {
+          const timestampColumn = getTimestampColumnExpression(
+            factTable,
+            dialect,
+          );
+          if (!timestampColumn) {
+            throw new Error("Distinct date values require a timestamp column");
+          }
+          return dialect.dateTrunc(timestampColumn, "day");
+        },
+        perUnit: (alias) => `COUNT(DISTINCT ${alias})`,
+        rollup: sumOrQuantile,
+        requiresUnitAggregation: true,
+        needsPresenceGuard: true,
+      };
+
+    case "column": {
+      const { column, aggregation } = measure;
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        perUnit: (alias) => {
+          switch (aggregation) {
+            case "sum":
+              return `SUM(${alias})`;
+            case "max":
+              return `MAX(${alias})`;
+            case "count distinct":
+              return `COUNT(DISTINCT ${alias})`;
+          }
+          return assertNever(aggregation);
+        },
+        rollup: sumOrQuantile,
+        requiresUnitAggregation: aggregation !== "sum",
+        needsPresenceGuard: aggregation === "count distinct",
+      };
+    }
+
+    case "hllSketch": {
+      const { column } = measure;
+      const cardinality = (alias: string, dialect: SqlDialect) =>
+        dialect.hllCardinality(dialect.hllReaggregate(alias));
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        perUnit: cardinality,
+        // Per-unit values are already counts; per-row values are still sketches
+        rollup: (alias, dialect, { fromUnitAggregation }) =>
+          fromUnitAggregation ? `SUM(${alias})` : cardinality(alias, dialect),
+        requiresUnitAggregation: false,
+        needsPresenceGuard: true,
+      };
+    }
+
+    case "kllSketch": {
+      const { column } = measure;
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        perUnit: (alias, dialect) => dialect.quantileSketchMergePartial(alias),
+        rollup: (alias, dialect, { quantile }) =>
+          quantile === null
+            ? `SUM(${alias})`
+            : dialect.quantileSketchExtractPoint(
+                dialect.quantileSketchMergePartial(alias),
+                quantile,
+              ),
+        requiresUnitAggregation: false,
+        needsPresenceGuard: false,
+      };
+    }
+  }
+  return assertNever(measure);
+}
+
 function getEventValueExpr(
-  columnRef: ColumnRef,
+  plan: MeasurePlan,
+  rowFilters: RowFilter[],
   factTable: MinimalFactTable,
   helpers: SqlDialect,
   alias: string,
   cap: MetricCappingSettings | null,
 ): string {
-  let rawValue: string;
-  if (columnRef.column === "$$distinctUsers") {
-    if (
-      columnRef.aggregateFilter &&
-      columnRef.aggregateFilterColumn &&
-      columnRef.aggregateFilterColumn !== "$$count"
-    ) {
-      // Same expansion as an ordinary value column below, so a virtual column
-      // inlines its expression instead of emitting a name the warehouse cannot
-      // resolve. A plain column returns its own name, as before.
-      rawValue = getColumnExpression(
-        columnRef.aggregateFilterColumn,
-        factTable,
-        helpers.jsonExtract,
-        "",
-        helpers.identifierQuote,
-      );
-    } else {
-      rawValue = "1";
-    }
-  } else if (columnRef.column === "$$count") {
-    rawValue = "1";
-  } else if (columnRef.column === "$$distinctDates") {
-    const timestampColumn = getTimestampColumnExpression(factTable, helpers);
-    if (!timestampColumn) {
-      throw new Error("Distinct date values require a timestamp column");
-    }
-    rawValue = helpers.dateTrunc(timestampColumn, "day");
-  } else {
-    // Expand virtual (computed) columns into their SQL expression, and resolve
-    // JSON columns. A plain column just returns its own name here.
-    rawValue = getColumnExpression(
-      columnRef.column,
-      factTable,
-      helpers.jsonExtract,
-      "",
-      helpers.identifierQuote,
-    );
-  }
+  let rawValue = plan.rowValue(factTable, helpers);
 
   if (cap) {
     if (cap.type === "percentile") {
@@ -957,87 +1149,12 @@ function getEventValueExpr(
     }
   }
 
-  const filters = generateRowFilterSQL(
-    columnRef.rowFilters || [],
-    factTable,
-    helpers,
-  );
+  const filters = generateRowFilterSQL(rowFilters, factTable, helpers);
   if (!filters.length) {
     return rawValue;
   }
 
   return `CASE WHEN (${filters.join(" AND ")}) THEN ${rawValue} ELSE NULL END`;
-}
-
-function getUnitAggregationExpr(
-  columnRef: ColumnRef,
-  alias: string,
-  helpers: SqlDialect,
-): string {
-  if (columnRef.column === "$$distinctDates") {
-    return `COUNT(DISTINCT ${alias})`;
-  }
-  if (columnRef.column === "$$distinctUsers") {
-    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      const filters = getAggregateFilters({
-        columnRef: columnRef,
-        column: `SUM(${alias})`,
-        ignoreInvalid: true,
-      });
-      if (filters.length > 0) {
-        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
-      }
-    }
-    return `MAX(${alias})`;
-  }
-  if (columnRef.column === "$$count") {
-    return `SUM(${alias})`;
-  }
-
-  const aggregation = columnRef.aggregation;
-  switch (aggregation) {
-    case "sum":
-      return `SUM(${alias})`;
-    case "max":
-      return `MAX(${alias})`;
-    case "count distinct":
-      return `COUNT(DISTINCT ${alias})`;
-    case "hll merge":
-      return helpers.hllCardinality(helpers.hllReaggregate(alias));
-    case "kll merge":
-      return helpers.quantileSketchMergePartial(alias);
-    case undefined:
-      return `SUM(${alias})`;
-  }
-
-  return assertNever(aggregation);
-}
-
-function getRollupAggregationExpr(
-  metric: MinimalMetric,
-  columnRef: ColumnRef,
-  alias: string,
-  helpers: SqlDialect,
-  fromUnitAggregation: boolean,
-): string {
-  if (columnRef.aggregation === "hll merge") {
-    return fromUnitAggregation
-      ? `SUM(${alias})`
-      : helpers.hllCardinality(helpers.hllReaggregate(alias));
-  }
-
-  // Quantiles
-  if (metric.metricType === "quantile" && metric.quantileSettings) {
-    if (columnRef.aggregation === "kll merge") {
-      return helpers.quantileSketchExtractPoint(
-        helpers.quantileSketchMergePartial(alias),
-        metric.quantileSettings.quantile,
-      );
-    }
-    return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
-  } else {
-    return `SUM(${alias})`;
-  }
 }
 
 function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
@@ -1062,18 +1179,17 @@ function getMetricData(
   }
 
   const alias = getSeriesAlias(series);
+  const plan = getMeasurePlan(parseMeasure(columnRef));
+  const rowFilters = columnRef.rowFilters || [];
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
     metric.quantileSettings?.type === "event";
 
   const requiresUnitAggregation =
-    columnRef.aggregation === "max" ||
-    columnRef.aggregation === "count distinct" ||
+    plan.requiresUnitAggregation ||
     metric.metricType === "dailyParticipation" ||
-    metric.metricType === "proportion" ||
-    columnRef.column === "$$distinctUsers" ||
-    columnRef.column === "$$distinctDates";
+    metric.metricType === "proportion";
 
   let selectedUnit = skipUnitAggregation ? null : unit || null;
 
@@ -1117,12 +1233,11 @@ function getMetricData(
   const requiresMetricPresence =
     selectedUnit !== null &&
     factTableGroup.metrics.length > 1 &&
-    (columnRef.aggregation === "count distinct" ||
-      columnRef.aggregation === "hll merge" ||
-      columnRef.column === "$$distinctDates");
+    plan.needsPresenceGuard;
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
-        { ...columnRef, column: "$$count" },
+        getMeasurePlan({ kind: "rowCount" }),
+        rowFilters,
         factTable,
         helpers,
         alias,
@@ -1132,7 +1247,8 @@ function getMetricData(
 
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
-    columnRef,
+    plan,
+    rowFilters,
     factTable,
     helpers,
     alias,
@@ -1149,23 +1265,22 @@ function getMetricData(
         : null,
     percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
-      columnRef,
+      plan,
+      rowFilters,
       factTable,
       helpers,
       alias,
       cappingSettings,
     ),
     presenceExpr,
-    unitAggregationExpr: selectedUnit
-      ? getUnitAggregationExpr(columnRef, alias, helpers)
-      : null,
-    rollupAggregationExpr: getRollupAggregationExpr(
-      metric,
-      columnRef,
-      alias,
-      helpers,
-      !!selectedUnit,
-    ),
+    unitAggregationExpr: selectedUnit ? plan.perUnit(alias, helpers) : null,
+    rollupAggregationExpr: plan.rollup(alias, helpers, {
+      quantile:
+        metric.metricType === "quantile" && metric.quantileSettings
+          ? metric.quantileSettings.quantile
+          : null,
+      fromUnitAggregation: !!selectedUnit,
+    }),
     rollupCountExpr,
   };
 }
