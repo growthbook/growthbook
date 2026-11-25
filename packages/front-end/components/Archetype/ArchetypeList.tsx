@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -21,6 +22,7 @@ export const ArchetypeList: FC<{
   archetypeErrors: Error | undefined;
   mutate: () => void;
 }> = ({ archetypes, archetypeErrors, mutate }) => {
+  const { t } = useLingui();
   const [editArchetype, setEditArchetype] =
     useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
@@ -36,7 +38,7 @@ export const ArchetypeList: FC<{
   if (archetypeErrors) {
     return (
       <Callout status="error">
-        An error occurred fetching the lists of archetypes.
+        <Trans>An error occurred fetching the lists of archetypes.</Trans>
       </Callout>
     );
   }
@@ -45,8 +47,8 @@ export const ArchetypeList: FC<{
     return (
       <div className="mb-3">
         <PremiumEmptyState
-          title="Create Reusable Archetypes"
-          description="Archetypes are named sets of attributes that help you test your features."
+          title={t`Create Reusable Archetypes`}
+          description={t`Archetypes are named sets of attributes that help you test your features.`}
           commercialFeature="archetypes"
           learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
         />
@@ -58,7 +60,9 @@ export const ArchetypeList: FC<{
     <>
       <div className="row mb-3">
         <div className="col">
-          <h1>Archetypes</h1>
+          <h1>
+            <Trans>Archetypes</Trans>
+          </h1>
         </div>
         {canCreateGlobal && (
           <div className="col-auto">
@@ -67,25 +71,37 @@ export const ArchetypeList: FC<{
                 setEditArchetype({});
               }}
             >
-              Add Archetype
+              <Trans>Add Archetype</Trans>
             </Button>
           </div>
         )}
       </div>
       <p className="text-gray mb-3">
-        Archetypes are named sets of attributes that help you test your
-        features.
+        <Trans>
+          Archetypes are named sets of attributes that help you test your
+          features.
+        </Trans>
       </p>
       <div className="mb-3">
         <div className={`mb-3`}>
           <table className="table gbtable appbox ">
             <thead>
               <tr>
-                <th>Archetype</th>
-                <th>Projects</th>
-                <th>Environments</th>
-                <th>Owner</th>
-                <th>Public</th>
+                <th>
+                  <Trans>Archetype</Trans>
+                </th>
+                <th>
+                  <Trans>Projects</Trans>
+                </th>
+                <th>
+                  <Trans>Environments</Trans>
+                </th>
+                <th>
+                  <Trans>Owner</Trans>
+                </th>
+                <th>
+                  <Trans>Public</Trans>
+                </th>
                 <th style={{ width: "40px" }}></th>
               </tr>
             </thead>
@@ -94,11 +110,15 @@ export const ArchetypeList: FC<{
                 <tr>
                   <td colSpan={6}>
                     <div className="text-center p-3 ">
-                      No archetypes created. Click the &ldquo;Add
-                      Archetype&rdquo; button to create one.
+                      <Trans>
+                        No archetypes created. Click the &ldquo;Add
+                        Archetype&rdquo; button to create one.
+                      </Trans>
                       {!canCreateGlobal && (
                         <div className="text-muted small">
-                          (You do not have permissions to create archetypes)
+                          <Trans>
+                            (You do not have permissions to create archetypes)
+                          </Trans>
                         </div>
                       )}
                     </div>
@@ -177,15 +197,19 @@ export const ArchetypeList: FC<{
                           />
                         ))
                       ) : (
-                        <Badge label="All environments" color="gray" />
+                        <Badge label={t`All environments`} color="gray" />
                       )}
                     </td>
                     <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
-                        <span className="text-muted">Yes</span>
+                        <span className="text-muted">
+                          <Trans>Yes</Trans>
+                        </span>
                       ) : (
-                        <span className="text-muted">No</span>
+                        <span className="text-muted">
+                          <Trans>No</Trans>
+                        </span>
                       )}
                     </td>
                     <td className={styles.showOnHover}>
@@ -197,15 +221,15 @@ export const ArchetypeList: FC<{
                               setEditArchetype(archetype);
                             }}
                           >
-                            Edit
+                            <Trans>Edit</Trans>
                           </button>
                         ) : null}
                         {canDelete ? (
                           <DeleteButton
                             useRadix={false}
                             className="dropdown-item"
-                            displayName="Archetype"
-                            text="Delete"
+                            displayName={t`Archetype`}
+                            text={t`Delete`}
                             useIcon={false}
                             onClick={async () => {
                               await apiCall(`/archetype/${archetype.id}`, {
@@ -231,8 +255,8 @@ export const ArchetypeList: FC<{
               initialValues={editArchetype}
               header={
                 Object.keys(editArchetype).length === 0
-                  ? "Create Archetype"
-                  : "Edit Archetype"
+                  ? t`Create Archetype`
+                  : t`Edit Archetype`
               }
               source={"archetype-list"}
             />

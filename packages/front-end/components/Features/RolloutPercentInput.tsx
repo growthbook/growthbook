@@ -4,6 +4,7 @@ import { PiCaretRight } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
+import { Trans, useLingui } from "@lingui/react/macro";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -66,6 +67,7 @@ export function RolloutHashingOptions({
   project,
   extraIndicator,
 }: RolloutHashingOptionsProps) {
+  const { t } = useLingui();
   const settings = useOrgSettings();
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
@@ -99,7 +101,7 @@ export function RolloutHashingOptions({
         <Flex gap="3" align="center" mb="1">
           <Box style={{ width: 70 }}>
             <Text as="label" weight="medium" mb="0">
-              Sample by
+              <Trans>Sample by</Trans>
             </Text>
           </Box>
           <SelectField
@@ -119,7 +121,7 @@ export function RolloutHashingOptions({
             style={{ marginTop: 4, display: "inline-block" }}
           >
             <PiCaretRight className="chevron mr-1" />
-            Hashing &amp; seed options
+            <Trans>Hashing &amp; seed options</Trans>
           </div>
         }
         open={open}
@@ -130,13 +132,13 @@ export function RolloutHashingOptions({
         <Box px="4" pt="2" pb="1" mt="2" className="bg-highlight rounded">
           <Flex direction="column" gap="1">
             <Field
-              label="Seed"
+              label={t`Seed`}
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
               placeholder={ruleId ?? featureId}
               helpText={
                 isLive
-                  ? "Changing this re-randomizes rollout traffic."
+                  ? t`Changing this re-randomizes rollout traffic.`
                   : undefined
               }
             />
@@ -146,21 +148,21 @@ export function RolloutHashingOptions({
                 !!fallbackAttribute) && (
                 <>
                   <SelectField
-                    label="Fallback attribute"
+                    label={t`Fallback attribute`}
                     value={fallbackAttribute ?? ""}
                     onChange={setFallbackAttribute}
                     options={fallbackOptions}
                     formatOptionLabel={formatFallbackAttributeLabel}
                     sort={false}
-                    helpText="Used for users without the Sample by attribute. Only SDKs with Sticky Bucketing use it."
+                    helpText={t`Used for users without the Sample by attribute. Only SDKs with Sticky Bucketing use it.`}
                   />
                   {fallbackAttribute ? (
                     <SDKCapabilityWarning
                       as="helperText"
                       capability="stickyBucketing"
                       project={project}
-                      someMessage="Some of your SDK Connections do not support Sticky Bucketing."
-                      noneMessage="None of your SDK Connections support Sticky Bucketing."
+                      someMessage={t`Some of your SDK Connections do not support Sticky Bucketing.`}
+                      noneMessage={t`None of your SDK Connections support Sticky Bucketing.`}
                     />
                   ) : null}
                 </>
@@ -168,12 +170,12 @@ export function RolloutHashingOptions({
             {setHashVersion && (
               <>
                 <SelectField
-                  label="Hashing"
+                  label={t`Hashing`}
                   value={String(effectiveHashVersion)}
                   onChange={(v) => setHashVersion?.(Number(v) as 1 | 2)}
                   options={[
-                    { value: "2", label: "V2 (Preferred)" },
-                    { value: "1", label: "V1 (Legacy)" },
+                    { value: "2", label: t`V2 (Preferred)` },
+                    { value: "1", label: t`V1 (Legacy)` },
                   ]}
                 />
                 {effectiveHashVersion === 2 && (
@@ -181,8 +183,8 @@ export function RolloutHashingOptions({
                     as="helperText"
                     capability="bucketingV2"
                     project={project}
-                    someMessage="Some of your SDK Connections may not support V2 hashing."
-                    noneMessage="None of your SDK Connections support V2 hashing."
+                    someMessage={t`Some of your SDK Connections may not support V2 hashing.`}
+                    noneMessage={t`None of your SDK Connections support V2 hashing.`}
                   />
                 )}
               </>
@@ -228,7 +230,7 @@ export interface Props {
 export default function RolloutPercentInput({
   value,
   setValue,
-  label = "Rollout Percentage",
+  label: labelProp,
   labelActions,
   locked,
   hashAttribute,
@@ -251,6 +253,8 @@ export default function RolloutPercentInput({
   isNew,
   rampSchedule,
 }: Props) {
+  const { t } = useLingui();
+  const label = labelProp === undefined ? t`Rollout Percentage` : labelProp;
   const { data: sdkConnectionsData } = useSDKConnections();
   const hashVersionSdkWarning =
     hashVersion === 2 &&

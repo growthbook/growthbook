@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus } from "shared/validators";
@@ -31,6 +32,7 @@ export default function DeletePrerequisiteModal({
   setVersion: (version: number) => void;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const latestActiveDraft = useMemo(
     () =>
@@ -49,11 +51,11 @@ export default function DeletePrerequisiteModal({
   return (
     <Modal
       trackingEventModalType="delete-prerequisite"
-      header="Delete Prerequisite"
+      header={t`Delete Prerequisite`}
       size="lg"
       open={true}
       close={close}
-      cta="Delete"
+      cta={t`Delete`}
       submit={async () => {
         close();
         track("Delete Prerequisite", {
@@ -89,7 +91,9 @@ export default function DeletePrerequisiteModal({
           canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
         />
-        <p>Are you sure you want to delete this prerequisite?</p>
+        <p>
+          <Trans>Are you sure you want to delete this prerequisite?</Trans>
+        </p>
       </Box>
     </Modal>
   );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IconButton } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -56,7 +57,7 @@ export default function SavedGroupRowMenu({
               setOpen(false);
             }}
           >
-            Edit
+            <Trans>Edit</Trans>
           </DropdownMenuItem>
         )}
         {showDelete && (
@@ -70,7 +71,7 @@ export default function SavedGroupRowMenu({
               setOpen(false);
             }}
           >
-            Delete
+            <Trans>Delete</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuGroup>

@@ -6,6 +6,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { eventUserPersonId } from "shared/validators";
 import { useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
@@ -40,6 +41,7 @@ export default function FeatureArchiveModal({
   mutate,
   setVersion,
 }: FeatureArchiveModalProps) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -56,6 +58,7 @@ export default function FeatureArchiveModal({
     ? []
     : getEnabledEnvironments(feature, environments);
   const hasActiveEnvs = enabledEnvs.length > 0;
+  const enabledEnvList = enabledEnvs.join(", ");
 
   const [confirmEnvBypass, setConfirmEnvBypass] = useState(!hasActiveEnvs);
   const [confirmDependents, setConfirmDependents] = useState(false);
@@ -136,16 +139,16 @@ export default function FeatureArchiveModal({
   return (
     <ModalStandard
       trackingEventModalType=""
-      header={isArchived ? "Unarchive Feature" : "Archive Feature"}
+      header={isArchived ? t`Unarchive Feature` : t`Archive Feature`}
       size="lg"
       close={close}
       open={true}
       cta={
         mode === "publish"
           ? isArchived
-            ? "Unarchive"
-            : "Archive"
-          : "Save to draft"
+            ? t`Unarchive`
+            : t`Archive`
+          : t`Save to draft`
       }
       ctaColor={mode === "publish" ? "red" : "violet"}
       submit={async () => {
@@ -202,35 +205,50 @@ export default function FeatureArchiveModal({
       />
       {loading ? (
         <Text color="text-disabled">
-          <LoadingSpinner /> Checking feature dependencies...
+          <LoadingSpinner /> <Trans>Checking feature dependencies...</Trans>
         </Text>
       ) : isArchived ? (
         <p>
-          Are you sure you want to continue? This will make the current feature
-          active again.
+          <Trans>
+            Are you sure you want to continue? This will make the current
+            feature active again.
+          </Trans>
         </p>
       ) : (
         <>
           <Text as="p" mb="4">
-            {hasActiveEnvs
-              ? "Are you sure you want to continue? This will completely remove the feature from all SDKs and webhooks."
-              : "Are you sure you want to continue? This will make the current feature inactive. It will not be included in API responses or Webhook payloads."}
+            {hasActiveEnvs ? (
+              <Trans>
+                Are you sure you want to continue? This will completely remove
+                the feature from all SDKs and webhooks.
+              </Trans>
+            ) : (
+              <Trans>
+                Are you sure you want to continue? This will make the current
+                feature inactive. It will not be included in API responses or
+                Webhook payloads.
+              </Trans>
+            )}
           </Text>
 
           {/* Warnings, most-disruptive first: active environments, then dependents
               (whose collapsible list renders directly below its callout). */}
           {hasActiveEnvs && (
             <Callout status="warning" mb="4">
-              This feature is still active in the following environments:{" "}
-              <strong>{enabledEnvs.join(", ")}</strong>.
+              <Trans>
+                This feature is still active in the following environments:{" "}
+                <strong>{enabledEnvList}</strong>.
+              </Trans>
             </Callout>
           )}
           {needsDependentsAck && (
             <>
               <Callout status="warning" mb="4">
-                Archiving this Feature Flag will affect {totalDependents}{" "}
-                dependent item{totalDependents > 1 ? "s" : ""} that reference it
-                as a prerequisite.
+                <Plural
+                  value={totalDependents}
+                  one="Archiving this Feature Flag will affect # dependent item that reference it as a prerequisite."
+                  other="Archiving this Feature Flag will affect # dependent items that reference it as a prerequisite."
+                />
               </Callout>
               <FeatureReferencesList
                 features={dependents?.features}
@@ -247,7 +265,7 @@ export default function FeatureArchiveModal({
                   weight="regular"
                   value={confirmDependents}
                   setValue={setConfirmDependents}
-                  label="I understand these dependents will be affected and want to archive anyway."
+                  label={t`I understand these dependents will be affected and want to archive anyway.`}
                 />
               )}
               {hasActiveEnvs && (
@@ -260,8 +278,8 @@ export default function FeatureArchiveModal({
                     // as a draft changes nothing until that draft publishes, and the
                     // unconditional wording implied otherwise.
                     mode === "publish"
-                      ? "I understand this Feature Flag will be immediately disabled in all environments."
-                      : "I understand this Feature Flag will be disabled in all environments when this draft is published."
+                      ? t`I understand this Feature Flag will be immediately disabled in all environments.`
+                      : t`I understand this Feature Flag will be disabled in all environments when this draft is published.`
                   }
                 />
               )}

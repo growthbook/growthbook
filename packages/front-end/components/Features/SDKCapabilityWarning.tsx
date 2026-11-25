@@ -6,6 +6,7 @@ import {
 } from "shared/sdk-versioning";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -19,7 +20,7 @@ export function IncompatibleSDKsPopover({
   incompatibleConnections: incompatibleProp,
   capability,
   project,
-  triggerText = "Show SDKs",
+  triggerText,
 }: {
   connections: SDKConnectionInterface[];
   incompatibleConnections?: SDKConnectionInterface[];
@@ -27,6 +28,8 @@ export function IncompatibleSDKsPopover({
   project?: string;
   triggerText?: string;
 }) {
+  const { t } = useLingui();
+  const triggerLabel = triggerText === undefined ? t`Show SDKs` : triggerText;
   const incompatible = useMemo(() => {
     if (incompatibleProp) return incompatibleProp;
     const filtered =
@@ -45,17 +48,17 @@ export function IncompatibleSDKsPopover({
 
   const formatLanguage = (c: SDKConnectionInterface) => {
     const lang = c.languages?.[0];
-    const label = lang ? (languageMapping[lang]?.label ?? lang) : "Unknown";
+    const label = lang ? (languageMapping[lang]?.label ?? lang) : t`Unknown`;
     return c.sdkVersion ? `${label} v${c.sdkVersion}` : label;
   };
 
   return (
     <Popover
-      trigger={<Link>{triggerText}</Link>}
+      trigger={<Link>{triggerLabel}</Link>}
       content={
         <div>
           <Text weight="semibold" size="sm" mb="2" as="div">
-            Incompatible SDKs:
+            <Trans>Incompatible SDKs:</Trans>
           </Text>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {incompatible.map((c) => (

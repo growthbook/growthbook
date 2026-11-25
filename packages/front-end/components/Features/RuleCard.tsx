@@ -2,6 +2,7 @@ import React from "react";
 import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import CopyableCode from "@/components/Settings/CopyableCode";
@@ -27,7 +28,7 @@ export function RuleEditButton({ onClick }: { onClick: () => void }) {
       style={{ minWidth: "var(--space-7)" }}
       onClick={onClick}
     >
-      Edit
+      <Trans>Edit</Trans>
     </Button>
   );
 }
@@ -37,7 +38,7 @@ export function RuleIdLine({ id }: { id: string }) {
   return (
     <Flex align="center" gap="1" mt="1">
       <Text size="sm" color="text-low">
-        Rule ID:
+        <Trans>Rule ID:</Trans>
       </Text>
       <Text size="sm">
         <CopyableCode value={id} muted />
@@ -74,6 +75,7 @@ export default function RuleCard({
   ribbon,
   children,
 }: Props) {
+  const { t } = useLingui();
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
     <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
@@ -86,7 +88,7 @@ export default function RuleCard({
               className={clsx(cornerStyles.actions, styles.handle)}
             >
               {dragHandleProps ? (
-                <Tooltip content="Drag and drop to re-order rules">
+                <Tooltip content={t`Drag and drop to re-order rules`}>
                   <div {...dragHandleProps} className={styles.grab}>
                     <PiDotsSixVertical size={16} />
                   </div>

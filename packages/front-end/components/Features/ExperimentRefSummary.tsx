@@ -17,6 +17,7 @@ import {
 } from "shared/experiments";
 import { PiWarningFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -55,49 +56,63 @@ export function isExperimentRefRuleSkipped(
 export function experimentRefSkipReason(
   experiment: ExperimentInterfaceStringDates | undefined,
 ): ReactNode {
-  if (!experiment) return "The experiment could not be found.";
+  if (!experiment) return <Trans>The experiment could not be found.</Trans>;
   const isBandit = experiment.type === "multi-armed-bandit";
-  const noun = isBandit ? "Bandit" : "experiment";
   const href = `/${isBandit ? "bandit" : "experiment"}/${experiment.id}`;
-  const view = <Link href={href}>View {noun}</Link>;
+  const view = (
+    <Link href={href}>
+      {isBandit ? <Trans>View Bandit</Trans> : <Trans>View experiment</Trans>}
+    </Link>
+  );
   if (experiment.archived) {
-    return (
-      <>
-        This {noun} is archived. {view}
-      </>
+    return isBandit ? (
+      <Trans>This Bandit is archived. {view}</Trans>
+    ) : (
+      <Trans>This experiment is archived. {view}</Trans>
     );
   }
   if (!experimentHasLinkedChanges(experiment)) {
-    return (
-      <>
-        This {noun} has no linked changes. {view}
-      </>
+    return isBandit ? (
+      <Trans>This Bandit has no linked changes. {view}</Trans>
+    ) : (
+      <Trans>This experiment has no linked changes. {view}</Trans>
     );
   }
   if (!experiment.phases.length) {
-    return (
-      <>
-        This {noun} is not running. {view}
-      </>
+    return isBandit ? (
+      <Trans>This Bandit is not running. {view}</Trans>
+    ) : (
+      <Trans>This experiment is not running. {view}</Trans>
     );
   }
   if (
     experiment.status === "stopped" &&
     (experiment.excludeFromPayload || !experiment.releasedVariationId)
   ) {
-    return (
-      <>
-        This {noun} is stopped without a temporary rollout.{" "}
-        <Link href={`${href}#results`}>View results</Link>
-      </>
+    const resultsHref = `${href}#results`;
+    return isBandit ? (
+      <Trans>
+        This Bandit is stopped without a temporary rollout.{" "}
+        <Link href={resultsHref}>View results</Link>
+      </Trans>
+    ) : (
+      <Trans>
+        This experiment is stopped without a temporary rollout.{" "}
+        <Link href={resultsHref}>View results</Link>
+      </Trans>
     );
   }
   if (experiment.status === "draft") {
-    return (
-      <>
-        This {noun} does not serve while in draft unless the SDK connection opts
+    return isBandit ? (
+      <Trans>
+        This Bandit does not serve while in draft unless the SDK connection opts
         in.
-      </>
+      </Trans>
+    ) : (
+      <Trans>
+        This experiment does not serve while in draft unless the SDK connection
+        opts in.
+      </Trans>
     );
   }
   return null;
@@ -118,13 +133,33 @@ export function TempRolloutCallout({
   const lastPhaseEnded =
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
+  const stoppedAgo = lastPhaseEnded ? ago(lastPhaseEnded) : null;
   return (
     <Callout status={isOld ? "warning" : "info"} size="sm" mb="3">
-      Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
-      stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
-      {isOld
-        ? "Once the winner is in code, stop the rollout on the experiment."
-        : "Stop it on the experiment when it is no longer needed."}
+      {isBandit ? (
+        stoppedAgo !== null ? (
+          <Trans>
+            Temporary rollout from a Bandit that stopped {stoppedAgo}.
+          </Trans>
+        ) : (
+          <Trans>Temporary rollout from a Bandit that stopped earlier.</Trans>
+        )
+      ) : stoppedAgo !== null ? (
+        <Trans>
+          Temporary rollout from an experiment that stopped {stoppedAgo}.
+        </Trans>
+      ) : (
+        <Trans>
+          Temporary rollout from an experiment that stopped earlier.
+        </Trans>
+      )}{" "}
+      {isOld ? (
+        <Trans>
+          Once the winner is in code, stop the rollout on the experiment.
+        </Trans>
+      ) : (
+        <Trans>Stop it on the experiment when it is no longer needed.</Trans>
+      )}
     </Callout>
   );
 }
@@ -142,6 +177,7 @@ export default function ExperimentRefSummary({
   // their matching env flavor. Absent (all-environments view) = base value.
   environment?: string;
 }) {
+  const { t } = useLingui();
   const { variations } = rule;
   const type = feature.valueType;
 
@@ -162,6 +198,7 @@ export default function ExperimentRefSummary({
       : null;
 
   if (experiment.status === "stopped" && !releasedValue) {
+    const resultsHref = `/experiment/${experiment.id}#results`;
     // The ribbon covers a stop without a rollout; this rule just predates the
     // variation that was released.
     if (experiment.excludeFromPayload || !experiment.releasedVariationId) {
@@ -169,8 +206,10 @@ export default function ExperimentRefSummary({
     }
     return (
       <Callout status="warning">
-        This rule has no value for the released variation.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
+        <Trans>
+          This rule has no value for the released variation.{" "}
+          <Link href={resultsHref}>View results</Link>
+        </Trans>
       </Callout>
     );
   }
@@ -184,11 +223,13 @@ export default function ExperimentRefSummary({
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
   const hasCondition = hasTargetingConfigured(phase);
+  const namespacePercent = percentFormatter.format(namespaceRange);
+  const exposurePercent = coveragePercentFormatter.format(phase?.coverage ?? 1);
 
   return (
     <Box>
       {hasCondition && (
-        <RuleField label="Targeting">
+        <RuleField label={t`Targeting`}>
           <ConditionDisplay
             condition={phase.condition}
             savedGroups={phase.savedGroups}
@@ -197,19 +238,19 @@ export default function ExperimentRefSummary({
         </RuleField>
       )}
 
-      <RuleField label="Split by">
+      <RuleField label={t`Split by`}>
         <Flex align="center" gap="2" wrap="wrap">
           <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
           {hasNamespace && (
             <>
-              in the namespace
+              <Trans>in the namespace</Trans>
               <NextLink href={`/namespaces`}>
                 <EntityBadge
                   label={
                     <Text color="text-high">
                       {namespaces?.find((n) => n.name === phase.namespace!.name)
                         ?.label || (
-                        <Tooltip content="This namespace was not found">
+                        <Tooltip content={t`This namespace was not found`}>
                           <span
                             tabIndex={0}
                             style={{
@@ -233,15 +274,10 @@ export default function ExperimentRefSummary({
         {hasNamespace && (
           <>
             {" "}
-            (
-            <PlainEntityBadge
-              label={percentFormatter.format(namespaceRange)}
-            />{" "}
-            of the namespace and{" "}
-            <PlainEntityBadge
-              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
-            />{" "}
-            exposure)
+            <Trans>
+              (<PlainEntityBadge label={namespacePercent} /> of the namespace
+              and <PlainEntityBadge label={exposurePercent} /> exposure)
+            </Trans>
           </>
         )}
       </RolloutRow>
@@ -254,7 +290,7 @@ export default function ExperimentRefSummary({
         />
       ) : (
         <>
-          <RuleField label="Serve" align="start">
+          <RuleField label={t`Serve`} align="start">
             <Box>
               <ValueDiffProvider>
                 <RuleVariationsTable
@@ -273,7 +309,7 @@ export default function ExperimentRefSummary({
                         value:
                           variationEntry === undefined ? (
                             <HelperText status="warning">
-                              Define missing values
+                              <Trans>Define missing values</Trans>
                             </HelperText>
                           ) : (
                             <ExperimentRefVariationValue
@@ -306,8 +342,8 @@ export default function ExperimentRefSummary({
                   )}
                   coverage={effectiveCoverage}
                   condensed
-                  label="Traffic split"
-                  unallocated="Not included (skips this rule)"
+                  label={t`Traffic split`}
+                  unallocated={t`Not included (skips this rule)`}
                   type={type}
                   showValues={false}
                   stackLeft={true}
@@ -318,13 +354,16 @@ export default function ExperimentRefSummary({
 
             {useStickyBucketing ? (
               <Text as="div" mt="2">
-                Sticky Bucketing{" "}
-                {experiment.disableStickyBucketing ? "disabled" : "enabled"}
+                {experiment.disableStickyBucketing ? (
+                  <Trans>Sticky Bucketing disabled</Trans>
+                ) : (
+                  <Trans>Sticky Bucketing enabled</Trans>
+                )}
               </Text>
             ) : null}
           </RuleField>
 
-          <RuleField label="Tracking key" mb="0">
+          <RuleField label={t`Tracking key`} mb="0">
             <PlainEntityBadge label={experiment.trackingKey} />
           </RuleField>
         </>

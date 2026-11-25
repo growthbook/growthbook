@@ -1,6 +1,7 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { useLingui } from "@lingui/react/macro";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
@@ -22,6 +23,7 @@ export default function InitialSDKConnectionForm({
   goToNextStep?: () => void;
   includeCheck?: boolean;
 }) {
+  const { t } = useLingui();
   const { data, error, mutate } = useSDKConnections();
   const connections = data?.connections;
 
@@ -60,7 +62,7 @@ export default function InitialSDKConnectionForm({
     <CreateSDKConnectionModal
       close={close ?? (() => undefined)}
       mutate={mutate}
-      cta="Continue"
+      cta={t`Continue`}
       autoCloseOnSubmit={false}
       initialValue={{ includeRuleIds: true }}
     />

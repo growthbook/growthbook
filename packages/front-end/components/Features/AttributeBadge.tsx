@@ -1,4 +1,5 @@
 import React from "react";
+import { useLingui } from "@lingui/react/macro";
 import { LinkedEntityBadge } from "@/components/Features/EntityBadge";
 
 interface AttributeBadgeProps {
@@ -7,10 +8,11 @@ interface AttributeBadgeProps {
 }
 
 export function AttributeBadge({ attributeId }: AttributeBadgeProps) {
+  const { t } = useLingui();
   return (
     <LinkedEntityBadge
       href={`/attributes/${encodeURIComponent(attributeId)}`}
-      title={`View attribute: ${attributeId}`}
+      title={t`View attribute: ${attributeId}`}
       label={attributeId}
     />
   );

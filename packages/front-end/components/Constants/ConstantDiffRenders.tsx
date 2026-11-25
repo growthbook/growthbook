@@ -4,6 +4,9 @@ import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { describeInvariantRule } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ChangeField,
   TextChangedField,
@@ -25,30 +28,49 @@ function ValueRow({
   pre,
   post,
 }: {
-  label?: string;
+  // A descriptor for UI text; a plain string for user data (paths, names).
+  label?: string | MessageDescriptor;
   pre?: string;
   post?: string;
 }) {
+  const { t, i18n } = useLingui();
   if ((pre ?? "") === (post ?? "")) return null;
+  const labelText =
+    label === undefined || typeof label === "string" ? label : i18n._(label);
+  const emptyText = t`(empty)`;
   const isSimple = (v?: string) => !v || (!v.includes("\n") && v.length <= 80);
   if (isSimple(pre) && isSimple(post)) {
     return (
       <ChangeField
-        label={label}
+        label={labelText}
         changed
-        oldNode={pre ? pre : <em>(empty)</em>}
-        newNode={post ? post : <em>(empty)</em>}
+        oldNode={pre ? pre : <em>{emptyText}</em>}
+        newNode={post ? post : <em>{emptyText}</em>}
       />
     );
   }
   return (
     <TextChangedField
-      label={label}
+      label={labelText}
       pre={pre ?? null}
       post={post ?? null}
-      emptyLabel="(empty)"
+      emptyLabel={emptyText}
     />
   );
+}
+
+// TextChangedField takes its label as a string, so resolve it in a component.
+function TranslatedTextChangedField({
+  label,
+  pre,
+  post,
+}: {
+  label: MessageDescriptor;
+  pre: string | null;
+  post: string | null;
+}) {
+  const { i18n } = useLingui();
+  return <TextChangedField label={i18n._(label)} pre={pre} post={post} />;
 }
 
 // Values may arrive already parsed (see normalizeSnapshot); re-stringify.
@@ -109,9 +131,15 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="name"
-        label="Name"
+        label={<Trans>Name</Trans>}
         changed
-        oldNode={pre?.name ?? <em>None</em>}
+        oldNode={
+          pre?.name ?? (
+            <em>
+              <Trans>None</Trans>
+            </em>
+          )
+        }
         newNode={post.name}
       />,
     );
@@ -121,10 +149,26 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="owner"
-        label="Owner"
+        label={<Trans>Owner</Trans>}
         changed
-        oldNode={pre?.owner ? <OwnerName id={pre.owner} /> : <em>unset</em>}
-        newNode={post.owner ? <OwnerName id={post.owner} /> : <em>unset</em>}
+        oldNode={
+          pre?.owner ? (
+            <OwnerName id={pre.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
+        newNode={
+          post.owner ? (
+            <OwnerName id={post.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
       />,
     );
   }
@@ -134,9 +178,9 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
     post.description !== undefined
   ) {
     rows.push(
-      <TextChangedField
+      <TranslatedTextChangedField
         key="description"
-        label="Description"
+        label={msg`Description`}
         pre={pre?.description || null}
         post={post.description || null}
       />,
@@ -149,21 +193,27 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ChangeField
         key="archived"
-        label="Status"
+        label={<Trans>Status</Trans>}
         changed
-        oldNode={preArchived ? "Archived" : "Active"}
-        newNode={postArchived ? "Archived" : "Active"}
+        oldNode={preArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
+        newNode={postArchived ? <Trans>Archived</Trans> : <Trans>Active</Trans>}
       />,
     );
   }
 
   if ((pre?.project ?? "") !== (post.project ?? "")) {
     const node = (id: string | undefined) =>
-      id ? <ProjectName id={id} /> : <em>All Projects</em>;
+      id ? (
+        <ProjectName id={id} />
+      ) : (
+        <em>
+          <Trans>All Projects</Trans>
+        </em>
+      );
     rows.push(
       <ChangeField
         key="project"
-        label="Project"
+        label={<Trans>Project</Trans>}
         changed
         oldNode={node(pre?.project)}
         newNode={node(post.project)}
@@ -204,14 +254,19 @@ export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
     const b = postFields.find((f) => f.key === k);
     if (isEqual(a, b)) continue;
 
-    const fieldName = k || "(unnamed)";
-
     // Added or removed field → one row with the whole definition.
     if (!a || !b) {
+      const label = a
+        ? k
+          ? msg`${k} field — removed`
+          : msg`(unnamed) field — removed`
+        : k
+          ? msg`${k} field — added`
+          : msg`(unnamed) field — added`;
       rows.push(
         <ValueRow
           key={k}
-          label={`${fieldName} field — ${a ? "removed" : "added"}`}
+          label={label}
           pre={a ? JSON.stringify(a, null, 2) : undefined}
           post={b ? JSON.stringify(b, null, 2) : undefined}
         />,
@@ -227,10 +282,15 @@ export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
     ).filter((p) => p !== "key");
     for (const p of props) {
       if (isEqual(aRec[p], bRec[p])) continue;
+      const propLabel = SCHEMA_FIELD_PROP_LABELS[p] ?? p;
       rows.push(
         <ValueRow
           key={`${k}.${p}`}
-          label={`${fieldName} field → ${SCHEMA_FIELD_PROP_LABELS[p] ?? p}`}
+          label={
+            k
+              ? msg`${k} field → ${propLabel}`
+              : msg`(unnamed) field → ${propLabel}`
+          }
           pre={toStr(aRec[p])}
           post={toStr(bRec[p])}
         />,
@@ -303,7 +363,7 @@ export function renderConfigInvariants(pre: Pre, post: Post): ReactNode | null {
     rows.push(
       <ValueRow
         key={n}
-        label={n || "(new rule)"}
+        label={n || msg`(new rule)`}
         pre={a ? describe(a) : undefined}
         post={b ? describe(b) : undefined}
       />,
@@ -446,22 +506,34 @@ export const REVISION_CONSTANT_DIFF_CONFIG: RevisionDiffConfig<ConstantInterface
 // Parent, mixins and extensibility change the effective schema, so a draft that
 // only changes them still has something to review and publish.
 function configLineageRows(pre: Pre, post: Post) {
-  const list = (keys?: string[]) =>
-    keys?.length ? keys.join(", ") : <em>None</em>;
+  const none = (
+    <em>
+      <Trans>None</Trans>
+    </em>
+  );
+  const list = (keys?: string[]) => (keys?.length ? keys.join(", ") : none);
   const allows = (v?: boolean) =>
-    (v ?? null) === null ? <em>Default</em> : v ? "Yes" : "No";
+    (v ?? null) === null ? (
+      <em>
+        <Trans>Default</Trans>
+      </em>
+    ) : v ? (
+      <Trans>Yes</Trans>
+    ) : (
+      <Trans>No</Trans>
+    );
   return [
     {
       key: "parent",
-      label: "Parent Config",
+      label: <Trans>Parent Config</Trans>,
       badge: "Edit parent",
       changed: (pre?.parent || "") !== (post.parent || ""),
-      oldNode: pre?.parent || <em>None</em>,
-      newNode: post.parent || <em>None</em>,
+      oldNode: pre?.parent || none,
+      newNode: post.parent || none,
     },
     {
       key: "extends",
-      label: "Config mixins",
+      label: <Trans>Config mixins</Trans>,
       badge: "Edit mixins",
       changed: !isEqual(pre?.extends ?? [], post.extends ?? []),
       oldNode: list(pre?.extends),
@@ -469,7 +541,7 @@ function configLineageRows(pre: Pre, post: Post) {
     },
     {
       key: "extensible",
-      label: "Allow extra fields",
+      label: <Trans>Allow extra fields</Trans>,
       badge: "Edit extra fields",
       // Only a base Config's setting applies.
       changed:
@@ -522,23 +594,31 @@ export function renderConfigProjections(
   const lang = (id: string) => SCHEMA_LANG_LABEL[id] ?? id;
   return rows.length ? (
     <Box mt="1">
-      {rows.map(({ source, from, to }) => (
-        <ChangeField
-          key={source}
-          label={source}
-          changed
-          oldNode={from ? lang(from.language) : <em>None</em>}
-          newNode={
-            !to ? (
-              <em>None</em>
-            ) : from?.language === to.language ? (
-              `${lang(to.language)} (updated)`
-            ) : (
-              lang(to.language)
-            )
-          }
-        />
-      ))}
+      {rows.map(({ source, from, to }) => {
+        const none = (
+          <em>
+            <Trans>None</Trans>
+          </em>
+        );
+        const toLang = to ? lang(to.language) : "";
+        return (
+          <ChangeField
+            key={source}
+            label={source}
+            changed
+            oldNode={from ? lang(from.language) : none}
+            newNode={
+              !to ? (
+                none
+              ) : from?.language === to.language ? (
+                <Trans>{toLang} (updated)</Trans>
+              ) : (
+                toLang
+              )
+            }
+          />
+        );
+      })}
     </Box>
   ) : null;
 }

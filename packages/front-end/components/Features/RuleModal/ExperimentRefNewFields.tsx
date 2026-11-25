@@ -20,6 +20,7 @@ import {
 } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
@@ -173,6 +174,7 @@ export default function ExperimentRefNewFields({
    */
   keepAssignmentSelection?: boolean;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
 
   const {
@@ -191,13 +193,13 @@ export default function ExperimentRefNewFields({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
-    .filter((t) =>
+    .filter((tpl) =>
       isProjectListValidForProject(
-        t.project ? [t.project] : [],
+        tpl.project ? [tpl.project] : [],
         currentProject,
       ),
     )
-    .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
+    .map((tpl) => ({ value: tpl.id, label: tpl.templateMetadata.name }));
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -247,8 +249,8 @@ export default function ExperimentRefNewFields({
     attribute: string,
     datasource: DataSourceInterfaceWithParams | null,
   ) => {
-    const identifierType = datasource?.settings?.userIdTypes?.find((t) =>
-      t.attributes?.includes(attribute),
+    const identifierType = datasource?.settings?.userIdTypes?.find((type) =>
+      type.attributes?.includes(attribute),
     )?.userIdType;
     if (!identifierType) return null;
     const query = getExposureQueriesForProject(
@@ -283,6 +285,10 @@ export default function ExperimentRefNewFields({
 
   // A new rule's variations, as the experiment page lays them out.
   const usesRuleGrid = source === "rule" && !!feature && !isTemplate;
+  const coverageTooltip =
+    source === "rule"
+      ? t`Units not included in the experiment skip this rule`
+      : t`Units not included in the experiment skip this experiment`;
 
   return (
     <>
@@ -291,20 +297,22 @@ export default function ExperimentRefNewFields({
           {availableTemplates.length >= 1 && (
             <div className="form-group">
               <PremiumTooltip commercialFeature="templates">
-                <label>Select Template</label>
+                <label>
+                  <Trans>Select Template</Trans>
+                </label>
               </PremiumTooltip>
               <SelectField
                 size="legacy"
                 value={form.watch("templateId") ?? ""}
-                onChange={(t) => {
-                  if (t === "") {
+                onChange={(templateId) => {
+                  if (templateId === "") {
                     form.setValue("templateId", undefined);
                     form.reset();
                     return;
                   }
-                  form.setValue("templateId", t);
+                  form.setValue("templateId", templateId);
                   // Convert template to NewExperimentRefRule interface shape and reset values
-                  const template = templatesMap.get(t);
+                  const template = templatesMap.get(templateId);
                   if (!template) return;
 
                   const templateAsExperimentRule =
@@ -320,23 +328,24 @@ export default function ExperimentRefNewFields({
                   });
                 }}
                 name="template"
-                initialOption={"None"}
+                initialOption={t`None`}
                 options={availableTemplates}
                 formatOptionLabel={(value) => {
-                  const t = templatesMap.get(value.value);
-                  if (!t) return <span>{value.label}</span>;
+                  const template = templatesMap.get(value.value);
+                  if (!template) return <span>{value.label}</span>;
+                  const createdDate = date(template.dateCreated);
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
                       <Text size="sm" color="text-mid" ml="auto">
-                        Created {date(t.dateCreated)}
+                        <Trans>Created {createdDate}</Trans>
                       </Text>
                     </Flex>
                   );
                 }}
                 helpText={
                   templateRequired
-                    ? "Your organization requires experiments to be created from a template"
+                    ? t`Your organization requires experiments to be created from a template`
                     : undefined
                 }
                 disabled={!hasCommercialFeature("templates")}
@@ -348,36 +357,36 @@ export default function ExperimentRefNewFields({
             size="legacy"
             required={true}
             minLength={2}
-            label="Experiment name"
+            label={t`Experiment name`}
             {...form.register("name")}
           />
 
           <Field
             size="legacy"
-            label="Tracking key"
+            label={t`Tracking key`}
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
             {...trackingKeyFormatProps}
-            helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
+            helpText={t`Unique identifier for this Experiment, used to track impressions and analyze results`}
           />
 
           <Field
             size="legacy"
-            label="Hypothesis"
+            label={t`Hypothesis`}
             textarea
             minRows={1}
             {...form.register("hypothesis")}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+            placeholder={t`e.g. Making the signup button bigger will increase clicks and ultimately improve revenue`}
           />
 
           <Field
             size="legacy"
-            label="Description"
+            label={t`Description`}
             textarea
             minRows={1}
             maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
-            placeholder="Short human-readable description of the Experiment"
+            placeholder={t`Short human-readable description of the Experiment`}
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
@@ -397,11 +406,13 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <Text as="label" weight="semibold" mb="1">
-              Assign Variation by Attribute
+              <Trans>Assign Variation by Attribute</Trans>
             </Text>
             <Text as="div" color="text-mid" mb="2">
-              Will be hashed together with the tracking key to determine which
-              variation to assign
+              <Trans>
+                Will be hashed together with the tracking key to determine which
+                variation to assign
+              </Trans>
             </Text>
             <SelectField
               size="legacy"
@@ -418,8 +429,11 @@ export default function ExperimentRefNewFields({
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
                 <HelperText status="warning" size="sm" mb="4">
-                  The hash attribute of this experiment does not match the hash
-                  attribute of the holdout this experiment will belong to.
+                  <Trans>
+                    The hash attribute of this experiment does not match the
+                    hash attribute of the holdout this experiment will belong
+                    to.
+                  </Trans>
                 </HelperText>
               )}
             {hasSDKWithNoBucketingV2 && !isTemplate && (
@@ -437,7 +451,7 @@ export default function ExperimentRefNewFields({
                 setDisableStickyBucketing={(v) =>
                   form.setValue("disableStickyBucketing", v)
                 }
-                description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
+                description={t`Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change.`}
               />
             ) : null}
 
@@ -479,17 +493,17 @@ export default function ExperimentRefNewFields({
             <NewRuleTrafficFields
               kind="experiment"
               feature={feature}
-              coverageTooltip={`Units not included in the experiment skip this ${source}`}
+              coverageTooltip={coverageTooltip}
             />
           ) : (
             <FeatureVariationsInput
-              label="Traffic Percent & Variations"
+              label={t`Traffic Percent & Variations`}
               defaultValue={
                 feature ? getFeatureDefaultValue(feature) : undefined
               }
               valueType={feature?.valueType}
-              coverageLabel="Traffic included in this Experiment"
-              coverageTooltip={`Units not included in the experiment skip this ${source}`}
+              coverageLabel={t`Traffic included in this Experiment`}
+              coverageTooltip={coverageTooltip}
               coverage={coverage}
               setCoverage={setCoverage}
               setWeight={setWeight}
@@ -541,8 +555,10 @@ export default function ExperimentRefNewFields({
           />
           {isCyclic && (
             <Callout status="error">
-              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
-              dependency. Remove this prerequisite to continue.
+              <Trans>
+                A prerequisite (<code>{cyclicFeatureId}</code>) creates a
+                circular dependency. Remove this prerequisite to continue.
+              </Trans>
             </Callout>
           )}
 
@@ -567,7 +583,7 @@ export default function ExperimentRefNewFields({
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
               size="legacy"
-              label="Data Source"
+              label={t`Data Source`}
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) => {
@@ -610,11 +626,14 @@ export default function ExperimentRefNewFields({
               }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
+                const dataSourceName = d.description
+                  ? `${d.name} — ${d.description}`
+                  : d.name;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
+                  label: isDefaultDataSource
+                    ? t`${dataSourceName} (default)`
+                    : dataSourceName,
                 };
               })}
               className="portal-overflow-ellipsis"
@@ -673,7 +692,7 @@ export default function ExperimentRefNewFields({
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
                 <PiCaretRightFill className="chevron mr-1" />
-                Advanced Settings
+                <Trans>Advanced Settings</Trans>
               </div>
             }
             transitionTime={100}
@@ -688,7 +707,7 @@ export default function ExperimentRefNewFields({
                   labelClassName="font-weight-bold"
                   label={
                     <>
-                      Activation Metric{" "}
+                      <Trans>Activation Metric</Trans>{" "}
                       <MetricsSelectorTooltip
                         onlyBinomial={true}
                         noFactFunnelMetrics={true}
@@ -696,56 +715,60 @@ export default function ExperimentRefNewFields({
                       />
                     </>
                   }
-                  initialOption="None"
+                  initialOption={t`None`}
                   onlyBinomial
                   filterFactFunnelMetrics
                   value={form.watch("activationMetric")}
                   onChange={(value) =>
                     form.setValue("activationMetric", value || "")
                   }
-                  helpText="Users must convert on this metric before being included"
+                  helpText={t`Users must convert on this metric before being included`}
                 />
               )}
               {datasourceProperties?.experimentSegments && (
                 <SelectField
                   size="legacy"
-                  label="Segment"
+                  label={t`Segment`}
                   labelClassName="font-weight-bold"
                   value={form.watch("segment")}
                   onChange={(value) => form.setValue("segment", value || "")}
-                  initialOption="None (All Users)"
+                  initialOption={t`None (All Users)`}
                   options={filteredSegments.map((s) => {
                     return {
                       label: s.name,
                       value: s.id,
                     };
                   })}
-                  helpText="Only users in this segment will be included"
+                  helpText={t`Only users in this segment will be included`}
                 />
               )}
               {datasourceProperties?.separateExperimentResultQueries && (
                 <SelectField
                   size="legacy"
-                  label="Metric Conversion Windows"
+                  label={t`Metric Conversion Windows`}
                   labelClassName="font-weight-bold"
                   value={form.watch("skipPartialData")}
                   onChange={(value) => form.setValue("skipPartialData", value)}
                   options={[
                     {
-                      label: "Include In-Progress Conversions",
+                      label: t`Include In-Progress Conversions`,
                       value: "loose",
                     },
                     {
-                      label: "Exclude In-Progress Conversions",
+                      label: t`Exclude In-Progress Conversions`,
                       value: "strict",
                     },
                   ]}
-                  helpText="For users not enrolled in the experiment long enough to complete conversion window"
+                  helpText={t`For users not enrolled in the experiment long enough to complete conversion window`}
                 />
               )}
               <StatsEngineSelect
                 className="mb-4"
-                label={<div>Statistics Engine</div>}
+                label={
+                  <div>
+                    <Trans>Statistics Engine</Trans>
+                  </div>
+                }
                 value={form.watch("statsEngine") ?? orgStatsEngine}
                 onChange={(v) => form.setValue("statsEngine", v)}
                 allowUndefined={false}

@@ -9,6 +9,7 @@ import {
 } from "shared/util";
 import { teal, slate } from "@radix-ui/colors";
 import { PiArrowClockwise } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import ConnectionNode from "@/components/Features/SDKConnections/ConnectionNode";
@@ -33,6 +34,7 @@ export default function ConnectionDiagram({
   canUpdate: boolean;
   showConnectionTitle?: boolean;
 }) {
+  const { t } = useLingui();
   const { projects } = useDefinitions();
 
   // Either currently enabled or was enabled but had too many failures
@@ -66,16 +68,21 @@ export default function ConnectionDiagram({
     ...filteredProjectIds,
     ...disallowedProjectIds,
   ];
+  const environmentId = connection.environment;
   return (
     <>
       <div className="mb-4 row">
         <div className="col-auto">
-          Environment: <strong>{connection.environment}</strong>
+          <Trans>
+            Environment: <strong>{environmentId}</strong>
+          </Trans>
         </div>
 
         {(projects.length > 0 || connection.projects.length > 0) && (
           <div className="col-auto d-flex">
-            <div className="mr-2">Projects:</div>
+            <div className="mr-2">
+              <Trans>Projects:</Trans>
+            </div>
 
             <div>
               {showAllEnvironmentProjects && (
@@ -97,7 +104,7 @@ export default function ConnectionDiagram({
                         : undefined
                     }
                     invalidProjectIds={disallowedProjectIds}
-                    invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                    invalidProjectMessage={t`This project is not allowed in the selected environment and will not be included in the SDK payload.`}
                     resourceType="sdk connection"
                   />
                 )}
@@ -108,34 +115,42 @@ export default function ConnectionDiagram({
 
         {connection.remoteEvalEnabled && (
           <div className="col-auto">
-            Remote Evaluation:{" "}
-            <strong>
-              <GBRemoteEvalIcon className="text-purple" /> yes
-            </strong>
+            <Trans>
+              Remote Evaluation:{" "}
+              <strong>
+                <GBRemoteEvalIcon className="text-purple" /> yes
+              </strong>
+            </Trans>
           </div>
         )}
 
         {connection.tracesEnabled && (
           <Box px="3">
-            Accepts traces: <strong>yes</strong>
+            <Trans>
+              Accepts traces: <strong>yes</strong>
+            </Trans>
           </Box>
         )}
 
         {connection.hashSecureAttributes && (
           <div className="col-auto">
-            Secure Attribute Hashing:{" "}
-            <strong>
-              <GBHashLock className="text-blue" /> yes
-            </strong>
+            <Trans>
+              Secure Attribute Hashing:{" "}
+              <strong>
+                <GBHashLock className="text-blue" /> yes
+              </strong>
+            </Trans>
           </div>
         )}
 
         {connection.encryptPayload && (
           <div className="col-auto">
-            Encrypted:{" "}
-            <strong>
-              <FaLock className="text-purple" /> yes
-            </strong>
+            <Trans>
+              Encrypted:{" "}
+              <strong>
+                <FaLock className="text-purple" /> yes
+              </strong>
+            </Trans>
           </div>
         )}
       </div>
@@ -143,7 +158,9 @@ export default function ConnectionDiagram({
       {showConnectionTitle && (
         <div className="row mb-2 align-items-center">
           <div className="col-auto">
-            <h2 className="mb-0">Connection</h2>
+            <h2 className="mb-0">
+              <Trans>Connection</Trans>
+            </h2>
           </div>
         </div>
       )}
@@ -167,7 +184,7 @@ export default function ConnectionDiagram({
             }`,
           }}
         />
-        <ConnectionNode first title="Your App">
+        <ConnectionNode first title={t`Your App`}>
           <div
             className="d-flex flex-wrap justify-content-center"
             style={{ maxWidth: 325 }}
@@ -198,7 +215,7 @@ export default function ConnectionDiagram({
                 await mutate();
               }}
             >
-              <PiArrowClockwise /> Retry
+              <PiArrowClockwise /> <Trans>Retry</Trans>
             </Button>
           }
         />
@@ -212,9 +229,9 @@ export default function ConnectionDiagram({
                     <Badge
                       color="red"
                       variant="solid"
-                      label="Disabled"
+                      label={t`Disabled`}
                       className="ml-2"
-                      title="Proxy was disabled for too many consecutive failures"
+                      title={t`Proxy was disabled for too many consecutive failures`}
                     />
                   )}
                 </>

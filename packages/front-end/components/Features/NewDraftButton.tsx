@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus } from "shared/validators";
@@ -19,13 +20,14 @@ export default function NewDraftButton({
   mutate: () => Promise<unknown> | void;
   setVersion: (version: number) => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const live = revisionList.find((r) => r.version === feature.version);
 
   return (
     <SharedNewDraftButton
-      entityNoun="Feature Flag"
+      entityNoun={t`Feature Flag`}
       activeDraftCount={
         revisionList.filter((r) => isActiveDraftStatus(r.status)).length
       }

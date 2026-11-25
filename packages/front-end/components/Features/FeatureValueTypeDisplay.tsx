@@ -1,15 +1,18 @@
 import React from "react";
 import { FeatureValueType } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
-  boolean: "Boolean",
-  string: "String",
-  number: "Number",
-  json: "JSON",
+const VALUE_TYPE_LABELS: Record<FeatureValueType, MessageDescriptor> = {
+  boolean: msg`Boolean`,
+  string: msg`String`,
+  number: msg`Number`,
+  json: msg`JSON`,
 };
 
 // Renders a feature's value type. A config-backed flag (one with a `baseConfig`)
@@ -33,24 +36,30 @@ export default function FeatureValueTypeDisplay({
   // default (feature overview); tighten on dense surfaces like the list.
   maxWidth?: number;
 }): React.ReactElement {
+  const { t, i18n } = useLingui();
   const { getConfigByKey } = useDefinitions();
 
   const backingKey = configBackingKey ?? baseConfig ?? null;
   const config = backingKey ? getConfigByKey(backingKey) : null;
 
-  if (!backingKey) return <>{VALUE_TYPE_LABELS[valueType] ?? valueType}</>;
+  if (!backingKey) {
+    const typeLabel = VALUE_TYPE_LABELS[valueType];
+    return <>{typeLabel ? i18n._(typeLabel) : valueType}</>;
+  }
 
   const name = config?.name ?? backingKey;
 
   return (
     <Flex as="span" align="center" gap="1" display="inline-flex">
-      <span>Config</span>
+      <span>
+        <Trans>Config</Trans>
+      </span>
       <span style={{ color: "var(--slate-9)" }}>·</span>
       {link && config ? (
         <Link
           href={`/configs/${config.key}`}
           className="hover-underline"
-          title={`View Config: ${name}`}
+          title={t`View Config: ${name}`}
           onClick={(e) => e.stopPropagation()}
         >
           <OverflowText maxWidth={maxWidth} title={name}>

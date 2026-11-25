@@ -1,4 +1,5 @@
 import { FC, useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Flex } from "@radix-ui/themes";
 import {
   BaseSearchFiltersProps,
@@ -9,11 +10,6 @@ import {
 } from "@/components/Search/SearchFilters";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
-
-const TYPE_OPTIONS = [
-  { name: "String", id: "string", searchValue: "string" },
-  { name: "JSON", id: "json", searchValue: "json" },
-];
 
 const ConstantSearchFilters: FC<
   BaseSearchFiltersProps & {
@@ -35,7 +31,16 @@ const ConstantSearchFilters: FC<
     updateQuery,
     doesFilterExist,
   } = useSearchFiltersBase({ searchInputProps, syntaxFilters, setSearchValue });
+  const { t } = useLingui();
   const { getOwnerDisplay } = useUser();
+
+  const typeOptions = useMemo(
+    () => [
+      { name: t`String`, id: "string", searchValue: "string" },
+      { name: "JSON", id: "json", searchValue: "json" },
+    ],
+    [t],
+  );
 
   const owners = useMemo(() => {
     const set = new Set<string>();
@@ -52,6 +57,7 @@ const ConstantSearchFilters: FC<
       {!project && (
         <FilterDropdown
           filter="project"
+          heading={t`project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -66,15 +72,17 @@ const ConstantSearchFilters: FC<
       )}
       <FilterDropdown
         filter="type"
+        heading={t`type`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={TYPE_OPTIONS}
+        items={typeOptions}
         updateQuery={updateQuery}
         menuPlacement="end"
       />
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -84,7 +92,7 @@ const ConstantSearchFilters: FC<
       />
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -104,7 +112,7 @@ const ConstantSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived Constants"
+            item={t`Archived Constants`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>
@@ -119,7 +127,7 @@ const ConstantSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Has active draft"
+            item={t`Has active draft`}
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>

@@ -1,5 +1,6 @@
 import React, { FC } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -25,6 +26,7 @@ const ExperimentSearchFilters: FC<
   showStatusFilter = true,
   includeTempRollouts = false,
 }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -57,7 +59,7 @@ const ExperimentSearchFilters: FC<
       {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"
-          heading="Project"
+          heading={t`Project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -69,7 +71,7 @@ const ExperimentSearchFilters: FC<
       )}
       <FilterDropdown
         filter="metric"
-        heading="Metric"
+        heading={t`Metric`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -78,7 +80,7 @@ const ExperimentSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
-        heading="Owner"
+        heading={t`Owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -89,7 +91,7 @@ const ExperimentSearchFilters: FC<
       />
       <FilterDropdown
         filter="is"
-        heading="Result"
+        heading={t`Result`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -99,7 +101,7 @@ const ExperimentSearchFilters: FC<
       {showStatusFilter && (
         <FilterDropdown
           filter="status"
-          heading="Status"
+          heading={t`Status`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -109,22 +111,22 @@ const ExperimentSearchFilters: FC<
       )}
       <FilterDropdown
         filter="tag"
-        heading="Tag"
+        heading={t`Tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
+        items={availableTags.map((tag) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           };
         })}
         updateQuery={updateQuery}
       />
       <FilterDropdown
         filter="has"
-        heading="Type"
+        heading={t`Type`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -133,7 +135,7 @@ const ExperimentSearchFilters: FC<
       />
       <FilterDropdown
         filter="health"
-        heading="Health"
+        heading={t`Health`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}

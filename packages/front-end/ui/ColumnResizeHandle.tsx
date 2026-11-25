@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import styles from "./Table.module.scss";
 
 const KEYBOARD_STEP = 16;
@@ -56,6 +57,7 @@ export default function ColumnResizeHandle({
   /** Written imperatively during the drag; no React render per frame. */
   setLiveWidth: (width: number) => void;
 }) {
+  const { t } = useLingui();
   const ref = useRef<HTMLButtonElement>(null);
   const drag = useRef<{
     startX: number;
@@ -161,7 +163,7 @@ export default function ColumnResizeHandle({
       className={styles.resizeHandle}
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${label} column`}
+      aria-label={t`Resize ${label} column`}
       aria-valuenow={width ?? focusWidth}
       aria-valuemin={minWidth}
       aria-valuemax={maxWidth}

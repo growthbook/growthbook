@@ -42,6 +42,9 @@ import {
   PiSpinnerGapBold,
 } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ApiContextualBanditInterface,
   getRampRetry,
@@ -137,12 +140,15 @@ function fmtScheduleDate(d: Date | string): string {
   });
 }
 
-function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
+function formatSimpleScheduleLabel(
+  rs: RampScheduleInterface,
+  i18n: I18n,
+): string {
   const { start, end } = rampScheduleDates(rs);
   const parts = [start, end]
     .filter((d): d is ScheduleDate => d !== null)
     .map(({ label, date }) => `${label} ${fmtScheduleDate(date)}`);
-  return parts.length > 0 ? parts.join(" · ") : "USING SCHEDULE";
+  return parts.length > 0 ? parts.join(" · ") : i18n._(msg`USING SCHEDULE`);
 }
 
 // Returns the scheduled enable date for a rule whose ramp is queued to flip it
@@ -368,6 +374,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     },
     ref,
   ) => {
+    const { t, i18n } = useLingui();
     const { apiCall } = useAuth();
     const { hasCommercialFeature } = useUser();
     const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
@@ -441,23 +448,34 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       : -1;
     const globalRuleIdx = flatIdx === -1 ? i : flatIdx;
 
-    let title: string | ReactElement =
-      rule.description ||
-      (rule.type === "contextual-bandit-ref"
-        ? "Contextual Bandit"
-        : rule.type[0].toUpperCase() + rule.type.slice(1));
-    if (rule.type !== "rollout" && rule.type !== "contextual-bandit-ref") {
-      title += " Rule";
+    const ruleDescription = rule.description;
+    let title: string | ReactElement;
+    if (rule.type === "rollout" || rule.type === "contextual-bandit-ref") {
+      title =
+        ruleDescription ||
+        (rule.type === "contextual-bandit-ref"
+          ? t`Contextual Bandit`
+          : t`Rollout`);
+    } else if (ruleDescription) {
+      title = t`${ruleDescription} Rule`;
+    } else if (rule.type === "force") {
+      title = t`Force Rule`;
+    } else if (rule.type === "experiment") {
+      title = t`Experiment Rule`;
+    } else if (rule.type === "experiment-ref") {
+      title = t`Experiment-ref Rule`;
+    } else {
+      title = t`Safe-rollout Rule`;
     }
     if (rule.type === "experiment") {
       title = (
         <div className="d-flex align-items-center">
           {title}
           <Tooltip
-            body={`This is a legacy "inline experiment" feature rule. New experiment rules must be created as references to experiments.`}
+            body={t`This is a legacy "inline experiment" feature rule. New experiment rules must be created as references to experiments.`}
           >
             <HelperText status="info" size="sm" ml="3">
-              legacy
+              <Trans>legacy</Trans>
             </HelperText>
           </Tooltip>
         </div>
@@ -583,6 +601,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const simpleScheduleDone =
       isSimpleSchedule && rampSchedule?.status === "completed";
     const rampRetry = rampSchedule ? getRampRetry(rampSchedule) : null;
+    const retryAttempts = rampRetry?.attempts;
+    const retryError = rampRetry?.lastError;
+    const rampStepsCompleted = rampSchedule
+      ? getRampStepsCompleted(rampSchedule)
+      : 0;
+    const rampStepCount = rampSchedule?.steps.length ?? 0;
+    const rollbackReason = formatRollbackReason(
+      rampSchedule?.lastRollbackReason,
+    );
+    // The draft revision a pending ramp waits on, when it names one.
+    const pendingActivatingVersion = rampSchedule?.targets.find(
+      (target) => !!target.activatingRevisionVersion,
+    )?.activatingRevisionVersion;
+    const mismatchedAttributes =
+      attributesWithVersionStringOperatorMismatches?.join(", ");
+    const versionOperatorExamples = "$vgt, $vlt";
     const hasMonitoringStatusRow =
       !!rampSchedule?.safeRolloutId &&
       rampSchedule.steps.some((s) => s.monitored);
@@ -629,15 +663,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="ramp-hash"
             body={
               <p>
-                Neither this rule nor its ramp sets <strong>Sample by</strong>,
-                so the ramp will pause at its first step below 100% traffic. Set
-                it under Ramp-up Schedule in the rule editor.
+                <Trans>
+                  Neither this rule nor its ramp sets <strong>Sample by</strong>
+                  , so the ramp will pause at its first step below 100% traffic.
+                  Set it under Ramp-up Schedule in the rule editor.
+                </Trans>
               </p>
             }
             style={{ display: "inline-flex", alignItems: "center" }}
           >
             <Badge
-              label="Ramp needs a Sample by attribute"
+              label={t`Ramp needs a Sample by attribute`}
               color="amber"
               variant="soft"
             />
@@ -650,7 +686,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       ruleTags.push(
         <Badge
           key="demo-badge"
-          label="Using dummy data"
+          label={t`Using dummy data`}
           color="cyan"
           variant="soft"
         />,
@@ -668,15 +704,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       const parts: string[] = [];
       // Still a draft, so it hasn't started, whatever the date.
       if (linkedExperiment.status === "draft" && sched.startAt) {
-        parts.push(`Starts ${fmtScheduleDate(sched.startAt)}`);
+        const startDate = fmtScheduleDate(sched.startAt);
+        parts.push(t`Starts ${startDate}`);
       }
       // As the experiment page says it: when, not what happens then.
       if (sched.stopAt) {
-        parts.push(`Ends ${fmtScheduleDate(sched.stopAt)}`);
+        const stopDate = fmtScheduleDate(sched.stopAt);
+        parts.push(t`Ends ${stopDate}`);
       } else if (sched.stopAfter) {
-        parts.push(
-          `Ends ${sched.stopAfter.value} ${sched.stopAfter.unit} after start`,
-        );
+        const stopAfterValue = sched.stopAfter.value;
+        const stopAfterUnit = sched.stopAfter.unit;
+        parts.push(t`Ends ${stopAfterValue} ${stopAfterUnit} after start`);
       }
       experimentSchedule = parts.length ? parts.join(" · ") : null;
     }
@@ -713,7 +751,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               await mutate();
             }}
           >
-            {awaitingStartApproval ? "Approve & start" : "Start"}
+            {awaitingStartApproval ? (
+              <Trans>Approve & start</Trans>
+            ) : (
+              <Trans>Start</Trans>
+            )}
           </Button>,
         );
       }
@@ -731,7 +773,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               await mutate();
             }}
           >
-            Resume
+            <Trans>Resume</Trans>
           </Button>,
         );
       }
@@ -767,7 +809,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               }
             }}
           >
-            Approve step
+            <Trans>Approve step</Trans>
           </Button>,
         );
       }
@@ -792,10 +834,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         cutoffPast ? (
           <Tooltip
             key="ramp-restart"
-            body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+            body={t`The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting.`}
           >
             <Button size="sm" variant="solid" disabled>
-              Restart
+              <Trans>Restart</Trans>
             </Button>
           </Tooltip>
         ) : (
@@ -811,7 +853,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               await mutate();
             }}
           >
-            Restart
+            <Trans>Restart</Trans>
           </Button>
         ),
       );
@@ -839,11 +881,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         {showDeleteRuleModal && (
           <ModalStandard
             trackingEventModalType="delete-feature-rule"
-            header="Delete rule"
+            header={t`Delete rule`}
             size="lg"
             close={() => setShowDeleteRuleModal(false)}
             open={true}
-            cta="Save deletion"
+            cta={t`Save deletion`}
             ctaColor="red"
             submit={async () => {
               track("Delete Feature Rule", {
@@ -880,8 +922,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 triggerPrefix="Rule deletion will be"
               />
               <Text color="text-high" as="p">
-                This rule will be removed when the revision is published. The
-                live feature will not change until then.
+                <Trans>
+                  This rule will be removed when the revision is published. The
+                  live feature will not change until then.
+                </Trans>
               </Text>
             </Box>
           </ModalStandard>
@@ -912,10 +956,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   <Heading as="h4" size="md" weight="medium" mb="0">
                     {linkedExperiment ? (
                       <>
-                        {linkedExperiment.type === "multi-armed-bandit"
-                          ? "Bandit"
-                          : "Experiment"}
-                        :{" "}
+                        {linkedExperiment.type === "multi-armed-bandit" ? (
+                          <Trans>Bandit:</Trans>
+                        ) : (
+                          <Trans>Experiment:</Trans>
+                        )}{" "}
                         <Link
                           href={`/${
                             linkedExperiment.type === "multi-armed-bandit"
@@ -937,7 +982,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     ) : rule.type === "contextual-bandit-ref" &&
                       linkedContextualBandit ? (
                       <>
-                        Contextual Bandit:{" "}
+                        <Trans>Contextual Bandit:</Trans>{" "}
                         <Link
                           href={`/contextual-bandit/${linkedContextualBandit.id}`}
                           style={{ marginRight: "var(--space-2)" }}
@@ -953,7 +998,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </span>
                       </>
                     ) : rule.type === "safe-rollout" ? (
-                      <span>Safe Rollout</span>
+                      <span>
+                        <Trans>Safe Rollout</Trans>
+                      </span>
                     ) : (
                       <span>{title}</span>
                     )}
@@ -1051,7 +1098,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <DropdownMenu
                       trigger={
                         <MoreMenuTrigger
-                          label="Rule actions"
+                          label={t`Rule actions`}
                           className={ruleRowMenuClass}
                         />
                       }
@@ -1075,14 +1122,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setDropdownOpen(false);
                                 }}
                               >
-                                Duplicate rule
+                                <Trans>Duplicate rule</Trans>
                               </DropdownMenuItem>
                             )}
                           {(rule.type === "force" || rule.type === "rollout") &&
                             !hasAnyEnvRampSchedule &&
                             canUseRampSchedules && (
                               <DropdownMenuItem
-                                tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
+                                tooltip={t`Inserts a ramp-up rule above this one to gradually replace its value.`}
                                 tooltipSide="left"
                                 onClick={() => {
                                   setRuleModal({
@@ -1095,7 +1142,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   setDropdownOpen(false);
                                 }}
                               >
-                                Ramp to new value
+                                <Trans>Ramp to new value</Trans>
                               </DropdownMenuItem>
                             )}
                           <DropdownMenuItem
@@ -1109,17 +1156,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 ? getRampEnableDate(rampSchedule)
                                 : null;
                               if (!d) return undefined;
+                              const goLiveDate = fmtScheduleDate(d);
                               return {
-                                confirmationTitle: "Enable rule now?",
+                                confirmationTitle: t`Enable rule now?`,
                                 getConfirmationContent: async () =>
-                                  `This rule is scheduled to go live on ${fmtScheduleDate(d)}. Enabling now bypasses the schedule and will set the rule live immediately.`,
-                                cta: "Enable now",
+                                  t`This rule is scheduled to go live on ${goLiveDate}. Enabling now bypasses the schedule and will set the rule live immediately.`,
+                                cta: t`Enable now`,
                                 ctaColor: "violet",
                                 submit: toggleRuleEnabled,
                               };
                             })()}
                           >
-                            {rule.enabled ? "Disable" : "Enable"}
+                            {rule.enabled ? (
+                              <Trans>Disable</Trans>
+                            ) : (
+                              <Trans>Enable</Trans>
+                            )}
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
                       )}
@@ -1139,7 +1191,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                     setDropdownOpen(false);
                                   }}
                                 >
-                                  <PiCaretDoubleUp /> Move to top
+                                  <PiCaretDoubleUp /> <Trans>Move to top</Trans>
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
@@ -1151,7 +1203,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   }
                                 }}
                               >
-                                <PiCaretUp /> Move up
+                                <PiCaretUp /> <Trans>Move up</Trans>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 disabled={!onMoveDown}
@@ -1162,7 +1214,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   }
                                 }}
                               >
-                                <PiCaretDown /> Move down
+                                <PiCaretDown /> <Trans>Move down</Trans>
                               </DropdownMenuItem>
                               {onMoveToBottom && (
                                 <DropdownMenuItem
@@ -1171,7 +1223,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                     setDropdownOpen(false);
                                   }}
                                 >
-                                  <PiCaretDoubleDown /> Move to bottom
+                                  <PiCaretDoubleDown />{" "}
+                                  <Trans>Move to bottom</Trans>
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuGroup>
@@ -1183,7 +1236,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         isRampScheduleServing(rampSchedule) && (
                           <>
                             {!locked && <DropdownMenuSeparator />}
-                            <DropdownMenuGroup label="Schedule">
+                            <DropdownMenuGroup label={t`Schedule`}>
                               <DropdownMenuItem
                                 onClick={async () => {
                                   await apiCall(
@@ -1195,8 +1248,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 }}
                               >
                                 <Flex align="center" gap="2">
-                                  <PiFastForward /> Complete schedule and
-                                  disable
+                                  <PiFastForward />{" "}
+                                  <Trans>Complete schedule and disable</Trans>
                                 </Flex>
                               </DropdownMenuItem>
                             </DropdownMenuGroup>
@@ -1212,7 +1265,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         ) && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuGroup label="Schedule">
+                            <DropdownMenuGroup label={t`Schedule`}>
                               <DropdownMenuItem
                                 onClick={async () => {
                                   const res = await apiCall<{
@@ -1235,7 +1288,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 }}
                               >
                                 <Flex align="center" gap="2">
-                                  <PiTrash /> Remove schedule
+                                  <PiTrash /> <Trans>Remove schedule</Trans>
                                 </Flex>
                               </DropdownMenuItem>
                             </DropdownMenuGroup>
@@ -1246,7 +1299,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         !isSyntheticRamp && (
                           <>
                             {!locked && <DropdownMenuSeparator />}
-                            <DropdownMenuGroup label="Ramp-up schedule">
+                            <DropdownMenuGroup label={t`Ramp-up schedule`}>
                               {hasPendingDetach ? (
                                 // Canceling a pending removal edits the draft, so it's
                                 // gated by the edit-lock; runtime actions below are not.
@@ -1272,7 +1325,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       setDropdownOpen(false);
                                     }}
                                   >
-                                    Cancel removal of schedule
+                                    <Trans>Cancel removal of schedule</Trans>
                                   </DropdownMenuItem>
                                 )
                               ) : !canControlRamp ? null : (
@@ -1281,17 +1334,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   {rampSchedule.status === "pending" && (
                                     <DropdownMenuItem
                                       disabled
-                                      tooltip={`Cannot start while ramp is pending.${
-                                        rampSchedule.targets.find(
-                                          (t) => !!t.activatingRevisionVersion,
-                                        )?.activatingRevisionVersion
-                                          ? ` Publish Revision ${rampSchedule.targets.find((t) => !!t.activatingRevisionVersion)?.activatingRevisionVersion} first.`
-                                          : ""
-                                      }`}
+                                      tooltip={
+                                        pendingActivatingVersion
+                                          ? t`Cannot start while ramp is pending. Publish Revision ${pendingActivatingVersion} first.`
+                                          : t`Cannot start while ramp is pending.`
+                                      }
                                       tooltipSide="left"
                                     >
                                       <Flex align="center" gap="2">
-                                        <PiPlayFill /> Start now
+                                        <PiPlayFill /> <Trans>Start now</Trans>
                                       </Flex>
                                     </DropdownMenuItem>
                                   )}
@@ -1300,11 +1351,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                     (rampSchedule.targets.length === 0 ? (
                                       <DropdownMenuItem
                                         disabled
-                                        tooltip="No implementations linked"
+                                        tooltip={t`No implementations linked`}
                                         tooltipSide="left"
                                       >
                                         <Flex align="center" gap="2">
-                                          <PiPlayFill /> Start now
+                                          <PiPlayFill />{" "}
+                                          <Trans>Start now</Trans>
                                         </Flex>
                                       </DropdownMenuItem>
                                     ) : (
@@ -1319,7 +1371,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                         }}
                                       >
                                         <Flex align="center" gap="2">
-                                          <PiPlayFill /> Start now
+                                          <PiPlayFill />{" "}
+                                          <Trans>Start now</Trans>
                                         </Flex>
                                       </DropdownMenuItem>
                                     ))}
@@ -1336,7 +1389,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       }}
                                     >
                                       <Flex align="center" gap="2">
-                                        <PiPauseFill /> Pause
+                                        <PiPauseFill /> <Trans>Pause</Trans>
                                       </Flex>
                                     </DropdownMenuItem>
                                   )}
@@ -1345,11 +1398,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                     (rampSchedule.targets.length === 0 ? (
                                       <DropdownMenuItem
                                         disabled
-                                        tooltip="No implementations linked"
+                                        tooltip={t`No implementations linked`}
                                         tooltipSide="left"
                                       >
                                         <Flex align="center" gap="2">
-                                          <PiPlayFill /> Resume
+                                          <PiPlayFill /> <Trans>Resume</Trans>
                                         </Flex>
                                       </DropdownMenuItem>
                                     ) : (
@@ -1364,7 +1417,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                         }}
                                       >
                                         <Flex align="center" gap="2">
-                                          <PiPlayFill /> Resume
+                                          <PiPlayFill /> <Trans>Resume</Trans>
                                         </Flex>
                                       </DropdownMenuItem>
                                     ))}
@@ -1384,8 +1437,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                             <DropdownSubMenu
                                               trigger={
                                                 <Flex align="center" gap="2">
-                                                  <PiArrowUUpLeft /> Roll back
-                                                  to
+                                                  <PiArrowUUpLeft />{" "}
+                                                  <Trans>Roll back to</Trans>
                                                 </Flex>
                                               }
                                             >
@@ -1396,13 +1449,62 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                                 }}
                                               >
                                                 <Flex align="center" gap="2">
-                                                  <PiRewind /> Start
+                                                  <PiRewind />{" "}
+                                                  <Trans>Start</Trans>
                                                 </Flex>
                                               </DropdownMenuItem>
                                               {backSteps.length > 0 && (
                                                 <DropdownMenuSeparator />
                                               )}
-                                              {backSteps.map((stepIdx) => (
+                                              {backSteps.map((stepIdx) => {
+                                                const stepNumber = stepIdx + 1;
+                                                return (
+                                                  <DropdownMenuItem
+                                                    key={stepIdx}
+                                                    onClick={async () => {
+                                                      await apiCall(
+                                                        `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                                                        {
+                                                          method: "POST",
+                                                          body: JSON.stringify({
+                                                            targetStepIndex:
+                                                              stepIdx,
+                                                          }),
+                                                        },
+                                                      );
+                                                      await mutate();
+                                                      setDropdownOpen(false);
+                                                    }}
+                                                  >
+                                                    <Trans>
+                                                      Step {stepNumber}
+                                                    </Trans>
+                                                  </DropdownMenuItem>
+                                                );
+                                              })}
+                                            </DropdownSubMenu>
+                                          );
+                                        })()}
+                                      {rampSchedule.currentStepIndex <
+                                        rampSchedule.steps.length - 1 && (
+                                        <DropdownSubMenu
+                                          trigger={
+                                            <Flex align="center" gap="2">
+                                              <PiArrowUUpRight />{" "}
+                                              <Trans>Jump ahead to</Trans>
+                                            </Flex>
+                                          }
+                                        >
+                                          {rampSchedule.steps
+                                            .map((_, idx) => idx)
+                                            .filter(
+                                              (idx) =>
+                                                idx >
+                                                rampSchedule.currentStepIndex,
+                                            )
+                                            .map((stepIdx) => {
+                                              const stepNumber = stepIdx + 1;
+                                              return (
                                                 <DropdownMenuItem
                                                   key={stepIdx}
                                                   onClick={async () => {
@@ -1420,49 +1522,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                                     setDropdownOpen(false);
                                                   }}
                                                 >
-                                                  Step {stepIdx + 1}
+                                                  <Trans>
+                                                    Step {stepNumber}
+                                                  </Trans>
                                                 </DropdownMenuItem>
-                                              ))}
-                                            </DropdownSubMenu>
-                                          );
-                                        })()}
-                                      {rampSchedule.currentStepIndex <
-                                        rampSchedule.steps.length - 1 && (
-                                        <DropdownSubMenu
-                                          trigger={
-                                            <Flex align="center" gap="2">
-                                              <PiArrowUUpRight /> Jump ahead to
-                                            </Flex>
-                                          }
-                                        >
-                                          {rampSchedule.steps
-                                            .map((_, idx) => idx)
-                                            .filter(
-                                              (idx) =>
-                                                idx >
-                                                rampSchedule.currentStepIndex,
-                                            )
-                                            .map((stepIdx) => (
-                                              <DropdownMenuItem
-                                                key={stepIdx}
-                                                onClick={async () => {
-                                                  await apiCall(
-                                                    `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                                                    {
-                                                      method: "POST",
-                                                      body: JSON.stringify({
-                                                        targetStepIndex:
-                                                          stepIdx,
-                                                      }),
-                                                    },
-                                                  );
-                                                  await mutate();
-                                                  setDropdownOpen(false);
-                                                }}
-                                              >
-                                                Step {stepIdx + 1}
-                                              </DropdownMenuItem>
-                                            ))}
+                                              );
+                                            })}
                                         </DropdownSubMenu>
                                       )}
                                       {(() => {
@@ -1485,8 +1550,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                                 }}
                                               >
                                                 <Flex align="center" gap="2">
-                                                  <PiFastForward /> Complete
-                                                  ramp
+                                                  <PiFastForward />{" "}
+                                                  <Trans>Complete ramp</Trans>
                                                 </Flex>
                                               </DropdownMenuItem>
                                             )}
@@ -1507,8 +1572,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                                 }}
                                               >
                                                 <Flex align="center" gap="2">
-                                                  <PiFastForward /> Complete
-                                                  ramp and disable rule
+                                                  <PiFastForward />{" "}
+                                                  <Trans>
+                                                    Complete ramp and disable
+                                                    rule
+                                                  </Trans>
                                                 </Flex>
                                               </DropdownMenuItem>
                                             )}
@@ -1525,11 +1593,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                         new Date() ? (
                                         <DropdownMenuItem
                                           disabled
-                                          tooltip="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+                                          tooltip={t`The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting.`}
                                           tooltipSide="left"
                                         >
                                           <Flex align="center" gap="2">
-                                            <PiRewind /> Restart ramp
+                                            <PiRewind />{" "}
+                                            <Trans>Restart ramp</Trans>
                                           </Flex>
                                         </DropdownMenuItem>
                                       ) : (
@@ -1544,7 +1613,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                           }}
                                         >
                                           <Flex align="center" gap="2">
-                                            <PiRewind /> Restart ramp
+                                            <PiRewind />{" "}
+                                            <Trans>Restart ramp</Trans>
                                           </Flex>
                                         </DropdownMenuItem>
                                       )}
@@ -1576,7 +1646,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                           }}
                                         >
                                           <Flex align="center" gap="2">
-                                            <PiTrash /> Remove schedule
+                                            <PiTrash />{" "}
+                                            <Trans>Remove schedule</Trans>
                                           </Flex>
                                         </DropdownMenuItem>
                                       )}
@@ -1601,7 +1672,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               setDropdownOpen(false);
                             }}
                           >
-                            Delete rule
+                            <Trans>Delete rule</Trans>
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
                       )}
@@ -1613,15 +1684,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         >
           {willRevertScheduleEnable ? (
             <Callout status="warning" mb="3" size="sm">
-              This rule is <strong>enabled</strong> in the live feature but{" "}
-              <strong>disabled</strong> in this draft. Publishing may revert a
-              schedule-driven enable.
+              <Trans>
+                This rule is <strong>enabled</strong> in the live feature but{" "}
+                <strong>disabled</strong> in this draft. Publishing may revert a
+                schedule-driven enable.
+              </Trans>
             </Callout>
           ) : draftBehindLiveStale ? (
             <Box mb="3">
               <HelperText status="info" size="sm">
-                This draft is behind live — rebase (Review and Publish tab) to
-                compare
+                <Trans>
+                  This draft is behind live — rebase (Review and Publish tab) to
+                  compare
+                </Trans>
               </HelperText>
             </Box>
           ) : null}
@@ -1635,7 +1710,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 size="sm"
                 icon={<PiSpinnerGapBold />}
               >
-                <strong>Approval Notes:</strong>{" "}
+                <strong>
+                  <Trans>Approval Notes:</Trans>
+                </strong>{" "}
                 {
                   rampSchedule.steps[rampSchedule.currentStepIndex]
                     ?.approvalNotes
@@ -1647,12 +1724,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Callout status="warning" mb="3">
                 <Flex direction="column" gap="2">
                   <Text>
-                    This rule uses string operators on version attributes, which
-                    can have unintended effects. Edit this rule and change{" "}
-                    <strong>
-                      {attributesWithVersionStringOperatorMismatches.join(", ")}
-                    </strong>{" "}
-                    to use version operators ($vgt, $vlt, etc.) instead.
+                    <Trans>
+                      This rule uses string operators on version attributes,
+                      which can have unintended effects. Edit this rule and
+                      change <strong>{mismatchedAttributes}</strong> to use
+                      version operators ({versionOperatorExamples}, etc.)
+                      instead.
+                    </Trans>
                   </Text>
                 </Flex>
               </Callout>
@@ -1665,7 +1743,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           )}
           {/* A rule that won't serve is faded, all of its details alike. */}
           <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
-            <RuleField label="Environments">
+            <RuleField label={t`Environments`}>
               <RuleEnvScopeBadges
                 activeEnvironmentIds={
                   rule.allEnvironments === true ||
@@ -1679,7 +1757,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               />
             </RuleField>
             {rule.allProjects === false && (
-              <RuleField label="Projects">
+              <RuleField label={t`Projects`}>
                 <RuleProjectScopeBadges
                   projectIds={rule.projects ?? []}
                   deliveryProjectIds={getTargetingProjectIds(feature)}
@@ -1757,15 +1835,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                   {!safeRollout?.startedAt && (
                     <Callout status="info" mt="4">
-                      This Safe Rollout rule is in a draft state and will start
-                      when this feature revision is published.
+                      <Trans>
+                        This Safe Rollout rule is in a draft state and will
+                        start when this feature revision is published.
+                      </Trans>
                     </Callout>
                   )}
                 </Box>
               ) : (
                 <div>
                   {/* Better error state if safe rollout is not found */}
-                  <p>Safe Rollout not found</p>
+                  <p>
+                    <Trans>Safe Rollout not found</Trans>
+                  </p>
                 </div>
               ))}
             {rule.type === "experiment" && (
@@ -1787,7 +1869,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             )}
             {experimentSchedule ? (
               <Box mt="3">
-                <RuleField label="Schedule" mb="0">
+                <RuleField label={t`Schedule`} mb="0">
                   {experimentSchedule}
                 </RuleField>
               </Box>
@@ -1802,7 +1884,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (
-                  <RuleField label="Ramp-up" mb="4">
+                  <RuleField label={t`Ramp-up`} mb="4">
                     <Flex gapX="3" gapY="1" align="center" wrap="wrap">
                       {![
                         "pending",
@@ -1811,8 +1893,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         "rolled-back",
                       ].includes(rampSchedule.status) && (
                         <Text>
-                          Step {getRampStepsCompleted(rampSchedule)} of{" "}
-                          {rampSchedule.steps.length}
+                          <Trans>
+                            Step {rampStepsCompleted} of {rampStepCount}
+                          </Trans>
                         </Text>
                       )}
                       {(() => {
@@ -1822,9 +1905,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         if (seconds <= 0 && manualApprovals === 0) return null;
                         let label: string;
                         const approvalStr =
-                          manualApprovals > 0
-                            ? `${manualApprovals} manual approval${manualApprovals > 1 ? "s" : ""}`
-                            : "";
+                          manualApprovals > 1
+                            ? t`${manualApprovals} manual approvals`
+                            : manualApprovals > 0
+                              ? t`${manualApprovals} manual approval`
+                              : "";
                         if (seconds <= 0) {
                           label = approvalStr;
                         } else {
@@ -1832,7 +1917,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           if (approvalStr) label += ` + ${approvalStr}`;
                         }
                         return (
-                          <Text color="text-low">({label} remaining)</Text>
+                          <Text color="text-low">
+                            <Trans>({label} remaining)</Trans>
+                          </Text>
                         );
                       })()}
                       {rampSchedule.lockdownConfig?.mode === "locked" && (
@@ -1842,8 +1929,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             icon={<PiLockSimple size={15} />}
                           >
                             {rampSchedule.status === "running"
-                              ? "Feature locked during ramp-up"
-                              : "Feature will be locked while ramp-up is running"}
+                              ? t`Feature locked during ramp-up`
+                              : t`Feature will be locked while ramp-up is running`}
                           </HelperText>
                         </Box>
                       )}
@@ -1852,10 +1939,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 )}
                 {isSimpleSchedule && (
                   <RuleField
-                    label="Schedule"
+                    label={t`Schedule`}
                     mb={simpleScheduleDone ? "0" : "4"}
                   >
-                    {formatSimpleScheduleLabel(rampSchedule)}
+                    {formatSimpleScheduleLabel(rampSchedule, i18n)}
                   </RuleField>
                 )}
                 {rampActionError && (
@@ -1869,7 +1956,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         color="inherit"
                         onClick={() => setRampActionError("")}
                       >
-                        Dismiss
+                        <Trans>Dismiss</Trans>
                       </Button>
                     }
                   >
@@ -1904,32 +1991,38 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             }
                           }}
                         >
-                          Retry now
+                          <Trans>Retry now</Trans>
                         </Button>
                       ) : undefined
                     }
                   >
-                    <Text weight="semibold">Retrying a failed step.</Text> The
-                    ramp holds at its current step and pauses if retries keep
-                    failing. Attempt {rampRetry.attempts} failed:{" "}
-                    {rampRetry.lastError}
+                    <Trans>
+                      <Text weight="semibold">Retrying a failed step.</Text> The
+                      ramp holds at its current step and pauses if retries keep
+                      failing. Attempt {retryAttempts} failed: {retryError}
+                    </Trans>
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&
                   !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
                     <Callout status="error" mb="2">
-                      <Text weight="semibold">Rolled back:</Text>{" "}
-                      {formatRollbackReason(rampSchedule.lastRollbackReason)}
+                      <Text weight="semibold">
+                        <Trans>Rolled back:</Trans>
+                      </Text>{" "}
+                      {rollbackReason}
                     </Callout>
                   )}
                 {isAwaitingStartApproval(rampSchedule) &&
                   !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
                     <Callout status="warning" mb="2">
-                      <Text weight="semibold">Rolled back by monitoring:</Text>{" "}
-                      {formatRollbackReason(rampSchedule.lastRollbackReason)} —
-                      review before re-approving.
+                      <Trans>
+                        <Text weight="semibold">
+                          Rolled back by monitoring:
+                        </Text>{" "}
+                        {rollbackReason} — review before re-approving.
+                      </Trans>
                     </Callout>
                   )}
                 {simpleScheduleDone ? null : (
@@ -2052,11 +2145,11 @@ export function SortableRule(props: SortableProps) {
 }
 
 // A rule that serves nothing says so, and why, across its card.
-function skipped(reason: ReactNode, label = "Skipped"): RuleMetaInfo {
+function skipped(reason: ReactNode, label?: ReactNode): RuleMetaInfo {
   return {
     callout: (
       <Callout status="warning" size="sm">
-        <strong>{label}</strong>
+        <strong>{label ?? <Trans>Skipped</Trans>}</strong>
         {reason ? <>: {reason}</> : null}
       </Callout>
     ),
@@ -2118,7 +2211,7 @@ export function getRuleMetaInfo({
 
   if (!rule.enabled) {
     // A disabled rule's ribbon saying why, with any other ribbon it has.
-    const disabled = (reason?: string): RuleMetaInfo => {
+    const disabled = (reason?: ReactNode): RuleMetaInfo => {
       // Its summary has nothing to show for a missing or retired target.
       const targetCallout = targetReason ? (
         <Callout key="target" status="info" size="sm">
@@ -2134,7 +2227,9 @@ export function getRuleMetaInfo({
               size="sm"
               icon={<RxCircleBackslash />}
             >
-              <strong>Disabled</strong>
+              <strong>
+                <Trans>Disabled</Trans>
+              </strong>
               {reason ? <>: {reason}</> : null}
             </Callout>
             {targetCallout}
@@ -2148,7 +2243,9 @@ export function getRuleMetaInfo({
     // clear the rule is staged, not turned off by hand.
     if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
       return disabled(
-        "Staged with no traffic until someone approves its ramp's start.",
+        <Trans>
+          Staged with no traffic until someone approves its ramp&apos;s start.
+        </Trans>,
       );
     }
     const rampEnableDate = getRampEnableDate(rampSchedule);
@@ -2158,10 +2255,13 @@ export function getRuleMetaInfo({
       // a one-shot gate and enables immediately. Showing the stale date is
       // confusing; surface the actual semantics instead.
       const inPast = rampEnableDate.getTime() <= Date.now();
+      const enableDate = fmtScheduleDate(rampEnableDate);
       return disabled(
-        inPast
-          ? "Its ramp schedule enables it on the next publish."
-          : `Its ramp schedule enables it ${fmtScheduleDate(rampEnableDate)}.`,
+        inPast ? (
+          <Trans>Its ramp schedule enables it on the next publish.</Trans>
+        ) : (
+          <Trans>Its ramp schedule enables it {enableDate}.</Trans>
+        ),
       );
     }
     // A pre-start ramp with no start date and no approval gate (both handled
@@ -2178,7 +2278,10 @@ export function getRuleMetaInfo({
       !rampSchedule.startDate;
     if (rampEnablesOnPublish) {
       return disabled(
-        "Its ramp starts on publish and enables it, so this won't hold the rollout. To stage it with no traffic, start the ramp On approval.",
+        <Trans>
+          Its ramp starts on publish and enables it, so this won&apos;t hold the
+          rollout. To stage it with no traffic, start the ramp On approval.
+        </Trans>,
       );
     }
     return disabled();
@@ -2191,21 +2294,23 @@ export function getRuleMetaInfo({
   ) {
     const lastRule = rule.scheduleRules[rule.scheduleRules.length - 1];
     if (lastRule && lastRule.timestamp) {
+      const date = new Date(lastRule.timestamp).toLocaleDateString();
+      const time = formatTimeZone(new Date(lastRule.timestamp), "h:mm a z");
       return skipped(
-        <>
-          Disabled by a schedule on{" "}
-          {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
-          {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}.
-        </>,
+        <Trans>
+          Disabled by a schedule on {date} at {time}.
+        </Trans>,
       );
     }
   }
 
   if (ruleInactive) {
     return skipped(
-      rule.type === "safe-rollout"
-        ? "This Safe Rollout is stopped."
-        : experimentRefSkipReason(linkedExperiment),
+      rule.type === "safe-rollout" ? (
+        <Trans>This Safe Rollout is stopped.</Trans>
+      ) : (
+        experimentRefSkipReason(linkedExperiment)
+      ),
     );
   }
 
@@ -2214,12 +2319,15 @@ export function getRuleMetaInfo({
     upcomingScheduleRule.enabled &&
     upcomingScheduleRule.timestamp
   ) {
+    const date = new Date(upcomingScheduleRule.timestamp).toLocaleDateString();
+    const time = formatTimeZone(
+      new Date(upcomingScheduleRule.timestamp),
+      "h:mm a z",
+    );
     return skipped(
-      <>
-        Will be enabled on{" "}
-        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}.
-      </>,
+      <Trans>
+        Will be enabled on {date} at {time}.
+      </Trans>,
     );
   }
 
@@ -2230,7 +2338,11 @@ export function getRuleMetaInfo({
     return skipped(
       experimentRefSkipReason(linkedExperiment),
       // An SDK connection can include draft experiment rules.
-      linkedExperiment?.status === "draft" ? "Skipped by default" : "Skipped",
+      linkedExperiment?.status === "draft" ? (
+        <Trans>Skipped by default</Trans>
+      ) : (
+        <Trans>Skipped</Trans>
+      ),
     );
   }
 
@@ -2248,14 +2360,20 @@ export function getRuleMetaInfo({
     />
   ));
   if (missingSavedGroupIds.length) {
+    const missingIds = missingSavedGroupIds.join(", ");
     callouts.unshift(
       <Callout key="missing-saved-groups" status="error" size="sm">
-        {missingSavedGroupIds.length === 1
-          ? "This rule targets a Saved Group that no longer exists"
-          : "This rule targets Saved Groups that no longer exist"}{" "}
-        ({missingSavedGroupIds.join(", ")}). It&apos;s served as if{" "}
-        {missingSavedGroupIds.length === 1 ? "that group were" : "they were"}{" "}
-        empty.
+        {missingSavedGroupIds.length === 1 ? (
+          <Trans>
+            This rule targets a Saved Group that no longer exists ({missingIds}
+            ). It&apos;s served as if that group were empty.
+          </Trans>
+        ) : (
+          <Trans>
+            This rule targets Saved Groups that no longer exist ({missingIds}).
+            It&apos;s served as if they were empty.
+          </Trans>
+        )}
       </Callout>,
     );
   }
@@ -2271,11 +2389,16 @@ export function getRuleMetaInfo({
   }
 
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+    const date = new Date(upcomingScheduleRule.timestamp).toLocaleDateString();
+    const time = formatTimeZone(
+      new Date(upcomingScheduleRule.timestamp),
+      "h:mm a z",
+    );
     callouts.push(
       <Callout key="schedule" status="info" size="sm">
-        Will be disabled on{" "}
-        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+        <Trans>
+          Will be disabled on {date} at {time}
+        </Trans>
       </Callout>,
     );
   }

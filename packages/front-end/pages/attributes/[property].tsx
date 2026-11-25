@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaQuestionCircle } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -40,6 +41,7 @@ import { IDENTIFIER_DATA_TYPES } from "@/components/Features/AttributeFormLayout
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AttributeDetailPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const property = router.query.property as string | undefined;
   const attributeSchema = useAttributeSchema(true);
@@ -94,15 +96,17 @@ export default function AttributeDetailPage() {
       <>
         <PageHead
           breadcrumb={[
-            { display: "Attributes", href: "/attributes" },
+            { display: t`Attributes`, href: "/attributes" },
             { display: property },
           ]}
         />
         <div className="container-fluid pagecontents">
           <Callout status="error">
-            Attribute &quot;{property}&quot; not found. It may have been deleted
-            or you may not have access.{" "}
-            <Link href="/attributes">Back to Attributes</Link>
+            <Trans>
+              Attribute &quot;{property}&quot; not found. It may have been
+              deleted or you may not have access.{" "}
+              <Link href="/attributes">Back to Attributes</Link>
+            </Trans>
           </Callout>
         </div>
       </>
@@ -110,15 +114,18 @@ export default function AttributeDetailPage() {
   }
 
   const canEdit = permissionsUtil.canCreateAttribute(attribute);
+  const attributeProperty = attribute.property;
+  const datatype = attribute.datatype;
+  const format = attribute.format;
 
   return (
     <>
       {showReferencesModal && (
         <Modal
           open={true}
-          header={`References: ${attribute.property}`}
+          header={t`References: ${attributeProperty}`}
           close={() => setShowReferencesModal(false)}
-          closeCta="Close"
+          closeCta={t`Close`}
           trackingEventModalType="show-attribute-references"
         >
           <AttributeReferencesList
@@ -169,9 +176,9 @@ export default function AttributeDetailPage() {
       {showDeleteModal && (
         <Modal
           open={true}
-          header="Delete Attribute"
+          header={t`Delete Attribute`}
           close={() => setShowDeleteModal(false)}
-          cta="Delete"
+          cta={t`Delete`}
           submitColor="danger"
           trackingEventModalType=""
           submit={async () => {
@@ -194,17 +201,27 @@ export default function AttributeDetailPage() {
           }}
         >
           <p>
-            Are you sure you want to delete the{" "}
-            {attribute.hashAttribute ? "identifier " : ""}
-            {attribute.datatype} attribute:{" "}
-            <code className="font-weight-bold">{attribute.property}</code>?
+            {attribute.hashAttribute ? (
+              <Trans>
+                Are you sure you want to delete the identifier {datatype}{" "}
+                attribute:{" "}
+                <code className="font-weight-bold">{attributeProperty}</code>?
+              </Trans>
+            ) : (
+              <Trans>
+                Are you sure you want to delete the {datatype} attribute:{" "}
+                <code className="font-weight-bold">{attributeProperty}</code>?
+              </Trans>
+            )}
           </p>
-          <p>This action cannot be undone.</p>
+          <p>
+            <Trans>This action cannot be undone.</Trans>
+          </p>
         </Modal>
       )}
       <PageHead
         breadcrumb={[
-          { display: "Attributes", href: "/attributes" },
+          { display: t`Attributes`, href: "/attributes" },
           { display: attribute.property },
         ]}
       />
@@ -237,7 +254,7 @@ export default function AttributeDetailPage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Edit Information
+                  <Trans>Edit Information</Trans>
                 </DropdownMenuItem>
                 {!attribute.archived &&
                   !attribute.hashAttribute &&
@@ -248,7 +265,7 @@ export default function AttributeDetailPage() {
                         setDropdownOpen(false);
                       }}
                     >
-                      Convert to Identifier
+                      <Trans>Convert to Identifier</Trans>
                     </DropdownMenuItem>
                   )}
                 {!attribute.archived && attribute.hashAttribute && (
@@ -268,7 +285,7 @@ export default function AttributeDetailPage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Delete
+                  <Trans>Delete</Trans>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenu>
@@ -278,19 +295,25 @@ export default function AttributeDetailPage() {
         <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
           <Flex align="center" gap="4" wrap="wrap">
             <Text>
-              Data type: <strong>{attribute.datatype}</strong>
+              <Trans>
+                Data type: <strong>{datatype}</strong>
+              </Trans>
               {attribute.datatype === "enum" && attribute.enum && (
                 <> ({attribute.enum})</>
               )}
             </Text>
-            {attribute.format && (
+            {format && (
               <Text>
-                Format: <strong>{attribute.format}</strong>
+                <Trans>
+                  Format: <strong>{format}</strong>
+                </Trans>
               </Text>
             )}
             {(attribute.projects?.length ?? 0) > 0 && (
               <Flex align="center" gap="2">
-                <Text>Projects:</Text>
+                <Text>
+                  <Trans>Projects:</Trans>
+                </Text>
                 <ProjectBadges
                   projectIds={attribute.projects ?? []}
                   resourceType="attribute"
@@ -299,15 +322,25 @@ export default function AttributeDetailPage() {
             )}
             {(attribute.tags?.length ?? 0) > 0 && (
               <Flex align="center" gap="2">
-                <Text>Tags:</Text>
+                <Text>
+                  <Trans>Tags:</Trans>
+                </Text>
                 <SortedTags tags={attribute.tags ?? []} useFlex={true} />
               </Flex>
             )}
             <Text>
-              Identifier:{" "}
-              <strong>{attribute.hashAttribute ? "Yes" : "No"}</strong>
+              <Trans>Identifier:</Trans>{" "}
+              <strong>
+                {attribute.hashAttribute ? (
+                  <Trans>Yes</Trans>
+                ) : (
+                  <Trans>No</Trans>
+                )}
+              </strong>
               {attribute.hashAttribute && (
-                <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
+                <Tooltip
+                  body={t`Any attribute that uniquely identifies a user, account, device, or similar.`}
+                >
                   <FaQuestionCircle
                     className="ml-1"
                     style={{ position: "relative", top: "-1px" }}
@@ -320,7 +353,7 @@ export default function AttributeDetailPage() {
             <ReferencesLink
               total={totalReferences}
               onShow={() => setShowReferencesModal(true)}
-              emptyTooltip="No features, experiments, or saved groups currently reference this attribute."
+              emptyTooltip={t`No features, experiments, or saved groups currently reference this attribute.`}
               status={
                 referencesError
                   ? "error"
@@ -334,8 +367,10 @@ export default function AttributeDetailPage() {
 
         {attribute.archived && (
           <Callout status="info" mb="4">
-            <strong>This attribute is archived.</strong> It will not be
-            available when creating or editing targeting rules.
+            <Trans>
+              <strong>This attribute is archived.</strong> It will not be
+              available when creating or editing targeting rules.
+            </Trans>
           </Callout>
         )}
 
@@ -367,7 +402,7 @@ export default function AttributeDetailPage() {
                 canCreate={canEdit}
                 canEdit={canEdit}
                 label="description"
-                header="Description"
+                header={t`Description`}
                 headerClassName="h4"
                 containerClassName="mb-1"
               />
@@ -379,7 +414,7 @@ export default function AttributeDetailPage() {
           <Box mb="4">
             <Frame>
               <Heading as="h4" size="sm" mb="3">
-                Additional Fields
+                <Trans>Additional Fields</Trans>
               </Heading>
               <DataList
                 data={customFieldDataListItems(

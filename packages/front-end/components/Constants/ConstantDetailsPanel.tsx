@@ -1,4 +1,5 @@
 import { Separator } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { Revision } from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
@@ -49,6 +50,7 @@ export default function ConstantDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
+  const { t } = useLingui();
   const pencil = (label: string, focus?: "description") =>
     onEditInfo ? (
       <PanelEditButton
@@ -60,39 +62,39 @@ export default function ConstantDetailsPanel({
 
   return (
     <DetailsPanel>
-      <PanelSection title="General">
+      <PanelSection title={t`General`}>
         <Metadata
           size="sm"
           stacked
-          label="Key"
+          label={t`Key`}
           value={<CopyableKey value={constant.key} />}
         />
         <Metadata
           size="sm"
           stacked
-          label="Description"
-          action={pencil("Edit description", "description")}
+          label={t`Description`}
+          action={pencil(t`Edit description`, "description")}
           value={<MarkdownValue markdown={constant.description} />}
         />
-        <OwnerField owner={constant.owner} action={pencil("Edit owner")} />
+        <OwnerField owner={constant.owner} action={pencil(t`Edit owner`)} />
         <ProjectField
           project={constant.project}
-          action={pencil("Edit Project")}
+          action={pencil(t`Edit Project`)}
         />
         <Metadata
           size="sm"
           stacked
-          label="Type"
+          label={t`Type`}
           value={<PanelText>{CONSTANT_TYPE_LABEL[constant.type]}</PanelText>}
         />
       </PanelSection>
       <ReferencesPanelSection
-        title="References"
-        intro="This Constant is referenced by the following:"
+        title={t`References`}
+        intro={t`This Constant is referenced by the following:`}
         rows={references.rows}
         loading={references.loading}
         error={references.error}
-        emptyText="Nothing references this Constant."
+        emptyText={t`Nothing references this Constant.`}
       />
       {revision ? (
         <>

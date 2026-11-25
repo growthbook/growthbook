@@ -3,6 +3,7 @@ import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import StringArrayField from "@/ui/StringArrayField";
 import RadioGroup from "@/ui/RadioGroup";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -29,6 +30,7 @@ export const IdListItemInput: FC<{
   bypassSizeLimit,
   setBypassSizeLimit,
 }) => {
+  const { t } = useLingui();
   const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
   const { savedGroupSizeLimit } = useOrgSettings();
 
@@ -40,6 +42,7 @@ export const IdListItemInput: FC<{
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
   const largeSavedGroupSupport = useLargeSavedGroupSupport();
+  const importCount = numValuesToImport?.toLocaleString();
 
   const resetFile = () => {
     setValues([]);
@@ -55,17 +58,16 @@ export const IdListItemInput: FC<{
         {...largeSavedGroupSupport}
       />
       <label className="form-group font-weight-bold">
-        Choose how to enter items for this group:
+        <Trans>Choose how to enter items for this group:</Trans>
       </label>
       <Container mb="3">
         <RadioGroup
           options={[
-            { value: "values", label: "Manually enter values" },
+            { value: "values", label: t`Manually enter values` },
             {
               value: "file",
-              label: "Import CSV",
-              description:
-                "File must contain one value per line or all values on one line with commas in-between",
+              label: t`Import CSV`,
+              description: t`File must contain one value per line or all values on one line with commas in-between`,
             },
           ]}
           value={importMethod}
@@ -76,8 +78,8 @@ export const IdListItemInput: FC<{
         <Container mb="2">
           <Checkbox
             disabled={!canBypassSavedGroupSizeLimit(projects)}
-            disabledMessage="You don't have permission to bypass the size limit for this Saved Group"
-            description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
+            disabledMessage={t`You don't have permission to bypass the size limit for this Saved Group`}
+            description={t`Bypass the size limit of ${savedGroupSizeLimit} items`}
             value={bypassSizeLimit}
             setValue={setBypassSizeLimit}
           />
@@ -85,7 +87,9 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "file" && (
         <>
-          <Text weight="bold">Upload CSV</Text>
+          <Text weight="bold">
+            <Trans>Upload CSV</Trans>
+          </Text>
           <Container mt="2">
             <div
               className="custom-file"
@@ -112,11 +116,11 @@ export const IdListItemInput: FC<{
                     return;
                   }
                   if (!file.name.endsWith(".csv")) {
-                    setFileErrorMessage("Only .csv file types are supported");
+                    setFileErrorMessage(t`Only .csv file types are supported`);
                     return;
                   }
                   if (file.size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
-                    setFileErrorMessage("File size must be less than 1 MB");
+                    setFileErrorMessage(t`File size must be less than 1 MB`);
                     return;
                   }
 
@@ -126,7 +130,7 @@ export const IdListItemInput: FC<{
                       const str = e.target?.result;
                       if (typeof str !== "string") {
                         setFileErrorMessage(
-                          "Failed to import file. Please try again",
+                          t`Failed to import file. Please try again`,
                         );
                         return;
                       }
@@ -156,16 +160,16 @@ export const IdListItemInput: FC<{
                   fileName ? "remove-file" : "",
                 ])}
                 htmlFor="savedGroupFileInput"
-                data-browse={fileName ? "Remove" : "Browse"}
+                data-browse={fileName ? t`Remove` : t`Browse`}
               >
-                {fileName || "Select file..."}
+                {fileName || t`Select file...`}
               </label>
             </div>
           </Container>
           {numValuesToImport ? (
             <>
               <FaCheckCircle className="text-success-green" />{" "}
-              {`${numValuesToImport.toLocaleString()} items ready to import`}
+              <Trans>{importCount} items ready to import</Trans>
             </>
           ) : (
             <></>
@@ -183,11 +187,11 @@ export const IdListItemInput: FC<{
         <StringArrayField
           legacyHeight
           containerClassName="mb-0"
-          label="List Values to Include"
+          label={t`List Values to Include`}
           labelClassName="font-weight-bold"
           value={values}
           onChange={setValues}
-          placeholder="Separate values using the 'Enter' key"
+          placeholder={t`Separate values using the 'Enter' key`}
           delimiters={["Enter", "Tab"]}
           enableRawTextMode
           removeDuplicates={false}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
@@ -27,12 +28,14 @@ export default function StaleDetectionModal({
   /** Called after enabling detection (neverStale: true → false) */
   onEnable?: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
   const enabling = !!feature.neverStale;
   const newNeverStale = !enabling;
+  const featureId = feature.id;
 
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
     feature,
@@ -66,11 +69,17 @@ export default function StaleDetectionModal({
       trackingEventModalType=""
       open
       close={close}
-      header={`${
-        enabling ? "Enable" : "Disable"
-      } stale Feature Flag detection for ${feature.id}`}
+      header={
+        enabling
+          ? t`Enable stale Feature Flag detection for ${featureId}`
+          : t`Disable stale Feature Flag detection for ${featureId}`
+      }
       cta={
-        mode === "publish" ? (enabling ? "Enable" : "Disable") : "Save to draft"
+        mode === "publish"
+          ? enabling
+            ? t`Enable`
+            : t`Disable`
+          : t`Save to draft`
       }
       size="lg"
       submit={async () => {
@@ -107,8 +116,8 @@ export default function StaleDetectionModal({
       />
       <p>
         {feature.neverStale
-          ? `Enable stale detection for ${feature.id}?`
-          : `Disable stale detection for ${feature.id}? It will no longer be marked as stale.`}
+          ? t`Enable stale detection for ${featureId}?`
+          : t`Disable stale detection for ${featureId}? It will no longer be marked as stale.`}
       </p>
     </ModalStandard>
   );

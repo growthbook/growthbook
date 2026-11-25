@@ -2,6 +2,7 @@ import React, { FC, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -24,6 +25,7 @@ const NorthStar: FC<{
   endDate?: Date;
   showEdit?: boolean;
 }> = ({ experiments, metrics, title, showTitle = true, showEdit }) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const { refreshOrganization } = useUser();
@@ -106,9 +108,9 @@ const NorthStar: FC<{
                 <h2>
                   {titleToShow
                     ? titleToShow
-                    : `North Star Metric${
-                        (selectedMetrics?.length || 0) > 1 ? "s" : ""
-                      }`}
+                    : (selectedMetrics?.length || 0) > 1
+                      ? t`North Star Metrics`
+                      : t`North Star Metric`}
                 </h2>
               )}
             </div>
@@ -122,9 +124,11 @@ const NorthStar: FC<{
                     className="small my-0 mr-2 text-right align-middle"
                     htmlFor="toggle-group-smooth-by"
                   >
-                    Smoothing
-                    <br />
-                    (7 day trailing)
+                    <Trans>
+                      Smoothing
+                      <br />
+                      (7 day trailing)
+                    </Trans>
                   </label>
                   <Switch
                     size="lg"
@@ -180,13 +184,15 @@ const NorthStar: FC<{
           })}
           header={
             hasNorthStar
-              ? "Edit North Star Metric(s)"
-              : "Add North Star Metric(s)"
+              ? t`Edit North Star Metric(s)`
+              : t`Add North Star Metric(s)`
           }
           open={true}
         >
           <div className="form-group">
-            <label>Metric(s)</label>
+            <label>
+              <Trans>Metric(s)</Trans>
+            </label>
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
@@ -196,7 +202,7 @@ const NorthStar: FC<{
               noManual={true}
             />
           </div>
-          <Field size="legacy" label="Title" {...form.register("title")} />
+          <Field size="legacy" label={t`Title`} {...form.register("title")} />
           {/*<Field*/}
           {/*  label="Date window"*/}
           {/*  initialOption="90"*/}

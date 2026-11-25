@@ -1,4 +1,5 @@
 import React from "react";
+import { useLingui } from "@lingui/react/macro";
 import { LinkedEntityBadge } from "@/components/Features/EntityBadge";
 
 interface FeatureBadgeProps {
@@ -6,10 +7,11 @@ interface FeatureBadgeProps {
 }
 
 export function FeatureBadge({ featureId }: FeatureBadgeProps) {
+  const { t } = useLingui();
   return (
     <LinkedEntityBadge
       href={`/features/${featureId}`}
-      title={`View Feature Flag: ${featureId}`}
+      title={t`View Feature Flag: ${featureId}`}
       label={featureId}
     />
   );

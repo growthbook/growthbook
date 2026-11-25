@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getDefaultSDKVersion } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SDKConnectionFields from "@/components/Features/SDKConnections/SDKConnectionFields";
 import {
@@ -29,7 +30,7 @@ export default function CreateSDKConnectionModal({
   close,
   mutate,
   initialValue,
-  cta = "Save",
+  cta,
   autoCloseOnSubmit = true,
 }: {
   close: () => void;
@@ -39,6 +40,8 @@ export default function CreateSDKConnectionModal({
   // When false, the caller swaps in the next step instead of navigating away.
   autoCloseOnSubmit?: boolean;
 }) {
+  const { t } = useLingui();
+  const ctaText = cta === undefined ? t`Save` : cta;
   const { apiCall } = useAuth();
   const router = useRouter();
   const environments = useEnvironments();
@@ -124,18 +127,18 @@ export default function CreateSDKConnectionModal({
         if (!autoCloseOnSubmit && submitted.current) return;
         close();
       }}
-      header="New SDK Connection"
+      header={t`New SDK Connection`}
       size="lg"
-      cta={cta}
+      cta={ctaText}
       submit={async () => {
         if (!value.languages.length) {
-          setLanguageError("Please select an SDK language");
-          throw new Error("Please select an SDK language");
+          setLanguageError(t`Please select an SDK language`);
+          throw new Error(t`Please select an SDK language`);
         }
         setLanguageError(null);
         if (!value.environment) {
-          setEnvironmentError("Please select an environment");
-          throw new Error("Please select an environment");
+          setEnvironmentError(t`Please select an environment`);
+          throw new Error(t`Please select an environment`);
         }
         setEnvironmentError(null);
         const body = sdkConnectionBody(value);

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -59,8 +60,9 @@ function RowConnector(): React.ReactElement {
 }
 
 function DraftNodeDot() {
+  const { t } = useLingui();
   return (
-    <Tooltip content="Unpublished draft">
+    <Tooltip content={t`Unpublished draft`}>
       <StatusDot
         color={draftStatusDotColor("draft")}
         style={{ marginRight: 4 }}
@@ -142,7 +144,13 @@ export default function LineageTree({
   // from shrinking when a deeply-nested row gets tight in the narrow sidebar.
   const countBadge = (count: number) => (
     <Tooltip
-      content={`${count} field${count === 1 ? "" : "s"} defined in this Config`}
+      content={
+        <Plural
+          value={count}
+          one="# field defined in this Config"
+          other="# fields defined in this Config"
+        />
+      }
     >
       <Badge
         size="xs"
@@ -370,12 +378,16 @@ export default function LineageTree({
               color: "var(--slate-10)",
             }}
           >
-            Environments
+            <Trans>Environments</Trans>
           </span>
           <Tooltip
-            content={`${flavors.length} environment override${
-              flavors.length === 1 ? "" : "s"
-            }`}
+            content={
+              <Plural
+                value={flavors.length}
+                one="# environment override"
+                other="# environment overrides"
+              />
+            }
           >
             <Badge
               size="xs"
@@ -513,8 +525,10 @@ export default function LineageTree({
               <Tooltip
                 content={
                   <>
-                    Doesn&apos;t match the schema:{" "}
-                    <KeyList keys={n.incompatibleFields ?? []} inverted />.
+                    <Trans>
+                      Doesn&apos;t match the schema:{" "}
+                      <KeyList keys={n.incompatibleFields ?? []} inverted />.
+                    </Trans>
                   </>
                 }
               >

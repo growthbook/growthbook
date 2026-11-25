@@ -5,6 +5,7 @@ import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKAttribute } from "shared/types/organization";
 import { Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAttributeSchema } from "@/services/features";
@@ -36,6 +37,7 @@ export function useFallbackAttributeOptions({
   fallbackAttribute: string | undefined;
   setFallbackAttribute?: (v: string) => void;
 }) {
+  const { t } = useLingui();
   const allAttributeSchema = useAttributeSchema(true);
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export function useFallbackAttributeOptions({
 
   const hasHashAttributes = attributeSchema.some((x) => x.hashAttribute);
   const options = [
-    { label: "none", value: "" },
+    { label: t`none`, value: "" },
     ...attributeSchema
       .filter((s) => !hasHashAttributes || s.hashAttribute)
       .filter((s) => s.property !== hashAttribute)
@@ -98,6 +100,7 @@ export default function FallbackAttributeSelector({
   attributeSchema,
   extraIndicator,
 }: Props) {
+  const { t } = useLingui();
   const [showSBInformation, setShowSBInformation] = useState(false);
 
   const { apiCall } = useAuth();
@@ -153,11 +156,13 @@ export default function FallbackAttributeSelector({
   return (
     <Flex direction="column" flexGrow="1" mt="4">
       <Text as="label" color="text-high" weight="semibold" mb="1">
-        Fallback Attribute
+        <Trans>Fallback Attribute</Trans>
       </Text>
       <Text as="div" color="text-mid" mb="2">
-        If the user&apos;s assignment attribute is not available the fallback
-        attribute may be used instead.
+        <Trans>
+          If the user&apos;s assignment attribute is not available the fallback
+          attribute may be used instead.
+        </Trans>
       </Text>
       <SelectField
         size="legacy"
@@ -179,12 +184,16 @@ export default function FallbackAttributeSelector({
             {(!orgStickyBucketing || showSBInformation) && (
               <div className="d-flex mt-1">
                 <div className="text-warning-orange">
-                  <FaInfoCircle /> Requires Sticky Bucketing
+                  <FaInfoCircle /> <Trans>Requires Sticky Bucketing</Trans>
                 </div>
                 <div className="flex-1" />
                 {!showSBInformation ? (
                   <>
-                    {!orgStickyBucketing && <span>(disabled by org)</span>}
+                    {!orgStickyBucketing && (
+                      <span>
+                        <Trans>(disabled by org)</Trans>
+                      </span>
+                    )}
                     {permissionsUtil.canManageOrgSettings() && (
                       <a
                         role="button"
@@ -214,7 +223,7 @@ export default function FallbackAttributeSelector({
                               className="d-inline-block"
                               style={{ lineHeight: "14px" }}
                             >
-                              Enable Sticky Bucketing for org{" "}
+                              <Trans>Enable Sticky Bucketing for org</Trans>{" "}
                               <FaQuestionCircle />
                             </div>
                           </PremiumTooltip>
@@ -240,8 +249,10 @@ export default function FallbackAttributeSelector({
       />
       {disableStickyBucketing ? (
         <Text as="div" color="text-mid" size="sm" mt="1">
-          Fallback attributes require Sticky Bucketing, which is disabled for
-          this experiment.
+          <Trans>
+            Fallback attributes require Sticky Bucketing, which is disabled for
+            this experiment.
+          </Trans>
         </Text>
       ) : (
         (orgStickyBucketing || showSBInformation) && (
@@ -250,13 +261,13 @@ export default function FallbackAttributeSelector({
             capability="stickyBucketing"
             icon={fallbackAttribute ? undefined : null}
             popoverTriggerText={
-              fallbackAttribute ? undefined : "Show incompatible SDKs"
+              fallbackAttribute ? undefined : t`Show incompatible SDKs`
             }
             someMessage={
               fallbackAttribute ? (
-                "Some of your SDK Connections do not support Sticky Bucketing."
+                t`Some of your SDK Connections do not support Sticky Bucketing.`
               ) : (
-                <>
+                <Trans>
                   Ensure that Sticky Bucketing is correctly integrated (
                   <DocLink
                     useRadix={false}
@@ -266,10 +277,10 @@ export default function FallbackAttributeSelector({
                     see docs
                   </DocLink>
                   ) with your SDK.
-                </>
+                </Trans>
               )
             }
-            noneMessage="None of your SDK Connections support Sticky Bucketing."
+            noneMessage={t`None of your SDK Connections support Sticky Bucketing.`}
             mt="1"
           />
         )
@@ -280,10 +291,10 @@ export default function FallbackAttributeSelector({
 
 export function StickyBucketingTooltip() {
   return (
-    <>
+    <Trans>
       Sticky Bucketing prevents users from flipping between variations when you
       make changes to a running experiment. It does this by persisting the first
       variation each user is exposed to.
-    </>
+    </Trans>
   );
 }

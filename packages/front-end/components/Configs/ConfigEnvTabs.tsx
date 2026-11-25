@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -33,13 +36,16 @@ type Props = {
 
 // Human label for a scopedOverride entry: its environment(s), else project(s),
 // else a catch-all.
-function scopeLabel(entry: {
-  environments?: string[];
-  projects?: string[];
-}): string {
+function scopeLabel(
+  entry: {
+    environments?: string[];
+    projects?: string[];
+  },
+  i18n: I18n,
+): string {
   if (entry.environments?.length) return entry.environments.join(", ");
   if (entry.projects?.length) return entry.projects.join(", ");
-  return "Fallback";
+  return i18n._(msg`Fallback`);
 }
 
 // Opaque, collision-resistant key for a generated flavor — never shown to the
@@ -67,6 +73,7 @@ export default function ConfigEnvTabs({
   canCreate,
   mutate,
 }: Props) {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { mutateDefinitions, getConfigByKey } = useDefinitions();
@@ -113,13 +120,13 @@ export default function ConfigEnvTabs({
   const availableEnvs = environments.filter((e) => !usedEnvs.has(e.id));
 
   const tabs = [
-    { key: baseKey, label: "All Environments" },
-    ...overrides.map((o) => ({ key: o.config, label: scopeLabel(o) })),
+    { key: baseKey, label: t`All Environments` },
+    ...overrides.map((o) => ({ key: o.config, label: scopeLabel(o, i18n) })),
   ];
 
   const createOverride = async () => {
     if (!createEnv || !availableEnvs.some((e) => e.id === createEnv)) {
-      throw new Error("Select an environment");
+      throw new Error(t`Select an environment`);
     }
     // The override always attaches to the BASE config, even when a flavor tab
     // is open (the new override overrides the parent, not the viewed flavor).
@@ -155,6 +162,7 @@ export default function ConfigEnvTabs({
   // Offered from any tab (base or a flavor) — the override always attaches to
   // the base, so the viewing context doesn't matter.
   const showCreate = canCreate && availableEnvs.length > 0;
+  const baseName = nameFor(baseKey);
   if (overrides.length === 0 && !showCreate) return null;
 
   return (
@@ -170,22 +178,24 @@ export default function ConfigEnvTabs({
           style={{ flex: 1, minWidth: 0 }}
         >
           <TabsList style={{ width: "100%", boxShadow: "none" }}>
-            {tabs.map((t) => (
-              <TabsTrigger key={t.key} value={t.key}>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.key} value={tab.key}>
                 <Flex align="center" style={{ gap: 6 }}>
-                  {draftByKey?.[t.key] && (
-                    <Tooltip content="Unpublished draft">
+                  {draftByKey?.[tab.key] && (
+                    <Tooltip content={t`Unpublished draft`}>
                       <StatusDot color={draftStatusDotColor("draft")} />
                     </Tooltip>
                   )}
-                  {archivedByKey?.[t.key] ? (
-                    <Tooltip content="Archived — this override no longer serves a value">
+                  {archivedByKey?.[tab.key] ? (
+                    <Tooltip
+                      content={t`Archived — this override no longer serves a value`}
+                    >
                       <span style={{ textDecoration: "line-through" }}>
-                        {t.label}
+                        {tab.label}
                       </span>
                     </Tooltip>
                   ) : (
-                    t.label
+                    tab.label
                   )}
                 </Flex>
               </TabsTrigger>
@@ -202,7 +212,7 @@ export default function ConfigEnvTabs({
                 setCreateOpen(true);
               }}
             >
-              Environment override
+              <Trans>Environment override</Trans>
             </Button>
           </Box>
         )}
@@ -212,21 +222,23 @@ export default function ConfigEnvTabs({
         <ModalStandard
           open={true}
           trackingEventModalType="config-env-override"
-          header="New environment override"
-          cta="Create"
+          header={t`New environment override`}
+          cta={t`Create`}
           close={() => setCreateOpen(false)}
           submit={createOverride}
         >
           <Text as="p" color="text-low" mb="3">
-            Creates a version of <strong>{nameFor(baseKey)}</strong> that
-            overrides the base value in the selected environment only.
+            <Trans>
+              Creates a version of <strong>{baseName}</strong> that overrides
+              the base value in the selected environment only.
+            </Trans>
           </Text>
           <SelectField
-            label="Environment"
+            label={t`Environment`}
             value={createEnv}
             onChange={setCreateEnv}
             options={availableEnvs.map((e) => ({ value: e.id, label: e.id }))}
-            placeholder="Select an environment…"
+            placeholder={t`Select an environment…`}
           />
         </ModalStandard>
       )}

@@ -5,6 +5,7 @@ import {
   MouseEvent,
   ReactNode,
 } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { CopyIcon } from "@/ui/ActionIcons";
 import Tooltip from "@/ui/Tooltip";
@@ -82,11 +83,12 @@ export function CopyFieldIndicator({
   reveal?: boolean;
   className?: string;
 }) {
+  const { t } = useLingui();
   const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   return (
     <FieldIndicator
-      label="Copy to clipboard"
-      tooltip={copySuccess ? "Copied" : undefined}
+      label={t`Copy to clipboard`}
+      tooltip={copySuccess ? t`Copied` : undefined}
       tooltipOpen={copySuccess || undefined}
       onClick={() => {
         if (!copySuccess) performCopy(value);

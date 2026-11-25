@@ -7,6 +7,7 @@ import {
   Separator,
 } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
@@ -148,6 +149,7 @@ function Root({
   allowlistedTrackingEventProps = {},
   children,
 }: RootProps) {
+  const { t } = useLingui();
   const [modalUuid] = useState(uuidv4());
   const [error, setErrorMessage] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
@@ -283,7 +285,7 @@ function Root({
                 radius="full"
                 size="3"
                 highContrast
-                aria-label="Close"
+                aria-label={t`Close`}
                 // Driven explicitly, like the footer's Cancel.
                 onClick={() => onOpenChange(false)}
               >

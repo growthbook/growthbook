@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DropdownMenu,
@@ -145,6 +146,7 @@ export const FilterDropdown: FC<{
   heading,
   menuPlacement = "start",
 }) => {
+  const { t } = useLingui();
   const [filterSearch, setFilterSearch] = useState<string>("");
   const filterLabel = heading ?? filter;
   const showSearchFilter = useMemo(
@@ -188,7 +190,9 @@ export const FilterDropdown: FC<{
         setOpen(o ? filter : "");
       }}
     >
-      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
+      <DropdownMenuLabel>
+        <Trans>Filter by {filterLabel}</Trans>
+      </DropdownMenuLabel>
       {showSearchFilter && (
         <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
@@ -197,8 +201,8 @@ export const FilterDropdown: FC<{
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
-            placeholder={`Search ${filterLabel}`}
-            aria-label={`Search ${filterLabel} filters`}
+            placeholder={t`Search ${filterLabel}`}
+            aria-label={t`Search ${filterLabel} filters`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();

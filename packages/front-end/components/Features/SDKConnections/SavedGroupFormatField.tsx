@@ -1,5 +1,6 @@
 import { SavedGroupFormat, SDKLanguage } from "shared/types/sdk-connection";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
@@ -26,6 +27,7 @@ export default function SavedGroupFormatField({
   storedFormat?: SavedGroupFormat;
   disabled?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
@@ -54,7 +56,7 @@ export default function SavedGroupFormatField({
       label={
         <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
       }
-      aria-label="Pass Saved Groups by reference"
+      aria-label={t`Pass Saved Groups by reference`}
       disabled={disabled}
       sort={false}
       isClearable={false}
@@ -62,17 +64,17 @@ export default function SavedGroupFormatField({
       value={value}
       onChange={(val) => onChange(val as SavedGroupFormat)}
       options={[
-        { value: "inline", label: SAVED_GROUP_FORMAT_LABELS.inline },
+        { value: "inline", label: i18n._(SAVED_GROUP_FORMAT_LABELS.inline) },
         {
           value: "referencesV1",
-          label: SAVED_GROUP_FORMAT_LABELS.referencesV1,
+          label: i18n._(SAVED_GROUP_FORMAT_LABELS.referencesV1),
           isDisabled: !canPassByReference("referencesV1"),
         },
         ...(allSavedGroupTypesAvailable || savedAsAllSavedGroupTypes
           ? [
               {
                 value: "referencesV2",
-                label: SAVED_GROUP_FORMAT_LABELS.referencesV2,
+                label: i18n._(SAVED_GROUP_FORMAT_LABELS.referencesV2),
                 // A saved v2 connection stays selectable after an SDK
                 // downgrade so the choice warns instead of being dropped.
                 isDisabled:
@@ -88,9 +90,9 @@ export default function SavedGroupFormatField({
           if (!hasLargeSavedGroupFeature) note = "Enterprise";
           else if (value === "referencesV2")
             note = supportsAllSavedGroupTypes
-              ? "Recommended"
+              ? t`Recommended`
               : allSavedGroupTypesAvailable
-                ? "Needs a newer SDK"
+                ? t`Needs a newer SDK`
                 : null;
         }
         return (
@@ -107,8 +109,8 @@ export default function SavedGroupFormatField({
       error={
         value === "referencesV2" && !supportsAllSavedGroupTypes
           ? allSavedGroupTypesAvailable
-            ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
-            : "This SDK cannot pass all Saved Groups by reference, so it passes ID Lists by reference."
+            ? t`This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it.`
+            : t`This SDK cannot pass all Saved Groups by reference, so it passes ID Lists by reference.`
           : undefined
       }
       errorLevel="warning"

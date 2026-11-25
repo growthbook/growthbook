@@ -4,6 +4,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Namespaces } from "shared/types/organization";
 import { isNamespaceSelectable } from "shared/util";
 import useApi from "@/hooks/useApi";
@@ -93,6 +94,7 @@ export default function NamespaceSelector({
   fallbackAttribute,
   hideEnableToggle = false,
 }: Props) {
+  const { t } = useLingui();
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
   );
@@ -195,7 +197,7 @@ export default function NamespaceSelector({
     return {
       filteredNamespaces: filtered,
       namespaceOptions: hideEnableToggle
-        ? [{ value: "", label: "Global (all users)" }, ...options]
+        ? [{ value: "", label: t`Global (all users)` }, ...options]
         : options,
       selectedNamespace: selected,
       selectedIsDifferentHash:
@@ -203,10 +205,10 @@ export default function NamespaceSelector({
       unavailableReason: !unlisted
         ? null
         : !stored
-          ? "This namespace no longer exists."
+          ? t`This namespace no longer exists.`
           : stored.status === "inactive"
-            ? "This namespace is inactive."
-            : "Only legacy namespaces work with a fallback attribute.",
+            ? t`This namespace is inactive.`
+            : t`Only legacy namespaces work with a fallback attribute.`,
     };
   }, [
     allNamespaces,
@@ -215,6 +217,7 @@ export default function NamespaceSelector({
     isFallbackMode,
     namespace,
     hideEnableToggle,
+    t,
   ]);
 
   const persistedGaps = useMemo(
@@ -399,8 +402,8 @@ export default function NamespaceSelector({
       {!hideEnableToggle && (
         <Checkbox
           size="lg"
-          label="Namespace"
-          description="Run mutually exclusive experiments"
+          label={t`Namespace`}
+          description={t`Run mutually exclusive experiments`}
           value={enabled}
           mb="2"
           setValue={(v) => {
@@ -428,7 +431,9 @@ export default function NamespaceSelector({
       {(hideEnableToggle || enabled) && (
         // Boxed under its checkbox; on its own it needs no frame.
         <div className={hideEnableToggle ? undefined : "box p-3 mb-2"}>
-          <label>Use namespace</label>
+          <label>
+            <Trans>Use namespace</Trans>
+          </label>
           <SelectField
             size="legacy"
             value={namespace}
@@ -483,7 +488,7 @@ export default function NamespaceSelector({
               });
             }}
             key={selectKey}
-            placeholder="Choose a namespace..."
+            placeholder={t`Choose a namespace...`}
             options={namespaceOptions}
             sort={false}
             formatOptionLabel={(option) => {
@@ -507,26 +512,32 @@ export default function NamespaceSelector({
                     {hashAttr ? (
                       <>
                         {option.isDisabled && warningIcon}
-                        hash attribute: <strong>{hashAttr}</strong>
+                        <Trans>
+                          hash attribute: <strong>{hashAttr}</strong>
+                        </Trans>
                       </>
                     ) : option.value === "" ? (
                       <Text size="sm" color="text-low" weight="medium">
-                        DEFAULT
+                        <Trans>DEFAULT</Trans>
                       </Text>
                     ) : !ns ? (
                       <>
                         {warningIcon}
-                        not found
+                        <Trans>not found</Trans>
                       </>
                     ) : (
-                      <span style={{ opacity: 0.45 }}>legacy</span>
+                      <span style={{ opacity: 0.45 }}>
+                        <Trans>legacy</Trans>
+                      </span>
                     )}
                   </Text>
                 </Flex>
               );
               if (!option.isDisabled) return row;
               return (
-                <Tooltip content="Namespace and experiment hash attributes must match">
+                <Tooltip
+                  content={t`Namespace and experiment hash attributes must match`}
+                >
                   {row}
                 </Tooltip>
               );
@@ -534,22 +545,26 @@ export default function NamespaceSelector({
           />
           {unavailableReason && (
             <HelperText status="warning" mt="2" size="sm">
-              {unavailableReason} It stays as is unless you choose another.
+              <Trans>
+                {unavailableReason} It stays as is unless you choose another.
+              </Trans>
             </HelperText>
           )}
           {namespace && selectedNamespace && (
             <div className="mt-3">
               {selectedIsDifferentHash && (
                 <HelperText status="warning" mb="3" size="sm">
-                  This namespace hash attribute differs from the experiment hash
-                  attribute.
+                  <Trans>
+                    This namespace hash attribute differs from the experiment
+                    hash attribute.
+                  </Trans>
                 </HelperText>
               )}
               {selectedNamespace?.format === "multiRange" && (
                 <SDKCapabilityWarning
                   capability="namespacesV2"
-                  someMessage="Some of your SDK Connections may not support multi-range namespaces."
-                  noneMessage="None of your SDK Connections support multi-range namespaces."
+                  someMessage={t`Some of your SDK Connections may not support multi-range namespaces.`}
+                  noneMessage={t`None of your SDK Connections support multi-range namespaces.`}
                   mb="3"
                 />
               )}
@@ -560,16 +575,22 @@ export default function NamespaceSelector({
                 featureId={featureId}
                 ranges={ranges.length > 0 ? ranges : undefined}
                 focusedRangeIndex={focusedRangeIndex}
-                title="Allocation"
+                title={t`Allocation`}
                 trackingKey={trackingKey}
               />
 
               <Box mt="4">
                 <Flex justify="between" align="center" mb="1">
-                  <label>Selected range{ranges.length > 1 ? "s" : ""}</label>
+                  <label>
+                    {ranges.length > 1 ? (
+                      <Trans>Selected ranges</Trans>
+                    ) : (
+                      <Trans>Selected range</Trans>
+                    )}
+                  </label>
                   <Checkbox
                     size="sm"
-                    label="Allow overlap"
+                    label={t`Allow overlap`}
                     value={allowOverlap}
                     setValue={(v) => {
                       setAllowOverlap(v);
@@ -659,7 +680,9 @@ export default function NamespaceSelector({
                           setFocusedRangeIndex(null);
                         }}
                       />
-                      <Text>to</Text>
+                      <Text>
+                        <Trans>to</Trans>
+                      </Text>
                       <Field
                         size="legacy"
                         type="number"
@@ -709,7 +732,7 @@ export default function NamespaceSelector({
                           mr="2"
                           mt="4"
                           onClick={() => removeRange(index)}
-                          aria-label="Remove range"
+                          aria-label={t`Remove range`}
                         >
                           <PiXBold size={14} />
                         </IconButton>
@@ -723,13 +746,15 @@ export default function NamespaceSelector({
                     <FaPlusCircle
                       style={{ verticalAlign: "-2px", marginRight: 6 }}
                     />
-                    Add Range
+                    <Trans>Add Range</Trans>
                   </Link>
                 ) : (
                   <HelperText status="info" mt="2" size="sm">
-                    No space available in this namespace. Enable{" "}
-                    <strong>Allow overlap</strong> above to assign a range
-                    regardless.
+                    <Trans>
+                      No space available in this namespace. Enable{" "}
+                      <strong>Allow overlap</strong> above to assign a range
+                      regardless.
+                    </Trans>
                   </HelperText>
                 )}
               </Box>

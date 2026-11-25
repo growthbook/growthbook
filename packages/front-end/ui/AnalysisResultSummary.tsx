@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
@@ -62,6 +63,7 @@ export default function AnalysisResultSummary({
   pValueThreshold,
   ssrPolyfills,
 }: AnalysisResultSummaryProps) {
+  const { t } = useLingui();
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
@@ -84,7 +86,7 @@ export default function AnalysisResultSummary({
   const effectLabel = getEffectLabel(differenceType);
 
   const metricInverseIconDisplay = data.metric.inverse ? (
-    <Tooltip content="Metric is inverse, lower is better">
+    <Tooltip content={t`Metric is inverse, lower is better`}>
       <span>
         <MdSwapCalls />
       </span>
@@ -118,39 +120,54 @@ export default function AnalysisResultSummary({
       return null;
     }
 
+    const priorMean = data.metricSnapshotSettings?.properPriorMean ?? 0;
+    const priorStdDev =
+      data.metricSnapshotSettings?.properPriorStdDev ??
+      DEFAULT_PROPER_PRIOR_STDDEV;
+
     return (
       <Callout size="sm" status="info" icon={null}>
         {priorUsed && cupedUsed ? (
-          <>CUPED and Bayesian Priors affect results</>
+          <Trans>CUPED and Bayesian Priors affect results</Trans>
         ) : priorUsed ? (
-          <>Bayesian Priors affect results</>
+          <Trans>Bayesian Priors affect results</Trans>
         ) : (
-          <>CUPED affects results</>
+          <Trans>CUPED affects results</Trans>
         )}{" "}
         <Tooltip
           content={
             <Flex direction="column" gap="1">
               {priorUsed ? (
                 <span>
-                  {`This metric was analyzed with a prior that is normally distributed with mean ${
-                    data.metricSnapshotSettings?.properPriorMean ?? 0
-                  } and standard deviation ${
-                    data.metricSnapshotSettings?.properPriorStdDev ??
-                    DEFAULT_PROPER_PRIOR_STDDEV
-                  }.`}
+                  <Trans>
+                    This metric was analyzed with a prior that is normally
+                    distributed with mean {priorMean} and standard deviation{" "}
+                    {priorStdDev}.
+                  </Trans>
                 </span>
               ) : null}
               {cupedUsed ? (
                 <span>
-                  {`This metric was analyzed with CUPED, which adjusts for covariates.`}
+                  <Trans>
+                    This metric was analyzed with CUPED, which adjusts for
+                    covariates.
+                  </Trans>
                 </span>
               ) : null}
               <span>
-                {`This affects metrics results (e.g., lift, ${
-                  data.statsEngine === "bayesian"
-                    ? "chance to win, credible intervals"
-                    : "p-values, confidence intervals"
-                }), and estimated lift will often differ from the raw difference between variation and baseline.`}
+                {data.statsEngine === "bayesian" ? (
+                  <Trans>
+                    This affects metrics results (e.g., lift, chance to win,
+                    credible intervals), and estimated lift will often differ
+                    from the raw difference between variation and baseline.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    This affects metrics results (e.g., lift, p-values,
+                    confidence intervals), and estimated lift will often differ
+                    from the raw difference between variation and baseline.
+                  </Trans>
+                )}
               </span>
             </Flex>
           }
@@ -170,7 +187,7 @@ export default function AnalysisResultSummary({
           className="text-muted"
           style={{ marginBottom: -2, fontSize: "10px" }}
         >
-          GUARDRAIL
+          <Trans>GUARDRAIL</Trans>
         </div>
       ) : null}
 
@@ -198,7 +215,9 @@ export default function AnalysisResultSummary({
         </Flex>
         {data.dimensionName ? (
           <Flex gap="1" mt="-1" align="center">
-            <span className="uppercase-title">Unit dimension:</span>{" "}
+            <span className="uppercase-title">
+              <Trans>Unit dimension:</Trans>
+            </span>{" "}
             <Flex gap="1">
               <span className="text-ellipsis" style={{ maxWidth: 150 }}>
                 {data.dimensionName}:

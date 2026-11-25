@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -36,7 +37,9 @@ function SortableColumnRow({
   column: ManagedColumn;
   onToggle: (visible: boolean) => void;
 }) {
+  const { t } = useLingui();
   const { setNodeRef, style, isDragging, handle } = useSortableItem(column.id);
+  const columnLabel = column.label;
 
   return (
     <Flex
@@ -56,7 +59,7 @@ function SortableColumnRow({
     >
       <span
         {...handle}
-        aria-label={`Drag to reorder ${column.label}`}
+        aria-label={t`Drag to reorder ${columnLabel}`}
         style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
       >
         <PiDotsSixVertical />
@@ -143,7 +146,9 @@ export default function ColumnSettings({
       {onReset && canReset && (
         <Flex justify="end" mt="3">
           <Link onClick={onReset}>
-            <Text size="sm">Reset to default</Text>
+            <Text size="sm">
+              <Trans>Reset to default</Trans>
+            </Text>
           </Link>
         </Flex>
       )}

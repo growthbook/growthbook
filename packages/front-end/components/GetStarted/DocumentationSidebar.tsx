@@ -1,6 +1,7 @@
 import { PiCaretRight, PiSealQuestion } from "react-icons/pi";
 import { Box, Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -18,6 +19,7 @@ const DocumentationSidebar = ({
   setUpgradeModal,
   type,
 }: Props): React.ReactElement => {
+  const { t } = useLingui();
   const { accountPlan, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
@@ -28,39 +30,45 @@ const DocumentationSidebar = ({
 
   return (
     <Card style={{ padding: "var(--space-5)" }}>
-      <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
+      <SidebarHeading>
+        <Trans>WHAT&apos;S NEW</Trans>
+      </SidebarHeading>
       <Flex direction="column" gapY="3">
         <AIVisualEditorCallout />
         <LinkItem href="https://www.growthbook.io/blog/growthbook-version-5-2?utm_source=product&utm_medium=in-app&utm_campaign=release-5-2">
-          5.2 Feature Highlights
+          <Trans>5.2 Feature Highlights</Trans>
         </LinkItem>
         <LinkItem href="https://docs.growthbook.io/integrations/ai-agents/agent-skills/">
-          Agent Skills
+          <Trans>Agent Skills</Trans>
         </LinkItem>
       </Flex>
       <Separator size="4" my="5" />
-      <SidebarHeading>RESOURCES</SidebarHeading>
+      <SidebarHeading>
+        <Trans>RESOURCES</Trans>
+      </SidebarHeading>
       <Flex direction="column" gapY="3">
         {getLinksFor(type, organization.isVercelIntegration)}
       </Flex>
       <Separator size="4" my="5" />
-      <SidebarHeading>QUESTIONS?</SidebarHeading>
+      <SidebarHeading>
+        <Trans>QUESTIONS?</Trans>
+      </SidebarHeading>
       <Flex direction="column" gapY="3">
         <LinkItem href="https://slack.growthbook.io/?ref=getstarted">
           <img
             src="/images/get-started/slack-logo.svg"
-            alt="Slack Logo"
+            alt={t`Slack Logo`}
             style={{ width: "18px", height: "18px" }}
           />
           <Text ml="1" style={{ verticalAlign: "middle" }}>
-            Community
+            <Trans>Community</Trans>
           </Text>
         </LinkItem>
 
         <LinkItem href="https://docs.growthbook.io/faq">
           <PiSealQuestion style={{ width: "20px", height: "20px" }} />
           <Text ml="1" style={{ verticalAlign: "middle" }}>
-            GrowthBook FAQs
+            <Trans>GrowthBook FAQs</Trans>
           </Text>
         </LinkItem>
       </Flex>
@@ -74,7 +82,7 @@ const DocumentationSidebar = ({
           }}
           style={{ width: "100%" }}
         >
-          Upgrade
+          <Trans>Upgrade</Trans>
         </Button>
       )}
     </Card>
@@ -82,6 +90,7 @@ const DocumentationSidebar = ({
 };
 
 function AIVisualEditorCallout(): React.ReactElement | null {
+  const { t } = useLingui();
   const enabled = useFeatureIsOn("ai-visual-editor-callout");
 
   if (!enabled) {
@@ -99,7 +108,7 @@ function AIVisualEditorCallout(): React.ReactElement | null {
       <Callout status="info" icon={null}>
         <Flex justify="start" mb="2">
           <Badge
-            label="Early access"
+            label={t`Early access`}
             color="violet"
             variant="soft"
             radius="full"
@@ -114,14 +123,14 @@ function AIVisualEditorCallout(): React.ReactElement | null {
               mb="1"
               style={{ color: "var(--gray-12)", whiteSpace: "nowrap" }}
             >
-              AI Visual Editor
+              <Trans>AI Visual Editor</Trans>
             </Heading>
             <Text
               as="div"
               size="1"
               style={{ color: "var(--gray-11)", whiteSpace: "nowrap" }}
             >
-              Get early access June 22
+              <Trans>Get early access June 22</Trans>
             </Text>
           </Box>
           <PiCaretRight
@@ -134,7 +143,7 @@ function AIVisualEditorCallout(): React.ReactElement | null {
   );
 }
 
-function SidebarHeading({ children }: { children: string }) {
+function SidebarHeading({ children }: { children: React.ReactNode }) {
   return (
     <Heading as="h6" size="1" mb="2">
       {children}
@@ -170,14 +179,16 @@ function getLinksFor(
         return (
           <>
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
-              Vercel Integration Docs
+              <Trans>Vercel Integration Docs</Trans>
             </LinkItem>
             <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.2.0">
-              5.2 Release Notes
+              <Trans>5.2 Release Notes</Trans>
             </LinkItem>
-            <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+            <LinkItem href="https://docs.growthbook.io/">
+              <Trans>Docs</Trans>
+            </LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
-              Premium Features
+              <Trans>Premium Features</Trans>
             </LinkItem>
           </>
         );
@@ -185,12 +196,14 @@ function getLinksFor(
 
       return (
         <>
-          <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href="https://docs.growthbook.io/">
+            <Trans>Docs</Trans>
+          </LinkItem>
           <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.2.0">
-            5.2 Release Notes
+            <Trans>5.2 Release Notes</Trans>
           </LinkItem>
           <LinkItem href="https://www.growthbook.io/pricing">
-            Premium Features
+            <Trans>Premium Features</Trans>
           </LinkItem>
         </>
       );
@@ -199,16 +212,16 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/lib/">
-            GrowthBook SDK
+            <Trans>GrowthBook SDK</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/features/basics">
-            Feature Flag Basics
+            <Trans>Feature Flag Basics</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/features/targeting">
-            Targeting Attributes
+            <Trans>Targeting Attributes</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/warehouses">
-            Connect Your Data Source
+            <Trans>Connect Your Data Source</Trans>
           </LinkItem>
         </>
       );
@@ -217,18 +230,18 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/experiments">
-            Running Experiments
+            <Trans>Running Experiments</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/sticky-bucketing">
-            Sticky Bucketing
+            <Trans>Sticky Bucketing</Trans>
             <PaidFeatureBadge commercialFeature="sticky-bucketing" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/visual">
-            Visual Editor
+            <Trans>Visual Editor</Trans>
             <PaidFeatureBadge commercialFeature="visual-editor" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/url-redirects">
-            URL Redirects
+            <Trans>URL Redirects</Trans>
             <PaidFeatureBadge commercialFeature="redirects" mx="2" />
           </LinkItem>
         </>
@@ -238,17 +251,17 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/warehouses">
-            Connect to Your Data Warehouse
+            <Trans>Connect to Your Data Warehouse</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/fact-tables">
-            Fact Tables
+            <Trans>Fact Tables</Trans>
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/data-pipeline">
-            Data Pipeline Mode
+            <Trans>Data Pipeline Mode</Trans>
             <PaidFeatureBadge commercialFeature="pipeline-mode" mx="2" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/experiment-results">
-            Experiment Results
+            <Trans>Experiment Results</Trans>
           </LinkItem>
         </>
       );

@@ -6,6 +6,7 @@ import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { PiChatCircleFill } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
@@ -24,6 +25,7 @@ const LAUNCHER_SIZE_PX = 54;
 const LAUNCHER_BOTTOM_PX = 12;
 
 export default function InAppHelp() {
+  const { t } = useLingui();
   const router = useRouter();
   const launcher = useRef<HTMLButtonElement>(null);
   const config = useFeature("pylon-config").value as {
@@ -117,7 +119,7 @@ export default function InAppHelp() {
               width: LAUNCHER_SIZE_PX,
               height: LAUNCHER_SIZE_PX,
             }}
-            aria-label={showFreeHelpWidget ? "Close help" : "Help"}
+            aria-label={showFreeHelpWidget ? t`Close help` : t`Help`}
           >
             {showFreeHelpWidget ? (
               <span className={styles.closeCircle}>
@@ -147,12 +149,12 @@ export default function InAppHelp() {
                 style={{ height: 22 }}
               />
               <Heading as="h4" size="sm" mb="0">
-                How Can We Help?
+                <Trans>How Can We Help?</Trans>
               </Heading>
             </Flex>
             <Flex direction="column" gap="3" p="4">
               <Text weight="medium" color="text-high">
-                Have a question?
+                <Trans>Have a question?</Trans>
               </Text>
               <Button
                 icon={<FaArrowRight />}
@@ -165,7 +167,7 @@ export default function InAppHelp() {
                   )
                 }
               >
-                Join the Slack community
+                <Trans>Join the Slack community</Trans>
               </Button>
               <Button
                 variant="outline"
@@ -179,13 +181,15 @@ export default function InAppHelp() {
                   )
                 }
               >
-                View docs
+                <Trans>View docs</Trans>
               </Button>
               {showUpgradeModal && (
                 <>
                   <Separator size="4" />
                   <Text weight="medium" color="text-high">
-                    Upgrade to unlock live chat support and premium features.
+                    <Trans>
+                      Upgrade to unlock live chat support and premium features.
+                    </Trans>
                   </Text>
                   <Button
                     variant="soft"
@@ -193,7 +197,7 @@ export default function InAppHelp() {
                     iconPosition="right"
                     onClick={() => setUpgradeModal(true)}
                   >
-                    Upgrade now
+                    <Trans>Upgrade now</Trans>
                   </Button>
                 </>
               )}

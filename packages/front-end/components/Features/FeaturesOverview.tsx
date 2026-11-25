@@ -20,6 +20,7 @@ import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { canOfferEnvironmentToggle } from "shared/permissions";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CONFIG_REF_PATTERN,
   CONSTANT_REF_PATTERN,
@@ -124,6 +125,7 @@ function EnvironmentSwitch({
   // Differs from live, in a draft: ringed in amber.
   changed?: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <Flex align="center" gap="2">
       <span
@@ -150,7 +152,7 @@ function EnvironmentSwitch({
         }}
       >
         <Text size="sm" weight="medium">
-          {enabled ? "On" : "Off"}
+          {enabled ? t`On` : t`Off`}
         </Text>
       </span>
     </Flex>
@@ -187,6 +189,7 @@ export default function FeaturesOverview({
   // Where headers stick: under the page's tabs and their status bar.
   stickyTop: number;
 }) {
+  const { t } = useLingui();
   const settings = useOrgSettings();
   const namespaces = settings?.namespaces;
   const [edit, setEdit] = useState(false);
@@ -455,9 +458,9 @@ export default function FeaturesOverview({
   const envBlockedReason = (envId: string) =>
     lockReason ??
     (!canToggleEnvironment(envId)
-      ? "You don't have permission to publish this environment."
+      ? t`You don't have permission to publish this environment.`
       : needsDraftToFlip(envId)
-        ? "This change needs review before it can be published, and you don't have permission to put it in a draft."
+        ? t`This change needs review before it can be published, and you don't have permission to put it in a draft.`
         : null);
   const liveEnabled = (envId: string) =>
     baseFeature.environmentSettings?.[envId]?.enabled ?? false;
@@ -470,7 +473,7 @@ export default function FeaturesOverview({
     if (!isDraft || !canEditDrafts) {
       setKillSwitchTarget({
         desiredStates: { [envId]: on },
-        header: `${on ? "Enable" : "Disable"} ${envId}`,
+        header: on ? t`Enable ${envId}` : t`Disable ${envId}`,
       });
       return;
     }
@@ -493,7 +496,7 @@ export default function FeaturesOverview({
       setEnvError({
         envId,
         on,
-        message: e instanceof Error ? e.message : "There was an error",
+        message: e instanceof Error ? e.message : t`There was an error`,
       });
       // The draft may have been published, discarded or locked meanwhile.
       await mutate();
@@ -580,18 +583,22 @@ export default function FeaturesOverview({
     ...prerequisites.flatMap((p) => {
       const change = prerequisiteChange(p);
       if (!change) return [];
+      const prerequisiteId = p.id;
       return [
         {
           label: <DraftChangeMark change={change} />,
           value: p.id,
-          text: `${change} ${p.id}`,
+          text:
+            change === "added"
+              ? t`added ${prerequisiteId}`
+              : t`edited ${prerequisiteId}`,
         },
       ];
     }),
     ...removedPrerequisites.map((id) => ({
       label: <DraftChangeMark change="removed" />,
       value: id,
-      text: `removed ${id}`,
+      text: t`removed ${id}`,
     })),
   ];
   // What the flag serves in each environment, worked out again only when
@@ -778,7 +785,7 @@ export default function FeaturesOverview({
     return isDraft && from !== to
       ? [
           {
-            title: "Environment",
+            title: t`Environment`,
             rows: [
               {
                 label: envId,
@@ -790,7 +797,7 @@ export default function FeaturesOverview({
                   />
                 ),
                 // Said beside the environment's name, which it'd repeat.
-                text: `turned ${to ? "on" : "off"}`,
+                text: to ? t`turned on` : t`turned off`,
               },
             ],
           },
@@ -815,12 +822,12 @@ export default function FeaturesOverview({
       <LockedRowMenu style={{ margin: 0 }} />
     ) : (
       <DropdownMenu
-        trigger={<MoreMenuTrigger label="Prerequisite actions" size="sm" />}
+        trigger={<MoreMenuTrigger label={t`Prerequisite actions`} size="sm" />}
         menuPlacement="end"
         variant="soft"
       >
         <DropdownMenuItem onClick={() => setPrerequisiteModal({ i })}>
-          Edit
+          <Trans>Edit</Trans>
         </DropdownMenuItem>
         <DropdownMenuItem
           color="red"
@@ -828,7 +835,7 @@ export default function FeaturesOverview({
             setDeletingPrerequisite({ i, baseline: getPrerequisites(feature) })
           }
         >
-          Delete
+          <Trans>Delete</Trans>
         </DropdownMenuItem>
       </DropdownMenu>
     );
@@ -857,7 +864,7 @@ export default function FeaturesOverview({
         <LockedRowMenu style={{ margin: 0 }} />
       ) : (
         <DropdownMenu
-          trigger={<MoreMenuTrigger label="Environment actions" />}
+          trigger={<MoreMenuTrigger label={t`Environment actions`} />}
           menuPlacement="end"
           variant="soft"
         >
@@ -867,7 +874,7 @@ export default function FeaturesOverview({
               onClick={openAddPrerequisite}
             >
               <PremiumTooltip commercialFeature="prerequisites">
-                Add prerequisite
+                <Trans>Add prerequisite</Trans>
               </PremiumTooltip>
             </DropdownMenuItem>
           ) : null}
@@ -880,7 +887,7 @@ export default function FeaturesOverview({
               disabled={allEnvironmentsOff || !!turnOffAllBlockedReason}
               tooltip={
                 allEnvironmentsOff
-                  ? "Already off in all environments"
+                  ? t`Already off in all environments`
                   : (turnOffAllBlockedReason ?? undefined)
               }
               onClick={() =>
@@ -888,11 +895,11 @@ export default function FeaturesOverview({
                   desiredStates: Object.fromEntries(
                     envs.map((envId) => [envId, false]),
                   ),
-                  header: "Turn off ALL environments",
+                  header: t`Turn off ALL environments`,
                 })
               }
             >
-              Turn off ALL environments
+              <Trans>Turn off ALL environments</Trans>
             </DropdownMenuItem>
           ) : null}
         </DropdownMenu>
@@ -902,7 +909,7 @@ export default function FeaturesOverview({
   const invalidPrereqs: {
     key: string;
     ruleId: string | null;
-    where: string;
+    blocking: string;
     id: string;
     error: string;
   }[] = [];
@@ -912,7 +919,7 @@ export default function FeaturesOverview({
       invalidPrereqs.push({
         key: `flag-${i}`,
         ruleId: null,
-        where: "this Feature Flag",
+        blocking: t`Blocking this Feature Flag: prerequisite`,
         id: p.id,
         error,
       });
@@ -928,12 +935,16 @@ export default function FeaturesOverview({
       (rule.prerequisites ?? []).forEach((p, j) => {
         const error = getMalformedPrereqConditionError(p.condition);
         if (error) {
+          const description = rule.description;
+          const ruleNumber =
+            (feature.rules ?? []).findIndex((fr) => fr.id === rule.id) +
+            ruleNumberOffset;
           invalidPrereqs.push({
             key: `${rule.id}-${j}`,
             ruleId: rule.id,
-            where: rule.description
-              ? `rule "${rule.description}"`
-              : `Rule #${(feature.rules ?? []).findIndex((fr) => fr.id === rule.id) + ruleNumberOffset}`,
+            blocking: description
+              ? t`Blocking rule "${description}": prerequisite`
+              : t`Blocking Rule #${ruleNumber}: prerequisite`,
             id: p.id,
             error,
           });
@@ -944,16 +955,17 @@ export default function FeaturesOverview({
   const invalidRuleCount = new Set(
     invalidPrereqs.map((p) => p.ruleId).filter((id) => id !== null),
   ).size;
-  const invalidPrereqBlocking = `An invalid prerequisite condition is blocking ${[
-    invalidPrereqs.some((p) => p.ruleId === null) ? "this Feature Flag" : null,
-    invalidRuleCount === 1
-      ? "a rule"
-      : invalidRuleCount > 1
-        ? `${invalidRuleCount} rules`
-        : null,
-  ]
-    .filter((part) => part !== null)
-    .join(" and ")}`;
+  const blocksFlag = invalidPrereqs.some((p) => p.ruleId === null);
+  const invalidPrereqBlocking = blocksFlag
+    ? invalidRuleCount === 0
+      ? t`An invalid prerequisite condition is blocking this Feature Flag`
+      : invalidRuleCount === 1
+        ? t`An invalid prerequisite condition is blocking this Feature Flag and a rule`
+        : t`An invalid prerequisite condition is blocking this Feature Flag and ${invalidRuleCount} rules`
+    : invalidRuleCount === 1
+      ? t`An invalid prerequisite condition is blocking a rule`
+      : t`An invalid prerequisite condition is blocking ${invalidRuleCount} rules`;
+  const errorEnvId = envError?.envId;
 
   const variables = {
     featureKey: feature.id,
@@ -983,12 +995,14 @@ export default function FeaturesOverview({
               <Flex direction="column" gap="1" mt="2">
                 {invalidPrereqs.map((p) => (
                   <Flex key={p.key} align="center" gap="1" wrap="wrap">
-                    <Text>Blocking {p.where}: prerequisite</Text>
+                    <Text>{p.blocking}</Text>
                     <FeatureBadge featureId={p.id} />
                     <Text>— {p.error}</Text>
                   </Flex>
                 ))}
-                <Text>Edit the prerequisite to fix it.</Text>
+                <Text>
+                  <Trans>Edit the prerequisite to fix it.</Trans>
+                </Text>
               </Flex>
             )}
           </Callout>
@@ -997,7 +1011,7 @@ export default function FeaturesOverview({
         {/* Its box brings its own margin; without markdown it renders nothing. */}
         <CustomMarkdown page={"feature"} variables={variables} />
         <SectionFrame
-          title="Environments"
+          title={t`Environments`}
           mb="4"
           actions={
             <Flex align="center" gap="5">
@@ -1010,9 +1024,11 @@ export default function FeaturesOverview({
         >
           {parentStatesError ? (
             <Callout status="warning" mb="3">
-              Couldn&apos;t load prerequisite states, so what each environment
-              serves can&apos;t be shown.{" "}
-              <Link onClick={() => retryParentStates()}>Try again</Link>
+              <Trans>
+                Couldn&apos;t load prerequisite states, so what each environment
+                serves can&apos;t be shown.{" "}
+                <Link onClick={() => retryParentStates()}>Try again</Link>
+              </Trans>
             </Callout>
           ) : null}
           {environments.length > 0 ? (
@@ -1044,17 +1060,21 @@ export default function FeaturesOverview({
                   </UITooltip>
                 ) : (
                   <Text color={enabled ? "text-high" : "text-low"}>
-                    {enabled ? "On" : "Off"}
+                    {enabled ? t`On` : t`Off`}
                   </Text>
                 );
               }}
             />
           ) : (
             <Callout status="warning">
-              <strong>This Feature Flag has no associated environments.</strong>{" "}
-              Ensure that this Feature Flag&apos;s project is included in at
-              least one environment to use it.{" "}
-              <Link href="/environments">Manage environments</Link>
+              <Trans>
+                <strong>
+                  This Feature Flag has no associated environments.
+                </strong>{" "}
+                Ensure that this Feature Flag&apos;s project is included in at
+                least one environment to use it.{" "}
+                <Link href="/environments">Manage environments</Link>
+              </Trans>
             </Callout>
           )}
           {prerequisites.length || removedPrerequisites.length ? (
@@ -1067,7 +1087,7 @@ export default function FeaturesOverview({
               removed={removedPrerequisites}
               changes={
                 prerequisiteChangeRows.length
-                  ? [{ title: "Prerequisites", rows: prerequisiteChangeRows }]
+                  ? [{ title: t`Prerequisites`, rows: prerequisiteChangeRows }]
                   : null
               }
               environments={environments.map((en) => en.id)}
@@ -1078,7 +1098,11 @@ export default function FeaturesOverview({
 
           {envError ? (
             <HelperText status="error" size="sm" mt="3">
-              Couldn&apos;t turn {envError.envId} {envError.on ? "on" : "off"}:{" "}
+              {envError.on ? (
+                <Trans>Couldn&apos;t turn {errorEnvId} on:</Trans>
+              ) : (
+                <Trans>Couldn&apos;t turn {errorEnvId} off:</Trans>
+              )}{" "}
               {/* Several validation hooks' messages arrive one per line. */}
               <span style={{ whiteSpace: "pre-line" }}>{envError.message}</span>
             </HelperText>
@@ -1095,7 +1119,7 @@ export default function FeaturesOverview({
         </SectionFrame>
 
         <SectionFrame
-          title="Default Value"
+          title={t`Default Value`}
           mt="4"
           // Its copy and fullscreen buttons show while it's hovered, as a
           // rule's do.
@@ -1109,7 +1133,7 @@ export default function FeaturesOverview({
                   disabled={!!lockReason}
                   onClick={() => setEdit(true)}
                 >
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
               </UITooltip>
             ) : null
@@ -1155,11 +1179,13 @@ export default function FeaturesOverview({
             stickyHeaderTop={stickyTop}
           />
         ) : (
-          <SectionFrame title="Rules" mt="4">
+          <SectionFrame title={t`Rules`} mt="4">
             <p>
-              You need at least one environment to add rules. Add powerful logic
-              on top of your feature. The first rule that matches will be
-              applied and override the default value.
+              <Trans>
+                You need at least one environment to add rules. Add powerful
+                logic on top of your feature. The first rule that matches will
+                be applied and override the default value.
+              </Trans>
             </p>
           </SectionFrame>
         )}

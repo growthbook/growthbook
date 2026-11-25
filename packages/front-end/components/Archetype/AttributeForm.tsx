@@ -3,6 +3,7 @@ import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
 import format from "date-fns/format";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -26,11 +27,13 @@ export default function AttributeForm({
   onChange,
   attributeValues = {},
   archetypeId,
-  jsonCTA = "Test Attributes",
+  jsonCTA,
   hideTitle = false,
   useJSONButton = true,
   headerContent,
 }: Props) {
+  const { t } = useLingui();
+  const jsonCTAText = jsonCTA === undefined ? t`Test Attributes` : jsonCTA;
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
     JSON.stringify(formValues),
@@ -172,7 +175,7 @@ export default function AttributeForm({
                   attributeFormValues.set(attribute.property, v);
                   updateFormValues();
                 }}
-                placeholder="Select..."
+                placeholder={t`Select...`}
                 options={
                   attribute?.enum?.split(",").map((d) => ({
                     value: d.trim(),
@@ -269,7 +272,11 @@ export default function AttributeForm({
   return (
     <>
       <div>
-        {!hideTitle && <h4>Attributes</h4>}
+        {!hideTitle && (
+          <h4>
+            <Trans>Attributes</Trans>
+          </h4>
+        )}
         <Tabs
           value={activeTab}
           onValueChange={(v: "simple" | "adv") => {
@@ -288,7 +295,9 @@ export default function AttributeForm({
           }}
         >
           <TabsList>
-            <TabsTrigger value="simple">Form</TabsTrigger>
+            <TabsTrigger value="simple">
+              <Trans>Form</Trans>
+            </TabsTrigger>
             <TabsTrigger value="adv">JSON</TabsTrigger>
           </TabsList>
 
@@ -303,10 +312,14 @@ export default function AttributeForm({
                   className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
                 >
                   <div className="col-6">
-                    <strong>Name</strong>
+                    <strong>
+                      <Trans>Name</Trans>
+                    </strong>
                   </div>
                   <div className="col-6">
-                    <strong>Value</strong>
+                    <strong>
+                      <Trans>Value</Trans>
+                    </strong>
                   </div>
                 </div>
                 {orderedAttributes.length ? (
@@ -314,7 +327,7 @@ export default function AttributeForm({
                     attributeInput(attribute, i),
                   )
                 ) : (
-                  <>No attributes defined yet</>
+                  <Trans>No attributes defined yet</Trans>
                 )}
               </div>
             </TabsContent>
@@ -324,7 +337,7 @@ export default function AttributeForm({
                 <div className="form-group rounded">
                   <Field
                     size="legacy"
-                    label="JSON Values"
+                    label={t`JSON Values`}
                     value={jsonAttributes}
                     onChange={(e) => {
                       setJsonAttributes(e.target.value);
@@ -342,11 +355,11 @@ export default function AttributeForm({
                     textarea={true}
                     minRows={30}
                     containerClassName="mb-0"
-                    helpText="Enter user attributes in JSON format."
+                    helpText={t`Enter user attributes in JSON format.`}
                   />
                   {jsonErrors && (
                     <div className="text-danger">
-                      Error parsing JSON: {jsonErrors}
+                      <Trans>Error parsing JSON: {jsonErrors}</Trans>
                     </div>
                   )}
                   {useJSONButton && (
@@ -365,7 +378,7 @@ export default function AttributeForm({
                           }
                         }}
                       >
-                        {jsonCTA}
+                        {jsonCTAText}
                       </button>
                     </div>
                   )}

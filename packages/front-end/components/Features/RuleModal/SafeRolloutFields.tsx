@@ -9,6 +9,7 @@ import {
   PiLockOpenBold,
 } from "react-icons/pi";
 import { useCallback, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
@@ -78,6 +79,7 @@ export default function SafeRolloutFields({
   projectScope: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
@@ -136,6 +138,10 @@ export default function SafeRolloutFields({
       )
     : null;
 
+  const monitoredUntilDate = dateMonitoredUntil
+    ? dateMonitoredUntil.toLocaleDateString()
+    : "";
+
   const renderTargeting = () => {
     return (
       <>
@@ -161,8 +167,10 @@ export default function SafeRolloutFields({
         />
         {isCyclic && (
           <Callout status="error">
-            A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
-            dependency. Remove this prerequisite to continue.
+            <Trans>
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Trans>
           </Callout>
         )}
 
@@ -179,7 +187,7 @@ export default function SafeRolloutFields({
             ) : (
               <PiCaretUpFill className="mr-1" />
             )}
-            Advanced Options
+            <Trans>Advanced Options</Trans>
           </div>
         )}
         {mode === "duplicate" &&
@@ -189,7 +197,7 @@ export default function SafeRolloutFields({
               <Checkbox
                 value={form.watch("sameSeed")}
                 setValue={(value: boolean) => form.setValue("sameSeed", value)}
-                label="Same seed"
+                label={t`Same seed`}
               />
             </div>
           )}
@@ -204,7 +212,7 @@ export default function SafeRolloutFields({
           size="legacy"
           withRadixThemedPortal
           disabled={disableFields}
-          label="Sample based on attribute"
+          label={t`Sample based on attribute`}
           extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -230,12 +238,12 @@ export default function SafeRolloutFields({
             ) : (
               <PiCaretUpFill className="mr-1" />
             )}
-            Advanced Options
+            <Trans>Advanced Options</Trans>
           </span>
           {advancedOptionsSeedOpen && (
             <div className="mt-3 mb-5">
               <Text as="label" weight="medium" size="2" mb="2">
-                Seed
+                <Trans>Seed</Trans>
               </Text>
               <TextField.Root
                 {...form.register("seed")}
@@ -249,15 +257,18 @@ export default function SafeRolloutFields({
           <div className="mb-3 pb-1">
             <SelectField
               size="legacy"
-              label="Data source"
+              label={t`Data source`}
               className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
+                const dataSourceName = d.description
+                  ? `${d.name} — ${d.description}`
+                  : d.name;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
+                  label: isDefaultDataSource
+                    ? t`${dataSourceName} (default)`
+                    : dataSourceName,
                 };
               })}
               value={form.watch("safeRolloutFields.datasourceId")}
@@ -265,15 +276,17 @@ export default function SafeRolloutFields({
                 form.setValue("safeRolloutFields.datasourceId", v)
               }
               required
-              placeholder="Select a data source"
+              placeholder={t`Select a data source`}
               // Add a disabled state while loading
               disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
               <Callout status="warning" mt="2">
                 <small>
-                  No data sources configured. Please add a data source in the
-                  settings.
+                  <Trans>
+                    No data sources configured. Please add a data source in the
+                    settings.
+                  </Trans>
                 </small>
               </Callout>
             )}
@@ -289,9 +302,9 @@ export default function SafeRolloutFields({
           </div>
           <div className="pb-1 ">
             <Text as="label" size="2" weight="medium">
-              Guardrail metrics
+              <Trans>Guardrail metrics</Trans>
               <Text size="1" as="div" weight="regular" color="gray">
-                Metrics to monitor during safe rollout
+                <Trans>Metrics to monitor during safe rollout</Trans>
               </Text>
             </Text>
 
@@ -317,10 +330,12 @@ export default function SafeRolloutFields({
           </div>
           <div className="pb-1">
             <Text as="label" size="2" weight="medium">
-              Duration to monitor guardrail results
+              <Trans>Duration to monitor guardrail results</Trans>
               <Text size="1" as="div" weight="regular" color="gray">
-                Enter the number of days to monitor for regressions and receive
-                recommendations based on guardrail metric results
+                <Trans>
+                  Enter the number of days to monitor for regressions and
+                  receive recommendations based on guardrail metric results
+                </Trans>
               </Text>
             </Text>
             <Box maxWidth="100px">
@@ -338,13 +353,17 @@ export default function SafeRolloutFields({
                 })}
               >
                 <TextField.Slot></TextField.Slot>
-                <TextField.Slot>Days</TextField.Slot>
+                <TextField.Slot>
+                  <Trans>Days</Trans>
+                </TextField.Slot>
               </TextField.Root>
             </Box>
             {dateMonitoredUntil && !isNaN(dateMonitoredUntil.getTime()) && (
               <HelperText status="info" size="sm" mt="3">
-                Feature will be monitored until{" "}
-                {dateMonitoredUntil.toLocaleDateString()} if started today
+                <Trans>
+                  Feature will be monitored until {monitoredUntilDate} if
+                  started today
+                </Trans>
               </HelperText>
             )}
           </div>
@@ -364,13 +383,13 @@ export default function SafeRolloutFields({
           mb="6"
         >
           <Text as="label" weight="medium">
-            Variation
+            <Trans>Variation</Trans>
           </Text>
           <Text as="label" weight="medium">
-            Traffic
+            <Trans>Traffic</Trans>
           </Text>
           <Text as="label" weight="medium">
-            Value to Force
+            <Trans>Value to Force</Trans>
           </Text>
           <Flex align="end" justify="end">
             {!disableFields && (
@@ -385,11 +404,13 @@ export default function SafeRolloutFields({
               >
                 {controlValueDisabled ? (
                   <>
-                    <PiLockBold /> Unlock to edit &apos;Control&apos;
+                    <PiLockBold />{" "}
+                    <Trans>Unlock to edit &apos;Control&apos;</Trans>
                   </>
                 ) : (
                   <>
-                    <PiLockOpenBold /> Lock editing &apos;Control&apos;
+                    <PiLockOpenBold />{" "}
+                    <Trans>Lock editing &apos;Control&apos;</Trans>
                   </>
                 )}
               </Text>
@@ -397,8 +418,10 @@ export default function SafeRolloutFields({
           </Flex>
 
           <Text as="label">
-            Control{" "}
-            <Tooltip body="The baseline that the rollout value will be compared against" />
+            <Trans>Control</Trans>{" "}
+            <Tooltip
+              body={t`The baseline that the rollout value will be compared against`}
+            />
           </Text>
           <Text>50%</Text>
           <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
@@ -422,7 +445,9 @@ export default function SafeRolloutFields({
               margin: "0.5rem 0",
             }}
           />
-          <Text as="label">Rollout value</Text>
+          <Text as="label">
+            <Trans>Rollout value</Trans>
+          </Text>
           <Text as="label">50%</Text>
           <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
             <FeatureValueField
@@ -445,18 +470,20 @@ export default function SafeRolloutFields({
   return (
     <>
       <Text size="2" as="div" mb="4" color="gray">
-        This rule runs an A/B test for a short period of time while monitoring
-        guardrail metrics for regressions. Based on the results, you can choose
-        whether to revert the feature or release it to 100% of users.
+        <Trans>
+          This rule runs an A/B test for a short period of time while monitoring
+          guardrail metrics for regressions. Based on the results, you can
+          choose whether to revert the feature or release it to 100% of users.
+        </Trans>
       </Text>
       <Text as="label" weight="medium" size="2" mb="2">
-        Description
+        <Trans>Description</Trans>
       </Text>
       <TextField.Root
         mb="6"
         maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
-        placeholder="Short human-readable description of the safe rollout"
+        placeholder={t`Short human-readable description of the safe rollout`}
       />
       <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
       <RuleProjectScopeField {...projectScope} mb="7" />
@@ -474,9 +501,9 @@ export default function SafeRolloutFields({
         value={form.watch("safeRolloutFields.autoRollback")}
         setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
         disabled={disableFields}
-        label="Auto Rollback"
+        label={t`Auto Rollback`}
         weight="bold"
-        description="Automatically rollback when unhealthy or a guardrail fails"
+        description={t`Automatically rollback when unhealthy or a guardrail fails`}
         mb="4"
       />
 

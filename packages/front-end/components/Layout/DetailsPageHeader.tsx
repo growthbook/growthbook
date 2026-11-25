@@ -1,6 +1,7 @@
 import { ComponentProps, CSSProperties, ReactNode } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
@@ -51,6 +52,7 @@ export function DetailsPageTitleBar({
   // Under the title row, e.g. an archived notice.
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
   return (
     <PageBleed
       style={{
@@ -91,7 +93,7 @@ export function DetailsPageTitleBar({
                   style={titleInline}
                 >
                   <QuickEditButton
-                    label="Edit name"
+                    label={t`Edit name`}
                     onClick={onRename}
                     blockedReason={renameBlockedReason}
                   />
@@ -142,12 +144,13 @@ export function DetailsPageMenu({
   disabledReason?: string | null;
   children: ReactNode;
 }) {
+  const { t } = useLingui();
   const disabled = !!disabledReason;
   const menu = (
     <DropdownMenu
       trigger={
         <MoreMenuTrigger
-          label="More actions"
+          label={t`More actions`}
           size="lg"
           disabled={disabled}
           // Above the details toggle, past the row's end. Inline, not

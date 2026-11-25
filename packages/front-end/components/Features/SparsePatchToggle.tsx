@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
@@ -7,12 +8,16 @@ import Text from "@/ui/Text";
 export const SPARSE_PATCH_HELP = (
   <Flex direction="column" gap="2">
     <span>
-      Sparse values are merged onto the feature&apos;s default value as
-      overrides. Merges top-level keys only.
+      <Trans>
+        Sparse values are merged onto the feature&apos;s default value as
+        overrides. Merges top-level keys only.
+      </Trans>
     </span>
     <span>
-      If the default value is not a standard object, the entire sparse value is
-      served.
+      <Trans>
+        If the default value is not a standard object, the entire sparse value
+        is served.
+      </Trans>
     </span>
   </Flex>
 );
@@ -23,7 +28,7 @@ export function SparsePatchIndicator() {
   return (
     <Flex align="center" gap="1">
       <Text size="sm" weight="medium" color="text-low">
-        Sparse patch
+        <Trans>Sparse patch</Trans>
       </Text>
       <Tooltip content={SPARSE_PATCH_HELP}>
         <span style={{ display: "inline-flex", color: "var(--gray-11)" }}>
@@ -45,13 +50,14 @@ export default function SparsePatchToggle({
   onChange: (checked: boolean) => void;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <Flex align="center" gap="1">
       <Switch
         value={checked}
         onChange={onChange}
         disabled={disabled}
-        label="Sparse patch"
+        label={t`Sparse patch`}
         size="sm"
       />
       <Tooltip content={SPARSE_PATCH_HELP}>

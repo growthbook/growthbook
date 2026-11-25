@@ -1,6 +1,9 @@
 import { ReactNode, forwardRef, useImperativeHandle, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   evaluateInvariants,
   describeInvariantRule,
@@ -90,17 +93,17 @@ type Props = {
 // Labels match the standard condition-builder language used in feature/
 // experiment targeting (see Features/ConditionInput.tsx) so operators read
 // consistently across the product.
-const OP_LABELS: Record<CondOp, string> = {
-  "==": "is equal to",
-  "!=": "is not equal to",
-  "<": "is less than",
-  "<=": "is less than or equal to",
-  ">": "is greater than",
-  ">=": "is greater than or equal to",
-  isTrue: "is true",
-  isFalse: "is false",
-  isNull: "is NULL",
-  isNotNull: "is not NULL",
+const OP_LABELS: Record<CondOp, MessageDescriptor> = {
+  "==": msg`is equal to`,
+  "!=": msg`is not equal to`,
+  "<": msg`is less than`,
+  "<=": msg`is less than or equal to`,
+  ">": msg`is greater than`,
+  ">=": msg`is greater than or equal to`,
+  isTrue: msg`is true`,
+  isFalse: msg`is false`,
+  isNull: msg`is NULL`,
+  isNotNull: msg`is not NULL`,
 };
 
 // Leading glyph per comparison operator (mirrors the targeting condition builder
@@ -142,15 +145,28 @@ type Group = Condition[];
 
 type RuleKind = "single" | "implication";
 
-const RULE_KIND_OPTIONS: { label: string; value: RuleKind }[] = [
-  { label: "Conditions that must hold", value: "single" },
-  { label: "If … then …", value: "implication" },
+const RULE_KIND_OPTIONS: { label: MessageDescriptor; value: RuleKind }[] = [
+  { label: msg`Conditions that must hold`, value: "single" },
+  { label: msg`If … then …`, value: "implication" },
 ];
 
-const RULE_KIND_HINTS: Record<RuleKind, string> = {
-  single: "All of these conditions must hold.",
-  implication: "When the IF conditions all hold, the THEN conditions must too.",
+const RULE_KIND_HINTS: Record<RuleKind, MessageDescriptor> = {
+  single: msg`All of these conditions must hold.`,
+  implication: msg`When the IF conditions all hold, the THEN conditions must too.`,
 };
+
+// What keeps a builder condition from saving, and which group it's in.
+type ConditionProblem = "field" | "compareField" | "value";
+type GroupName = "rule" | "first" | "second";
+
+function conditionProblem(c: Condition): ConditionProblem | null {
+  if (!c.field) return "field";
+  if (isComp(c.op)) {
+    if (c.rhsKind === "field" && !c.rhs) return "compareField";
+    if (c.rhsKind === "value" && c.rhs.trim() === "") return "value";
+  }
+  return null;
+}
 
 function newCondition(field: string): Condition {
   return { field, op: "==", rhsKind: "value", rhs: "" };
@@ -264,6 +280,7 @@ export default forwardRef<RulesEditorHandle, Props>(
     },
     ref,
   ) {
+    const { t, i18n } = useLingui();
     // null = closed, -1 = adding, >=0 = editing that row.
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [name, setName] = useState("");
@@ -344,39 +361,79 @@ export default forwardRef<RulesEditorHandle, Props>(
       }
     };
 
-    const validateCondition = (c: Condition, label: string): string | null => {
-      if (!c.field) return `Choose a field for ${label}.`;
-      if (isComp(c.op)) {
-        if (c.rhsKind === "field" && !c.rhs)
-          return `Choose a field to compare to for ${label}.`;
-        if (c.rhsKind === "value" && c.rhs.trim() === "")
-          return `Enter a value for ${label}.`;
+    // A condition's error, naming its group and, in a group of several, its
+    // position.
+    const conditionError = (
+      problem: ConditionProblem,
+      group: GroupName,
+      n: number | null,
+    ): string => {
+      switch (group) {
+        case "rule":
+          if (problem === "field") {
+            return n === null
+              ? t`Choose a field for the rule.`
+              : t`Choose a field for the rule condition ${n}.`;
+          }
+          if (problem === "compareField") {
+            return n === null
+              ? t`Choose a field to compare to for the rule.`
+              : t`Choose a field to compare to for the rule condition ${n}.`;
+          }
+          return n === null
+            ? t`Enter a value for the rule.`
+            : t`Enter a value for the rule condition ${n}.`;
+        case "first":
+          if (problem === "field") {
+            return n === null
+              ? t`Choose a field for the first group.`
+              : t`Choose a field for the first group condition ${n}.`;
+          }
+          if (problem === "compareField") {
+            return n === null
+              ? t`Choose a field to compare to for the first group.`
+              : t`Choose a field to compare to for the first group condition ${n}.`;
+          }
+          return n === null
+            ? t`Enter a value for the first group.`
+            : t`Enter a value for the first group condition ${n}.`;
+        case "second":
+          if (problem === "field") {
+            return n === null
+              ? t`Choose a field for the second group.`
+              : t`Choose a field for the second group condition ${n}.`;
+          }
+          if (problem === "compareField") {
+            return n === null
+              ? t`Choose a field to compare to for the second group.`
+              : t`Choose a field to compare to for the second group condition ${n}.`;
+          }
+          return n === null
+            ? t`Enter a value for the second group.`
+            : t`Enter a value for the second group condition ${n}.`;
       }
-      return null;
     };
 
-    const validateGroup = (g: Group, label: string): string | null => {
+    const validateGroup = (g: Group, group: GroupName): string | null => {
       for (let i = 0; i < g.length; i++) {
-        const lbl = g.length > 1 ? `${label} condition ${i + 1}` : label;
-        const e = validateCondition(g[i], lbl);
-        if (e) return e;
+        const problem = conditionProblem(g[i]);
+        if (problem) {
+          return conditionError(problem, group, g.length > 1 ? i + 1 : null);
+        }
       }
       return null;
     };
 
     const validateBuilder = (): string | null => {
       const twoSided = kind === "implication";
-      const a = validateGroup(
-        groupA,
-        twoSided ? "the first group" : "the rule",
-      );
+      const a = validateGroup(groupA, twoSided ? "first" : "rule");
       if (a) return a;
-      if (twoSided) return validateGroup(groupB, "the second group");
+      if (twoSided) return validateGroup(groupB, "second");
       return null;
     };
 
     const save = async () => {
-      if (!name.trim()) throw new Error("Name is required.");
+      if (!name.trim()) throw new Error(t`Name is required.`);
       if (!advanced) {
         const err = validateBuilder();
         if (err) throw new Error(err);
@@ -384,7 +441,7 @@ export default forwardRef<RulesEditorHandle, Props>(
       const rule = advanced
         ? safeParse(ruleText)
         : buildRule(kind, groupA, groupB);
-      if (!rule) throw new Error("Rule must be a valid rule object.");
+      if (!rule) throw new Error(t`Rule must be a valid rule object.`);
       const next: ConfigInvariant = {
         name: name.trim(),
         rule: JSON.stringify(rule),
@@ -402,7 +459,7 @@ export default forwardRef<RulesEditorHandle, Props>(
       try {
         await onChange(invariants.filter((_, i) => i !== index));
       } catch (e) {
-        setListError(e instanceof Error ? e.message : "Failed to remove rule");
+        setListError(e instanceof Error ? e.message : t`Failed to remove rule`);
       }
     };
 
@@ -413,7 +470,8 @@ export default forwardRef<RulesEditorHandle, Props>(
       }
       const index = invariants.findIndex((iv) => iv.name === r.name);
       if (index < 0) {
-        setListError(`This draft has no "${r.name}" rule.`);
+        const ruleName = r.name;
+        setListError(t`This draft has no "${ruleName}" rule.`);
         return;
       }
       if (r.kind === "edit") open(index);
@@ -437,6 +495,9 @@ export default forwardRef<RulesEditorHandle, Props>(
     const previewUndeclared = currentRule
       ? undeclaredIn(JSON.stringify(currentRule))
       : [];
+    const previewUndeclaredNames = previewUndeclared
+      .map((k) => `"${k}"`)
+      .join(", ");
 
     const inheritedByName = new Map(
       inherited.map((r) => [r.invariant.name, r]),
@@ -447,9 +508,10 @@ export default forwardRef<RulesEditorHandle, Props>(
     );
     const replaces = (ruleName: string) => {
       const r = inheritedByName.get(ruleName.trim());
-      return r
-        ? `Replaces the "${r.invariant.name}" rule from ${r.sourceName}.`
-        : null;
+      if (!r) return null;
+      const inheritedName = r.invariant.name;
+      const sourceName = r.sourceName;
+      return t`Replaces the "${inheritedName}" rule from ${sourceName}.`;
     };
 
     // A rule with its live pass/fail against the resolved value.
@@ -460,6 +522,7 @@ export default forwardRef<RulesEditorHandle, Props>(
     ) => {
       const fails = evaluateInvariants(resolvedValue, [iv]).length > 0;
       const undeclared = undeclaredIn(iv.rule);
+      const undeclaredNames = undeclared.map((k) => `"${k}"`).join(", ");
       return (
         <Frame mb="2" key={key}>
           <Flex align="center" gap="2">
@@ -467,7 +530,7 @@ export default forwardRef<RulesEditorHandle, Props>(
             <Badge
               color={fails ? "red" : "green"}
               variant="soft"
-              label={fails ? "fails" : "ok"}
+              label={fails ? t`fails` : t`ok`}
             />
             {actions ? (
               <Flex gap="2" ml="auto" align="center">
@@ -488,10 +551,17 @@ export default forwardRef<RulesEditorHandle, Props>(
           </Box>
           {undeclared.length > 0 && (
             <Text as="div" size="sm" color="text-low" mt="1">
-              References undeclared field
-              {undeclared.length === 1 ? "" : "s"}{" "}
-              {undeclared.map((k) => `"${k}"`).join(", ")}, which
-              {undeclared.length === 1 ? " reads" : " read"} as null.
+              {undeclared.length === 1 ? (
+                <Trans>
+                  References undeclared field {undeclaredNames}, which reads as
+                  null.
+                </Trans>
+              ) : (
+                <Trans>
+                  References undeclared fields {undeclaredNames}, which read as
+                  null.
+                </Trans>
+              )}
             </Text>
           )}
           <Text as="div" size="sm" color="text-low" mt="1">
@@ -525,7 +595,7 @@ export default forwardRef<RulesEditorHandle, Props>(
               <ConditionRow
                 prefixSlot={
                   <ConditionRowLabel
-                    label={i === 0 ? (leadLabel ?? "") : "AND"}
+                    label={i === 0 ? (leadLabel ?? "") : t`AND`}
                   />
                 }
                 attributeSlot={
@@ -534,7 +604,7 @@ export default forwardRef<RulesEditorHandle, Props>(
                     value={c.field}
                     onChange={(v) => setAt(i, { ...c, field: v })}
                     options={fieldOptions}
-                    placeholder="field"
+                    placeholder={t`field`}
                   />
                 }
                 operatorSlot={
@@ -543,7 +613,7 @@ export default forwardRef<RulesEditorHandle, Props>(
                     value={c.op}
                     onChange={(v) => setAt(i, { ...c, op: v as CondOp })}
                     options={ALL_OPS.map((o) => ({
-                      label: OP_LABELS[o],
+                      label: i18n._(OP_LABELS[o]),
                       value: o,
                     }))}
                     formatOptionLabel={formatOperatorOption}
@@ -561,8 +631,8 @@ export default forwardRef<RulesEditorHandle, Props>(
                             setAt(i, { ...c, rhsKind: v as "value" | "field" })
                           }
                           options={[
-                            { label: "a value", value: "value" },
-                            { label: "a field", value: "field" },
+                            { label: t`a value`, value: "value" },
+                            { label: t`a field`, value: "field" },
                           ]}
                           sort={false}
                         />
@@ -574,7 +644,7 @@ export default forwardRef<RulesEditorHandle, Props>(
                             value={c.rhs}
                             onChange={(v) => setAt(i, { ...c, rhs: v })}
                             options={fieldOptions}
-                            placeholder="field"
+                            placeholder={t`field`}
                           />
                         ) : (
                           <Field
@@ -622,19 +692,22 @@ export default forwardRef<RulesEditorHandle, Props>(
     const builder = (
       <Box>
         <SelectField
-          label="Rule type"
+          label={t`Rule type`}
           value={kind}
           onChange={(v) => onKindChange(v as RuleKind)}
-          options={RULE_KIND_OPTIONS}
+          options={RULE_KIND_OPTIONS.map((o) => ({
+            label: i18n._(o.label),
+            value: o.value,
+          }))}
           sort={false}
-          helpText={RULE_KIND_HINTS[kind]}
+          helpText={i18n._(RULE_KIND_HINTS[kind])}
         />
         <Box mt="3">
           {kind === "single" && groupBlock(groupA, setGroupA, null)}
           {kind === "implication" && (
             <>
-              {groupBlock(groupA, setGroupA, "IF")}
-              <Box mt="3">{groupBlock(groupB, setGroupB, "THEN")}</Box>
+              {groupBlock(groupA, setGroupA, t`IF`)}
+              <Box mt="3">{groupBlock(groupB, setGroupB, t`THEN`)}</Box>
             </>
           )}
         </Box>
@@ -646,29 +719,31 @@ export default forwardRef<RulesEditorHandle, Props>(
     const editorBody = (
       <>
         <Field
-          label="Name"
+          label={t`Name`}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. start_before_end"
+          placeholder={t`e.g. start_before_end`}
           error={replaces(name)}
           errorLevel="warning"
         />
 
         <Flex justify="between" align="center" mt="4" mb="2">
           <Text as="label" weight="semibold">
-            Rule
+            <Trans>Rule</Trans>
           </Text>
           <Switch
             value={advanced}
             onChange={toggleAdvanced}
-            label="Advanced (raw rule)"
+            label={t`Advanced (raw rule)`}
             size="sm"
           />
         </Flex>
 
         {advanced && advancedLocked && (
           <HelperText status="warning" size="sm" mb="2">
-            This rule can&apos;t be shown in the builder. Edit it as raw JSON.
+            <Trans>
+              This rule can&apos;t be shown in the builder. Edit it as raw JSON.
+            </Trans>
           </HelperText>
         )}
         {advanced ? (
@@ -688,7 +763,7 @@ export default forwardRef<RulesEditorHandle, Props>(
             actions={
               <FormatJsonAction value={ruleText} setValue={setRuleText} />
             }
-            helpText="A boolean expression over the fields."
+            helpText={t`A boolean expression over the fields.`}
           />
         ) : (
           builder
@@ -710,15 +785,15 @@ export default forwardRef<RulesEditorHandle, Props>(
 
         <Box mt="3">
           <Field
-            label="Error message (optional)"
+            label={t`Error message (optional)`}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder={
               name.trim()
                 ? defaultInvariantMessage(name)
-                : "Shown to editors when the rule is violated"
+                : t`Shown to editors when the rule is violated`
             }
-            helpText="Shown to editors when the rule is violated. Defaults to a generic message if left blank."
+            helpText={t`Shown to editors when the rule is violated. Defaults to a generic message if left blank.`}
           />
         </Box>
 
@@ -729,17 +804,23 @@ export default forwardRef<RulesEditorHandle, Props>(
               variant="soft"
               label={
                 previewFails
-                  ? "Current value would fail this rule"
-                  : "Current value passes this rule"
+                  ? t`Current value would fail this rule`
+                  : t`Current value passes this rule`
               }
             />
             {previewUndeclared.length > 0 && (
               <Text as="div" size="sm" color="text-low" mt="1">
-                References undeclared field
-                {previewUndeclared.length === 1 ? "" : "s"}{" "}
-                {previewUndeclared.map((k) => `"${k}"`).join(", ")}, which
-                {previewUndeclared.length === 1 ? " reads" : " read"} as null.
-                Check for a typo.
+                {previewUndeclared.length === 1 ? (
+                  <Trans>
+                    References undeclared field {previewUndeclaredNames}, which
+                    reads as null. Check for a typo.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    References undeclared fields {previewUndeclaredNames}, which
+                    read as null. Check for a typo.
+                  </Trans>
+                )}
               </Text>
             )}
           </Box>
@@ -751,7 +832,7 @@ export default forwardRef<RulesEditorHandle, Props>(
       <Frame mb="4" px="6" py="4">
         <Flex align="center" justify="between" mb="1">
           <Heading as="h3" size="md" mb="0">
-            Validation Rules
+            <Trans>Validation Rules</Trans>
           </Heading>
           {canEdit && (
             <Tooltip content={blockedReason} enabled={!!blockedReason}>
@@ -759,15 +840,17 @@ export default forwardRef<RulesEditorHandle, Props>(
                 disabled={!!blockedReason}
                 onClick={() => act({ kind: "add" })}
               >
-                Add rule
+                <Trans>Add rule</Trans>
               </Button>
             </Tooltip>
           )}
         </Flex>
         <Box mb="3">
           <Text as="p" size="sm" color="text-low" fontStyle="italic">
-            Cross-field checks on the resolved value before this Config is
-            published.
+            <Trans>
+              Cross-field checks on the resolved value before this Config is
+              published.
+            </Trans>
           </Text>
           {draftNote ? (
             <Text as="p" size="sm" color="text-low" mt="1">
@@ -786,8 +869,8 @@ export default forwardRef<RulesEditorHandle, Props>(
           <Text color="text-low">
             <em>
               {inherited.length
-                ? "None defined here yet."
-                : "No validation rules yet."}
+                ? t`None defined here yet.`
+                : t`No validation rules yet.`}
             </em>
           </Text>
         )}
@@ -802,7 +885,7 @@ export default forwardRef<RulesEditorHandle, Props>(
                   disabled={!!blockedReason}
                   onClick={() => act({ kind: "edit", name: iv.name })}
                 >
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
                 <Button
                   variant="ghost"
@@ -811,7 +894,7 @@ export default forwardRef<RulesEditorHandle, Props>(
                   disabled={!!blockedReason}
                   onClick={() => act({ kind: "delete", name: iv.name })}
                 >
-                  Remove
+                  <Trans>Remove</Trans>
                 </Button>
               </>
             ),
@@ -822,18 +905,21 @@ export default forwardRef<RulesEditorHandle, Props>(
         {shownInherited.length > 0 && (
           <>
             <Heading as="h4" size="sm" mt="4" mb="3">
-              Inherited Rules
+              <Trans>Inherited Rules</Trans>
             </Heading>
-            {shownInherited.map((r) =>
-              ruleCard(r.invariant, `inherited-${r.invariant.name}`, {
+            {shownInherited.map((r) => {
+              const sourceName = r.sourceName;
+              return ruleCard(r.invariant, `inherited-${r.invariant.name}`, {
                 actions: (
                   <Text size="sm" color="text-low">
-                    From{" "}
-                    <Link href={`/configs/${r.sourceKey}`}>{r.sourceName}</Link>
+                    <Trans>
+                      From{" "}
+                      <Link href={`/configs/${r.sourceKey}`}>{sourceName}</Link>
+                    </Trans>
                   </Text>
                 ),
-              }),
-            )}
+              });
+            })}
           </>
         )}
 
@@ -842,10 +928,12 @@ export default forwardRef<RulesEditorHandle, Props>(
             open
             trackingEventModalType="config-invariant-rule"
             header={
-              isEditingExisting ? "Edit validation rule" : "Add validation rule"
+              isEditingExisting
+                ? t`Edit validation rule`
+                : t`Add validation rule`
             }
             size="lg"
-            cta={isEditingExisting ? "Save rule" : "Add rule"}
+            cta={isEditingExisting ? t`Save rule` : t`Add rule`}
             close={close}
             submit={save}
           >

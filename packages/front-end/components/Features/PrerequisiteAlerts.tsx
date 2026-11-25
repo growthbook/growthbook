@@ -1,5 +1,6 @@
 import React from "react";
 import { FaRegCircleQuestion } from "react-icons/fa6";
+import { Trans } from "@lingui/react/macro";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 
 interface Props {
@@ -19,15 +20,47 @@ export default function PrerequisiteAlerts({
   mt = "0",
   mb = "4",
 }: Props) {
+  const isFeature = type === "feature";
+  const manyEnvironments = environments.length > 1;
   const prefix = (
     <>
-      This {type} is in a{" "}
-      <span className="text-warning-orange font-weight-bold">
-        Schrödinger state
-      </span>{" "}
-      {environments.length > 1 ? "in some environments" : "in this environment"}{" "}
-      and {type === "feature" && "its prerequisites "}must be evaluated at
-      runtime.{" "}
+      {isFeature ? (
+        manyEnvironments ? (
+          <Trans>
+            This feature is in a{" "}
+            <span className="text-warning-orange font-weight-bold">
+              Schrödinger state
+            </span>{" "}
+            in some environments and its prerequisites must be evaluated at
+            runtime.
+          </Trans>
+        ) : (
+          <Trans>
+            This feature is in a{" "}
+            <span className="text-warning-orange font-weight-bold">
+              Schrödinger state
+            </span>{" "}
+            in this environment and its prerequisites must be evaluated at
+            runtime.
+          </Trans>
+        )
+      ) : manyEnvironments ? (
+        <Trans>
+          This prerequisite is in a{" "}
+          <span className="text-warning-orange font-weight-bold">
+            Schrödinger state
+          </span>{" "}
+          in some environments and must be evaluated at runtime.
+        </Trans>
+      ) : (
+        <Trans>
+          This prerequisite is in a{" "}
+          <span className="text-warning-orange font-weight-bold">
+            Schrödinger state
+          </span>{" "}
+          in this environment and must be evaluated at runtime.
+        </Trans>
+      )}{" "}
     </>
   );
 
@@ -39,19 +72,28 @@ export default function PrerequisiteAlerts({
       someMessage={
         <>
           {prefix}
-          However, some of your SDK Connections in this project may not support
-          prerequisite evaluation.
+          <Trans>
+            However, some of your SDK Connections in this project may not
+            support prerequisite evaluation.
+          </Trans>
         </>
       }
       noneMessage={
         <>
           {prefix}
-          However, none of your SDK Connections in this project support
-          prerequisite evaluation. Either upgrade your SDKs or{" "}
-          {type === "prerequisite"
-            ? "remove this prerequisite"
-            : "remove Schrödinger prerequisites"}
-          .
+          {type === "prerequisite" ? (
+            <Trans>
+              However, none of your SDK Connections in this project support
+              prerequisite evaluation. Either upgrade your SDKs or remove this
+              prerequisite.
+            </Trans>
+          ) : (
+            <Trans>
+              However, none of your SDK Connections in this project support
+              prerequisite evaluation. Either upgrade your SDKs or remove
+              Schrödinger prerequisites.
+            </Trans>
+          )}
         </>
       }
       size={size}

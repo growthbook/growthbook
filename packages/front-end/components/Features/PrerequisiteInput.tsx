@@ -21,6 +21,7 @@ import {
   Separator,
 } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -106,7 +107,7 @@ export default function PrerequisiteInput({
   setPrerequisiteTargetingSdkIssues,
   slimMode,
   emptyText,
-  label = "Target by Prerequisite Features",
+  label: labelProp,
   labelActions,
   locked,
   addRemoveMode,
@@ -117,6 +118,9 @@ export default function PrerequisiteInput({
   removeModeLabel,
   onRuleCyclicChange,
 }: Props) {
+  const { t } = useLingui();
+  const label =
+    labelProp === undefined ? t`Target by Prerequisite Features` : labelProp;
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
   });
@@ -409,7 +413,7 @@ export default function PrerequisiteInput({
     <Flex mb="1" justify="between" align="center">
       <PremiumTooltip
         commercialFeature="prerequisite-targeting"
-        premiumText="Prerequisite targeting is available for Enterprise customers"
+        premiumText={t`Prerequisite targeting is available for Enterprise customers`}
       >
         {slimMode ? (
           <Text as="div" size="md" weight="semibold" color="text-mid">
@@ -433,8 +437,8 @@ export default function PrerequisiteInput({
       value={addRemoveValue}
       setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
       options={[
-        { value: "set", label: setModeLabel ?? "Set targeting" },
-        { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+        { value: "set", label: setModeLabel ?? t`Set targeting` },
+        { value: "remove", label: removeModeLabel ?? t`Remove targeting` },
       ]}
       labelSize="md"
     />
@@ -453,7 +457,7 @@ export default function PrerequisiteInput({
     >
       <Text weight="semibold" size="md">
         <PiPlusCircleBold className="mr-1" />
-        Add prerequisite targeting
+        <Trans>Add prerequisite targeting</Trans>
       </Text>
     </Link>
   );
@@ -466,6 +470,10 @@ export default function PrerequisiteInput({
     </PremiumTooltip>
   );
 
+  // Code shown as is in the advanced-mode hint.
+  const valueKey = `"value"`;
+  const exampleCondition = `{"value": {"$gt": 3}}`;
+
   const content = (
     <Box mb="0">
       {value.length === 0 && (emptyText || !slimMode) && (
@@ -475,7 +483,7 @@ export default function PrerequisiteInput({
           mb="2"
           size={slimMode ? "sm" : undefined}
         >
-          {emptyText || "No prerequisite targeting applied"}
+          {emptyText || t`No prerequisite targeting applied`}
         </Text>
       )}
       {value.length > 0 ? (
@@ -493,7 +501,7 @@ export default function PrerequisiteInput({
                   newAdvancedMode[0] = checked;
                   setAdvancedMode(newAdvancedMode);
                 }}
-                label="Advanced"
+                label={t`Advanced`}
                 size="sm"
                 disabled={locked}
               />
@@ -513,7 +521,7 @@ export default function PrerequisiteInput({
                   ]);
                 }}
               >
-                Add prerequisite
+                <Trans>Add prerequisite</Trans>
               </AddConditionButton>
             ) : undefined
           }
@@ -552,7 +560,7 @@ export default function PrerequisiteInput({
                 <Box>
                   {i > 0 && (
                     <ConditionRowHeader
-                      label="AND"
+                      label={t`AND`}
                       advancedToggle={
                         parentFeature ? (
                           <Switch
@@ -562,7 +570,7 @@ export default function PrerequisiteInput({
                               newAdvancedMode[i] = checked;
                               setAdvancedMode(newAdvancedMode);
                             }}
-                            label="Advanced"
+                            label={t`Advanced`}
                             size="sm"
                             disabled={locked}
                           />
@@ -702,7 +710,7 @@ export default function PrerequisiteInput({
                                 placeholder={
                                   parentFeatureMeta?.valueType === "number"
                                     ? "1, 2..."
-                                    : "value 1, value 2..."
+                                    : t`value 1, value 2...`
                                 }
                                 delimiters={["Enter", "Tab", ","]}
                                 required
@@ -749,7 +757,7 @@ export default function PrerequisiteInput({
                           ) : null
                         }
                         removeSlot={
-                          <RadixTooltip content="Remove prerequisite">
+                          <RadixTooltip content={t`Remove prerequisite`}>
                             <IconButton
                               type="button"
                               color="gray"
@@ -814,7 +822,7 @@ export default function PrerequisiteInput({
                         operatorSlot={null}
                         valueSlot={null}
                         removeSlot={
-                          <RadixTooltip content="Remove prerequisite">
+                          <RadixTooltip content={t`Remove prerequisite`}>
                             <IconButton
                               type="button"
                               color="gray"
@@ -875,12 +883,16 @@ export default function PrerequisiteInput({
                       />
                       <Box>
                         <Text color="text-low" size="sm">
-                          <code>{`"value"`}</code> refers to the
-                          prerequisite&apos;s evaluated value.
+                          <Trans>
+                            <code>{valueKey}</code> refers to the
+                            prerequisite&apos;s evaluated value.
+                          </Trans>
                           <Tooltip
                             body={
                               <div>
-                                Example: <code>{`{"value": {"$gt": 3}}`}</code>
+                                <Trans>
+                                  Example: <code>{exampleCondition}</code>
+                                </Trans>
                               </div>
                             }
                             className="ml-2"
@@ -903,7 +915,7 @@ export default function PrerequisiteInput({
                           <Link>
                             <Text color="text-low">
                               <PiCaretRightFill className="chevron mr-1" />
-                              Details
+                              <Trans>Details</Trans>
                             </Text>
                           </Link>
                         }
@@ -929,8 +941,10 @@ export default function PrerequisiteInput({
                         id="prerequisite-project-mismatch--field"
                         dismissible={true}
                       >
-                        Project mismatch. Prerequisite evaluation may fail for
-                        SDK Connections with non-overlapping project scope.
+                        <Trans>
+                          Project mismatch. Prerequisite evaluation may fail for
+                          SDK Connections with non-overlapping project scope.
+                        </Trans>
                       </Callout>
                     )}
 

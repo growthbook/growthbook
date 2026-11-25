@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 
@@ -19,13 +20,14 @@ export default function ModalWarningBanner({
   acknowledged?: boolean;
   setAcknowledged?: (value: boolean) => void;
 }) {
+  const { t } = useLingui();
   const acknowledge =
     acknowledged !== undefined && setAcknowledged ? (
       <Box style={{ color: "var(--violet-11)" }}>
         <Checkbox
           value={acknowledged}
           setValue={setAcknowledged}
-          label="Acknowledge"
+          label={t`Acknowledge`}
           weight="medium"
           align="center"
         />

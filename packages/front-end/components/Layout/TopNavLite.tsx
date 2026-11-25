@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
-import { Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   PiCaretDownFill,
   PiCircleHalf,
@@ -24,6 +25,7 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import styles from "./TopNav.module.scss";
+import LanguageMenu from "./LanguageMenu";
 
 export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   const { email, name, user } = useUser();
@@ -36,7 +38,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -44,7 +46,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -52,7 +54,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
     }
@@ -88,7 +90,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiCircleHalf size="16" className="mr-1" />
-            System Default
+            <Trans>System Default</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -100,7 +102,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiSunDim size="16" className="mr-1" />
-            Light
+            <Trans>Light</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -112,7 +114,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiMoon size="16" className="mr-1" />
-            Dark
+            <Trans>Dark</Trans>
           </span>
         </DropdownMenuItem>
       </>
@@ -145,7 +147,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           safeLogout();
         }}
       >
-        Sign Out
+        <Trans>Sign Out</Trans>
       </DropdownMenuItem>
     );
   };
@@ -218,11 +220,15 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           >
             {renderNameAndEmailDropdownLabel()}
             {renderThemeDropDown()}
+            <LanguageMenu />
             <DropdownMenuSeparator />
             {renderLogoutDropDown()}
           </DropdownMenu>
         ) : (
-          <div className="mr-1">{renderThemeDropDown(true)}</div>
+          <Flex gap="3" mr="1">
+            {renderThemeDropDown(true)}
+            <LanguageMenu standalone />
+          </Flex>
         )}
       </div>
     </div>

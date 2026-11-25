@@ -9,6 +9,7 @@ import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.j
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
+import { Trans, useLingui } from "@lingui/react/macro";
 import React, {
   forwardRef,
   ReactElement,
@@ -277,6 +278,7 @@ export function DropdownMenuItem({
   tooltipSide = "bottom",
   ...props
 }: DropdownItemProps) {
+  const { t } = useLingui();
   if (color === "default") {
     color = undefined;
   }
@@ -355,7 +357,7 @@ export function DropdownMenuItem({
           <Box width="14px" className="ml-3">
             {loading ? <LoadingSpinner /> : null}
             {error ? (
-              <Tooltip content={`Error: ${error}. Exit menu and try again.`}>
+              <Tooltip content={t`Error: ${error}. Exit menu and try again.`}>
                 {/* An icon can't hold the tooltip's ref. */}
                 <span>
                   <PiWarningFill color={amber.amber11} />
@@ -382,7 +384,9 @@ export function DropdownMenuItem({
           ctaColor={confirmation.ctaColor ?? "red"}
           submit={confirmation.submit}
         >
-          {confirmationContent ?? "Are you sure? This action cannot be undone."}
+          {confirmationContent ?? (
+            <Trans>Are you sure? This action cannot be undone.</Trans>
+          )}
         </ModalStandard>
       )}
       {tooltip ? (

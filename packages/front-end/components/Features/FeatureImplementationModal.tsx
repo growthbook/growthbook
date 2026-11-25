@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
@@ -25,6 +26,7 @@ export default function FeatureImplementationModal({
   close,
   first = true,
 }: Props) {
+  const { t } = useLingui();
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [fullSnippet, setFullSnippet] = useState(false);
   const [languageFilter, setLanguageFilter] =
@@ -51,6 +53,7 @@ export default function FeatureImplementationModal({
   }
 
   const data = languageMapping[language];
+  const languageLabel = data?.label;
 
   return (
     <Modal
@@ -58,10 +61,14 @@ export default function FeatureImplementationModal({
       open={true}
       close={close}
       size="lg"
-      closeCta="Close"
-      header="Feature Implementation"
+      closeCta={t`Close`}
+      header={t`Feature Implementation`}
     >
-      {first && <p>Congratulations on adding your first feature!</p>}
+      {first && (
+        <p>
+          <Trans>Congratulations on adding your first feature!</Trans>
+        </p>
+      )}
       <div>
         <SDKLanguageSelector
           value={[language]}
@@ -72,24 +79,26 @@ export default function FeatureImplementationModal({
           setLanguageFilter={setLanguageFilter}
         />
         <h3 className="mt-4">
-          {languageMapping[language]?.label} Usage Instructions
+          <Trans>{languageLabel} Usage Instructions</Trans>
         </h3>
         <p>
-          Read the{" "}
-          <DocLink useRadix={false} docSection={data.docs}>
-            {data.label} SDK docs
-          </DocLink>{" "}
-          or view a{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setFullSnippet(true);
-            }}
-          >
-            complete implementation example
-          </a>
-          .
+          <Trans>
+            Read the{" "}
+            <DocLink useRadix={false} docSection={data.docs}>
+              {languageLabel} SDK docs
+            </DocLink>{" "}
+            or view a{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setFullSnippet(true);
+              }}
+            >
+              complete implementation example
+            </a>
+            .
+          </Trans>
         </p>
 
         {codeType === "boolean" ? (

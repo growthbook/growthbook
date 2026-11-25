@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -34,8 +37,10 @@ export function NoExperimentsForImpactBanner() {
   return (
     <Callout status="warning" mt="2">
       <span style={{ fontSize: "1.2em" }}>
-        0 experiments for which we could compute scaled impact match your
-        filters.
+        <Trans>
+          0 experiments for which we could compute scaled impact match your
+          filters.
+        </Trans>
       </span>
     </Callout>
   );
@@ -50,7 +55,11 @@ export function formatImpact(
   formatterOptions: Intl.NumberFormatOptions,
 ) {
   if (impact === 0) {
-    return <>N/A</>;
+    return (
+      <>
+        <Trans>N/A</Trans>
+      </>
+    );
   }
   return (
     <>
@@ -80,7 +89,7 @@ type ExperimentWithImpact = {
     scaledImpactAdjusted?: number;
     se: number;
   };
-  error?: string;
+  error?: MessageDescriptor;
 };
 
 export type ExperimentImpactTab = ExperimentImpactType | "summary";
@@ -226,17 +235,14 @@ export function scaleImpactAndSetMissingExperiments({
           });
         } else {
           if (defaultAnalysis && defaultAnalysis.status === "success") {
-            ei.error =
-              "No snapshot with scaled impact available. Click calculate button above.";
+            ei.error = msg`No snapshot with scaled impact available. Click calculate button above.`;
             experimentsWithNoImpact.push(e.id);
           } else {
-            ei.error =
-              "No results available. Check experiment results for errors.";
+            ei.error = msg`No results available. Check experiment results for errors.`;
           }
         }
       } else {
-        ei.error =
-          "No results available. Run experiment update on experiment page.";
+        ei.error = msg`No results available. Run experiment update on experiment page.`;
       }
       experimentImpacts.set(e.id, ei);
     });
@@ -335,6 +341,7 @@ export default function ExperimentImpact({
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }) {
+  const { t } = useLingui();
   const experiments = allExperiments.filter(
     (exp) => exp.type !== "multi-armed-bandit",
   );
@@ -459,10 +466,14 @@ export default function ExperimentImpact({
 
   return (
     <div className="pt-2">
-      <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
+      <h3 className="mt-2 mb-3 mr-4">
+        <Trans>Experiment Impact</Trans>
+      </h3>
       <div className="row align-items-start mb-4">
         <div className="col-3">
-          <label className="mb-1">Metric</label>
+          <label className="mb-1">
+            <Trans>Metric</Trans>
+          </label>
           <MetricSelector
             value={metric}
             onChange={(metric) => form.setValue("metric", metric)}
@@ -472,10 +483,12 @@ export default function ExperimentImpact({
         </div>
 
         <div className="col-auto" style={{ maxWidth: 250 }}>
-          <label className="mb-1">Projects</label>
+          <label className="mb-1">
+            <Trans>Projects</Trans>
+          </label>
           <MultiSelectField
             legacyHeight
-            placeholder="All Projects"
+            placeholder={t`All Projects`}
             value={project ? [project] : selectedProjects}
             disabled={!!project}
             options={projects
@@ -486,7 +499,9 @@ export default function ExperimentImpact({
         </div>
 
         <div className="col-auto">
-          <label className="mb-1">Date Ended</label>
+          <label className="mb-1">
+            <Trans>Date Ended</Trans>
+          </label>
           <div className="d-flex align-items-start">
             <DatePicker
               date={form.watch("startDate")}
@@ -497,7 +512,10 @@ export default function ExperimentImpact({
               disableAfter={form.watch("endDate") || undefined}
               precision="date"
             />
-            <div className="m-2">{" to "}</div>
+            <div className="m-2">
+              {" "}
+              <Trans>to</Trans>{" "}
+            </div>
             <DatePicker
               date={form.watch("endDate")}
               setDate={(v) => {
@@ -509,17 +527,19 @@ export default function ExperimentImpact({
               helpText={
                 form.getValues("endDate") !== "" ? (
                   <div style={{ marginRight: -10 }}>
-                    <a
-                      role="button"
-                      className="a"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        form.setValue("endDate", "");
-                      }}
-                    >
-                      Clear Input
-                    </a>{" "}
-                    to include today
+                    <Trans>
+                      <a
+                        role="button"
+                        className="a"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          form.setValue("endDate", "");
+                        }}
+                      >
+                        Clear Input
+                      </a>{" "}
+                      to include today
+                    </Trans>
                   </div>
                 ) : null
               }
@@ -529,12 +549,12 @@ export default function ExperimentImpact({
         <div className="col pl-3">
           <Flex align="center" gap="1">
             <DSTooltip
-              content="Disabled as there are not enough experiments to shrink estimates"
+              content={t`Disabled as there are not enough experiments to shrink estimates`}
               enabled={nExpsUsedForAdjustment < 5}
             >
               <Switch
                 id="adjust-scaled-impact"
-                label="De-bias?"
+                label={t`De-bias?`}
                 disabled={nExpsUsedForAdjustment < 5}
                 onChange={(v) => form.setValue("adjusted", v)}
                 value={adjusted && nExpsUsedForAdjustment >= 5}
@@ -544,13 +564,23 @@ export default function ExperimentImpact({
               body={
                 <>
                   <div className="mb-2">
-                    {
-                      "Whether to use the James-Stein shrinkage estimator to compute an adjustment factor to mitigate selection bias from summing only a subset of experiments (e.g. winners)."
-                    }
+                    <Trans>
+                      Whether to use the James-Stein shrinkage estimator to
+                      compute an adjustment factor to mitigate selection bias
+                      from summing only a subset of experiments (e.g. winners).
+                    </Trans>
                   </div>
 
                   {nExpsUsedForAdjustment >= 5 ? (
-                    <div>{`To estimate the background variance in treatment effects used for the James-Stein estimator, we use all ${nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters.`}</div>
+                    <div>
+                      <Trans>
+                        To estimate the background variance in treatment effects
+                        used for the James-Stein estimator, we use all{" "}
+                        {nExpsUsedForAdjustment} experiments that have ever used
+                        this metric and for which we can compute scaled impact,
+                        regardless of your project or date filters.
+                      </Trans>
+                    </div>
                   ) : null}
                 </>
               }
@@ -576,12 +606,14 @@ export default function ExperimentImpact({
                     )
                   }
                 >
-                  Calculate Scaled Impact
+                  <Trans>Calculate Scaled Impact</Trans>
                 </Button>
               }
             >
               <span style={{ fontSize: "1.2em" }}>
-                Some experiments are missing scaled impact results.
+                <Trans>
+                  Some experiments are missing scaled impact results.
+                </Trans>
               </span>
             </Callout>
           ) : null}
@@ -593,21 +625,23 @@ export default function ExperimentImpact({
           ) : null}
           <Tabs defaultValue="summary">
             <TabsList>
-              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="summary">
+                <Trans>Summary</Trans>
+              </TabsTrigger>
               <TabsTrigger value="winner">
-                Won
+                <Trans>Won</Trans>
                 <Avatar color="gray" variant="soft" ml="2" size="sm">
                   {summaryObj.winners.experiments.length}
                 </Avatar>
               </TabsTrigger>
               <TabsTrigger value="loser">
-                Lost
+                <Trans>Lost</Trans>
                 <Avatar color="gray" variant="soft" ml="2" size="sm">
                   {summaryObj.losers.experiments.length}
                 </Avatar>
               </TabsTrigger>
               <TabsTrigger value="other">
-                Other
+                <Trans>Other</Trans>
                 <Avatar color="gray" variant="soft" ml="2" size="sm">
                   {summaryObj.others.experiments.length}
                 </Avatar>
@@ -625,34 +659,36 @@ export default function ExperimentImpact({
                           className="d-inline-block badge-success rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Won
+                        <Trans>Won</Trans>
                       </th>
                       <th style={{ width: 200 }} className="border-top-0">
                         <div
                           className="d-inline-block badge-danger rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Lost
+                        <Trans>Lost</Trans>
                       </th>
                       <th style={{ width: 200 }} className="border-top-0">
                         <div
                           className="d-inline-block badge-secondary rounded-circle mr-1"
                           style={{ width: 10, height: 10 }}
                         />
-                        Other
+                        <Trans>Other</Trans>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="text-left">Experiments</td>
+                      <td className="text-left">
+                        <Trans>Experiments</Trans>
+                      </td>
                       <td>{summaryObj.winners.experiments.length}</td>
                       <td>{summaryObj.losers.experiments.length}</td>
                       <td>{summaryObj.others.experiments.length}</td>
                     </tr>
                     <tr>
                       <td className="font-weight-bold text-left">
-                        Scaled Impact
+                        <Trans>Scaled Impact</Trans>
                       </td>
                       <td className="impact-results">
                         <div className="won">
@@ -683,37 +719,50 @@ export default function ExperimentImpact({
                               body={
                                 <div>
                                   <div className="mb-2">
-                                    This value is the sum of the adjusted scaled
-                                    impacts of the winning variations from
-                                    experiments marked as Won.
+                                    <Trans>
+                                      This value is the sum of the adjusted
+                                      scaled impacts of the winning variations
+                                      from experiments marked as Won.
+                                    </Trans>
                                   </div>
                                   <div className="mb-2">
                                     <ol>
                                       <li>
-                                        We compute the Daily Scaled Impact for
-                                        all variations in all experiments that
-                                        match your filters.
+                                        <Trans>
+                                          We compute the Daily Scaled Impact for
+                                          all variations in all experiments that
+                                          match your filters.
+                                        </Trans>
                                       </li>
                                       <li>
-                                        If de-biasing is on, we use a
-                                        James-Stein adjustment to shrink
-                                        estimates towards zero to mitigate
-                                        selection bias.
+                                        <Trans>
+                                          If de-biasing is on, we use a
+                                          James-Stein adjustment to shrink
+                                          estimates towards zero to mitigate
+                                          selection bias.
+                                        </Trans>
                                       </li>
                                       <li>
-                                        We sum the Scaled Impact of the winning
-                                        variation of experiments marked as won
-                                        and multiply values by 365 to get an
-                                        annual value.
+                                        <Trans>
+                                          We sum the Scaled Impact of the
+                                          winning variation of experiments
+                                          marked as won and multiply values by
+                                          365 to get an annual value.
+                                        </Trans>
                                       </li>
                                     </ol>
                                   </div>
-                                  <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
+                                  <div>
+                                    <Trans>
+                                      The plus-minus value represents a 95%
+                                      confidence interval.
+                                    </Trans>
+                                  </div>
                                 </div>
                               }
                             >
                               <span className="small font-weight-bold">
-                                summed impact / year
+                                <Trans>summed impact / year</Trans>
                               </span>{" "}
                               <GBInfo />
                             </Tooltip>
@@ -749,37 +798,50 @@ export default function ExperimentImpact({
                               body={
                                 <div>
                                   <div className="mb-2">
-                                    This value is the sum of the adjusted scaled
-                                    impacts of the worst variation from
-                                    experiments marked as Lost.
+                                    <Trans>
+                                      This value is the sum of the adjusted
+                                      scaled impacts of the worst variation from
+                                      experiments marked as Lost.
+                                    </Trans>
                                   </div>
                                   <div className="mb-2">
                                     <ol>
                                       <li>
-                                        We compute the Daily Scaled Impact for
-                                        all variations in all experiments that
-                                        match your filters.
+                                        <Trans>
+                                          We compute the Daily Scaled Impact for
+                                          all variations in all experiments that
+                                          match your filters.
+                                        </Trans>
                                       </li>
                                       <li>
-                                        If de-biasing is on, we use a
-                                        James-Stein adjustment to shrink
-                                        estimates towards zero to mitigate
-                                        selection bias.
+                                        <Trans>
+                                          If de-biasing is on, we use a
+                                          James-Stein adjustment to shrink
+                                          estimates towards zero to mitigate
+                                          selection bias.
+                                        </Trans>
                                       </li>
                                       <li>
-                                        We sum the Scaled Impact of the worst
-                                        variation of experiments marked as lost
-                                        and multiply values by 365 to get an
-                                        annual value.
+                                        <Trans>
+                                          We sum the Scaled Impact of the worst
+                                          variation of experiments marked as
+                                          lost and multiply values by 365 to get
+                                          an annual value.
+                                        </Trans>
                                       </li>
                                     </ol>
                                   </div>
-                                  <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
+                                  <div>
+                                    <Trans>
+                                      The plus-minus value represents a 95%
+                                      confidence interval.
+                                    </Trans>
+                                  </div>
                                 </div>
                               }
                             >
                               <span className="small text-muted font-weight-bold">
-                                avoided loss / year
+                                <Trans>avoided loss / year</Trans>
                               </span>{" "}
                               <GBInfo />
                             </Tooltip>
@@ -788,7 +850,9 @@ export default function ExperimentImpact({
                       </td>
                       <td className="impact-results">
                         <div>
-                          <span style={{ fontSize: "1.2em" }}>N/A</span>
+                          <span style={{ fontSize: "1.2em" }}>
+                            <Trans>N/A</Trans>
+                          </span>
                         </div>
                       </td>
                     </tr>

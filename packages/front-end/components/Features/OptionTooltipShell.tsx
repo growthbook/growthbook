@@ -1,6 +1,7 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -104,17 +105,19 @@ export function OptionTooltipSection({
 }
 
 export function OptionTooltipProjectsRow({ names }: { names: string[] }) {
+  const { t } = useLingui();
   return (
-    <OptionTooltipRow label={names.length === 1 ? "Project:" : "Projects:"}>
-      {names.length ? names.join(", ") : "All Projects"}
+    <OptionTooltipRow label={names.length === 1 ? t`Project:` : t`Projects:`}>
+      {names.length ? names.join(", ") : t`All Projects`}
     </OptionTooltipRow>
   );
 }
 
 export function OptionTooltipTags({ tags }: { tags?: string[] }) {
+  const { t } = useLingui();
   if (!tags?.length) return null;
   return (
-    <OptionTooltipSection label="Tags:">
+    <OptionTooltipSection label={t`Tags:`}>
       <SortedTags
         tags={tags}
         shouldShowEllipsis={true}
@@ -137,7 +140,7 @@ export function OptionTooltipDescription({
   return (
     <div>
       <Text size="sm" as="div" color="text-low">
-        Description:
+        <Trans>Description:</Trans>
       </Text>
       <div
         style={{
@@ -239,7 +242,11 @@ export function OptionProjectsLabel({
         {names.length > 0 && (
           <>
             <Text size="inherit" color="text-low">
-              {names.length > 1 ? "Projects:" : "Project:"}
+              {names.length > 1 ? (
+                <Trans>Projects:</Trans>
+              ) : (
+                <Trans>Project:</Trans>
+              )}
             </Text>{" "}
             <Text size="inherit" color="text-high">
               <OverflowText maxWidth={150}>{names.join(", ")}</OverflowText>

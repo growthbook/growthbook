@@ -7,6 +7,7 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -39,6 +40,7 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
+  const { t } = useLingui();
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -174,23 +176,25 @@ export default function IdLists({ groups, mutate }: Props) {
         )}
         <Flex align="center" justify="between" mb="1">
           <Heading size="6" mb="0">
-            ID Lists
+            <Trans>ID Lists</Trans>
           </Heading>
           <Tooltip
-            body="You do not have permission to create Saved Groups."
+            body={t`You do not have permission to create Saved Groups.`}
             shouldDisplay={!canCreate}
           >
             <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
-              Add ID List
+              <Trans>Add ID List</Trans>
             </Button>
           </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
-          Specify a list of values to include for an attribute.
+          <Trans>Specify a list of values to include for an attribute.</Trans>
         </p>
         <p className="text-gray">
-          For example, create a &quot;Beta Testers&quot; group identified by a
-          specific set of <code>device_id</code> values.
+          <Trans>
+            For example, create a &quot;Beta Testers&quot; group identified by a
+            specific set of <code>device_id</code> values.
+          </Trans>
         </p>
 
         {unsupportedConnections.length > 0 ? (
@@ -206,7 +210,7 @@ export default function IdLists({ groups, mutate }: Props) {
               search={
                 <Field
                   size="legacy"
-                  placeholder="Search..."
+                  placeholder={t`Search...`}
                   type="search"
                   {...searchInputProps}
                 />
@@ -225,15 +229,19 @@ export default function IdLists({ groups, mutate }: Props) {
               <TableHeader>
                 <TableRow>
                   <SortableTableColumnHeader field="groupName">
-                    Name
+                    <Trans>Name</Trans>
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader field="attributeKey">
-                    Attribute
+                    <Trans>Attribute</Trans>
                   </SortableTableColumnHeader>
-                  <TableColumnHeader>Description</TableColumnHeader>
-                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Description</Trans>
+                  </TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Projects</Trans>
+                  </TableColumnHeader>
                   <SortableTableColumnHeader field="dateUpdated">
-                    Last Modified
+                    <Trans>Last Modified</Trans>
                   </SortableTableColumnHeader>
                 </TableRow>
               </TableHeader>
@@ -274,7 +282,7 @@ export default function IdLists({ groups, mutate }: Props) {
                 {!items.length && isFiltered && (
                   <TableRow>
                     <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      No matching saved groups
+                      <Trans>No matching saved groups</Trans>
                     </TableCell>
                   </TableRow>
                 )}

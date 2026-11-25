@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
@@ -36,26 +37,27 @@ export function SavedGroupOptionTooltipContent({
   /** The attribute of the rule the group is picked for. */
   conditionAttribute?: string;
 }) {
+  const { t } = useLingui();
   const names = useProjectNames(group.projects);
   return (
     <OptionTooltipShell
       href={`/saved-groups/${group.id}`}
       title={group.groupName}
     >
-      <OptionTooltipRow label="Type:">
+      <OptionTooltipRow label={t`Type:`}>
         {group.type === "list"
-          ? "ID List"
+          ? t`ID List`
           : group.type === "remote"
-            ? "Remote Group"
-            : "Condition Group"}
+            ? t`Remote Group`
+            : t`Condition Group`}
       </OptionTooltipRow>
       {group.type !== "condition" && group.attributeKey && (
-        <OptionTooltipRow label="Attribute:">
+        <OptionTooltipRow label={t`Attribute:`}>
           {group.attributeKey}
         </OptionTooltipRow>
       )}
       {isDerivedUse(group, conditionAttribute) && (
-        <OptionTooltipRow label="Compared to:">
+        <OptionTooltipRow label={t`Compared to:`}>
           {conditionAttribute}
         </OptionTooltipRow>
       )}
@@ -108,10 +110,11 @@ function SavedGroupOptionLabel({
   if (!group) return <Text size="md">{option.label}</Text>;
 
   // Outside the truncated label, so it is always visible.
+  const attributeKey = group.attributeKey;
   const sourceAttribute =
     group.type === "remote" && isDerivedUse(group, conditionAttribute) ? (
       <Text size="sm" color="text-low" whiteSpace="nowrap">
-        ({group.attributeKey} IDs)
+        <Trans>({attributeKey} IDs)</Trans>
       </Text>
     ) : null;
 

@@ -29,6 +29,9 @@ import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   isActiveDraftStatus,
   CreateSafeRolloutInterface,
@@ -213,27 +216,31 @@ export interface RampToNewValueSeed {
 // explicit acknowledgment.
 function RampImpactBanner({
   impact,
-  fallthroughPhrase,
+  hasFallthroughRules,
   acknowledged,
   setAcknowledged,
   onRampToNewValue,
 }: {
   impact: NonNullable<RampStartImpact>;
-  fallthroughPhrase: string;
+  // Whether enabled rules below the target can catch the traffic it drops.
+  hasFallthroughRules: boolean;
   acknowledged: boolean;
   setAcknowledged: (value: boolean) => void;
   onRampToNewValue?: () => void;
 }) {
+  const { t } = useLingui();
+  const unenrolledPct =
+    impact.kind === "coverage-drop" ? 100 - impact.toPct : null;
   return (
     <ModalWarningBanner
       controls={
         onRampToNewValue && (
           <Tooltip
-            content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+            content={t`Inserts a ramp-up rule above this one, keeping unenrolled users on the current value.`}
             side="top"
           >
             <Button variant="outline" size="md" onClick={onRampToNewValue}>
-              Ramp to new value
+              <Trans>Ramp to new value</Trans>
             </Button>
           </Tooltip>
         )
@@ -241,17 +248,30 @@ function RampImpactBanner({
       acknowledged={acknowledged}
       setAcknowledged={setAcknowledged}
     >
-      This ramp-up will override an already-published rule.{" "}
-      {impact.kind === "coverage-drop" ? (
-        <>
-          Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
-          {fallthroughPhrase}.
-        </>
-      ) : (
-        <>
+      <Trans>This ramp-up will override an already-published rule.</Trans>{" "}
+      {unenrolledPct !== null ? (
+        hasFallthroughRules ? (
+          <Trans>
+            Unenrolled users ({unenrolledPct}%) will fall through to the next
+            matching rule, or the default value.
+          </Trans>
+        ) : (
+          <Trans>
+            Unenrolled users ({unenrolledPct}%) will fall through to the default
+            value.
+          </Trans>
+        )
+      ) : hasFallthroughRules ? (
+        <Trans>
           This rule will be disabled until the ramp-up starts; until then, all
-          traffic will fall through to {fallthroughPhrase}.
-        </>
+          traffic will fall through to the next matching rule, or the default
+          value.
+        </Trans>
+      ) : (
+        <Trans>
+          This rule will be disabled until the ramp-up starts; until then, all
+          traffic will fall through to the default value.
+        </Trans>
       )}
     </ModalWarningBanner>
   );
@@ -314,22 +334,22 @@ const RULE_VALUE_FORMATTERS: Record<string, (value: unknown) => string> = {
     typeof v === "number" ? `${decimalToPercent(v)}%` : String(v),
 };
 
-const RULE_FIELD_LABELS: Record<string, string> = {
-  description: "Description",
-  environments: "Rule Environments",
-  projects: "Rule Projects",
-  value: "Value",
-  coverage: "Rollout Percentage",
-  hashAttribute: "Assignment Attribute",
-  seed: "Seed",
-  hashVersion: "Hashing",
-  savedGroups: "Saved Groups",
-  condition: "Attributes",
-  prerequisites: "Prerequisite Features",
-  scheduleRules: "Schedule",
-  enabled: "Enabled",
-  variations: "Variations",
-  experimentId: "Experiment",
+const RULE_FIELD_LABELS: Record<string, MessageDescriptor> = {
+  description: msg`Description`,
+  environments: msg`Rule Environments`,
+  projects: msg`Rule Projects`,
+  value: msg`Value`,
+  coverage: msg`Rollout Percentage`,
+  hashAttribute: msg`Assignment Attribute`,
+  seed: msg`Seed`,
+  hashVersion: msg`Hashing`,
+  savedGroups: msg`Saved Groups`,
+  condition: msg`Attributes`,
+  prerequisites: msg`Prerequisite Features`,
+  scheduleRules: msg`Schedule`,
+  enabled: msg`Enabled`,
+  variations: msg`Variations`,
+  experimentId: msg`Experiment`,
 };
 
 // null (all projects) absorbs every other set.
@@ -358,6 +378,7 @@ export default function RuleModal({
   detachRampOnSave,
   draftRevision,
 }: Props) {
+  const { t, i18n } = useLingui();
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
@@ -866,6 +887,7 @@ export default function RuleModal({
         : null;
 
   // Compute header text and tracking event type - must be before conditional returns
+  // English only: it derives the tracking event type. The modal shows headerTitle.
   const headerText = useMemo(() => {
     let text =
       mode === "duplicate"
@@ -919,6 +941,109 @@ export default function RuleModal({
     selectedEnvironments,
   ]);
 
+  const headerTitle = useMemo(() => {
+    const isExperimentLike = [
+      "experiment-ref",
+      "experiment-ref-new",
+      "experiment",
+    ].includes(ruleType ?? "");
+    const isNewExperiment = ruleType === "experiment-ref-new";
+    const action =
+      mode === "duplicate"
+        ? rampToNewValue
+          ? "rampToNewValue"
+          : "duplicate"
+        : mode === "create"
+          ? "add"
+          : "edit";
+    const titles = {
+      force: {
+        rampToNewValue: t`Ramp to New Value: Force Value Rule`,
+        duplicate: t`Duplicate Force Value Rule`,
+        add: t`Add new Force Value Rule`,
+        edit: t`Edit Force Value Rule`,
+      },
+      rollout: {
+        rampToNewValue: t`Ramp to New Value: Percentage Rollout Rule`,
+        duplicate: t`Duplicate Percentage Rollout Rule`,
+        add: t`Add new Percentage Rollout Rule`,
+        edit: t`Edit Percentage Rollout Rule`,
+      },
+      newBandit: {
+        rampToNewValue: t`Ramp to New Value: new Bandit as Rule`,
+        duplicate: t`Duplicate new Bandit as Rule`,
+        add: t`Add new Bandit as Rule`,
+        edit: t`Edit new Bandit as Rule`,
+      },
+      existingBandit: {
+        rampToNewValue: t`Ramp to New Value: existing Bandit as Rule`,
+        duplicate: t`Duplicate existing Bandit as Rule`,
+        add: t`Add existing Bandit as Rule`,
+        edit: t`Edit existing Bandit as Rule`,
+      },
+      newExperiment: {
+        rampToNewValue: t`Ramp to New Value: new Experiment as Rule`,
+        duplicate: t`Duplicate new Experiment as Rule`,
+        add: t`Add new Experiment as Rule`,
+        edit: t`Edit new Experiment as Rule`,
+      },
+      existingExperiment: {
+        rampToNewValue: t`Ramp to New Value: existing Experiment as Rule`,
+        duplicate: t`Duplicate existing Experiment as Rule`,
+        add: t`Add existing Experiment as Rule`,
+        edit: t`Edit existing Experiment as Rule`,
+      },
+      safeRollout: {
+        rampToNewValue: t`Ramp to New Value: Safe Rollout Rule`,
+        duplicate: t`Duplicate Safe Rollout Rule`,
+        add: t`Add Safe Rollout Rule`,
+        edit: t`Edit Safe Rollout Rule`,
+      },
+      rule: {
+        rampToNewValue: t`Ramp to New Value: Rule`,
+        duplicate: t`Duplicate Rule`,
+        add: t`Add Rule`,
+        edit: t`Edit Rule`,
+      },
+    };
+    const kind: keyof typeof titles =
+      ruleType === "force"
+        ? "force"
+        : ruleType === "rollout"
+          ? "rollout"
+          : isExperimentLike && experimentType === "bandit"
+            ? isNewExperiment
+              ? "newBandit"
+              : "existingBandit"
+            : isExperimentLike && experimentType === "experiment"
+              ? isNewExperiment
+                ? "newExperiment"
+                : "existingExperiment"
+              : ruleType === "safe-rollout"
+                ? "safeRollout"
+                : "rule";
+    const title = titles[kind][action];
+    if (ruleType === "safe-rollout") {
+      return environment ? t`${title} in ${environment}` : title;
+    }
+    if (scopeAllEnvs) return t`${title} in All Environments`;
+    if (selectedEnvironments.length === 0) return t`${title} (no environments)`;
+    const firstEnvironment = selectedEnvironments[0];
+    const moreCount = selectedEnvironments.length - 1;
+    return moreCount > 0
+      ? t`${title} in ${firstEnvironment} + ${moreCount} more`
+      : t`${title} in ${firstEnvironment}`;
+  }, [
+    t,
+    ruleType,
+    experimentType,
+    mode,
+    rampToNewValue,
+    environment,
+    scopeAllEnvs,
+    selectedEnvironments,
+  ]);
+
   const trackingEventModalType = useMemo(
     () => kebabCase(headerText),
     [headerText],
@@ -955,10 +1080,13 @@ export default function RuleModal({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
-  const monitoringError =
+  const monitoringErrorDescriptor =
     scheduleType === "ramp"
       ? getMonitoringValidationError(rampSectionState)
       : null;
+  const monitoringError = monitoringErrorDescriptor
+    ? i18n._(monitoringErrorDescriptor)
+    : null;
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
@@ -1017,10 +1145,8 @@ export default function RuleModal({
   const rampImpactAcknowledged =
     rampImpactKey !== "" && rampAcknowledgedKey === rampImpactKey;
   const rampImpactBlocksSubmit = !!rampStartImpact && !rampImpactAcknowledged;
-  const rampFallthroughPhrase =
-    rampStartImpact && countRampFallthroughRules(feature, ruleId) > 0
-      ? "the next matching rule, or the default value"
-      : "the default value";
+  const rampHasFallthroughRules =
+    !!rampStartImpact && countRampFallthroughRules(feature, ruleId) > 0;
   // Hidden when the draft already has a pending ramp — publish would ramp
   // both the source and the clone.
   const switchToRampToNewValue =
@@ -1322,7 +1448,7 @@ export default function RuleModal({
         // Make sure there's an experiment name
         if ((values.name?.length ?? 0) < 1) {
           setStep(0);
-          throw new Error("Name must not be empty");
+          throw new Error(t`Name must not be empty`);
         }
 
         // Apply same validation as we do for legacy experiment rules
@@ -1345,17 +1471,17 @@ export default function RuleModal({
             name: values.name,
           });
           throw new Error(
-            "We fixed some errors in the rule. If it looks correct, submit again.",
+            t`We fixed some errors in the rule. If it looks correct, submit again.`,
           );
         }
 
         if (!values.templateId && templateRequired) {
           setStep(0);
-          throw new Error("You must select a template");
+          throw new Error(t`You must select a template`);
         }
 
         if (prerequisiteTargetingSdkIssues) {
-          throw new Error("Prerequisite targeting issues must be resolved");
+          throw new Error(t`Prerequisite targeting issues must be resolved`);
         }
 
         const shouldIncludeConversionWindow =
@@ -1364,14 +1490,14 @@ export default function RuleModal({
           (!settings.useStickyBucketing || values.disableStickyBucketing);
         if (values.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
-            throw new Error("Bandits are a premium feature");
+            throw new Error(t`Bandits are a premium feature`);
           }
           values.statsEngine = "bayesian";
           if (!values.datasource) {
-            throw new Error("You must select a datasource");
+            throw new Error(t`You must select a datasource`);
           }
           if ((values.goalMetrics?.length ?? 0) !== 1) {
-            throw new Error("You must select 1 decision metric");
+            throw new Error(t`You must select 1 decision metric`);
           }
           if (
             shouldIncludeConversionWindow &&
@@ -1379,7 +1505,7 @@ export default function RuleModal({
               !values.banditConversionWindowUnit)
           ) {
             throw new Error(
-              "Enter a conversion window override or disable the conversion window override",
+              t`Enter a conversion window override or disable the conversion window override`,
             );
           }
         }
@@ -1519,7 +1645,7 @@ export default function RuleModal({
         if ("duplicateTrackingKey" in res) {
           setAllowDuplicateTrackingKey(true);
           throw new Error(
-            "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
+            t`Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.`,
           );
         }
 
@@ -1560,7 +1686,7 @@ export default function RuleModal({
         // Validate a proper experiment was chosen and it has a value for every variation id
         const experimentId = values.experimentId;
         const exp = experimentsMap.get(experimentId);
-        if (!exp) throw new Error("Must select an experiment");
+        if (!exp) throw new Error(t`Must select an experiment`);
 
         const valuesByIndex = values.variations.map((v) => v.value);
         const valuesByVariationId = new Map(
@@ -1653,7 +1779,7 @@ export default function RuleModal({
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(
-          "We fixed some errors in the rule. If it looks correct, submit again.",
+          t`We fixed some errors in the rule. If it looks correct, submit again.`,
         );
       }
 
@@ -1663,7 +1789,7 @@ export default function RuleModal({
         !isRampSectionConfigured(rampSectionState)
       ) {
         throw new Error(
-          "Ramp schedule requires either steps or scheduled start or end dates.",
+          t`Ramp schedule requires either steps or scheduled start or end dates.`,
         );
       }
 
@@ -1678,7 +1804,7 @@ export default function RuleModal({
         !(values as Record<string, unknown>).hashAttribute
       ) {
         throw new Error(
-          'A "Sample based on attribute" must be selected when using coverage or a ramp schedule that controls coverage.',
+          t`A "Sample based on attribute" must be selected when using coverage or a ramp schedule that controls coverage.`,
         );
       }
 
@@ -2134,14 +2260,14 @@ export default function RuleModal({
   const conflictAlert = conflict ? (
     <HelperText status="warning" icon={null}>
       {!conflict.current
-        ? "This rule was removed while you had it open. Saving re-adds it."
+        ? t`This rule was removed while you had it open. Saving re-adds it.`
         : newDraftAvoidsConflict
-          ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
+          ? t`This rule was modified while you were editing. Saving to a new draft keeps both versions.`
           : conflictResolved
-            ? "This rule was modified while you were editing."
+            ? t`This rule was modified while you were editing.`
             : draftMode === "new"
-              ? "This rule was modified while you were editing. Resolve the conflicts below."
-              : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
+              ? t`This rule was modified while you were editing. Resolve the conflicts below.`
+              : t`This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft.`}
     </HelperText>
   ) : undefined;
 
@@ -2154,7 +2280,11 @@ export default function RuleModal({
           icon={showConflictDetails ? <PiCaretDown /> : <PiCaretRight />}
           onClick={() => setShowConflictDetails((s) => !s)}
         >
-          {showConflictDetails ? "Hide comparison" : "Compare versions"}
+          {showConflictDetails ? (
+            <Trans>Hide comparison</Trans>
+          ) : (
+            <Trans>Compare versions</Trans>
+          )}
         </Button>
         {showConflictDetails && (
           <Box
@@ -2175,8 +2305,8 @@ export default function RuleModal({
                   ]) as unknown as FeatureRule,
                 ]),
               )}
-              leftTitle="Modified version"
-              rightTitle="My version"
+              leftTitle={t`Modified version`}
+              rightTitle={t`My version`}
             />
           </Box>
         )}
@@ -2218,8 +2348,11 @@ export default function RuleModal({
   );
 
   const conflictFieldLabel = useCallback(
-    (chunk: ContestedChunk) => RULE_FIELD_LABELS[chunk.key] ?? chunk.key,
-    [],
+    (chunk: ContestedChunk) => {
+      const label = RULE_FIELD_LABELS[chunk.key];
+      return label ? i18n._(label) : chunk.key;
+    },
+    [i18n],
   );
 
   const formatConflictValue = useCallback(
@@ -2255,8 +2388,8 @@ export default function RuleModal({
           chunkKey="__rule__"
           message={
             conflict.current
-              ? "This rule was restructured by someone else. Saving keeps your version."
-              : "This rule was deleted by someone else. Saving re-adds it."
+              ? t`This rule was restructured by someone else. Saving keeps your version.`
+              : t`This rule was deleted by someone else. Saving re-adds it.`
           }
         />
       )}
@@ -2264,15 +2397,15 @@ export default function RuleModal({
   ) : null;
 
   if (newRuleOverviewPage) {
-    const newOrExisting = (noun: string) => (
+    const newOrExisting = (createLabel: string, addLabel: string) => (
       <RadioCards
         columns="2"
         width="100%"
         labelSize="md"
         labelWeight="medium"
         options={[
-          { value: "experiment-ref-new", label: `Create new ${noun}` },
-          { value: "experiment-ref", label: `Add existing ${noun}` },
+          { value: "experiment-ref-new", label: createLabel },
+          { value: "experiment-ref", label: addLabel },
         ]}
         value={overviewRuleType}
         setValue={(v) => setOverviewRuleType(v as OverviewRuleType)}
@@ -2286,12 +2419,12 @@ export default function RuleModal({
         size="lg"
         cta={
           <>
-            Next{" "}
+            <Trans>Next</Trans>{" "}
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
         ctaEnabled={!!overviewRuleType}
-        header="New Rule"
+        header={t`New Rule`}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -2306,7 +2439,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <Text size="xl" weight="semibold" as="div" mb="4">
-          Rule Type
+          <Trans>Rule Type</Trans>
         </Text>
         <RadioCards
           mt="4"
@@ -2315,16 +2448,17 @@ export default function RuleModal({
           options={[
             {
               value: "force",
-              label: "Targeting rule",
-              description:
-                "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
+              label: t`Targeting rule`,
+              description: t`Release a feature value with optional targeting, schedule, ramp-up, and monitoring`,
             },
             {
               value: "experiment",
-              label: "Experiment",
-              description:
-                "Measure the impact of this feature on your key metrics",
-              selectedContent: newOrExisting("Experiment"),
+              label: t`Experiment`,
+              description: t`Measure the impact of this feature on your key metrics`,
+              selectedContent: newOrExisting(
+                t`Create new Experiment`,
+                t`Add existing Experiment`,
+              ),
             },
             {
               value: "bandit",
@@ -2334,12 +2468,14 @@ export default function RuleModal({
                   commercialFeature="multi-armed-bandits"
                   usePortal={true}
                 >
-                  Bandit
+                  <Trans>Bandit</Trans>
                 </PremiumTooltip>
               ),
-              description:
-                "Find a winner among many variations on one goal metric",
-              selectedContent: newOrExisting("Bandit"),
+              description: t`Find a winner among many variations on one goal metric`,
+              selectedContent: newOrExisting(
+                t`Create new Bandit`,
+                t`Add existing Bandit`,
+              ),
             },
           ]}
           value={overviewRadioSelectorRuleType}
@@ -2359,11 +2495,15 @@ export default function RuleModal({
           <Flex align="center" gap="2">
             <Box flexGrow="1">
               <Text as="div">
-                Looking for <strong>Safe Rollouts</strong>?
+                <Trans>
+                  Looking for <strong>Safe Rollouts</strong>?
+                </Trans>
               </Text>
               <Text as="div" size="sm" mt="1">
-                Guardrail monitoring can now be added to a Targeting Rule&apos;s{" "}
-                <strong>Ramp-up</strong> schedule
+                <Trans>
+                  Guardrail monitoring can now be added to a Targeting
+                  Rule&apos;s <strong>Ramp-up</strong> schedule
+                </Trans>
               </Text>
             </Box>
             {hasCommercialFeature("safe-rollout") ? (
@@ -2387,12 +2527,12 @@ export default function RuleModal({
                   }));
                 }}
               >
-                Show me
+                <Trans>Show me</Trans>
               </Button>
             ) : (
               <PremiumTooltip commercialFeature="safe-rollout" usePortal={true}>
                 <Button color="inherit" variant="soft" size="sm" disabled>
-                  Show me
+                  <Trans>Show me</Trans>
                 </Button>
               </PremiumTooltip>
             )}
@@ -2452,6 +2592,13 @@ export default function RuleModal({
       )
     : undefined;
 
+  const newExperimentPageNames = [
+    t`Overview`,
+    t`Traffic`,
+    t`Targeting`,
+    t`Metrics`,
+  ];
+
   const modalContent = (
     <FormProvider {...form}>
       <PagedModal
@@ -2461,11 +2608,11 @@ export default function RuleModal({
         cta={
           hasRampPage && step === 0 ? (
             <>
-              Next: Ramp-up{" "}
+              <Trans>Next: Ramp-up</Trans>{" "}
               <PiCaretRight className="position-relative" style={{ top: -1 }} />
             </>
           ) : (
-            "Save to Draft"
+            t`Save to Draft`
           )
         }
         forceCtaText={hasRampPage && step === 0}
@@ -2484,13 +2631,13 @@ export default function RuleModal({
           hasRampPage && step === 0
             ? undefined
             : !conflictResolved
-              ? "Resolve the conflicting edits above, or save to a new draft."
+              ? t`Resolve the conflicting edits above, or save to a new draft.`
               : !canSubmit
                 ? (monitoringError ?? undefined)
                 : rampImpactBlocksSubmit
-                  ? "Acknowledge the traffic warning to save"
+                  ? t`Acknowledge the traffic warning to save`
                   : unscopedRuleBlocksSubmit
-                    ? "Acknowledge the warning to save"
+                    ? t`Acknowledge the warning to save`
                     : undefined
         }
         aboveFooterContent={
@@ -2500,7 +2647,7 @@ export default function RuleModal({
               {onRampPage && rampStartImpact ? (
                 <RampImpactBanner
                   impact={rampStartImpact}
-                  fallthroughPhrase={rampFallthroughPhrase}
+                  hasFallthroughRules={rampHasFallthroughRules}
                   acknowledged={rampImpactAcknowledged}
                   setAcknowledged={(v) =>
                     setRampAcknowledgedKey(v ? rampImpactKey : "")
@@ -2512,7 +2659,7 @@ export default function RuleModal({
             </>
           ) : undefined
         }
-        header={headerText}
+        header={headerTitle}
         docSection={
           ruleType === "experiment-ref-new"
             ? "experimentConfiguration"
@@ -2550,7 +2697,7 @@ export default function RuleModal({
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
-          <Page display="Rule Configuration">
+          <Page display={t`Rule Configuration`}>
             <StandardRuleFields
               ruleType={ruleType}
               feature={feature}
@@ -2582,7 +2729,7 @@ export default function RuleModal({
         )}
 
         {hasRampPage && (
-          <Page display="Ramp-up Schedule">
+          <Page display={t`Ramp-up Schedule`}>
             <RampScheduleSection
               ruleRampSchedule={ruleRampSchedule}
               state={rampSectionState}
@@ -2666,7 +2813,7 @@ export default function RuleModal({
         {(ruleType === "experiment-ref-new" &&
           experimentType === "experiment") ||
         ruleType === "experiment"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? newExperimentPageNames.map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
                   step={i}
@@ -2738,7 +2885,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? newExperimentPageNames.map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}

@@ -1,6 +1,7 @@
 import { ReactNode, useRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
+import { Trans } from "@lingui/react/macro";
 import { FeatureValueType } from "shared/types/feature";
 import Table, {
   TableBody,
@@ -86,14 +87,16 @@ export default function PrerequisiteTable({
         <Table variant="ghost" size="sm" className={styles.table}>
           <TableHeader>
             <TableRow>
-              <TableColumnHeader {...nameCell}>Feature</TableColumnHeader>
+              <TableColumnHeader {...nameCell}>
+                <Trans>Feature</Trans>
+              </TableColumnHeader>
               {showDetails ? (
                 <>
                   <TableColumnHeader style={{ width: TYPE_COLUMN_WIDTH }}>
-                    Type
+                    <Trans>Type</Trans>
                   </TableColumnHeader>
                   <TableColumnHeader style={{ width: DEFAULT_COLUMN_WIDTH }}>
-                    Default value
+                    <Trans>Default value</Trans>
                   </TableColumnHeader>
                 </>
               ) : null}

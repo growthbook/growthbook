@@ -18,6 +18,7 @@ import {
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import useURLHash from "@/hooks/useURLHash";
 import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import { radixSize, Size } from "@/ui/sizes";
@@ -253,6 +254,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
     const more = useRef<HTMLButtonElement>(null);
     const moreWidth = useRef(MORE_WIDTH_ESTIMATE_PX);
     const [hidden, setHidden] = useState<string[]>([]);
+    const hiddenCount = hidden.length;
     const [registered, setRegistered] = useState(0);
     const remeasure = useCallback(() => setRegistered((n) => n + 1), []);
 
@@ -360,7 +362,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
               menuPlacement="end"
               trigger={
                 <TabsMoreTrigger ref={more}>
-                  More ({hidden.length})
+                  <Trans>More ({hiddenCount})</Trans>
                 </TabsMoreTrigger>
               }
             >

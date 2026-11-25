@@ -1,6 +1,7 @@
 import { CommercialFeature } from "shared/enterprise";
 import React from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { useLingui } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
@@ -25,6 +26,7 @@ const PaidFeatureBadge = ({
   showWhenEnabled = false,
   ...badgeProps
 }: Props) => {
+  const { t } = useLingui();
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
@@ -37,11 +39,13 @@ const PaidFeatureBadge = ({
   const lowestPlanLevel = commercialFeature
     ? commercialFeatureLowestPlan?.[commercialFeature]
     : undefined;
-  const planLevelText = `${
-    lowestPlanLevel === "enterprise" ? "an" : "a"
-  } ${planNameFromAccountPlan(lowestPlanLevel)}`;
+  const planName = planNameFromAccountPlan(lowestPlanLevel);
 
-  const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
+  const tooltipText =
+    premiumText ??
+    (lowestPlanLevel === "enterprise"
+      ? t`This is an ${planName} feature`
+      : t`This is a ${planName} feature`);
   const badgeColor =
     lowestPlanLevel === "pro" || lowestPlanLevel === "pro_sso"
       ? "gold"
@@ -54,7 +58,7 @@ const PaidFeatureBadge = ({
           ? "Pro"
           : lowestPlanLevel === "enterprise"
             ? "Enterprise"
-            : "Paid"
+            : t`Paid`
       }
       color={badgeColor as RadixColor}
       variant={variant}

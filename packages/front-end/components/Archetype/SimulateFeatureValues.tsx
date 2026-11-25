@@ -15,6 +15,7 @@ import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { featureHasEnvironment } from "shared/util";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useEnvironments } from "@/services/features";
@@ -43,6 +44,7 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
 }> = ({ archetypes }) => {
+  const { t } = useLingui();
   const NUM_PER_PAGE = 20;
   const maxEnvironments = 3;
 
@@ -174,23 +176,29 @@ export const SimulateFeatureValues: FC<{
     return <LoadingOverlay />;
   }
   if (!environments || environments.length === 0) {
-    return <div>No environments added</div>;
+    return (
+      <div>
+        <Trans>No environments added</Trans>
+      </div>
+    );
   }
   let attributeText = (
-    <>
+    <Trans>
       Click <strong>Set Attributes</strong> to select an Archetype or manually
       enter attribute values to see simulated feature results.
-    </>
+    </Trans>
   );
   let attributeNodes: ReactNode[] = [];
   if (attributes && Object.keys(attributes).length > 0) {
+    const archetypeName = archetypeMap.get(archetype)?.name ?? "?";
     attributeText = archetype ? (
-      <>
-        Showing feature results for archetype{" "}
-        <strong>{archetypeMap.get(archetype)?.name ?? "?"}</strong>:
-      </>
+      <Trans>
+        Showing feature results for archetype <strong>{archetypeName}</strong>:
+      </Trans>
     ) : (
-      <>Showing feature results for users with attributes: </>
+      <>
+        <Trans>Showing feature results for users with attributes:</Trans>{" "}
+      </>
     );
     const attrsLength = Object.keys(attributes).length;
     attributeNodes = Object.keys(attributes).map((key, i) => {
@@ -198,7 +206,15 @@ export const SimulateFeatureValues: FC<{
       return (
         <Fragment key={`attr-${key}-${i}`}>
           <strong>{key}</strong>: <strong>{attrValue}</strong>
-          {i === attrsLength - 1 ? "" : i === attrsLength - 2 ? ", and " : ", "}
+          {i === attrsLength - 1 ? (
+            ""
+          ) : i === attrsLength - 2 ? (
+            <>
+              , <Trans>and</Trans>{" "}
+            </>
+          ) : (
+            ", "
+          )}
         </Fragment>
       );
     });
@@ -212,7 +228,7 @@ export const SimulateFeatureValues: FC<{
     }),
   ];
   if (showAllEnv) {
-    environmentOptions.unshift({ label: "All", value: "all" });
+    environmentOptions.unshift({ label: t`All`, value: "all" });
   }
 
   const featureTableResults = (
@@ -231,7 +247,7 @@ export const SimulateFeatureValues: FC<{
             <div className="mr-2">
               <Field
                 size="legacy"
-                placeholder="Search..."
+                placeholder={t`Search...`}
                 type="search"
                 {...searchInputProps}
               />
@@ -243,7 +259,7 @@ export const SimulateFeatureValues: FC<{
               {showEnvDropdown && (
                 <div className="d-flex flex-nowrap">
                   <div className="mr-1 align-self-center small">
-                    Environment:
+                    <Trans>Environment:</Trans>
                   </div>
                   <SelectField
                     size="legacy"
@@ -265,8 +281,12 @@ export const SimulateFeatureValues: FC<{
               style={{ top: "var(--page-top-offset)", zIndex: 900 }}
             >
               <tr>
-                <th>Feature Name</th>
-                <SortableTH field="tags">Tags</SortableTH>
+                <th>
+                  <Trans>Feature Name</Trans>
+                </th>
+                <SortableTH field="tags">
+                  <Trans>Tags</Trans>
+                </SortableTH>
                 {selectedEnvironment !== "all" ? (
                   <th>{selectedEnvironment}</th>
                 ) : (
@@ -348,7 +368,9 @@ export const SimulateFeatureValues: FC<{
               })}
               {!envFilteredItems.length && (
                 <tr>
-                  <td colSpan={numColumns}>No matching features</td>
+                  <td colSpan={numColumns}>
+                    <Trans>No matching features</Trans>
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -376,10 +398,12 @@ export const SimulateFeatureValues: FC<{
           style={{ cursor: "pointer" }}
         >
           <Box flexGrow="1">
-            These results use the JS SDK, which supports the V2 hashing
-            algorithm. If you use one of the older or unsupported SDKs, you may
-            want to change the hashing algorithm of the experiment to v1 to
-            ensure accurate results. Click for more info.
+            <Trans>
+              These results use the JS SDK, which supports the V2 hashing
+              algorithm. If you use one of the older or unsupported SDKs, you
+              may want to change the hashing algorithm of the experiment to v1
+              to ensure accurate results. Click for more info.
+            </Trans>
           </Box>
           <FaChevronRight
             style={{
@@ -389,7 +413,7 @@ export const SimulateFeatureValues: FC<{
         </Flex>
         {openWarning && (
           <Box mt="3">
-            The following SDK versions support V2 hashing:
+            <Trans>The following SDK versions support V2 hashing:</Trans>
             <MinSDKVersionsList capability="bucketingV2" />
           </Box>
         )}
@@ -401,10 +425,8 @@ export const SimulateFeatureValues: FC<{
     return (
       <div className="mb-3">
         <PremiumEmptyState
-          title="Simulate feature/experiment states for Users"
-          description=" For any set of attributes or archetype, simulate what feature
-              values they have or would receive. Simulation is a premium
-              feature."
+          title={t`Simulate feature/experiment states for Users`}
+          description={t`For any set of attributes or archetype, simulate what feature values they have or would receive. Simulation is a premium feature.`}
           commercialFeature="simulate"
           learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
         />
@@ -434,7 +456,9 @@ export const SimulateFeatureValues: FC<{
       <div className="">
         <div className="row mb-3">
           <div className="col">
-            <h1>Simulate Features</h1>
+            <h1>
+              <Trans>Simulate Features</Trans>
+            </h1>
           </div>
           <div className="col-auto">
             <Button
@@ -442,8 +466,11 @@ export const SimulateFeatureValues: FC<{
                 setEditAttributesModalOpen(true);
               }}
             >
-              {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
-              Attributes
+              {attributes && Object.keys(attributes).length ? (
+                <Trans>Edit Attributes</Trans>
+              ) : (
+                <Trans>Set Attributes</Trans>
+              )}
             </Button>
           </div>
         </div>
@@ -455,11 +482,13 @@ export const SimulateFeatureValues: FC<{
               <>
                 <p className="mb-2 premium">
                   <FaInfoCircle className="mr-1" />
-                  This is a premium feature
+                  <Trans>This is a premium feature</Trans>
                 </p>
                 <p>
-                  Simulate features using different user attributes to see which
-                  values they would be assigned.
+                  <Trans>
+                    Simulate features using different user attributes to see
+                    which values they would be assigned.
+                  </Trans>
                 </p>
               </>
             }

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { hasTargetingConfigured } from "shared/experiments";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import Text from "@/ui/Text";
@@ -48,17 +49,22 @@ export function TargetingField(target: {
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
 }) {
+  const { t } = useLingui();
   return (
-    <RuleField label="Targeting">
+    <RuleField label={t`Targeting`}>
       {hasTargetingConfigured(target) ? (
         <TruncatedConditionDisplay
           condition={target.condition || ""}
           savedGroups={target.savedGroups}
           prerequisites={target.prerequisites}
-          prefix={<Text weight="medium">IF</Text>}
+          prefix={
+            <Text weight="medium">
+              <Trans>IF</Trans>
+            </Text>
+          }
         />
       ) : (
-        "All traffic"
+        t`All traffic`
       )}
     </RuleField>
   );
@@ -74,13 +80,16 @@ export function SampleByField({
   fallbackAttribute?: string;
   mb?: "0" | "3" | "4";
 }) {
+  const { t } = useLingui();
   return (
-    <RuleField label="Sample by" mb={mb}>
+    <RuleField label={t`Sample by`} mb={mb}>
       <Flex align="center" gap="2" wrap="wrap">
         <AttributeBadge attributeId={hashAttribute} />
         {fallbackAttribute ? (
           <>
-            falling back to <AttributeBadge attributeId={fallbackAttribute} />
+            <Trans>
+              falling back to <AttributeBadge attributeId={fallbackAttribute} />
+            </Trans>
           </>
         ) : null}
       </Flex>

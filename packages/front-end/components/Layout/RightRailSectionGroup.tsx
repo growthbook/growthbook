@@ -1,4 +1,5 @@
 import React, { Children, CSSProperties, FC, ReactNode } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SortedTags from "@/components/Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
@@ -22,12 +23,13 @@ const RightRailSectionGroup: FC<{
   children,
   title = "",
   type = "custom",
-  empty = "None",
+  empty,
   badgeStyle = "",
   className = "",
   style,
   titleClassName = "",
 }) => {
+  const { t } = useLingui();
   let hasChildren = type === "onoff" || !!children;
   if (Array.isArray(children)) {
     hasChildren =
@@ -79,7 +81,7 @@ const RightRailSectionGroup: FC<{
                 children ? "badge-primary" : "badge-secondary"
               }`}
             >
-              {children ? "ON" : "OFF"}
+              {children ? <Trans>ON</Trans> : <Trans>OFF</Trans>}
             </span>
           )}
           {type === "code" && <code className="border p-1">{children}</code>}
@@ -99,7 +101,7 @@ const RightRailSectionGroup: FC<{
           )}
         </>
       ) : (
-        <em>{empty}</em>
+        <em>{empty ?? t`None`}</em>
       )}
     </div>
   );

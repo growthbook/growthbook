@@ -16,6 +16,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
+import { Trans, useLingui } from "@lingui/react/macro";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
@@ -54,6 +55,7 @@ export function NewRuleTrafficFields({
   feature: FeatureInterface;
   coverageTooltip: string;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
   const defaultValue = getFeatureDefaultValue(feature);
   const stored: (ExperimentValue & { id?: string })[] =
@@ -76,7 +78,6 @@ export function NewRuleTrafficFields({
   const setVariations = (next: RuleVariation[]) =>
     form.setValue("values", next);
   const coverage = form.watch("coverage") ?? 1;
-  const noun = kind === "bandit" ? "Bandit" : "experiment";
 
   // A Bandit's count keeps the values already set, and fills in new ones.
   const [typedCount, setTypedCount] = useState<string | null>(null);
@@ -115,7 +116,11 @@ export function NewRuleTrafficFields({
   return (
     <>
       <CoverageField
-        label={`Traffic included in this ${noun}`}
+        label={
+          kind === "bandit"
+            ? t`Traffic included in this Bandit`
+            : t`Traffic included in this experiment`
+        }
         tooltip={coverageTooltip}
         coverage={coverage}
         setCoverage={(next) => form.setValue("coverage", next)}
@@ -135,7 +140,7 @@ export function NewRuleTrafficFields({
       {kind === "bandit" ? (
         <>
           <Field
-            label="Number of variations"
+            label={t`Number of variations`}
             type="number"
             min={2}
             max={100}
@@ -152,7 +157,9 @@ export function NewRuleTrafficFields({
             >
               <Flex align="center" gap="1">
                 {valuesOpen ? <PiCaretDownFill /> : <PiCaretRightFill />}
-                <span>Variation values</span>
+                <span>
+                  <Trans>Variation values</Trans>
+                </span>
               </Flex>
             </Link>
             <Collapse open={valuesOpen}>
@@ -189,6 +196,7 @@ export default function NewRuleVariationsGrid({
   // The count is set elsewhere.
   hideAddVariation?: boolean;
 }) {
+  const { t } = useLingui();
   const weights = variations.map((v) => v.weight);
   const equal = isEqualSplit(weights);
 
@@ -238,16 +246,22 @@ export default function NewRuleVariationsGrid({
           }}
         >
           <div className={clsx(styles.headerCell, firstColumn)}>
-            <Text weight="semibold">Variations</Text>
+            <Text weight="semibold">
+              <Trans>Variations</Trans>
+            </Text>
           </div>
           {hideSplits ? null : (
             <div className={styles.headerCell}>
-              <Text weight="semibold">Split</Text>
+              <Text weight="semibold">
+                <Trans>Split</Trans>
+              </Text>
             </div>
           )}
           <div className={styles.headerCell}>
             <Flex align="center" justify="between" gap="3" width="100%">
-              <Text weight="semibold">Value</Text>
+              <Text weight="semibold">
+                <Trans>Value</Trans>
+              </Text>
               {sparseEligible ? (
                 <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
               ) : null}
@@ -267,7 +281,7 @@ export default function NewRuleVariationsGrid({
                       size="md"
                       value={v.name}
                       placeholder={defaultRuleVariationName(i)}
-                      aria-label={`${name} name`}
+                      aria-label={t`${name} name`}
                       containerStyle={{ flex: 1, minWidth: 0 }}
                       onChange={(e) =>
                         setVariations(
@@ -294,7 +308,7 @@ export default function NewRuleVariationsGrid({
                             ),
                           )
                         }
-                        ariaLabel={`${name} split`}
+                        ariaLabel={t`${name} split`}
                       />
                     </div>
                   </div>
@@ -331,8 +345,8 @@ export default function NewRuleVariationsGrid({
                     <Tooltip
                       content={
                         canRemove
-                          ? "Remove variation"
-                          : "Needs at least two variations"
+                          ? t`Remove variation`
+                          : t`Needs at least two variations`
                       }
                     >
                       <IconButton
@@ -343,7 +357,7 @@ export default function NewRuleVariationsGrid({
                         size="2"
                         className={own.remove}
                         disabled={!canRemove}
-                        aria-label={`Remove ${name}`}
+                        aria-label={t`Remove ${name}`}
                         onClick={() => removeVariation(i)}
                       >
                         <PiTrash size={16} />
@@ -368,7 +382,7 @@ export default function NewRuleVariationsGrid({
                       >
                         <PiPlus />
                         <span className={styles.baselineText}>
-                          Add variation
+                          <Trans>Add variation</Trans>
                         </span>
                       </Flex>
                     </Link>
@@ -390,7 +404,7 @@ export default function NewRuleVariationsGrid({
                           )
                         }
                       >
-                        Set equal
+                        <Trans>Set equal</Trans>
                       </Link>
                     </div>
                   ) : null}

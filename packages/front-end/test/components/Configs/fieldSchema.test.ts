@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { SchemaField } from "shared/types/feature";
 import {
   configRelation,
@@ -6,6 +7,8 @@ import {
   pinnedCellBackground,
   typeDefault,
 } from "@/components/Configs/fieldSchema";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 const field = (overrides: Partial<SchemaField>): SchemaField => ({
   key: "k",
@@ -55,7 +58,7 @@ describe("parseFieldValueInput", () => {
     [{}, " ", " "],
     [object, '{"a":1}', { a: 1 }],
   ] as const)("reads %j %j", (overrides, text, value) => {
-    expect(parseFieldValueInput(text, field(overrides))).toEqual({
+    expect(parseFieldValueInput(text, field(overrides), false, i18n)).toEqual({
       kind: "value",
       value,
     });
@@ -68,7 +71,7 @@ describe("parseFieldValueInput", () => {
     [{ type: "boolean" }, "", "Choose a value"],
     [object, "{", expect.any(String)],
   ] as const)("rejects %j %j", (overrides, text, error) => {
-    expect(parseFieldValueInput(text, field(overrides))).toEqual({
+    expect(parseFieldValueInput(text, field(overrides), false, i18n)).toEqual({
       kind: "error",
       error,
     });
@@ -79,7 +82,7 @@ describe("parseFieldValueInput", () => {
       field({ enum: ["eu", "us"] }),
       field({ type: "integer", enum: ["1", "2"] }),
     ]) {
-      expect(parseFieldValueInput("", f)).toEqual({
+      expect(parseFieldValueInput("", f, false, i18n)).toEqual({
         kind: "error",
         error: "Choose a value",
       });
@@ -87,15 +90,19 @@ describe("parseFieldValueInput", () => {
   });
 
   it("keeps an empty string, needs a value for other types, and reads null", () => {
-    expect(parseFieldValueInput("", field({}))).toEqual({
+    expect(parseFieldValueInput("", field({}), false, i18n)).toEqual({
       kind: "value",
       value: "",
     });
-    expect(parseFieldValueInput("  ", field({ type: "float" }))).toEqual({
+    expect(
+      parseFieldValueInput("  ", field({ type: "float" }), false, i18n),
+    ).toEqual({
       kind: "error",
       error: "Enter a value",
     });
-    expect(parseFieldValueInput("", field({ type: "float" }), true)).toEqual({
+    expect(
+      parseFieldValueInput("", field({ type: "float" }), true, i18n),
+    ).toEqual({
       kind: "value",
       value: null,
     });

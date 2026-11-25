@@ -7,6 +7,7 @@ import {
 } from "shared/types/saved-group";
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -36,6 +37,7 @@ export interface Props {
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
+  const { t } = useLingui();
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -161,22 +163,28 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           />
         )}
         <Flex align="center" justify="between" mb="1">
-          <h2 style={{ margin: 0 }}>Condition Groups</h2>
+          <h2 style={{ margin: 0 }}>
+            <Trans>Condition Groups</Trans>
+          </h2>
           <Tooltip
-            body="You do not have permission to create Saved Groups."
+            body={t`You do not have permission to create Saved Groups.`}
             shouldDisplay={!canCreate}
           >
             <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
-              Add Condition Group
+              <Trans>Add Condition Group</Trans>
             </Button>
           </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
-          Set up advanced targeting rules based on user attributes.
+          <Trans>
+            Set up advanced targeting rules based on user attributes.
+          </Trans>
         </p>
         <p className="text-gray">
-          For example, target users located in the US <b>and</b> on a mobile
-          device.
+          <Trans>
+            For example, target users located in the US <b>and</b> on a mobile
+            device.
+          </Trans>
         </p>
         {filteredConditionGroups.length > 0 && (
           <>
@@ -184,7 +192,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               <Box style={{ width: "40%" }}>
                 <Field
                   size="legacy"
-                  placeholder="Search..."
+                  placeholder={t`Search...`}
                   type="search"
                   {...searchInputProps}
                 />
@@ -204,15 +212,19 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                     field="groupName"
                     style={{ maxWidth: 200 }}
                   >
-                    Name
+                    <Trans>Name</Trans>
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader field="condition">
-                    Condition
+                    <Trans>Condition</Trans>
                   </SortableTableColumnHeader>
-                  <TableColumnHeader>Description</TableColumnHeader>
-                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Description</Trans>
+                  </TableColumnHeader>
+                  <TableColumnHeader>
+                    <Trans>Projects</Trans>
+                  </TableColumnHeader>
                   <SortableTableColumnHeader field="dateUpdated">
-                    Last Modified
+                    <Trans>Last Modified</Trans>
                   </SortableTableColumnHeader>
                 </TableRow>
               </TableHeader>
@@ -268,7 +280,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                 {!items.length && isFiltered && (
                   <TableRow>
                     <TableCell colSpan={5} style={{ textAlign: "center" }}>
-                      No matching saved groups
+                      <Trans>No matching saved groups</Trans>
                     </TableCell>
                   </TableRow>
                 )}

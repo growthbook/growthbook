@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useMemo } from "react";
 import { FaFirefoxBrowser } from "react-icons/fa";
+import { useLingui } from "@lingui/react/macro";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -24,6 +25,7 @@ import {
 import styles from "./WorkspaceLinks.module.scss";
 
 export default function WorkspaceLinks() {
+  const { t } = useLingui();
   const permissionsUtils = usePermissionsUtil();
   const { project, projects } = useDefinitions();
 
@@ -37,13 +39,13 @@ export default function WorkspaceLinks() {
       <StyledLink
         Icon={PiUsersThree}
         url="/settings/team"
-        text="Teams & Permissions"
+        text={t`Teams & Permissions`}
         disabled={!permissionsUtils.canManageTeam()}
       />
       <StyledLink
         Icon={PiGoogleChromeLogo}
         url={VISUAL_EDITOR_EXTENSION_LINK}
-        text="Install Visual Editor Extension"
+        text={t`Install Visual Editor Extension`}
         external
       />
       {/* DevTools is still the extension for debugging feature flags,
@@ -53,33 +55,33 @@ export default function WorkspaceLinks() {
         <StyledLink
           Icon={FaFirefoxBrowser}
           url={FIREFOX_EXTENSION_LINK}
-          text="Install Firefox DevTools Extension"
+          text={t`Install Firefox DevTools Extension`}
           external
         />
       ) : (
         <StyledLink
           Icon={PiGoogleChromeLogo}
           url={CHROME_EXTENSION_LINK}
-          text="Install Chrome DevTools Extension"
+          text={t`Install Chrome DevTools Extension`}
           external
         />
       )}
       <StyledLink
         Icon={PiFolders}
         url="/projects"
-        text="Create Projects"
+        text={t`Create Projects`}
         disabled={!permissionsUtils.canCreateProjects()}
       />
       <StyledLink
         Icon={PiWebhooksLogo}
         url="/settings/webhooks"
-        text="Integrate Slack or Discord"
+        text={t`Integrate Slack or Discord`}
         disabled={!permissionsUtils.canManageSomeEventWebhooks()}
       />
       <StyledLink
         Icon={PiTable}
         url="/fact-tables"
-        text="Configure Metric Library"
+        text={t`Configure Metric Library`}
         disabled={
           !permissionsUtils.canViewCreateFactTableModal(project, projects) &&
           !permissionsUtils.canCreateFactMetric({
@@ -90,7 +92,7 @@ export default function WorkspaceLinks() {
       <StyledLink
         Icon={PiKey}
         url="/settings/keys"
-        text="Create API Token"
+        text={t`Create API Token`}
         disabled={!permissionsUtils.canCreateApiKey()}
       />
     </>
@@ -110,6 +112,7 @@ function StyledLink({
   disabled?: boolean;
   external?: boolean;
 }) {
+  const { t } = useLingui();
   const component = (
     <Link
       href={url}
@@ -148,7 +151,7 @@ function StyledLink({
   return (
     <Box ml="3" mr="1" py="4" className={styles.workspaceLinkContainer}>
       {disabled ? (
-        <Tooltip body="You do not have permission to complete this action">
+        <Tooltip body={t`You do not have permission to complete this action`}>
           {component}
         </Tooltip>
       ) : (

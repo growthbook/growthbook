@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import {
@@ -101,6 +102,7 @@ const COL = {
 } as const;
 
 const ConfigReviews: FC = () => {
+  const { t } = useLingui();
   const router = useRouter();
   const { getUserDisplay } = useUser();
 
@@ -245,29 +247,33 @@ const ConfigReviews: FC = () => {
 
   const statusFilterItems = [
     {
-      name: "Pending review",
+      name: t`Pending review`,
       id: "pending-review",
       searchValue: "pending-review",
     },
-    { name: "Approved", id: "approved", searchValue: "approved" },
+    { name: t`Approved`, id: "approved", searchValue: "approved" },
     {
-      name: "Changes requested",
+      name: t`Changes requested`,
       id: "changes-requested",
       searchValue: "changes-requested",
     },
-    { name: "Draft", id: "draft", searchValue: "draft" },
+    { name: t`Draft`, id: "draft", searchValue: "draft" },
   ];
 
   return (
     <Box mt="4">
       <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            placeholder={t`Search...`}
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <Flex gap="5" align="center">
           <FilterDropdown
             filter="author"
-            heading="Author"
+            heading={t`Author`}
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -280,7 +286,7 @@ const ConfigReviews: FC = () => {
           />
           <FilterDropdown
             filter="status"
-            heading="Status"
+            heading={t`Status`}
             syntaxFilters={statusDropdownSyntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -293,37 +299,39 @@ const ConfigReviews: FC = () => {
       {isLoading ? (
         <LoadingOverlay />
       ) : statusFilteredItems.length === 0 ? (
-        <Callout status="info">No drafts for configs.</Callout>
+        <Callout status="info">
+          <Trans>No drafts for configs.</Trans>
+        </Callout>
       ) : (
         <>
           <Table variant="list" stickyHeader roundedCorners>
             <TableHeader>
               <TableRow>
                 <SortableTableColumnHeader field="configName">
-                  Config
+                  <Trans>Config</Trans>
                 </SortableTableColumnHeader>
                 <TableColumnHeader
                   style={{ width: COL.REVISION, textAlign: "right" }}
                 >
-                  Revision
+                  <Trans>Revision</Trans>
                 </TableColumnHeader>
                 <TableColumnHeader style={{ width: COL.NOTES }}>
-                  Notes
+                  <Trans>Notes</Trans>
                 </TableColumnHeader>
                 <SortableTableColumnHeader
                   field="authorDisplay"
                   style={{ width: COL.AUTHOR }}
                 >
-                  Author
+                  <Trans>Author</Trans>
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader
                   field="dateUpdated"
                   style={{ width: COL.DATE }}
                 >
-                  Last Modified
+                  <Trans>Last Modified</Trans>
                 </SortableTableColumnHeader>
                 <TableColumnHeader style={{ width: COL.DRAFT_STATUS }}>
-                  Draft Status
+                  <Trans>Draft Status</Trans>
                 </TableColumnHeader>
               </TableRow>
             </TableHeader>
@@ -379,7 +387,7 @@ const ConfigReviews: FC = () => {
               {paginatedItems.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} style={{ textAlign: "center" }}>
-                    No matching drafts
+                    <Trans>No matching drafts</Trans>
                   </TableCell>
                 </TableRow>
               )}

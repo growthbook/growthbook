@@ -17,6 +17,7 @@ import {
   SdkPayloadSizeRecommendation,
 } from "shared/validators";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -52,8 +53,12 @@ export function PayloadSizeRowWarning({
       >
         <Box display="inline-block" tabIndex={0}>
           <HelperText status={isSevere(level) ? "error" : "warning"} size="sm">
-            {level === "over-limit" ? "Over max size" : "Nearing max size"} ·{" "}
-            {share}%
+            {level === "over-limit" ? (
+              <Trans>Over max size</Trans>
+            ) : (
+              <Trans>Nearing max size</Trans>
+            )}{" "}
+            · {share}%
           </HelperText>
         </Box>
       </Tooltip>
@@ -64,7 +69,7 @@ export function PayloadSizeRowWarning({
 function StaleFeaturesLink() {
   return (
     <Link href="/features?q=is%3Astale" underline="always">
-      Archive stale Feature Flags
+      <Trans>Archive stale Feature Flags</Trans>
     </Link>
   );
 }
@@ -112,24 +117,24 @@ function Recommendation({
   switch (recommendation.type) {
     case "large-features":
       return (
-        <>
+        <Trans>
           Shrink the largest Feature Flags:{" "}
           <EntryLinks entries={recommendation.entries} kind="feature" />. Large
           JSON values and long lists in conditions are the usual cause.
-        </>
+        </Trans>
       );
     case "large-saved-groups":
       return (
-        <>
+        <Trans>
           Shrink the largest Saved Groups:{" "}
           <EntryLinks entries={recommendation.entries} kind="saved-group" />.
-        </>
+        </Trans>
       );
     case "archive-stale-features":
       return (
-        <>
+        <Trans>
           <StaleFeaturesLink />, which stay in the payload until archived.
-        </>
+        </Trans>
       );
     case "saved-group-references":
     case "limit-projects":
@@ -175,7 +180,7 @@ function PayloadSizeAdvice({
       <Text weight="semibold">{describeSdkPayloadSize(size)}</Text>
       {recommendations.length > 0 && (
         <Box mt="2">
-          Ways to shrink it:
+          <Trans>Ways to shrink it:</Trans>
           <Box asChild mt="1" mb="0" pl="4">
             <ul>
               {recommendations.map((r) => (
@@ -191,66 +196,91 @@ function PayloadSizeAdvice({
   );
 }
 
-function alertsExplanation(alerts: SdkPayloadSizeAlert[]) {
+function AlertsExplanation({ alerts }: { alerts: SdkPayloadSizeAlert[] }) {
+  const { t } = useLingui();
   const limit = formatSdkPayloadBytes(alerts[0].limitBytes);
   const over = alerts.filter((a) => a.level === "over-limit").length;
   const nearing = alerts.length - over;
   if (!over) {
-    return `${pluralConnections(nearing)} nearing the ${limit} cache limit. Past it, SDKs get no updates.`;
+    return (
+      <>
+        {nearing === 1
+          ? t`${nearing} SDK Connection nearing the ${limit} cache limit. Past it, SDKs get no updates.`
+          : t`${nearing} SDK Connections nearing the ${limit} cache limit. Past it, SDKs get no updates.`}
+      </>
+    );
   }
-  const others = nearing ? ` and ${nearing} nearing it` : "";
-  return `${pluralConnections(over)} over the ${limit} cache limit${others}. Over it, SDKs get no updates until the payload is smaller.`;
+  if (nearing) {
+    return (
+      <>
+        {over === 1
+          ? t`${over} SDK Connection over the ${limit} cache limit and ${nearing} nearing it. Over it, SDKs get no updates until the payload is smaller.`
+          : t`${over} SDK Connections over the ${limit} cache limit and ${nearing} nearing it. Over it, SDKs get no updates until the payload is smaller.`}
+      </>
+    );
+  }
+  return (
+    <>
+      {over === 1
+        ? t`${over} SDK Connection over the ${limit} cache limit. Over it, SDKs get no updates until the payload is smaller.`
+        : t`${over} SDK Connections over the ${limit} cache limit. Over it, SDKs get no updates until the payload is smaller.`}
+    </>
+  );
 }
 
 function Fix({ fix }: { fix: SdkPayloadSizeFix }) {
   switch (fix.type) {
     case "archive-stale-features":
       return <StaleFeaturesLink />;
-    case "saved-group-references":
+    case "saved-group-references": {
+      const connections = fix.connections;
       return (
-        <>
-          Send Saved Groups as references instead of inline on{" "}
-          {pluralConnections(fix.connections)}
-        </>
+        <Plural
+          value={connections}
+          one="Send Saved Groups as references instead of inline on # SDK Connection"
+          other="Send Saved Groups as references instead of inline on # SDK Connections"
+        />
       );
-    case "limit-projects":
+    }
+    case "limit-projects": {
+      const connections = fix.connections;
       return (
-        <>
-          Limit {pluralConnections(fix.connections)} to the Projects their apps
-          use
-        </>
+        <Plural
+          value={connections}
+          one="Limit # SDK Connection to the Projects their apps use"
+          other="Limit # SDK Connections to the Projects their apps use"
+        />
       );
-    case "optional-payload-settings":
+    }
+    case "optional-payload-settings": {
+      const connections = fix.connections;
       return (
-        <>
-          Turn off unused payload options on{" "}
-          {pluralConnections(fix.connections)}
-        </>
+        <Plural
+          value={connections}
+          one="Turn off unused payload options on # SDK Connection"
+          other="Turn off unused payload options on # SDK Connections"
+        />
       );
+    }
     case "large-features":
       return (
-        <>
+        <Trans>
           Shrink these Feature Flags&apos; values:{" "}
           <EntryLinks entries={fix.entries} kind="feature" />
-        </>
+        </Trans>
       );
     case "large-saved-groups":
       return (
-        <>
+        <Trans>
           Shrink these Saved Groups:{" "}
           <EntryLinks entries={fix.entries} kind="saved-group" />
-        </>
+        </Trans>
       );
   }
 }
 
-const connectionsNoun = (count: number) =>
-  count === 1 ? "SDK Connection" : "SDK Connections";
-
-const pluralConnections = (count: number) =>
-  `${count} ${connectionsNoun(count)}`;
-
 export function usePayloadSizeNotices(): AppNotice[] {
+  const { t } = useLingui();
   const { sdkPayloadSizeAlerts } = useUser();
   if (!sdkPayloadSizeAlerts.length) return [];
   const level = worstSdkPayloadSizeLevel(
@@ -266,19 +296,24 @@ export function usePayloadSizeNotices(): AppNotice[] {
     {
       id: "sdk-payload-size",
       severity: isSevere(level) ? "error" : "warning",
-      title: `${count === 1 ? "" : `${count} `}${connectionsNoun(count)} ${
-        level === "over-limit" ? "over max size" : "nearing max size"
-      }`,
+      title:
+        level === "over-limit"
+          ? count === 1
+            ? t`SDK Connection over max size`
+            : t`${count} SDK Connections over max size`
+          : count === 1
+            ? t`SDK Connection nearing max size`
+            : t`${count} SDK Connections nearing max size`,
       href: "/sdks",
       details: (
         <>
           <Text as="p" size="inherit" mb="2">
-            {alertsExplanation(sdkPayloadSizeAlerts)}
+            <AlertsExplanation alerts={sdkPayloadSizeAlerts} />
           </Text>
           {fixes.length > 0 && (
             <>
               <Text as="p" size="inherit" weight="semibold" mb="1">
-                To fix:
+                <Trans>To fix:</Trans>
               </Text>
               <Box asChild pl="4" mb="0">
                 <ul>

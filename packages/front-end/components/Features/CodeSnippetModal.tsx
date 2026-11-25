@@ -14,6 +14,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
@@ -102,7 +103,7 @@ function CollapsibleSection({
 export default function CodeSnippetModal({
   close,
   feature,
-  cta = "Finish",
+  cta,
   submit,
   secondaryCTA,
   sdkConnection,
@@ -134,6 +135,8 @@ export default function CodeSnippetModal({
   // The revision a saved pick published, for a page that follows live.
   onEventTrackerSaved?: (revision: Revision | undefined) => void;
 }) {
+  const { t } = useLingui();
+  const ctaText = cta === undefined ? t`Finish` : cta;
   const [currentConnectionId, setCurrentConnectionId] = useState("");
   const { apiCall } = useAuth();
   useEffect(() => {
@@ -194,7 +197,7 @@ export default function CodeSnippetModal({
         }
       } catch (e) {
         setEventTrackerSaveError(
-          e instanceof Error ? e.message : "Could not save the event tracker",
+          e instanceof Error ? e.message : t`Could not save the event tracker`,
         );
       }
     },
@@ -206,6 +209,7 @@ export default function CodeSnippetModal({
       eventTracker,
       saveEventTracker,
       onEventTrackerSaved,
+      t,
     ],
   );
   useEffect(() => {
@@ -239,6 +243,7 @@ export default function CodeSnippetModal({
     attributeSchema?.filter((a) =>
       ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
+  const secureAttributeCount = secureAttributes.length;
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
   const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
 
@@ -253,7 +258,7 @@ export default function CodeSnippetModal({
         connection={currentConnection}
         mutate={mutateConnections}
         goToNextStep={submit}
-        cta={"Finish"}
+        cta={t`Finish`}
         showModalClose={false}
       />
     );
@@ -267,7 +272,7 @@ export default function CodeSnippetModal({
       {canPickConnection ? (
         <Box width="240px">
           <SelectField
-            label="SDK Connection"
+            label={t`SDK Connection`}
             value={currentConnection.id}
             onChange={setCurrentConnectionId}
             options={connections.map((connection) => ({
@@ -297,39 +302,50 @@ export default function CodeSnippetModal({
     </Flex>
   );
 
+  const docName = docLabel || label;
   const intro =
     language === "other" ? (
       <Box>
         <Text as="p" mb="3">
-          We don&apos;t have an SDK for your language yet, but we do have
-          extensive documentation if you want to build your own and contribute
-          it back to the community!
+          <Trans>
+            We don&apos;t have an SDK for your language yet, but we do have
+            extensive documentation if you want to build your own and contribute
+            it back to the community!
+          </Trans>
         </Text>
         <LinkButton href={docUrl("buildYourOwn")} variant="outline" external>
-          View documentation
+          <Trans>View documentation</Trans>
         </LinkButton>
       </Box>
     ) : (
       <Text as="p" mb="0">
-        Below is some starter code to integrate GrowthBook into your app. Read
-        the <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
-        more details.
+        <Trans>
+          Below is some starter code to integrate GrowthBook into your app. Read
+          the <DocLink docSection={docs}>{docName} docs</DocLink> for more
+          details.
+        </Trans>
       </Text>
     );
 
   const saveError = eventTrackerSaveError ? (
     <Callout status="warning">
-      The event tracker was not saved to this SDK connection:{" "}
-      {eventTrackerSaveError}
+      <Trans>
+        The event tracker was not saved to this SDK connection:{" "}
+        {eventTrackerSaveError}
+      </Trans>
     </Callout>
   ) : null;
 
   const configRows = [
-    { label: "Full API Endpoint", proxied: hasProxy, value: featuresEndpoint },
-    { label: "API Host", proxied: hasProxy, value: apiHost },
-    { label: "Client Key", proxied: false, value: clientKey },
+    {
+      label: t`Full API Endpoint`,
+      proxied: hasProxy,
+      value: featuresEndpoint,
+    },
+    { label: t`API Host`, proxied: hasProxy, value: apiHost },
+    { label: t`Client Key`, proxied: false, value: clientKey },
     ...(encryptionKey
-      ? [{ label: "Decryption Key", proxied: false, value: encryptionKey }]
+      ? [{ label: t`Decryption Key`, proxied: false, value: encryptionKey }]
       : []),
   ];
 
@@ -338,7 +354,7 @@ export default function CodeSnippetModal({
   if (!language.startsWith("nocode")) {
     sections.push({
       id: "config",
-      title: `${docLabel || label} Config Settings`,
+      title: t`${docName} Config Settings`,
       content: (
         <Table size="sm">
           <TableBody>
@@ -350,7 +366,7 @@ export default function CodeSnippetModal({
                     <>
                       {" "}
                       <Text size="sm" color="text-low">
-                        (proxied)
+                        <Trans>(proxied)</Trans>
                       </Text>
                     </>
                   ) : null}
@@ -367,27 +383,34 @@ export default function CodeSnippetModal({
   }
 
   if (language !== "other") {
+    const packageRepositoryName = packageUrl
+      ? getPackageRepositoryName(packageUrl)
+      : "";
     sections.push({
       id: "installation",
-      title: "Installation",
+      title: t`Installation`,
       content: (
         <>
           {language === "nextjs" ? (
             <Box mb="5">
               <Text as="p" mb="3">
-                For back-end and hybrid integrations, use the official
-                GrowthBook adapter for Vercel&apos;s{" "}
-                <Link
-                  href="https://flags-sdk.dev/providers/growthbook"
-                  external
-                >
-                  Flags SDK
-                </Link>{" "}
-                (@flags-sdk/growthbook).
+                <Trans>
+                  For back-end and hybrid integrations, use the official
+                  GrowthBook adapter for Vercel&apos;s{" "}
+                  <Link
+                    href="https://flags-sdk.dev/providers/growthbook"
+                    external
+                  >
+                    Flags SDK
+                  </Link>{" "}
+                  (@flags-sdk/growthbook).
+                </Trans>
               </Text>
               <Callout status="info">
-                Flags SDK does not run in a browser context. For front-end
-                integrations, use our <strong>React SDK</strong>.
+                <Trans>
+                  Flags SDK does not run in a browser context. For front-end
+                  integrations, use our <strong>React SDK</strong>.
+                </Trans>
               </Callout>
             </Box>
           ) : null}
@@ -410,7 +433,7 @@ export default function CodeSnippetModal({
               <Link href={packageUrl} external size="sm">
                 <Flex as="span" display="inline-flex" align="center" gap="1">
                   <PiPackage />
-                  View on {getPackageRepositoryName(packageUrl)}
+                  <Trans>View on {packageRepositoryName}</Trans>
                 </Flex>
               </Link>
             </Box>
@@ -421,7 +444,7 @@ export default function CodeSnippetModal({
 
     sections.push({
       id: "setup",
-      title: "Setup",
+      title: t`Setup`,
       content: (
         <GrowthBookSetupCodeSnippet
           language={language}
@@ -441,7 +464,7 @@ export default function CodeSnippetModal({
   if (!(language.startsWith("edge-") || language === "other")) {
     sections.push({
       id: "attributes",
-      title: "Targeting Attributes",
+      title: t`Targeting Attributes`,
       content: (
         <>
           <TargetingAttributeCodeSnippet
@@ -454,16 +477,20 @@ export default function CodeSnippetModal({
           {hashSecureAttributes && secureAttributes.length > 0 ? (
             <Box mt="5">
               <Callout status="info" mb="4">
-                <GBHashLock /> This connection has{" "}
-                <strong>secure attribute hashing</strong> enabled. You must
-                manually hash all attributes with datatype{" "}
-                <code>secureString</code> or <code>secureString[]</code> in your
-                SDK implementation code.
+                <GBHashLock />{" "}
+                <Trans>
+                  This connection has <strong>secure attribute hashing</strong>{" "}
+                  enabled. You must manually hash all attributes with datatype{" "}
+                  <code>secureString</code> or <code>secureString[]</code> in
+                  your SDK implementation code.
+                </Trans>
               </Callout>
               <Text as="p" mb="2">
-                Your organization currently has {secureAttributes.length} secure
-                attribute{secureAttributes.length === 1 ? "" : "s"} which need
-                to be hashed before using them in the SDK:
+                <Plural
+                  value={secureAttributeCount}
+                  one="Your organization currently has # secure attribute which need to be hashed before using them in the SDK:"
+                  other="Your organization currently has # secure attributes which need to be hashed before using them in the SDK:"
+                />
               </Text>
               <Grid
                 columns="max-content max-content"
@@ -482,19 +509,26 @@ export default function CodeSnippetModal({
                 ))}
               </Grid>
               <Text as="p" mb="3">
-                To hash an attribute, use a cryptographic library with{" "}
-                <strong>SHA-256</strong> support, and compute the SHA-256 hashed
-                value of your attribute <em>plus</em> your organization&apos;s
-                secure attribute salt.
+                <Trans>
+                  To hash an attribute, use a cryptographic library with{" "}
+                  <strong>SHA-256</strong> support, and compute the SHA-256
+                  hashed value of your attribute <em>plus</em> your
+                  organization&apos;s secure attribute salt.
+                </Trans>
               </Text>
               <Text as="p" mb="0">
-                Example, using your organization&apos;s secure attribute salt:
+                <Trans>
+                  Example, using your organization&apos;s secure attribute salt:
+                </Trans>
               </Text>
               {secureAttributeSalt === "" ? (
                 <Callout status="warning" mt="2" size="sm">
-                  Your organization has an empty salt string. Add a salt string
-                  in your <Link href="/settings">organization settings</Link> to
-                  improve the security of hashed targeting conditions.
+                  <Trans>
+                    Your organization has an empty salt string. Add a salt
+                    string in your{" "}
+                    <Link href="/settings">organization settings</Link> to
+                    improve the security of hashed targeting conditions.
+                  </Trans>
                 </Callout>
               ) : null}
               <Code
@@ -509,11 +543,13 @@ myAttribute = sha256(salt + myAttribute);
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
               />
               <Callout status="warning" mt="3">
-                When using an insecure environment (such as a browser), do not
-                rely exclusively on hashing as a means of securing highly
-                sensitive data. Hashing is an obfuscation technique that makes
-                it very difficult, but not impossible, to extract sensitive
-                data.
+                <Trans>
+                  When using an insecure environment (such as a browser), do not
+                  rely exclusively on hashing as a means of securing highly
+                  sensitive data. Hashing is an obfuscation technique that makes
+                  it very difficult, but not impossible, to extract sensitive
+                  data.
+                </Trans>
               </Callout>
             </Box>
           ) : null}
@@ -521,14 +557,15 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
       ),
     });
 
+    const valueTypeLabel = feature?.valueType || "String";
     sections.push({
       id: "usage",
-      title: "Usage",
+      title: t`Usage`,
       content: (
         <>
           {!feature || feature.valueType === "boolean" ? (
             <>
-              On/Off feature:
+              <Trans>On/Off feature:</Trans>
               <BooleanFeatureCodeSnippet
                 language={language}
                 featureId={feature?.id || "my-feature"}
@@ -538,7 +575,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
           {language !== "nextjs" &&
           (!feature || feature.valueType !== "boolean") ? (
             <>
-              {feature?.valueType || "String"} feature:
+              <Trans>{valueTypeLabel} feature:</Trans>
               <MultivariateFeatureCodeSnippet
                 valueType={feature?.valueType || "string"}
                 language={language}
@@ -554,23 +591,29 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
   if (language === "nextjs") {
     sections.push({
       id: "customization",
-      title: "Further Customization",
+      title: t`Further Customization`,
       content: (
         <ul>
           <li>
-            Set up <strong>Vercel Edge Config</strong> and use a GrowthBook{" "}
-            <strong>SDK Webhook</strong> to keep feature and experiment values
-            synced between GrowthBook and the web server. This eliminates
-            network requests from the web server to GrowthBook.
+            <Trans>
+              Set up <strong>Vercel Edge Config</strong> and use a GrowthBook{" "}
+              <strong>SDK Webhook</strong> to keep feature and experiment values
+              synced between GrowthBook and the web server. This eliminates
+              network requests from the web server to GrowthBook.
+            </Trans>
           </li>
           <li>
-            Implement sticky bucketing using{" "}
-            <code>growthbookAdapter.setStickyBucketService()</code> for advanced
-            experimentation.
+            <Trans>
+              Implement sticky bucketing using{" "}
+              <code>growthbookAdapter.setStickyBucketService()</code> for
+              advanced experimentation.
+            </Trans>
           </li>
           <li>
-            Expose GrowthBook data to Vercel&apos;s Flags Explorer by creating
-            an API route with <code>createFlagsDiscoveryEndpoint</code>.
+            <Trans>
+              Expose GrowthBook data to Vercel&apos;s Flags Explorer by creating
+              an API route with <code>createFlagsDiscoveryEndpoint</code>.
+            </Trans>
           </li>
         </ul>
       ),
@@ -581,15 +624,15 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
     <ModalStandard
       open={true}
       trackingEventModalType=""
-      header="Implementation Instructions"
+      header={t`Implementation Instructions`}
       size="max"
       // The event tracker saves as it is picked; refresh once, on the way out.
       close={() => {
         mutateConnections();
         close?.();
       }}
-      closeCta={quickStart ? "Close" : undefined}
-      cta={cta}
+      closeCta={quickStart ? t`Close` : undefined}
+      cta={ctaText}
       secondaryAction={secondaryCTA}
       submit={
         includeCheck

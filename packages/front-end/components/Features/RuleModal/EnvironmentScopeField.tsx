@@ -1,6 +1,7 @@
 import { Box } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
+import { Trans, useLingui } from "@lingui/react/macro";
 import RadioGroup from "@/ui/RadioGroup";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -27,9 +28,11 @@ export default function RuleEnvironmentScopeField({
   setSelectedEnvironments,
   disabledEnvironmentIds = [],
   disabled = false,
-  label = "Rule Environments",
+  label: labelProp,
   ...marginProps
 }: EnvScopeProps) {
+  const { t } = useLingui();
+  const label = labelProp === undefined ? t`Rule Environments` : labelProp;
   const options = environments.map((e) => ({ label: e.id, value: e.id }));
 
   const disabledSet = new Set(disabledEnvironmentIds);
@@ -43,26 +46,30 @@ export default function RuleEnvironmentScopeField({
     !allEnvsDisabled &&
     affectedEnvIds.length > 0 &&
     disabledEnvironmentIds.length < environments.length;
+  const firstAffectedEnvId = affectedEnvIds[0];
+  const affectedEnvIdList = affectedEnvIds.join(", ");
 
   const disabledWarning = allEnvsDisabled ? (
     <HelperText status="warning" size="sm" mt="2">
-      This feature is not enabled in any environment. This rule will have no
-      effect until at least one environment is enabled.
+      <Trans>
+        This feature is not enabled in any environment. This rule will have no
+        effect until at least one environment is enabled.
+      </Trans>
     </HelperText>
   ) : showPartialDisabledWarning ? (
     <HelperText status="warning" size="sm" mt="2">
       {affectedEnvIds.length === 1 ? (
-        <>
-          <strong>{affectedEnvIds[0]}</strong> is not enabled for this feature.
+        <Trans>
+          <strong>{firstAffectedEnvId}</strong> is not enabled for this feature.
           This rule will have no effect there until the feature is enabled in
           that environment.
-        </>
+        </Trans>
       ) : (
-        <>
-          <strong>{affectedEnvIds.join(", ")}</strong> are not enabled for this
-          feature. This rule will have no effect there until the feature is
-          enabled in those environments.
-        </>
+        <Trans>
+          <strong>{affectedEnvIdList}</strong> are not enabled for this feature.
+          This rule will have no effect there until the feature is enabled in
+          those environments.
+        </Trans>
       )}
     </HelperText>
   ) : null;
@@ -88,8 +95,8 @@ export default function RuleEnvironmentScopeField({
         gap="0"
         disabled={disabled}
         options={[
-          { value: "all", label: "All Environments" },
-          { value: "specific", label: "Specific Environments" },
+          { value: "all", label: t`All Environments` },
+          { value: "specific", label: t`Specific Environments` },
         ]}
       />
       {allEnvironments && disabledWarning}
@@ -101,15 +108,17 @@ export default function RuleEnvironmentScopeField({
             value={selectedEnvironments}
             onChange={(vals) => setSelectedEnvironments(vals)}
             options={options}
-            placeholder="No environments selected"
+            placeholder={t`No environments selected`}
             sort={false}
             showCopyButton={false}
             containerClassName="w-full"
           />
           {selectedEnvironments.length === 0 && !disabledWarning && (
             <HelperText status="warning" size="sm" mt="2">
-              This rule will not apply in any environment until at least one is
-              selected.
+              <Trans>
+                This rule will not apply in any environment until at least one
+                is selected.
+              </Trans>
             </HelperText>
           )}
           {disabledWarning}

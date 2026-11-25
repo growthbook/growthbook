@@ -2,6 +2,9 @@ import { ReactNode, ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowSquareOut,
   PiCheckCircleFill,
@@ -60,7 +63,12 @@ function ExperimentLink({
   experimentId: string | undefined;
 }) {
   const { experimentsMap } = useExperiments();
-  if (!experimentId) return <em>unset</em>;
+  if (!experimentId)
+    return (
+      <em>
+        <Trans>unset</Trans>
+      </em>
+    );
   const experiment = experimentsMap.get(experimentId);
   return (
     <Link href={`/experiment/${experimentId}`} target="_blank">
@@ -81,6 +89,7 @@ function VariationValueLabel({
   variationId?: string;
   index: number;
 }) {
+  const { t } = useLingui();
   const { experimentsMap } = useExperiments();
   const variations =
     (experimentId && experimentsMap.get(experimentId)?.variations) || [];
@@ -88,7 +97,7 @@ function VariationValueLabel({
     ? variations.findIndex((v) => v.id === variationId)
     : index;
   const name = variations[position]?.name;
-  if (!name) return <>{`Variation ${index} value`}</>;
+  if (!name) return <>{t`Variation ${index} value`}</>;
   return <VariationLabel number={position} name={name} size="sm" />;
 }
 
@@ -109,7 +118,13 @@ function ValueChangedField({
   if (isEqual(pre, post)) return null;
   // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
   const displayVal = (v: string | null | undefined): ReactNode =>
-    v == null || v === "" ? <em>unset</em> : v;
+    v == null || v === "" ? (
+      <em>
+        <Trans>unset</Trans>
+      </em>
+    ) : (
+      v
+    );
   const isSimple = (v: string | null | undefined): boolean =>
     v == null || (!v.includes("\n") && v.length <= 80);
   if (isSimple(pre) && isSimple(post)) {
@@ -163,20 +178,20 @@ function ValueChangedField({
   );
 }
 
-function getRuleTypeLabel(type: FeatureRule["type"]): string {
+function getRuleTypeLabel(type: FeatureRule["type"]): MessageDescriptor {
   switch (type) {
     case "force":
-      return "Force";
+      return msg`Force`;
     case "rollout":
-      return "Rollout";
+      return msg`Rollout`;
     case "experiment":
-      return "Experiment";
+      return msg`Experiment`;
     case "experiment-ref":
-      return "Experiment ref";
+      return msg`Experiment ref`;
     case "contextual-bandit-ref":
-      return "Contextual Bandit ref";
+      return msg`Contextual Bandit ref`;
     case "safe-rollout":
-      return "Safe rollout";
+      return msg`Safe rollout`;
   }
 }
 
@@ -222,7 +237,7 @@ function envScopeOrphanedChip(envId: string) {
   return (
     <Tooltip
       key={`orphaned-${envId}`}
-      body="Environment no longer exists"
+      body={<Trans>Environment no longer exists</Trans>}
       tipPosition="top"
       style={{ display: "inline-flex", alignItems: "center" }}
     >
@@ -240,6 +255,7 @@ function envScopeOrphanedChip(envId: string) {
 }
 
 function RuleEnvScope({ rule }: { rule: FeatureRule }) {
+  const { t } = useLingui();
   const environments = useEnvironments();
   const liveEnvIds = new Set(environments.map((e) => e.id));
   if (rule.allEnvironments) {
@@ -250,7 +266,7 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
           fontWeight: 500,
         }}
       >
-        All environments
+        <Trans>All environments</Trans>
       </span>
     );
   }
@@ -258,7 +274,7 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
   if (rule.environments.length === 0) {
     return (
       <Tooltip
-        body="Rule is not scoped to any environment and will not apply anywhere"
+        body={t`Rule is not scoped to any environment and will not apply anywhere`}
         tipPosition="top"
         innerClassName="p-2"
         style={{ display: "inline-flex", alignItems: "center" }}
@@ -269,7 +285,7 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
             fontSize: "var(--font-size-2)",
           }}
         >
-          No environments (pending)
+          <Trans>No environments (pending)</Trans>
         </span>
       </Tooltip>
     );
@@ -338,21 +354,27 @@ export function RampScheduleSummary({
 }) {
   const showStepRow = stepCount > 0;
   if (!startDate && !endAt && !showStepRow) return null;
+  const startDateText = startDate ? datetime(startDate) : "";
+  const endAtText = endAt ? datetime(endAt) : "";
   return (
     <Flex direction="column" gap="1">
       {startDate ? (
         <Text size="sm">
-          <strong>Enable:</strong> {datetime(startDate)}
+          <Trans>
+            <strong>Enable:</strong> {startDateText}
+          </Trans>
         </Text>
       ) : null}
       {endAt ? (
         <Text size="sm">
-          <strong>Disable:</strong> {datetime(endAt)}
+          <Trans>
+            <strong>Disable:</strong> {endAtText}
+          </Trans>
         </Text>
       ) : null}
       {showStepRow ? (
         <Text size="sm">
-          {stepCount} step{stepCount !== 1 ? "s" : ""}
+          <Plural value={stepCount} one="# step" other="# steps" />
         </Text>
       ) : null}
     </Flex>
@@ -362,9 +384,10 @@ export function RampScheduleSummary({
 // Inline "pending publish" badge — used as the `titleSuffix` of standalone
 // ramp diff cards and inline with the per-rule "Ramp schedule" label.
 export function PendingPublishBadge() {
+  const { t } = useLingui();
   return (
     <Badge
-      label="pending publish"
+      label={t`pending publish`}
       color="amber"
       variant="soft"
       radius="full"
@@ -381,18 +404,25 @@ type RampDiffAction = "create" | "update" | "activate" | "remove";
 
 const RAMP_ACTION_STYLE: Record<
   RampDiffAction,
-  { label: string; color: "amber" | "blue" | "green" | "red" }
+  { label: MessageDescriptor; color: "amber" | "blue" | "green" | "red" }
 > = {
-  create: { label: "Create", color: "amber" },
-  update: { label: "Update", color: "blue" },
-  activate: { label: "Activate", color: "green" },
-  remove: { label: "Remove", color: "red" },
+  create: { label: msg`Create`, color: "amber" },
+  update: { label: msg`Update`, color: "blue" },
+  activate: { label: msg`Activate`, color: "green" },
+  remove: { label: msg`Remove`, color: "red" },
 };
 
 export function RampActionLabel({ action }: { action: RampDiffAction }) {
+  const { i18n } = useLingui();
   const { label, color } = RAMP_ACTION_STYLE[action];
   return (
-    <Badge label={label} color={color} variant="soft" radius="full" size="sm" />
+    <Badge
+      label={i18n._(label)}
+      color={color}
+      variant="soft"
+      radius="full"
+      size="sm"
+    />
   );
 }
 
@@ -407,8 +437,12 @@ function RampActionBody({
   action: RevisionRampCreateAction;
   targetRuleIndices?: number[];
 }) {
+  const { t } = useLingui();
   const endAt = action.cutoffDate ?? null;
   const ruleCount = targetRuleIndices?.length;
+  const ruleList = (targetRuleIndices ?? [])
+    .map((i) => t`Rule #${i}`)
+    .join(", ");
   return (
     <Flex direction="column" gap="2">
       <RampScheduleSummary
@@ -418,9 +452,9 @@ function RampActionBody({
       />
       {ruleCount ? (
         <Text size="sm" color="text-mid">
-          {ruleCount === 1 ? "Target" : "Targets"}: {ruleCount} feature rule
-          {ruleCount !== 1 ? "s" : ""} (
-          {targetRuleIndices!.map((i) => `Rule #${i}`).join(", ")})
+          {ruleCount === 1
+            ? t`Target: ${ruleCount} feature rule (${ruleList})`
+            : t`Targets: ${ruleCount} feature rules (${ruleList})`}
         </Text>
       ) : null}
     </Flex>
@@ -434,7 +468,8 @@ export function PendingRampForRule({
 }: {
   action: RevisionRampCreateAction;
 }) {
-  const label = isSimpleRampAction(action) ? "Schedule" : "Ramp schedule";
+  const { t } = useLingui();
+  const label = isSimpleRampAction(action) ? t`Schedule` : t`Ramp schedule`;
   return (
     <div className="mb-2">
       <Flex align="center" gap="2" mb="1" wrap="wrap">
@@ -476,17 +511,24 @@ export function findPendingRampForRule(
 // "Rule #3 — Force (value: xyz)" compact descriptor used as a sub-heading.
 // Env scope is rendered inline since rule diffs aren't bucketed by env.
 function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
+  const { t, i18n } = useLingui();
   let detail: ReactNode = "";
   if (rule.type === "force") {
     // rule.value may be a parsed object after normalizeSnapshot, not a raw string
     const valStr =
       typeof rule.value === "string" ? rule.value : JSON.stringify(rule.value);
-    const v = valStr.slice(0, 40);
-    detail = `value: ${v}${valStr.length > 40 ? "…" : ""}`;
+    const v = valStr.slice(0, 40) + (valStr.length > 40 ? "…" : "");
+    detail = t`value: ${v}`;
   } else if (rule.type === "rollout") {
-    detail = `${coveragePercentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
+    const coverage = coveragePercentFormatter.format(rule.coverage);
+    const hashAttribute = rule.hashAttribute;
+    const seed = rule.seed;
+    detail = seed
+      ? t`${coverage} of ${hashAttribute}, seed: ${seed}`
+      : t`${coverage} of ${hashAttribute}`;
   } else if (rule.type === "experiment") {
-    detail = `key: ${rule.trackingKey}`;
+    const trackingKey = rule.trackingKey;
+    detail = t`key: ${trackingKey}`;
   } else if (rule.type === "experiment-ref") {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
   } else if (rule.type === "contextual-bandit-ref") {
@@ -494,11 +536,14 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
       <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
     );
   }
+  const typeLabel = i18n._(getRuleTypeLabel(rule.type));
   return (
     <div className="mb-2">
       <Flex align="center" gap="2" wrap="wrap">
         <Text size="md" weight="semibold" color="text-high">
-          Rule #{index} — {getRuleTypeLabel(rule.type)}
+          <Trans>
+            Rule #{index} — {typeLabel}
+          </Trans>
         </Text>
         <RuleEnvScope rule={rule} />
       </Flex>
@@ -521,6 +566,7 @@ function RuleFieldDiffs({
   post: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
 }) {
+  const { t } = useLingui();
   if (isEqual(pre, post) && !pendingRampAction) return null;
 
   const rows: ReactNode[] = [];
@@ -554,12 +600,14 @@ function RuleFieldDiffs({
       r.allEnvironments || Array.isArray(r.environments) ? (
         <RuleEnvScope rule={r} />
       ) : (
-        <em>unset</em>
+        <em>
+          <Trans>unset</Trans>
+        </em>
       );
     rows.push(
       <ChangeField
         key="envScope"
-        label="Environments"
+        label={<Trans>Environments</Trans>}
         changed
         oldNode={renderScope(pre)}
         newNode={renderScope(post)}
@@ -571,10 +619,10 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="enabled"
-        label="Enabled"
+        label={<Trans>Enabled</Trans>}
         changed
-        oldNode={pre.enabled === false ? "disabled" : "enabled"}
-        newNode={post.enabled === false ? "disabled" : "enabled"}
+        oldNode={pre.enabled === false ? t`disabled` : t`enabled`}
+        newNode={post.enabled === false ? t`disabled` : t`enabled`}
       />,
     );
   }
@@ -587,20 +635,24 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="cond"
-        label="Targeting condition"
+        label={<Trans>Targeting condition</Trans>}
         changed
         oldNode={
           preCond && preCond !== "{}" ? (
             <ConditionDisplay condition={preCond} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
         newNode={
           postCond && postCond !== "{}" ? (
             <ConditionDisplay condition={postCond} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
       />,
@@ -613,20 +665,24 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="sg"
-        label="Saved group targeting"
+        label={<Trans>Saved group targeting</Trans>}
         changed
         oldNode={
           preSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={preSG} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
         newNode={
           postSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={postSG} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
       />,
@@ -650,20 +706,24 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="prereq"
-        label="Prerequisites"
+        label={<Trans>Prerequisites</Trans>}
         changed
         oldNode={
           normPrereqs(prePrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(prePrereqs)} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
         newNode={
           normPrereqs(postPrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(postPrereqs)} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
       />,
@@ -681,7 +741,7 @@ function RuleFieldDiffs({
     rows.push(
       <ValueChangedField
         key="value"
-        label="Value"
+        label={<Trans>Value</Trans>}
         pre={formatValue((pre as { value: string }).value)}
         post={formatValue((post as { value: string }).value)}
       />,
@@ -699,7 +759,7 @@ function RuleFieldDiffs({
     rows.push(
       <ValueChangedField
         key="controlValue"
-        label="Control value"
+        label={<Trans>Control value</Trans>}
         pre={formatValue((pre as { controlValue: string }).controlValue)}
         post={formatValue((post as { controlValue: string }).controlValue)}
       />,
@@ -716,7 +776,7 @@ function RuleFieldDiffs({
     rows.push(
       <ValueChangedField
         key="variationValue"
-        label="Variation value"
+        label={<Trans>Variation value</Trans>}
         pre={formatValue((pre as { variationValue: string }).variationValue)}
         post={formatValue((post as { variationValue: string }).variationValue)}
       />,
@@ -734,7 +794,7 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="coverage"
-        label="Coverage"
+        label={<Trans>Coverage</Trans>}
         changed
         oldNode={coveragePercentFormatter.format(
           (pre as { coverage: number }).coverage,
@@ -756,7 +816,7 @@ function RuleFieldDiffs({
     rows.push(
       <ChangeField
         key="experimentId"
-        label="Experiment"
+        label={<Trans>Experiment</Trans>}
         changed
         oldNode={
           <ExperimentLink
@@ -836,6 +896,7 @@ function NewRuleDetails({
   rule: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
 }) {
+  const { t } = useLingui();
   const rows: ReactNode[] = [];
 
   // Combined env-scope row (matches `RuleFieldDiffs`); raw fields are
@@ -844,9 +905,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="envScope"
-        label="Environments"
+        label={<Trans>Environments</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={<RuleEnvScope rule={rule} />}
       />,
     );
@@ -861,9 +926,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="cond"
-        label="Targeting condition"
+        label={<Trans>Targeting condition</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={<ConditionDisplay condition={cond} />}
       />,
     );
@@ -873,9 +942,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="sg"
-        label="Saved group targeting"
+        label={<Trans>Saved group targeting</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={<SavedGroupTargetingDisplay savedGroups={sg} />}
       />,
     );
@@ -889,9 +962,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="prereq"
-        label="Prerequisites"
+        label={<Trans>Prerequisites</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={<ConditionDisplay prerequisites={normPrereqs} />}
       />,
     );
@@ -901,7 +978,7 @@ function NewRuleDetails({
     rows.push(
       <ValueChangedField
         key="value"
-        label="Value"
+        label={<Trans>Value</Trans>}
         pre={null}
         post={formatValue(rule.value)}
       />,
@@ -912,14 +989,18 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="coverage"
-        label="Coverage"
+        label={<Trans>Coverage</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={coveragePercentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
         key="value"
-        label="Value"
+        label={<Trans>Value</Trans>}
         pre={null}
         post={formatValue(rule.value)}
       />,
@@ -930,13 +1011,13 @@ function NewRuleDetails({
     rows.push(
       <ValueChangedField
         key="controlValue"
-        label="Control value"
+        label={<Trans>Control value</Trans>}
         pre={null}
         post={formatValue(rule.controlValue)}
       />,
       <ValueChangedField
         key="variationValue"
-        label="Variation value"
+        label={<Trans>Variation value</Trans>}
         pre={null}
         post={formatValue(rule.variationValue)}
       />,
@@ -947,9 +1028,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="contextualBanditId"
-        label="Contextual Bandit"
+        label={<Trans>Contextual Bandit</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={
           <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
         }
@@ -959,7 +1044,7 @@ function NewRuleDetails({
       rows.push(
         <ValueChangedField
           key={`cb-var-${i}`}
-          label={`Variation ${i} value`}
+          label={t`Variation ${i} value`}
           pre={null}
           post={formatValue(v.value)}
         />,
@@ -971,9 +1056,13 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="experimentId"
-        label="Experiment"
+        label={<Trans>Experiment</Trans>}
         changed
-        oldNode={<em>unset</em>}
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
         newNode={<ExperimentLink experimentId={rule.experimentId} />}
       />,
     );
@@ -999,10 +1088,14 @@ function NewRuleDetails({
     rows.push(
       <ChangeField
         key="enabled"
-        label="Enabled"
+        label={<Trans>Enabled</Trans>}
         changed
-        oldNode={<em>unset</em>}
-        newNode="disabled"
+        oldNode={
+          <em>
+            <Trans>unset</Trans>
+          </em>
+        }
+        newNode={t`disabled`}
       />,
     );
   }
@@ -1216,7 +1309,7 @@ export function renderFeatureRules(
       sections.push(
         <div key="reordered" className="mb-3">
           <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-            Reordered
+            <Trans>Reordered</Trans>
           </Text>
           {movedRules.map(({ r, newPos, oldPos }) => (
             <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
@@ -1224,7 +1317,11 @@ export function renderFeatureRules(
                 <div style={{ flex: 1 }}>
                   <RuleHeading rule={r} index={newPos} />
                 </div>
-                <Badge label={`was #${oldPos}`} color="amber" variant="soft" />
+                <Badge
+                  label={<Trans>was #{oldPos}</Trans>}
+                  color="amber"
+                  variant="soft"
+                />
               </Flex>
             </Box>
           ))}
@@ -1237,7 +1334,7 @@ export function renderFeatureRules(
     sections.push(
       <div key="added" className="mb-3">
         <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Added
+          <Trans>Added</Trans>
         </Text>
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
@@ -1262,7 +1359,7 @@ export function renderFeatureRules(
     sections.push(
       <div key="removed" className="mb-3">
         <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Removed
+          <Trans>Removed</Trans>
         </Text>
         {removed.map((r) => {
           const idx = preIndexById.get(r.id)!;
@@ -1284,7 +1381,7 @@ export function renderFeatureRules(
     sections.push(
       <div key="modified" className="mb-2">
         <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Modified
+          <Trans>Modified</Trans>
         </Text>
         {modifiedAll.map((r) => {
           const prev = preById.get(r.id)!;
@@ -1417,6 +1514,7 @@ function FeatureRulesSection({
   pre: FeaturePartial;
   post: Partial<FeatureInterface>;
 }): ReactElement | null {
+  const { t } = useLingui();
   const { holdoutsMap } = useHoldouts();
 
   const preEnvs = (pre?.environmentSettings ?? {}) as Record<
@@ -1444,10 +1542,10 @@ function FeatureRulesSection({
       toggleRows.push(
         <ChangeField
           key={`toggle-${env}`}
-          label={`${env} enabled`}
+          label={t`${env} enabled`}
           changed
-          oldNode={preEnabled ? "enabled" : "disabled"}
-          newNode={postEnabled ? "enabled" : "disabled"}
+          oldNode={preEnabled ? t`enabled` : t`disabled`}
+          newNode={postEnabled ? t`enabled` : t`disabled`}
         />,
       );
     }
@@ -1473,7 +1571,7 @@ function FeatureRulesSection({
       {toggleRows.length > 0 && (
         <div className="mb-2">
           <Heading as="h6" size="sm" color="text-mid" mb="2">
-            Environment toggles
+            <Trans>Environment toggles</Trans>
           </Heading>
           {toggleRows}
         </div>
@@ -1481,7 +1579,7 @@ function FeatureRulesSection({
       {rulesRender && (
         <div className={toggleRows.length > 0 ? "mt-3" : ""}>
           <Heading as="h6" size="sm" color="text-mid" mb="2">
-            Rules
+            <Trans>Rules</Trans>
           </Heading>
           {rulesRender}
         </div>
@@ -1520,10 +1618,10 @@ export function renderFeatureArchived(
   return (
     <ChangeField
       key="archived"
-      label="Archived"
+      label={<Trans>Archived</Trans>}
       changed
-      oldNode={(pre ?? false) ? "archived" : "active"}
-      newNode={post ? "archived" : "active"}
+      oldNode={(pre ?? false) ? <Trans>archived</Trans> : <Trans>active</Trans>}
+      newNode={post ? <Trans>archived</Trans> : <Trans>active</Trans>}
     />
   );
 }
@@ -1547,8 +1645,13 @@ function renderTargetingNode(
   allProjects: boolean | undefined,
   projects: string[] | undefined,
 ): ReactNode {
-  if (allProjects) return "All Projects";
-  if (!projects?.length) return <em>none</em>;
+  if (allProjects) return <Trans>All Projects</Trans>;
+  if (!projects?.length)
+    return (
+      <em>
+        <Trans>none</Trans>
+      </em>
+    );
   return (
     <>
       {projects.map((p, i) => (
@@ -1576,9 +1679,15 @@ export function renderFeatureMetadataSection(
     rows.push(
       <ChangeField
         key="owner"
-        label="Owner"
+        label={<Trans>Owner</Trans>}
         changed
-        oldNode={pre?.owner || <em>unset</em>}
+        oldNode={
+          pre?.owner || (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
         newNode={post.owner}
       />,
     );
@@ -1591,10 +1700,16 @@ export function renderFeatureMetadataSection(
     rows.push(
       <ChangeField
         key="project"
-        label="Project"
+        label={<Trans>Project</Trans>}
         changed
         oldNode={
-          pre?.project ? <ProjectName id={pre.project} /> : <em>unset</em>
+          pre?.project ? (
+            <ProjectName id={pre.project} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
         }
         newNode={<ProjectName id={post.project} />}
       />,
@@ -1614,7 +1729,7 @@ export function renderFeatureMetadataSection(
     rows.push(
       <ChangeField
         key="targeting"
-        label="Targeting Projects"
+        label={<Trans>Targeting Projects</Trans>}
         changed
         oldNode={renderTargetingNode(
           pre?.targetingAllProjects,
@@ -1638,7 +1753,7 @@ export function renderFeatureMetadataSection(
         <div key="tags" className="mb-2">
           <div className="mb-1">
             <Text size="md" weight="medium" color="text-mid">
-              Tags
+              <Trans>Tags</Trans>
             </Text>
           </div>
           <div className="d-flex flex-wrap" style={{ gap: 4 }}>
@@ -1662,7 +1777,7 @@ export function renderFeatureMetadataSection(
     rows.push(
       <ValueChangedField
         key="description"
-        label="Description"
+        label={<Trans>Description</Trans>}
         pre={pre?.description || null}
         post={post.description || null}
       />,
@@ -1835,17 +1950,22 @@ function renderPrerequisiteList(
   if (added.length > 0) {
     sections.push(
       <div key="added" className="mb-3">
-        {added.map((p) => (
-          <div key={p.id} className="mb-2">
-            <Text size="md" weight="medium" color="text-mid" as="div" mb="1">
-              Added{" "}
-              <Text weight="semibold" color="text-high">
-                {p.id}
+        {added.map((p) => {
+          const prereqId = p.id;
+          return (
+            <div key={p.id} className="mb-2">
+              <Text size="md" weight="medium" color="text-mid" as="div" mb="1">
+                <Trans>
+                  Added{" "}
+                  <Text weight="semibold" color="text-high">
+                    {prereqId}
+                  </Text>
+                </Trans>
               </Text>
-            </Text>
-            <ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />
-          </div>
-        ))}
+              <ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />
+            </div>
+          );
+        })}
       </div>,
     );
   }
@@ -1853,16 +1973,21 @@ function renderPrerequisiteList(
   if (removed.length > 0) {
     sections.push(
       <div key="removed" className="mb-3">
-        {removed.map((p) => (
-          <div key={p.id} className="mb-1">
-            <Text size="md" weight="medium" color="text-mid" as="div">
-              Removed{" "}
-              <Text weight="semibold" color="text-high">
-                {p.id}
+        {removed.map((p) => {
+          const prereqId = p.id;
+          return (
+            <div key={p.id} className="mb-1">
+              <Text size="md" weight="medium" color="text-mid" as="div">
+                <Trans>
+                  Removed{" "}
+                  <Text weight="semibold" color="text-high">
+                    {prereqId}
+                  </Text>
+                </Trans>
               </Text>
-            </Text>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>,
     );
   }
@@ -1872,16 +1997,19 @@ function renderPrerequisiteList(
       <div key="modified" className="mb-2">
         {modified.map((p) => {
           const prev = preById.get(p.id)!;
+          const prereqId = p.id;
           return (
             <div key={p.id} className="mb-3">
               <Text size="md" weight="medium" color="text-mid" as="div" mb="1">
-                Modified{" "}
-                <Text weight="semibold" color="text-high">
-                  {p.id}
-                </Text>
+                <Trans>
+                  Modified{" "}
+                  <Text weight="semibold" color="text-high">
+                    {prereqId}
+                  </Text>
+                </Trans>
               </Text>
               <ChangeField
-                label="Condition"
+                label={<Trans>Condition</Trans>}
                 changed
                 oldNode={
                   <ConditionDisplay
@@ -1921,10 +2049,11 @@ function EnvEnabledIndicator({
   tone?: "state" | "muted";
   besideApprovals: boolean;
 }) {
+  const { t } = useLingui();
   // Teal, not green, beside approval verdicts: a green check reads as one.
   const onColor = besideApprovals ? "var(--teal-10)" : featureStatusColors.on;
   const color = enabled ? onColor : featureStatusColors.off;
-  const label = enabled ? "On" : "Off";
+  const label = enabled ? t`On` : t`Off`;
   const Icon = enabled ? PiCheckCircleFill : PiXCircleFill;
   return (
     <UiTooltip content={label}>
@@ -2019,13 +2148,17 @@ export function renderFeatureHoldoutSection(
     return (
       <div>
         <ChangeField
-          label="Holdout"
+          label={<Trans>Holdout</Trans>}
           changed
-          oldNode={<em>none</em>}
+          oldNode={
+            <em>
+              <Trans>none</Trans>
+            </em>
+          }
           newNode={<HoldoutName id={postHoldout.id} />}
         />
         <ValueChangedField
-          label="Value"
+          label={<Trans>Value</Trans>}
           pre={null}
           post={formatValue(postHoldout.value)}
         />
@@ -2037,10 +2170,14 @@ export function renderFeatureHoldoutSection(
   if (preHoldout && !postHoldout) {
     return (
       <ChangeField
-        label="Holdout"
+        label={<Trans>Holdout</Trans>}
         changed
         oldNode={<HoldoutName id={preHoldout.id} />}
-        newNode={<em>none</em>}
+        newNode={
+          <em>
+            <Trans>none</Trans>
+          </em>
+        }
       />
     );
   }
@@ -2054,7 +2191,7 @@ export function renderFeatureHoldoutSection(
     rows.push(
       <ChangeField
         key="holdout-id"
-        label="Holdout"
+        label={<Trans>Holdout</Trans>}
         changed
         oldNode={<HoldoutName id={preHoldout.id} />}
         newNode={<HoldoutName id={postHoldout.id} />}
@@ -2066,7 +2203,7 @@ export function renderFeatureHoldoutSection(
     rows.push(
       <ValueChangedField
         key="holdout-value"
-        label="Value"
+        label={<Trans>Value</Trans>}
         pre={formatValue(preHoldout.value)}
         post={formatValue(postHoldout.value)}
       />,
@@ -2113,7 +2250,7 @@ export function renderRevisionMetadata(
 
   const stringField = (
     key: string,
-    label: string,
+    label: ReactNode,
     pre: string | undefined,
     post: string | undefined,
   ) => {
@@ -2132,7 +2269,7 @@ export function renderRevisionMetadata(
   if (draft.description !== undefined) {
     stringField(
       "description",
-      "Description",
+      <Trans>Description</Trans>,
       current?.description,
       draft.description,
     );
@@ -2145,12 +2282,26 @@ export function renderRevisionMetadata(
     rows.push(
       <ChangeField
         key="owner"
-        label="Owner"
+        label={<Trans>Owner</Trans>}
         changed
         oldNode={
-          current?.owner ? <OwnerName id={current.owner} /> : <em>unset</em>
+          current?.owner ? (
+            <OwnerName id={current.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
         }
-        newNode={draft.owner ? <OwnerName id={draft.owner} /> : <em>unset</em>}
+        newNode={
+          draft.owner ? (
+            <OwnerName id={draft.owner} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
+        }
       />,
     );
   }
@@ -2162,17 +2313,25 @@ export function renderRevisionMetadata(
     rows.push(
       <ChangeField
         key="project"
-        label="Project"
+        label={<Trans>Project</Trans>}
         changed
         oldNode={
           current?.project ? (
             <ProjectName id={current.project} />
           ) : (
-            <em>unset</em>
+            <em>
+              <Trans>unset</Trans>
+            </em>
           )
         }
         newNode={
-          draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>
+          draft.project ? (
+            <ProjectName id={draft.project} />
+          ) : (
+            <em>
+              <Trans>unset</Trans>
+            </em>
+          )
         }
       />,
     );
@@ -2191,7 +2350,7 @@ export function renderRevisionMetadata(
     rows.push(
       <ChangeField
         key="targeting"
-        label="Targeting Projects"
+        label={<Trans>Targeting Projects</Trans>}
         changed
         oldNode={renderTargetingNode(
           current?.targetingAllProjects,
@@ -2214,7 +2373,7 @@ export function renderRevisionMetadata(
       rows.push(
         <ChangeField
           key="tags"
-          label="Tags"
+          label={<Trans>Tags</Trans>}
           changed
           oldNode={
             current?.tags?.length ? (
@@ -2224,7 +2383,9 @@ export function renderRevisionMetadata(
                 shouldShowEllipsis={false}
               />
             ) : (
-              <em>unset</em>
+              <em>
+                <Trans>unset</Trans>
+              </em>
             )
           }
           newNode={
@@ -2235,7 +2396,9 @@ export function renderRevisionMetadata(
                 shouldShowEllipsis={false}
               />
             ) : (
-              <em>unset</em>
+              <em>
+                <Trans>unset</Trans>
+              </em>
             )
           }
         />,
@@ -2252,7 +2415,7 @@ export function renderRevisionMetadata(
     rows.push(
       <ValueChangedField
         key="neverStale"
-        label="Never Stale"
+        label={<Trans>Never Stale</Trans>}
         pre={
           current?.neverStale !== undefined ? String(current.neverStale) : null
         }
@@ -2286,7 +2449,7 @@ export function renderRevisionMetadata(
     rows.push(
       <ValueChangedField
         key="customFields"
-        label="Custom Fields"
+        label={<Trans>Custom Fields</Trans>}
         pre={
           current?.customFields
             ? JSON.stringify(current.customFields, null, 2)

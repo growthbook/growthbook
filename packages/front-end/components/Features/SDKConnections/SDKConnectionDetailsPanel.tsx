@@ -1,6 +1,7 @@
 import { Flex, Separator } from "@radix-ui/themes";
 import { Revision } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
 import {
   HiddenProject,
@@ -41,16 +42,17 @@ export default function SDKConnectionDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
+  const { t } = useLingui();
   const { getProjectById } = useDefinitions();
   const projects = connection.projects;
 
   return (
     <DetailsPanel>
-      <PanelSection title="General">
+      <PanelSection title={t`General`}>
         <Metadata
           size="sm"
           stacked
-          label="SDK"
+          label={t`SDK`}
           value={
             <Flex align="center" gap="3" wrap="wrap">
               {connection.languages.map((language) => (
@@ -74,13 +76,13 @@ export default function SDKConnectionDetailsPanel({
         <Metadata
           size="sm"
           stacked
-          label="Environment"
+          label={t`Environment`}
           value={<PanelText>{connection.environment}</PanelText>}
         />
         <Metadata
           size="sm"
           stacked
-          label="Projects"
+          label={t`Projects`}
           value={
             <PanelText>
               {projects.length
@@ -90,18 +92,18 @@ export default function SDKConnectionDetailsPanel({
                       {getProjectById(id)?.name || <HiddenProject id={id} />}
                     </span>
                   ))
-                : "All Projects"}
+                : t`All Projects`}
             </PanelText>
           }
         />
         <Metadata
           size="sm"
           stacked
-          label="Webhooks"
+          label={t`Webhooks`}
           action={
             onEditWebhooks ? (
               <PanelEditButton
-                label="Edit webhooks"
+                label={t`Edit webhooks`}
                 onClick={onEditWebhooks}
                 blockedReason={editWebhooksBlockedReason}
               />
@@ -109,7 +111,7 @@ export default function SDKConnectionDetailsPanel({
           }
           value={
             <PanelText>
-              {webhookCount} webhook{webhookCount === 1 ? "" : "s"}
+              <Plural value={webhookCount} one="# webhook" other="# webhooks" />
             </PanelText>
           }
         />
@@ -117,8 +119,12 @@ export default function SDKConnectionDetailsPanel({
           <Metadata
             size="sm"
             stacked
-            label="Proxy"
-            value={<PanelText>Enabled</PanelText>}
+            label={t`Proxy`}
+            value={
+              <PanelText>
+                <Trans>Enabled</Trans>
+              </PanelText>
+            }
           />
         ) : null}
       </PanelSection>

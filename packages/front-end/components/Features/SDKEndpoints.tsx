@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -25,6 +26,7 @@ const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
   mutate: () => void;
 }> = ({ keys = [], mutate }) => {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   const { getProjectById, projects, project } = useDefinitions();
@@ -47,21 +49,37 @@ const SDKEndpoints: FC<{
 
   return (
     <div>
-      <h1>Legacy SDK Endpoints</h1>
+      <h1>
+        <Trans>Legacy SDK Endpoints</Trans>
+      </h1>
       <p>
-        SDK Endpoints return a list of feature flags for an environment,
-        formatted in a way our SDKs understand. The endpoints provide readonly
-        access and can be safely exposed to users (e.g. in your HTML).
+        <Trans>
+          SDK Endpoints return a list of feature flags for an environment,
+          formatted in a way our SDKs understand. The endpoints provide readonly
+          access and can be safely exposed to users (e.g. in your HTML).
+        </Trans>
       </p>
       {publishableKeys.length > 0 && (
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              {projects.length > 0 && <th>Project</th>}
-              <th>Environment</th>
-              <th>Description</th>
-              <th>Endpoint</th>
-              <th>Encrypted?</th>
+              {projects.length > 0 && (
+                <th>
+                  <Trans>Project</Trans>
+                </th>
+              )}
+              <th>
+                <Trans>Environment</Trans>
+              </th>
+              <th>
+                <Trans>Description</Trans>
+              </th>
+              <th>
+                <Trans>Endpoint</Trans>
+              </th>
+              <th>
+                <Trans>Encrypted?</Trans>
+              </th>
               <th style={{ width: 30 }}></th>
             </tr>
           </thead>
@@ -85,7 +103,9 @@ const SDKEndpoints: FC<{
                   {projects.length > 0 && (
                     <td>
                       {getProjectById(key.project || "")?.name || (
-                        <em>All Projects</em>
+                        <em>
+                          <Trans>All Projects</Trans>
+                        </em>
                       )}
                     </td>
                   )}
@@ -94,7 +114,7 @@ const SDKEndpoints: FC<{
                       body={
                         envExists
                           ? ""
-                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                          : t`This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated.`
                       }
                     >
                       <strong className="mr-1">{env}</strong>
@@ -121,13 +141,15 @@ const SDKEndpoints: FC<{
                             }),
                           });
                           if (!res.key?.encryptionKey) {
-                            throw new Error("Could not load encryption key");
+                            throw new Error(t`Could not load encryption key`);
                           }
                           return res.key.encryptionKey;
                         }}
                       />
                     ) : (
-                      <div>No</div>
+                      <div>
+                        <Trans>No</Trans>
+                      </div>
                     )}
                   </td>
                   <td>
@@ -146,8 +168,8 @@ const SDKEndpoints: FC<{
                             mutate();
                           }}
                           className="dropdown-item"
-                          displayName="SDK Endpoint"
-                          text="Delete endpoint"
+                          displayName={t`SDK Endpoint`}
+                          text={t`Delete endpoint`}
                         />
                       ) : null}
                     </MoreMenu>

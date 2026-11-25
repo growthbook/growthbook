@@ -2,6 +2,7 @@ import { isSavedGroupAvailableForProjects } from "shared/util";
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -50,7 +51,7 @@ export default function SavedGroupTargetingField({
   savedGroupProjects,
   slimMode,
   emptyText,
-  label = "Target by Saved Groups",
+  label: labelProp,
   labelActions,
   locked,
   addRemoveMode,
@@ -60,6 +61,8 @@ export default function SavedGroupTargetingField({
   setModeLabel,
   removeModeLabel,
 }: Props) {
+  const { t } = useLingui();
+  const label = labelProp === undefined ? t`Target by Saved Groups` : labelProp;
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
@@ -91,8 +94,8 @@ export default function SavedGroupTargetingField({
       value={addRemoveValue}
       setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
       options={[
-        { value: "set", label: setModeLabel ?? "Set targeting" },
-        { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+        { value: "set", label: setModeLabel ?? t`Set targeting` },
+        { value: "remove", label: removeModeLabel ?? t`Remove targeting` },
       ]}
       labelSize="md"
     />
@@ -109,7 +112,7 @@ export default function SavedGroupTargetingField({
         {savedGroupsLabel}
         <Box>
           <Text color="text-low" fontStyle="italic" mb="2">
-            You do not have any saved groups.
+            <Trans>You do not have any saved groups.</Trans>
           </Text>
         </Box>
         {addRemoveSelector}
@@ -167,7 +170,7 @@ export default function SavedGroupTargetingField({
               mb="2"
               size={slimMode ? "sm" : undefined}
             >
-              {emptyText || "No saved group targeting applied."}
+              {emptyText || t`No saved group targeting applied.`}
             </Text>
           )}
           {!showAddRemoveSelector && (
@@ -190,7 +193,7 @@ export default function SavedGroupTargetingField({
                   color={locked ? "text-low" : undefined}
                 >
                   <PiPlusCircleBold className="mr-1" />
-                  Add group targeting
+                  <Trans>Add group targeting</Trans>
                 </Text>
               </Link>
             </Box>
@@ -221,8 +224,10 @@ export default function SavedGroupTargetingField({
       <Box>
         {conflicts.length > 0 && (
           <Callout status="error" mb="3">
-            <Text weight="semibold">Error:</Text> You have a conflict in your
-            rules with the following groups:{" "}
+            <Trans>
+              <Text weight="semibold">Error:</Text> You have a conflict in your
+              rules with the following groups:
+            </Trans>{" "}
             {conflicts.map((c) => (
               <Badge
                 key={c}
@@ -250,7 +255,7 @@ export default function SavedGroupTargetingField({
                 ]);
               }}
             >
-              Add condition
+              <Trans>Add condition</Trans>
             </AddConditionButton>
           }
         >
@@ -268,7 +273,7 @@ export default function SavedGroupTargetingField({
                 <ConditionRow
                   prefixSlot={
                     slimMode ? undefined : (
-                      <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                      <ConditionRowLabel label={i === 0 ? t`IF IN` : t`AND`} />
                     )
                   }
                   attributeSlot={
@@ -284,9 +289,9 @@ export default function SavedGroupTargetingField({
                       }}
                       sort={false}
                       options={[
-                        { value: "any", label: "any of" },
-                        { value: "all", label: "all of" },
-                        { value: "none", label: "none of" },
+                        { value: "any", label: t`any of` },
+                        { value: "all", label: t`all of` },
+                        { value: "none", label: t`none of` },
                       ]}
                     />
                   }
@@ -306,7 +311,7 @@ export default function SavedGroupTargetingField({
                         formatOptionLabel={formatSavedGroupOptionLabel}
                         valueTitles={false}
                         required
-                        placeholder="Select groups..."
+                        placeholder={t`Select groups...`}
                         closeMenuOnSelect={true}
                       />
                       {v.match === "none" &&
@@ -316,7 +321,7 @@ export default function SavedGroupTargetingField({
                     </Box>
                   }
                   removeSlot={
-                    <Tooltip content="Remove group">
+                    <Tooltip content={t`Remove group`}>
                       <IconButton
                         type="button"
                         color="gray"

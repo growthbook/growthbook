@@ -13,6 +13,7 @@ import {
   validateFeatureValue,
 } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -46,6 +47,7 @@ export default function HoldoutValueModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
 
@@ -104,8 +106,8 @@ export default function HoldoutValueModal({
   return (
     <ModalStandard
       trackingEventModalType="holdout-value-modal"
-      header="Edit Holdout"
-      cta="Save to draft"
+      header={t`Edit Holdout`}
+      cta={t`Save to draft`}
       ctaEnabled={changed}
       open={true}
       close={close}
@@ -115,7 +117,7 @@ export default function HoldoutValueModal({
         if (fixed !== value) {
           form.setValue("value", fixed);
           throw new Error(
-            "We fixed some errors in the value. If it looks correct, submit again.",
+            t`We fixed some errors in the value. If it looks correct, submit again.`,
           );
         }
         const res = await apiCall<{ draftVersion?: number }>(
@@ -149,7 +151,7 @@ export default function HoldoutValueModal({
       {holdoutData ? (
         <Box mb="6">
           <Text as="div" weight="semibold" mb="3">
-            Holdout Environments
+            <Trans>Holdout Environments</Trans>
           </Text>
           <RuleEnvScopeBadges
             activeEnvironmentIds={getEnabledHoldoutEnvironments(
@@ -161,7 +163,7 @@ export default function HoldoutValueModal({
         </Box>
       ) : null}
       <FeatureValueField
-        label="Value for held-out units"
+        label={t`Value for held-out units`}
         id="holdoutValue"
         value={form.watch("value")}
         setValue={(v) => form.setValue("value", v)}
@@ -174,8 +176,10 @@ export default function HoldoutValueModal({
         lockConfigBacking={isConfigBacked}
       />
       <HelperText status="warning" size="sm" mt="1">
-        Changing this while the holdout runs changes what units already held out
-        see, which can bias its results.
+        <Trans>
+          Changing this while the holdout runs changes what units already held
+          out see, which can bias its results.
+        </Trans>
       </HelperText>
     </ModalStandard>
   );

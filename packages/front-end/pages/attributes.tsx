@@ -3,6 +3,9 @@ import { SDKAttribute } from "shared/types/organization";
 import { CustomField } from "shared/types/custom-fields";
 import { PiInfo, PiMagnifyingGlass } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import RadixTooltip from "@/ui/Tooltip";
 import { useAttributeSchema } from "@/services/features";
@@ -178,22 +181,20 @@ function usageCounts(refs: AttributeRefEntry | undefined) {
   };
 }
 
-function pluralize(count: number, noun: string) {
-  return count ? `${count} ${noun}${count === 1 ? "" : "s"}` : "";
-}
-
 function buildAttributeColumns<T extends SDKAttribute>({
   nameLabel,
   customFields,
   extraColumns = [],
   onEdit,
   onConvertToIdentifier,
+  i18n,
 }: {
   nameLabel: string;
   customFields: CustomField[];
   extraColumns?: TableColumnDef<T>[];
   onEdit: (row: T) => void;
   onConvertToIdentifier?: (row: T) => void;
+  i18n: I18n;
 }): TableColumnDef<T>[] {
   return [
     {
@@ -217,13 +218,13 @@ function buildAttributeColumns<T extends SDKAttribute>({
               />
             </Text>
           </Link>
-          {v.archived && <Badge label="Archived" color="gray" />}
+          {v.archived && <Badge label={i18n._(msg`Archived`)} color="gray" />}
         </Flex>
       ),
     },
     {
       id: "description",
-      label: "Description",
+      label: i18n._(msg`Description`),
       sortField: "description",
       // The Identifiers table's default columns fit beside the side nav in a
       // 1440px window, scrollbar included.
@@ -242,18 +243,19 @@ function buildAttributeColumns<T extends SDKAttribute>({
     },
     {
       id: "datatype",
-      label: "Data Type",
+      label: i18n._(msg`Data Type`),
       sortField: "datatype",
       defaultWidth: 170,
       cellProps: () => ({ className: "text-gray" }),
       render: (v) => {
         // Enum lists are unbounded, so the detail line gets one line plus a
         // tooltip rather than wrapping and making every row taller.
+        const format = v.format;
         const detail =
           v.datatype === "enum" && v.enum
             ? `(${v.enum})`
-            : v.format
-              ? `(format: ${v.format})`
+            : format
+              ? i18n._(msg`(format: ${format})`)
               : "";
         return (
           <>
@@ -277,7 +279,7 @@ function buildAttributeColumns<T extends SDKAttribute>({
     },
     {
       id: "projects",
-      label: "Projects",
+      label: i18n._(msg`Projects`),
       defaultWidth: 130,
       render: (v) => (
         <ProjectBadges
@@ -288,7 +290,7 @@ function buildAttributeColumns<T extends SDKAttribute>({
     },
     {
       id: "tags",
-      label: "Tags",
+      label: i18n._(msg`Tags`),
       defaultWidth: 130,
       render: (v) => (
         // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
@@ -350,7 +352,7 @@ function buildAttributeColumns<T extends SDKAttribute>({
     },
     {
       id: "actions",
-      label: "Row actions",
+      label: i18n._(msg`Row actions`),
       header: null,
       locked: true,
       resizable: false,
@@ -529,6 +531,7 @@ function AttributeColumnsTable<T extends SDKAttribute>({
 }
 
 const FeatureAttributesPage = (): React.ReactElement => {
+  const { t, i18n } = useLingui();
   const permissionsUtil = usePermissionsUtil();
   const { project, projects, getProjectById } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
@@ -761,42 +764,61 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const attributeColumns = useMemo(
     () =>
       buildAttributeColumns<AttributeRow>({
-        nameLabel: "Attribute",
+        nameLabel: t`Attribute`,
         customFields: attributeCustomFields,
         onEdit: (v) => setModalData(v.property),
         onConvertToIdentifier: (v) => setIdentifierModal({ existing: v }),
+        i18n,
       }),
-    [attributeCustomFields],
+    [attributeCustomFields, t, i18n],
   );
   const identifierColumns = useMemo(
     () =>
       buildAttributeColumns<IdentifierRow>({
-        nameLabel: "Identifier",
+        nameLabel: t`Identifier`,
         customFields: attributeCustomFields,
         onEdit: (v) => setIdentifierModal({ existing: v }),
+        i18n,
         extraColumns: [
           {
             id: "usedIn",
-            label: "Used in",
+            label: t`Used in`,
             sortField: "usedIn",
             defaultWidth: 130,
-            render: (v) =>
-              v.usedIn === undefined ? null : v.usedIn === 0 ? (
-                <Text color="text-low">Not used</Text>
-              ) : (
+            render: (v) => {
+              if (v.usedIn === undefined) return null;
+              if (v.usedIn === 0) {
+                return (
+                  <Text color="text-low">
+                    <Trans>Not used</Trans>
+                  </Text>
+                );
+              }
+              const experimentCount = v.experimentCount ?? 0;
+              const featureCount = v.featureCount ?? 0;
+              return (
                 <Text color="text-mid">
                   {[
-                    pluralize(v.experimentCount ?? 0, "experiment"),
-                    pluralize(v.featureCount ?? 0, "feature"),
+                    experimentCount
+                      ? experimentCount === 1
+                        ? t`${experimentCount} experiment`
+                        : t`${experimentCount} experiments`
+                      : "",
+                    featureCount
+                      ? featureCount === 1
+                        ? t`${featureCount} feature`
+                        : t`${featureCount} features`
+                      : "",
                   ]
                     .filter(Boolean)
                     .join(", ")}
                 </Text>
-              ),
+              );
+            },
           },
         ],
       }),
-    [attributeCustomFields],
+    [attributeCustomFields, t, i18n],
   );
 
   return (
@@ -804,11 +826,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <Box className="contents container-fluid pagecontents">
         <Box mb="5">
           <Heading as="h1" size="xl" mb="2">
-            Attributes
+            <Trans>Attributes</Trans>
           </Heading>
           <Text as="div" color="text-low">
-            The user properties your SDK passes in: identifiers for experiment
-            assignment, and attributes for targeting.
+            <Trans>
+              The user properties your SDK passes in: identifiers for experiment
+              assignment, and attributes for targeting.
+            </Trans>
           </Text>
         </Box>
         <Flex direction="column" gap="7" mb="5">
@@ -817,18 +841,20 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <Box>
                 <Flex align="center" gap="2" mb="1">
                   <Heading as="h2" size="md" mb="0">
-                    Identifiers
+                    <Trans>Identifiers</Trans>
                   </Heading>
                   <Badge label={String(identifiers.length)} color="gray" />
                 </Flex>
                 <Text as="div" color="text-low">
-                  Used to assign users consistently in experiments and
-                  percentage rollouts.
+                  <Trans>
+                    Used to assign users consistently in experiments and
+                    percentage rollouts.
+                  </Trans>
                 </Text>
               </Box>
               {canCreateAttributes && identifiers.length > 0 && (
                 <Button onClick={() => setIdentifierModal({})}>
-                  Add Identifier
+                  <Trans>Add Identifier</Trans>
                 </Button>
               )}
             </Flex>
@@ -837,9 +863,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <Flex justify="between" gap="3" align="center">
                   <Box style={{ width: "40%", minWidth: 240 }}>
                     <TextField
-                      placeholder="Search identifiers"
+                      placeholder={t`Search identifiers`}
                       type="search"
-                      aria-label="Search identifiers"
+                      aria-label={t`Search identifiers`}
                       prepend={<PiMagnifyingGlass aria-hidden="true" />}
                       {...identifierSearchInputProps}
                     />
@@ -860,10 +886,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   SortableHeader={SortableIdentifierHeader}
                   emptyMessage={
                     identifiersFiltered
-                      ? "No identifiers match this search."
-                      : "All identifiers are archived. Show them with More > Archived identifiers."
+                      ? t`No identifiers match this search.`
+                      : t`All identifiers are archived. Show them with More > Archived identifiers.`
                   }
-                  note="The Identifier column is always shown."
+                  note={t`The Identifier column is always shown.`}
                 />
                 {sortedIdentifiers.length > PAGE_SIZE && (
                   <Box mt="3">
@@ -878,9 +904,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </>
             ) : (
               <EmptySection
-                title="No identifiers yet"
-                body="Experiments need at least one identifier, such as a user ID or device ID, to assign variations consistently."
-                cta={canCreateAttributes ? "Add Identifier" : null}
+                title={t`No identifiers yet`}
+                body={t`Experiments need at least one identifier, such as a user ID or device ID, to assign variations consistently.`}
+                cta={canCreateAttributes ? t`Add Identifier` : null}
                 onClick={() => setIdentifierModal({})}
               />
             )}
@@ -891,7 +917,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <Box>
                 <Flex align="center" gap="2" mb="1">
                   <Heading as="h2" size="md" mb="0">
-                    Targeting Attributes
+                    <Trans>Targeting Attributes</Trans>
                   </Heading>
                   <Badge
                     label={String(targetingAttributes.length)}
@@ -899,13 +925,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   />
                 </Flex>
                 <Text as="div" color="text-low">
-                  Used in targeting conditions for feature flags and
-                  experiments. Attributes must also be passed in through the
-                  SDK.
+                  <Trans>
+                    Used in targeting conditions for feature flags and
+                    experiments. Attributes must also be passed in through the
+                    SDK.
+                  </Trans>
                 </Text>
               </Box>
               {canCreateAttributes && targetingAttributes.length > 0 && (
-                <Button onClick={() => setModalData("")}>Add Attribute</Button>
+                <Button onClick={() => setModalData("")}>
+                  <Trans>Add Attribute</Trans>
+                </Button>
               )}
             </Flex>
             {targetingAttributes.length > 0 ? (
@@ -914,9 +944,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   <Flex justify="between" gap="3" align="center">
                     <Box style={{ width: "40%", minWidth: 240 }}>
                       <TextField
-                        placeholder="Search attributes"
+                        placeholder={t`Search attributes`}
                         type="search"
-                        aria-label="Search attributes"
+                        aria-label={t`Search attributes`}
                         prepend={<PiMagnifyingGlass aria-hidden="true" />}
                         {...searchInputProps}
                       />
@@ -936,9 +966,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   rows={filteredAttributes}
                   SortableHeader={SortableTableColumnHeader}
                   emptyMessage={
-                    isFiltered ? "No attributes match this search." : null
+                    isFiltered ? t`No attributes match this search.` : null
                   }
-                  note="The Attribute column is always shown."
+                  note={t`The Attribute column is always shown.`}
                 />
                 {sortedAttributes.length > PAGE_SIZE && (
                   <Box mt="3">
@@ -953,9 +983,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Box>
             ) : (
               <EmptySection
-                title="No targeting attributes yet"
-                body="Add the user properties your SDK passes in, like country, plan, or browser, to use them in targeting conditions."
-                cta={canCreateAttributes ? "Add Attribute" : null}
+                title={t`No targeting attributes yet`}
+                body={t`Add the user properties your SDK passes in, like country, plan, or browser, to use them in targeting conditions.`}
+                cta={canCreateAttributes ? t`Add Attribute` : null}
                 onClick={() => setModalData("")}
               />
             )}

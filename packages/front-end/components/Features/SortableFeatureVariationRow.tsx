@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ExperimentValue,
   FeatureInterface,
@@ -143,6 +144,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
     },
     ref,
   ) => {
+    const { t } = useLingui();
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
     const weightPercent = floatRound(weight * 100, 2);
@@ -211,7 +213,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           {showDragHandle && (
             <Box
               {...handle}
-              title="Drag and drop to re-order variations"
+              title={t`Drag and drop to re-order variations`}
               style={{
                 cursor: "grab",
                 display: "flex",
@@ -328,7 +330,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
               <DropdownMenu
                 trigger={
                   <MoreMenuTrigger
-                    label="Variation actions"
+                    label={t`Variation actions`}
                     style={{ margin: 0 }}
                   />
                 }
@@ -340,13 +342,13 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   disabled={i === 0}
                   onClick={() => move(i - 1)}
                 >
-                  <PiCaretUp /> Move up
+                  <PiCaretUp /> <Trans>Move up</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={i === variations.length - 1}
                   onClick={() => move(i + 1)}
                 >
-                  <PiCaretDown /> Move down
+                  <PiCaretDown /> <Trans>Move down</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -354,7 +356,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   color={variations.length > 2 ? "red" : undefined}
                   tooltip={
                     variations.length <= 2
-                      ? "Experiments must have at least two variations"
+                      ? t`Experiments must have at least two variations`
                       : undefined
                   }
                   onClick={() => {
@@ -371,7 +373,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                     setVariations(newValues);
                   }}
                 >
-                  Remove
+                  <Trans>Remove</Trans>
                 </DropdownMenuItem>
               </DropdownMenu>
             ) : null}

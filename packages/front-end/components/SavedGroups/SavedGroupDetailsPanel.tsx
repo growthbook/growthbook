@@ -1,6 +1,7 @@
 import { Separator } from "@radix-ui/themes";
 import { Revision } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { useLingui } from "@lingui/react/macro";
 import DetailsPanel, { PanelSection } from "@/components/DetailsPanel";
 import {
   CopyableKey,
@@ -46,6 +47,7 @@ export default function SavedGroupDetailsPanel({
   onRenameRevision: (title: string) => Promise<void>;
   onDescribeRevision: (description: string) => Promise<void>;
 }) {
+  const { t, i18n } = useLingui();
   const { projects: allProjects, getProjectById } = useDefinitions();
   const projects = savedGroup.projects ?? [];
   const pencil = (label: string, focus?: "description") =>
@@ -59,27 +61,27 @@ export default function SavedGroupDetailsPanel({
 
   return (
     <DetailsPanel>
-      <PanelSection title="General">
+      <PanelSection title={t`General`}>
         <Metadata
           size="sm"
           stacked
-          label="ID"
+          label={t`ID`}
           value={<CopyableKey value={savedGroup.id} />}
         />
         <Metadata
           size="sm"
           stacked
-          label="Description"
-          action={pencil("Edit description", "description")}
+          label={t`Description`}
+          action={pencil(t`Edit description`, "description")}
           value={<MarkdownValue markdown={savedGroup.description} />}
         />
-        <OwnerField owner={savedGroup.owner} action={pencil("Edit owner")} />
+        <OwnerField owner={savedGroup.owner} action={pencil(t`Edit owner`)} />
         {allProjects.length > 0 || projects.length > 0 ? (
           <Metadata
             size="sm"
             stacked
-            label="Projects"
-            action={pencil("Edit Projects")}
+            label={t`Projects`}
+            action={pencil(t`Edit Projects`)}
             value={
               <PanelText>
                 {projects.length
@@ -89,7 +91,7 @@ export default function SavedGroupDetailsPanel({
                         {getProjectById(id)?.name || <HiddenProject id={id} />}
                       </span>
                     ))
-                  : "All Projects"}
+                  : t`All Projects`}
               </PanelText>
             }
           />
@@ -97,27 +99,29 @@ export default function SavedGroupDetailsPanel({
         <Metadata
           size="sm"
           stacked
-          label="Type"
+          label={t`Type`}
           value={
-            <PanelText>{SAVED_GROUP_TYPE_LABELS[savedGroup.type]}</PanelText>
+            <PanelText>
+              {i18n._(SAVED_GROUP_TYPE_LABELS[savedGroup.type])}
+            </PanelText>
           }
         />
         {savedGroup.type !== "condition" ? (
           <Metadata
             size="sm"
             stacked
-            label="Attribute key"
+            label={t`Attribute key`}
             value={<PanelText>{savedGroup.attributeKey}</PanelText>}
           />
         ) : null}
       </PanelSection>
       <ReferencesPanelSection
-        title="References"
-        intro="This Saved Group is referenced by the following:"
+        title={t`References`}
+        intro={t`This Saved Group is referenced by the following:`}
         rows={references.rows}
         loading={references.loading}
         error={references.error}
-        emptyText="Nothing references this Saved Group."
+        emptyText={t`Nothing references this Saved Group.`}
       />
       {revision ? (
         <>

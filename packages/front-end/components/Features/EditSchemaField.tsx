@@ -1,5 +1,6 @@
 import { FeatureValueType, SchemaField } from "shared/types/feature";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -38,13 +39,14 @@ export default function EditSchemaField({
   // Nullable toggle is opt-in.
   allowNullable?: boolean;
 }) {
+  const { t } = useLingui();
   // String features only have 1 type option, so hide the selector
   const hideTypeSelector = valueType === "string" || hideType;
   const allTypeOptions = [
-    { value: "string", label: "Text String" },
-    { value: "integer", label: "Integer" },
-    { value: "float", label: "Float (Decimal)" },
-    { value: "boolean", label: "Boolean (True/False)" },
+    { value: "string", label: t`Text String` },
+    { value: "integer", label: t`Integer` },
+    { value: "float", label: t`Float (Decimal)` },
+    { value: "boolean", label: t`Boolean (True/False)` },
   ];
   const typeOptions =
     valueType === "number"
@@ -58,7 +60,7 @@ export default function EditSchemaField({
           {showKey && (
             <Box flexGrow="1" flexBasis="0">
               <Field
-                label="Property Key"
+                label={t`Property Key`}
                 value={value.key}
                 onChange={(e) => onChange({ ...value, key: e.target.value })}
                 required
@@ -69,7 +71,7 @@ export default function EditSchemaField({
           {!hideTypeSelector && (
             <Box flexGrow="1" flexBasis="0">
               <SelectField
-                label="Type"
+                label={t`Type`}
                 value={value.type}
                 onChange={(type) =>
                   onChange({ ...value, type: type as SchemaField["type"] })
@@ -83,7 +85,7 @@ export default function EditSchemaField({
         </Flex>
       )}
       <Field
-        label="Description"
+        label={t`Description`}
         value={value.description}
         onChange={(e) => onChange({ ...value, description: e.target.value })}
         maxLength={256}
@@ -95,8 +97,8 @@ export default function EditSchemaField({
               id={`schema_required_${i}`}
               value={value.required}
               setValue={(v) => onChange({ ...value, required: v })}
-              description="Check if this property is required"
-              label="Required"
+              description={t`Check if this property is required`}
+              label={t`Required`}
             />
           )}
           {allowNullable && (
@@ -104,8 +106,8 @@ export default function EditSchemaField({
               id={`schema_nullable_${i}`}
               value={value.nullable === true}
               setValue={(v) => onChange({ ...value, nullable: v })}
-              description="Allow the value to be null"
-              label="Nullable"
+              description={t`Allow the value to be null`}
+              label={t`Nullable`}
             />
           )}
         </Box>
@@ -113,8 +115,8 @@ export default function EditSchemaField({
       {value.type !== "boolean" && (
         <>
           <MultiSelectField
-            label="Restrict to Specific Values"
-            placeholder="(Optional)"
+            label={t`Restrict to Specific Values`}
+            placeholder={t`(Optional)`}
             value={value.enum}
             onChange={(e) => {
               if (e.length > 256) return;
@@ -131,7 +133,7 @@ export default function EditSchemaField({
           {value.enum.length === 0 && (
             <Grid columns="2" gap="3">
               <Field
-                label={value.type === "string" ? "Min Length" : "Minimum"}
+                label={value.type === "string" ? t`Min Length` : t`Minimum`}
                 value={value.min}
                 max={value.max ?? undefined}
                 min={value.type === "string" ? 0 : undefined}
@@ -148,7 +150,7 @@ export default function EditSchemaField({
                 }
               />
               <Field
-                label={value.type === "string" ? "Max Length" : "Maximum"}
+                label={value.type === "string" ? t`Max Length` : t`Maximum`}
                 value={value.max}
                 type="number"
                 min={value.min ?? undefined}
@@ -172,7 +174,7 @@ export default function EditSchemaField({
         <>
           {value.type === "boolean" ? (
             <SelectField
-              label="Default Value"
+              label={t`Default Value`}
               sort={false}
               value={
                 ["false", ""].includes(value.default) ? value.default : "true"
@@ -181,28 +183,28 @@ export default function EditSchemaField({
               options={[
                 {
                   value: "true",
-                  label: "True",
+                  label: t`True`,
                 },
                 {
                   value: "false",
-                  label: "False",
+                  label: t`False`,
                 },
               ]}
-              initialOption="No Default"
+              initialOption={t`No Default`}
               required
             />
           ) : value.enum.length > 0 ? (
             <SelectField
-              label="Default Value"
+              label={t`Default Value`}
               sort={false}
               value={value.default}
               onChange={(v) => onChange({ ...value, default: v })}
               options={value.enum.map((v) => ({ value: v, label: v }))}
-              initialOption="No Default"
+              initialOption={t`No Default`}
             />
           ) : (
             <Field
-              label="Default Value"
+              label={t`Default Value`}
               value={value.default}
               onChange={(e) => onChange({ ...value, default: e.target.value })}
               {...(value.type === "string"

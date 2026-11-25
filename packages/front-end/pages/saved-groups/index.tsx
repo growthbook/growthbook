@@ -4,6 +4,7 @@ import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import IdLists from "@/components/SavedGroups/IdLists";
 import RemoteGroups from "@/components/SavedGroups/RemoteGroups";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
@@ -31,6 +32,7 @@ function isTab(hash: string) {
 }
 
 export default function SavedGroupsPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { mutateDefinitions } = useDefinitions();
 
@@ -144,29 +146,32 @@ export default function SavedGroupsPage() {
     <div className="container-fluid pagecontents">
       <Flex align="center" justify="between" mb="3">
         <Heading size="7" as="h1">
-          Saved Groups
+          <Trans>Saved Groups</Trans>
         </Heading>
       </Flex>
       <Text as="p" mb="3" color="gray">
-        Create reusable user groups as targets for Feature Flags or experiments.
+        <Trans>
+          Create reusable user groups as targets for Feature Flags or
+          experiments.
+        </Trans>
       </Text>
       <HelperText status="info" my="4">
         {remoteGroupsEnabled
-          ? "Learn more about using Condition Groups, ID Lists and Remote Groups."
-          : "Learn more about using Condition Groups and ID Lists."}
+          ? t`Learn more about using Condition Groups, ID Lists and Remote Groups.`
+          : t`Learn more about using Condition Groups and ID Lists.`}
         <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
           rel="noreferrer"
           ml="1"
         >
-          Docs <PiArrowSquareOut />
+          <Trans>Docs</Trans> <PiArrowSquareOut />
         </Link>
       </HelperText>
 
       {error ? (
         <Callout status="error" mb="3">
-          There was an error loading the list of groups.
+          <Trans>There was an error loading the list of groups.</Trans>
         </Callout>
       ) : (
         <>
@@ -194,20 +199,20 @@ export default function SavedGroupsPage() {
           >
             <TabsList>
               <TabsTrigger value="conditionGroups">
-                Condition Groups
+                <Trans>Condition Groups</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {conditionGroups.length}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="idLists">
-                ID Lists
+                <Trans>ID Lists</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {idLists.length}
                 </span>
               </TabsTrigger>
               {remoteGroupsEnabled && (
                 <TabsTrigger value="remoteGroups">
-                  Remote Groups
+                  <Trans>Remote Groups</Trans>
                   <span
                     className="round-text-background text-main"
                     style={{ marginLeft: 8 }}
@@ -217,7 +222,7 @@ export default function SavedGroupsPage() {
                 </TabsTrigger>
               )}
               <TabsTrigger value="drafts">
-                Drafts
+                <Trans>Drafts</Trans>
                 <span className="ml-2 round-text-background text-main">
                   {openReviewsCount}
                 </span>

@@ -1,6 +1,7 @@
 import { getMalformedPrereqConditionError } from "shared/util";
 import { PiWarningCircleFill } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 
@@ -11,9 +12,10 @@ export default function InvalidPrereqConditionBadge({
   condition: string;
   iconOnly?: boolean;
 }) {
+  const { t } = useLingui();
   const error = getMalformedPrereqConditionError(condition);
   if (!error) return null;
-  const message = `Invalid condition: ${error}. SDKs can't evaluate it, so this prerequisite fails. Edit it to fix.`;
+  const message = t`Invalid condition: ${error}. SDKs can't evaluate it, so this prerequisite fails. Edit it to fix.`;
   return (
     <Tooltip content={message}>
       {iconOnly ? (
@@ -28,7 +30,7 @@ export default function InvalidPrereqConditionBadge({
         </IconButton>
       ) : (
         <Badge
-          label="Invalid condition"
+          label={t`Invalid condition`}
           color="red"
           variant="solid"
           style={{ flexShrink: 0 }}

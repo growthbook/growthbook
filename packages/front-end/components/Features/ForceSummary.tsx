@@ -6,6 +6,7 @@ import {
   parsePlainJSONObject,
 } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
 import { ActionsOverlay } from "./CornerActions";
@@ -19,7 +20,7 @@ export default function ForceSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "Serve",
+  label,
   lineHeight,
   actionsOverlay,
   monochrome,
@@ -47,6 +48,8 @@ export default function ForceSummary({
   // More buttons beside the value's copy and fullscreen.
   extraActions?: ReactNode;
 }) {
+  const { t } = useLingui();
+  const labelText = label === undefined ? t`Serve` : label;
   // Short of the full width, the buttons follow the value.
   const valueOverlay: ActionsOverlay | undefined = fullWidth
     ? actionsOverlay
@@ -71,7 +74,7 @@ export default function ForceSummary({
         sparse={sparse}
         isDefault={isDefault}
         environment={environment}
-        label={label}
+        label={labelText}
         lineHeight={lineHeight}
         actionsOverlay={valueOverlay}
       />
@@ -101,8 +104,8 @@ export default function ForceSummary({
 
   return (
     <>
-      {label !== null ? (
-        <RuleField label={label} mb="0">
+      {labelText !== null ? (
+        <RuleField label={labelText} mb="0">
           {valueBox}
         </RuleField>
       ) : (

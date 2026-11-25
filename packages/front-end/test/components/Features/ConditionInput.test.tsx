@@ -6,6 +6,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { RadixTheme } from "@/services/RadixTheme";
+import { I18nTestProvider } from "@/test/I18nTestProvider";
 
 vi.mock("@/services/DefinitionsContext", () => ({
   useDefinitions: vi.fn(),
@@ -57,6 +58,7 @@ describe("ConditionInput", () => {
           />
         </TooltipProvider>
       </RadixTheme>,
+      { wrapper: I18nTestProvider },
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -164,6 +166,7 @@ describe("ConditionInput", () => {
           />
         </TooltipProvider>
       </RadixTheme>,
+      { wrapper: I18nTestProvider },
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -252,6 +255,7 @@ describe("ConditionInput", () => {
           />
         </TooltipProvider>
       </RadixTheme>,
+      { wrapper: I18nTestProvider },
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -292,6 +296,7 @@ describe("ConditionInput", () => {
           />
         </TooltipProvider>
       </RadixTheme>,
+      { wrapper: I18nTestProvider },
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();

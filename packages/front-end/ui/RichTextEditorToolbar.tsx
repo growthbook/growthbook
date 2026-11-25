@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Flex, IconButton, Separator } from "@radix-ui/themes";
 import clsx from "clsx";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   PiCodeBold,
   PiImageBold,
@@ -72,17 +75,17 @@ interface ActiveState {
 
 const TEXT_FORMATS: {
   format: TextFormatType;
-  label: string;
+  label: MessageDescriptor;
   Icon: React.ComponentType<{ size?: number }>;
 }[] = [
-  { format: "bold", label: "Bold", Icon: PiTextBBold },
-  { format: "italic", label: "Italic", Icon: PiTextItalicBold },
+  { format: "bold", label: msg`Bold`, Icon: PiTextBBold },
+  { format: "italic", label: msg`Italic`, Icon: PiTextItalicBold },
   {
     format: "strikethrough",
-    label: "Strikethrough",
+    label: msg`Strikethrough`,
     Icon: PiTextStrikethroughBold,
   },
-  { format: "code", label: "Inline code", Icon: PiCodeBold },
+  { format: "code", label: msg`Inline code`, Icon: PiCodeBold },
 ];
 
 // Lucide's table, with Phosphor's corner radius.
@@ -107,12 +110,12 @@ function TableIcon({ size }: { size?: number }) {
 
 const HEADINGS: {
   tag: HeadingTagType;
-  label: string;
+  label: MessageDescriptor;
   Icon: React.ComponentType<{ size?: number }>;
 }[] = [
-  { tag: "h1", label: "Heading 1", Icon: PiTextHOneBold },
-  { tag: "h2", label: "Heading 2", Icon: PiTextHTwoBold },
-  { tag: "h3", label: "Heading 3", Icon: PiTextHThreeBold },
+  { tag: "h1", label: msg`Heading 1`, Icon: PiTextHOneBold },
+  { tag: "h2", label: msg`Heading 2`, Icon: PiTextHTwoBold },
+  { tag: "h3", label: msg`Heading 3`, Icon: PiTextHThreeBold },
 ];
 
 export default function RichTextEditorToolbar({
@@ -127,6 +130,7 @@ export default function RichTextEditorToolbar({
   /** Leave room at the end of the row for the editor's own corner button. */
   inset?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const [editor] = useLexicalComposerContext();
   const [active, setActive] = useState<ActiveState>({
     formats: new Set(),
@@ -316,7 +320,7 @@ export default function RichTextEditorToolbar({
       key={key}
       content={
         blockInTable && active.inTable
-          ? `${label} isn't available in a table`
+          ? t`${label} isn't available in a table`
           : label
       }
     >
@@ -351,7 +355,7 @@ export default function RichTextEditorToolbar({
       ).map(({ format, label, Icon }) =>
         button(
           format,
-          label,
+          i18n._(label),
           active.formats.has(format),
           () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format),
           Icon,
@@ -365,7 +369,7 @@ export default function RichTextEditorToolbar({
         : HEADINGS.map(({ tag, label, Icon }) =>
             button(
               tag,
-              label,
+              i18n._(label),
               active.block === tag,
               () => toggleHeading(tag),
               Icon,
@@ -377,7 +381,7 @@ export default function RichTextEditorToolbar({
 
       {button(
         "ul",
-        "Bulleted list",
+        t`Bulleted list`,
         active.block === "ul",
         () => toggleList("ul"),
         PiListBulletsBold,
@@ -385,7 +389,7 @@ export default function RichTextEditorToolbar({
       )}
       {button(
         "ol",
-        "Numbered list",
+        t`Numbered list`,
         active.block === "ol",
         () => toggleList("ol"),
         PiListNumbersBold,
@@ -393,7 +397,7 @@ export default function RichTextEditorToolbar({
       )}
       {button(
         "quote",
-        "Quote",
+        t`Quote`,
         active.block === "quote",
         () => setBlock(active.block === "quote" ? null : $createQuoteNode),
         PiQuotesBold,
@@ -404,18 +408,18 @@ export default function RichTextEditorToolbar({
 
       {button(
         "link",
-        linkTarget?.node ? "Edit link" : "Link",
+        linkTarget?.node ? t`Edit link` : t`Link`,
         active.inLink,
         () => setLinkTarget(fromSelection()),
         PiLinkBold,
       )}
 
       {onPickImage
-        ? button("image", "Insert image", false, onPickImage, PiImageBold)
+        ? button("image", t`Insert image`, false, onPickImage, PiImageBold)
         : null}
 
       {simple ? null : active.inTable ? (
-        button("table", "Insert table", false, () => {}, TableIcon, true)
+        button("table", t`Insert table`, false, () => {}, TableIcon, true)
       ) : (
         <Popover
           open={tablePickerOpen}
@@ -430,11 +434,11 @@ export default function RichTextEditorToolbar({
               size="1"
               variant={tablePickerOpen ? "soft" : "ghost"}
               color={tablePickerOpen ? undefined : "gray"}
-              aria-label="Insert table"
+              aria-label={t`Insert table`}
               onMouseDown={(e) => e.preventDefault()}
               className={styles.toolbarButton}
             >
-              <Tooltip content="Insert table">
+              <Tooltip content={t`Insert table`}>
                 <span style={{ display: "inline-flex" }}>
                   <TableIcon size={15} />
                 </span>

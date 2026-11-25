@@ -4,6 +4,7 @@ import {
 } from "shared/types/archetype";
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -31,6 +32,7 @@ const SimulateFeatureModal: FC<{
   close,
   onSubmit,
 }) => {
+  const { t } = useLingui();
   const simulateForm = useForm<{
     archetype: string;
     attributes: ArchetypeAttributeValues;
@@ -68,22 +70,24 @@ const SimulateFeatureModal: FC<{
       trackingEventModalType=""
       close={close}
       size="lg"
-      header="Simulate features"
+      header={t`Simulate features`}
       open={true}
-      cta={"Test User Attributes"}
+      cta={t`Test User Attributes`}
       submit={() => {
         onSubmit(simulateForm.getValues());
       }}
     >
       {!canCreate ? (
         <div className="p-3 text-center">
-          This feature is part of our enterprise plan.
+          <Trans>This feature is part of our enterprise plan.</Trans>
         </div>
       ) : (
         <div>
           <div className="row">
             <div className="col mb-3">
-              <h4>Select Archetype</h4>
+              <h4>
+                <Trans>Select Archetype</Trans>
+              </h4>
               <SelectField
                 size="legacy"
                 value={simulateForm.watch("archetype")}

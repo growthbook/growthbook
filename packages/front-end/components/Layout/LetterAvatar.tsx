@@ -51,6 +51,13 @@ export default function LetterAvatar({
 
   const text = getTextColor(bg);
 
+  // Translations of the default ("ALL") can be longer, like "TODOS", so they
+  // shrink to fit on one line instead of wrapping.
+  const fitFontSize = (fontSize: number, width: number) =>
+    name
+      ? fontSize
+      : Math.min(fontSize, Math.floor((width - 4) / (initials.length * 0.72)));
+
   let defaultStyles = {
     display: "inline-block",
     marginRight: 8,
@@ -58,12 +65,13 @@ export default function LetterAvatar({
     minWidth: 40,
     height: 40,
     lineHeight: "40px",
-    fontSize: name ? 18 : 15,
+    fontSize: name ? 18 : fitFontSize(15, 40),
     fontWeight: 600,
     textAlign: "center" as const,
     backgroundColor: bg,
     color: text,
     borderRadius: 7,
+    whiteSpace: "nowrap" as const,
   };
   if (size === "small") {
     defaultStyles = {
@@ -72,7 +80,7 @@ export default function LetterAvatar({
       minWidth: 26,
       height: 26,
       lineHeight: "26px",
-      fontSize: 12,
+      fontSize: fitFontSize(12, 26),
       fontWeight: 500,
       borderRadius: 4,
     };

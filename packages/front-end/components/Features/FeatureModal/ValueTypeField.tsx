@@ -2,6 +2,7 @@ import { FC } from "react";
 import { FeatureValueType } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useUser } from "@/services/UserContext";
 import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -18,35 +19,40 @@ const ValueTypeField: FC<{
   // supports config backing should enable this).
   allowConfig?: boolean;
 }> = ({ onChange, value, allowConfig = false }) => {
+  const { t } = useLingui();
   const { hasCommercialFeature } = useUser();
   const canUseConfig = hasCommercialFeature("feature-configs");
 
   return (
     <SelectField
       size="legacy"
-      label="Value Type"
+      label={t`Value Type`}
       value={value}
       onChange={(v) => onChange(v as FeatureAuthoringType)}
-      placeholder="Select Type..."
+      placeholder={t`Select Type...`}
       options={[
-        { label: "Boolean (true/false)", value: "boolean" },
-        { label: "String", value: "string" },
-        { label: "Number", value: "number" },
+        { label: t`Boolean (true/false)`, value: "boolean" },
+        { label: t`String`, value: "string" },
+        { label: t`Number`, value: "number" },
         { label: "JSON", value: "json" },
-        ...(allowConfig ? [{ label: "Config", value: "config" }] : []),
+        ...(allowConfig ? [{ label: t`Config`, value: "config" }] : []),
       ]}
       formatOptionLabel={(option) => {
         if (option.value !== "config") return option.label;
         return (
           <Flex as="span" align="center" gap="2" display="inline-flex">
             <span>
-              Config{" "}
-              <span style={{ color: "var(--slate-9)" }}>(structured JSON)</span>
+              <Trans>
+                Config{" "}
+                <span style={{ color: "var(--slate-9)" }}>
+                  (structured JSON)
+                </span>
+              </Trans>
             </span>
             {canUseConfig ? (
               <Tooltip
                 flipTheme={false}
-                body="A JSON value backed by a shared Config: the Config supplies the base value and schema, and this Feature Flag overrides it with a patch."
+                body={t`A JSON value backed by a shared Config: the Config supplies the base value and schema, and this Feature Flag overrides it with a patch.`}
                 style={{
                   position: "relative",
                   zIndex: 1000,

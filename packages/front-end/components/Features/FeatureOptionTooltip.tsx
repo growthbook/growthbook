@@ -1,6 +1,9 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatesCols";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
@@ -29,12 +32,12 @@ export interface FeatureOptionForTooltip {
   states?: Record<string, PrerequisiteStateResult>;
 }
 
-function getProjectNames(option: FeatureOptionForTooltip) {
+function getProjectNames(option: FeatureOptionForTooltip, i18n: I18n) {
   const names = [
-    option.projectName || "No Project",
+    option.projectName || i18n._(msg`No Project`),
     ...(option.targetingProjectNames ?? []),
   ];
-  if (option.targetingAllProjects) names.push("All Projects");
+  if (option.targetingAllProjects) names.push(i18n._(msg`All Projects`));
   return names;
 }
 
@@ -45,22 +48,23 @@ export function FeatureOptionTooltipContent({
   option: FeatureOptionForTooltip;
   environments?: string[];
 }) {
+  const { t, i18n } = useLingui();
   return (
     <OptionTooltipShell href={`/features/${option.value}`} title={option.label}>
-      <OptionTooltipRow label="Type:">
+      <OptionTooltipRow label={t`Type:`}>
         {option.valueType ? (
           <FeatureValueTypeDisplay
             valueType={option.valueType}
             configBackingKey={option.configBackingKey}
           />
         ) : (
-          "unknown"
+          t`unknown`
         )}
       </OptionTooltipRow>
-      <OptionTooltipProjectsRow names={getProjectNames(option)} />
+      <OptionTooltipProjectsRow names={getProjectNames(option, i18n)} />
       <OptionTooltipTags tags={option.tags} />
       {option.states && environments.length > 0 && (
-        <OptionTooltipSection label="Environments:">
+        <OptionTooltipSection label={t`Environments:`}>
           {environments.map((env) => (
             <Flex key={env} align="center" gap="2">
               <PrerequisiteStatesCols

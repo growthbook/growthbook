@@ -18,6 +18,7 @@ import {
   PiTrash,
   PiUploadSimple,
 } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getUploadMethod } from "@/services/env";
@@ -60,7 +61,7 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   const { loading } = useModalForm();
   return (
     <Button type="submit" disabled={disabled} loading={loading}>
-      Upload
+      <Trans>Upload</Trans>
     </Button>
   );
 }
@@ -75,6 +76,7 @@ function CsvFileInput({
   setFile: (file: File | null) => void;
   disabled: boolean;
 }) {
+  const { t } = useLingui();
   const { setError } = useModalContext();
   const fileInput = useRef<HTMLInputElement>(null);
   return (
@@ -85,17 +87,17 @@ function CsvFileInput({
           disabled={disabled}
           onClick={() => fileInput.current?.click()}
         >
-          Choose CSV
+          <Trans>Choose CSV</Trans>
         </Button>
         <Text color={file ? undefined : "text-low"}>
-          {file?.name ?? "No file chosen"}
+          {file?.name ?? t`No file chosen`}
         </Text>
       </Flex>
       <input
         ref={fileInput}
         type="file"
         accept=".csv,text/csv"
-        aria-label="CSV file"
+        aria-label={t`CSV file`}
         style={{ display: "none" }}
         onChange={(e) => {
           setError(null);
@@ -124,16 +126,21 @@ type UploadStage =
  * moves along.
  */
 function UploadProgress({ stage }: { stage: UploadStage }) {
+  const { t } = useLingui();
   const percent =
     stage.type === "uploading" ? Math.round(stage.progress * 100) : 100;
-  const label =
-    stage.type === "uploading"
-      ? "Uploading..."
-      : stage.type === "saving"
-        ? "Saving the upload..."
-        : stage.type === "validating"
-          ? "Validating the file..."
-          : `File version ${stage.version} is ready, with ${stage.idCount.toLocaleString()} IDs`;
+  let label: string;
+  if (stage.type === "uploading") {
+    label = t`Uploading...`;
+  } else if (stage.type === "saving") {
+    label = t`Saving the upload...`;
+  } else if (stage.type === "validating") {
+    label = t`Validating the file...`;
+  } else {
+    const version = stage.version;
+    const idCount = stage.idCount.toLocaleString();
+    label = t`File version ${version} is ready, with ${idCount} IDs`;
+  }
   const color = stage.type === "valid" ? "green" : "violet";
   return (
     <Box mt="3">
@@ -177,6 +184,7 @@ function UploadModal({
   onUploaded: () => Promise<void>;
   onUseVersion: (version: number) => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema(true);
   const [file, setFile] = useState<File | null>(null);
@@ -223,7 +231,7 @@ function UploadModal({
   // Catches common mistakes, like extra columns, before a long upload. The
   // back end still checks the whole file afterwards.
   const checkStart = async (file: File) => {
-    if (file.size === 0) throw new Error("The file is empty.");
+    if (file.size === 0) throw new Error(t`The file is empty.`);
     const attributeKey = savedGroup.attributeKey ?? "";
     const sample = await file
       .slice(0, REMOTE_SAVED_GROUP_SAMPLE_BYTES)
@@ -245,9 +253,8 @@ function UploadModal({
       { method: "POST" },
     );
     if (file.size > target.maxBytes) {
-      throw new Error(
-        `The file is larger than ${formatByteSizeString(target.maxBytes)}.`,
-      );
+      const maxSize = formatByteSizeString(target.maxBytes);
+      throw new Error(t`The file is larger than ${maxSize}.`);
     }
     if (closed.current) return null;
     setStage({ type: "uploading", progress: 0 });
@@ -317,7 +324,7 @@ function UploadModal({
     if (closed.current) return;
     if (status.type === "invalid") {
       throw new Error(
-        "The file is invalid, so the group won't use it. See the upload's details for the problems found.",
+        t`The file is invalid, so the group won't use it. See the upload's details for the problems found.`,
       );
     }
     if (status.type === "valid") {
@@ -331,6 +338,8 @@ function UploadModal({
     }
   };
 
+  const groupAttributeKey = savedGroup.attributeKey;
+
   return (
     <Modal.Root
       open={true}
@@ -341,16 +350,22 @@ function UploadModal({
     >
       <ModalForm onSubmit={upload}>
         <Modal.Header>
-          <Modal.Title>Upload IDs</Modal.Title>
+          <Modal.Title>
+            <Trans>Upload IDs</Trans>
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Text as="p" mb="3">
-            Upload a CSV with one <code>{savedGroup.attributeKey}</code> value
-            per line. A first line equal to the attribute name is skipped.
+            <Trans>
+              Upload a CSV with one <code>{groupAttributeKey}</code> value per
+              line. A first line equal to the attribute name is skipped.
+            </Trans>
           </Text>
           <Text as="p" mb="3">
-            Each upload is a complete list of values. Earlier uploads stay until
-            you delete them.
+            <Trans>
+              Each upload is a complete list of values. Earlier uploads stay
+              until you delete them.
+            </Trans>
           </Text>
           <CsvFileInput
             file={file}
@@ -363,7 +378,7 @@ function UploadModal({
           {/* Saving is brief; closing then would still record the upload. A
               disabled button gets no hover events, so the tooltip wraps a span */}
           <Tooltip
-            content="Saving the upload. This takes a moment."
+            content={t`Saving the upload. This takes a moment.`}
             enabled={stage?.type === "saving"}
           >
             <span>
@@ -374,8 +389,8 @@ function UploadModal({
                   onClick={closeModal}
                 >
                   {stage?.type === "validating" || stage?.type === "valid"
-                    ? "Close"
-                    : "Cancel"}
+                    ? t`Close`
+                    : t`Cancel`}
                 </Button>
               </Modal.Close>
             </span>
@@ -390,7 +405,7 @@ function UploadModal({
                   onUseVersion(stage.version);
                 }}
               >
-                Add to revision
+                <Trans>Add to revision</Trans>
               </Button>
             )
           )}
@@ -418,6 +433,7 @@ function VersionMark({
   useDisabledReason: string | null;
   onUse: () => void;
 }) {
+  const { t } = useLingui();
   if (inUse) {
     return (
       <Tooltip content={inUseLabel}>
@@ -429,17 +445,17 @@ function VersionMark({
   }
   if (!canUse) return null;
   return (
-    <Tooltip content={useDisabledReason ?? "Use this version"}>
+    <Tooltip content={useDisabledReason ?? t`Use this version`}>
       {/* A disabled button gets no hover events, so the tooltip wraps a span */}
       <span>
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Use this version"
+          aria-label={t`Use this version`}
           disabled={!!useDisabledReason}
           onClick={onUse}
         >
-          Use
+          <Trans>Use</Trans>
         </Button>
       </span>
     </Tooltip>
@@ -472,6 +488,7 @@ export default function RemoteSavedGroupUploads({
   useVersionDisabledReason: string | null;
   onUseVersion: (version: number) => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const [uploadModal, setUploadModal] = useState(false);
   const [deleteVersion, setDeleteVersion] = useState<number | null>(null);
@@ -523,11 +540,11 @@ export default function RemoteSavedGroupUploads({
 
   const localStorage = getUploadMethod() === "local";
   const uploadDisabledReason = localStorage
-    ? "Uploads need S3 or Google Cloud Storage."
+    ? t`Uploads need S3 or Google Cloud Storage.`
     : savedGroup.archived
-      ? "You can't upload to an archived Saved Group."
+      ? t`You can't upload to an archived Saved Group.`
       : !canUpload
-        ? "You don't have permission to publish this Saved Group."
+        ? t`You don't have permission to publish this Saved Group.`
         : planLockedReason;
 
   const pinned =
@@ -545,12 +562,13 @@ export default function RemoteSavedGroupUploads({
   // The server also refuses versions other open drafts use
   const deleteDisabledReason = (version: number) =>
     !canUpload
-      ? "You don't have permission to publish this Saved Group."
+      ? t`You don't have permission to publish this Saved Group.`
       : version === liveVersion
-        ? "This is the group's current version."
+        ? t`This is the group's current version.`
         : viewing === "draft" && version === viewedVersion
-          ? "The draft you're viewing uses this version."
+          ? t`The draft you're viewing uses this version.`
           : null;
+  const uploadsErrorMessage = error?.message;
 
   return (
     <Box mb="4">
@@ -567,9 +585,9 @@ export default function RemoteSavedGroupUploads({
       )}
       {deleteVersion !== null && (
         <ConfirmDialog
-          title={`Delete version ${deleteVersion}?`}
-          content="This deletes the upload and its file. It can't be undone."
-          yesText="Delete"
+          title={t`Delete version ${deleteVersion}?`}
+          content={t`This deletes the upload and its file. It can't be undone.`}
+          yesText={t`Delete`}
           color="red"
           onCancel={() => setDeleteVersion(null)}
           onConfirm={async () => {
@@ -596,7 +614,7 @@ export default function RemoteSavedGroupUploads({
       )}
       <Flex align="center" justify="between" mb="3">
         <Heading size="md" as="h2" mb="0">
-          Uploads
+          <Trans>Uploads</Trans>
         </Heading>
         <Tooltip
           content={uploadDisabledReason ?? ""}
@@ -609,7 +627,7 @@ export default function RemoteSavedGroupUploads({
               disabled={!!uploadDisabledReason}
               onClick={() => setUploadModal(true)}
             >
-              Upload CSV
+              <Trans>Upload CSV</Trans>
             </Button>
           </span>
         </Tooltip>
@@ -621,148 +639,178 @@ export default function RemoteSavedGroupUploads({
       )}
       {viewedVersionDeleted && (
         <Callout status="warning" size="sm" mb="3">
-          This revision uses version {viewedVersion}, which has been deleted.
+          <Trans>
+            This revision uses version {viewedVersion}, which has been deleted.
+          </Trans>
         </Callout>
       )}
       {viewing !== "other" &&
         viewedVersion === undefined &&
         uploads.some((u) => u.status.type === "valid") && (
           <Callout status="warning" size="sm" mb="3">
-            This group doesn&apos;t use an upload yet, so it targets no one. Use
-            a version below.
+            <Trans>
+              This group doesn&apos;t use an upload yet, so it targets no one.
+              Use a version below.
+            </Trans>
           </Callout>
         )}
       {error ? (
         <Callout status="error" size="sm">
-          Could not load uploads: {error.message}
+          <Trans>Could not load uploads: {uploadsErrorMessage}</Trans>
         </Callout>
       ) : !data ? null : !data.total ? (
         <Callout status="info" size="sm">
-          No uploads yet. Upload a CSV of IDs, or manage membership in your own
-          storage. <DocLink docSection="remoteSavedGroups">View docs</DocLink>
+          <Trans>
+            No uploads yet. Upload a CSV of IDs, or manage membership in your
+            own storage.{" "}
+            <DocLink docSection="remoteSavedGroups">View docs</DocLink>
+          </Trans>
         </Callout>
       ) : (
         <Table variant="list">
           <TableHeader>
             <TableRow>
               <TableColumnHeader style={{ width: 40 }} />
-              <TableColumnHeader>Version</TableColumnHeader>
-              <TableColumnHeader>File</TableColumnHeader>
-              <TableColumnHeader>Status</TableColumnHeader>
-              <TableColumnHeader>Size</TableColumnHeader>
-              <TableColumnHeader>Uploaded</TableColumnHeader>
-              <TableColumnHeader>Data stores</TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Version</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>File</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Status</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Size</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Uploaded</Trans>
+              </TableColumnHeader>
+              <TableColumnHeader>
+                <Trans>Data stores</Trans>
+              </TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {uploads.map((upload) => (
-              <TableRow
-                key={upload.version}
-                align="center"
-                onClick={() => setDetailsVersion(upload.version)}
-                style={{ cursor: "pointer" }}
-              >
-                {/* Its own click target, so it doesn't open the details */}
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  {/* Centers the check and the Use button on each other */}
-                  <Flex justify="center">
-                    <VersionMark
-                      inUse={upload.version === viewedVersion}
-                      inUseLabel={
-                        viewing === "live"
-                          ? "The group uses this version."
-                          : viewing === "draft"
-                            ? "This draft uses this version."
-                            : "This revision uses this version."
-                      }
-                      canUse={upload.status.type === "valid"}
-                      useDisabledReason={useVersionDisabledReason}
-                      onUse={() => onUseVersion(upload.version)}
-                    />
-                  </Flex>
-                </TableCell>
-                <TableCell>
-                  <Flex align="center" gap="2">
-                    {/* Rows aren't focusable, so the version opens details */}
-                    <Link
-                      color="dark"
-                      aria-label={`Version ${upload.version} details`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDetailsVersion(upload.version);
-                      }}
-                    >
-                      {upload.version}
-                    </Link>
-                    {upload.version === liveVersion && (
-                      <Badge
-                        label="Live"
-                        color="green"
-                        variant="solid"
-                        radius="full"
+            {uploads.map((upload) => {
+              const version = upload.version;
+              const uploadedAgo = ago(upload.dateCreated);
+              return (
+                <TableRow
+                  key={upload.version}
+                  align="center"
+                  onClick={() => setDetailsVersion(upload.version)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {/* Its own click target, so it doesn't open the details */}
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {/* Centers the check and the Use button on each other */}
+                    <Flex justify="center">
+                      <VersionMark
+                        inUse={upload.version === viewedVersion}
+                        inUseLabel={
+                          viewing === "live"
+                            ? t`The group uses this version.`
+                            : viewing === "draft"
+                              ? t`This draft uses this version.`
+                              : t`This revision uses this version.`
+                        }
+                        canUse={upload.status.type === "valid"}
+                        useDisabledReason={useVersionDisabledReason}
+                        onUse={() => onUseVersion(upload.version)}
                       />
-                    )}
-                  </Flex>
-                </TableCell>
-                <TableCell>
-                  {upload.fileName ?? <Text color="text-low">Unnamed</Text>}
-                </TableCell>
-                <TableCell>
-                  <UploadStatusBadge status={upload.status} />
-                </TableCell>
-                <TableCell>{formatByteSizeString(upload.size)}</TableCell>
-                <TableCell title={datetime(upload.dateCreated)}>
-                  {ago(upload.dateCreated)} by{" "}
-                  <Uploader createdBy={upload.createdBy} />
-                </TableCell>
-                <TableCell>
-                  <LoadSummary
-                    loads={upload.loads}
-                    idCount={
-                      upload.status.type === "valid"
-                        ? upload.status.idCount
-                        : undefined
-                    }
-                  />
-                </TableCell>
-                {/* Its own click target, so it doesn't open the details */}
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Flex gap="3" align="center">
-                    <Tooltip content="Download CSV">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Download version ${upload.version}`}
-                        loading={downloadingVersion === upload.version}
-                        onClick={() => download(upload.version)}
+                    </Flex>
+                  </TableCell>
+                  <TableCell>
+                    <Flex align="center" gap="2">
+                      {/* Rows aren't focusable, so the version opens details */}
+                      <Link
+                        color="dark"
+                        aria-label={t`Version ${version} details`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDetailsVersion(upload.version);
+                        }}
                       >
-                        <PiDownloadSimple />
-                      </Button>
-                    </Tooltip>
-                    <Tooltip
-                      content={deleteDisabledReason(upload.version) ?? "Delete"}
-                    >
-                      {/* A disabled button gets no hover events, so the
-                          tooltip wraps a span */}
-                      <span>
+                        {upload.version}
+                      </Link>
+                      {upload.version === liveVersion && (
+                        <Badge
+                          label={t`Live`}
+                          color="green"
+                          variant="solid"
+                          radius="full"
+                        />
+                      )}
+                    </Flex>
+                  </TableCell>
+                  <TableCell>
+                    {upload.fileName ?? (
+                      <Text color="text-low">
+                        <Trans>Unnamed</Trans>
+                      </Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <UploadStatusBadge status={upload.status} />
+                  </TableCell>
+                  <TableCell>{formatByteSizeString(upload.size)}</TableCell>
+                  <TableCell title={datetime(upload.dateCreated)}>
+                    <Trans>
+                      {uploadedAgo} by <Uploader createdBy={upload.createdBy} />
+                    </Trans>
+                  </TableCell>
+                  <TableCell>
+                    <LoadSummary
+                      loads={upload.loads}
+                      idCount={
+                        upload.status.type === "valid"
+                          ? upload.status.idCount
+                          : undefined
+                      }
+                    />
+                  </TableCell>
+                  {/* Its own click target, so it doesn't open the details */}
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Flex gap="3" align="center">
+                      <Tooltip content={t`Download CSV`}>
                         <Button
                           variant="ghost"
-                          color="red"
                           size="sm"
-                          aria-label={`Delete version ${upload.version}`}
-                          disabled={!!deleteDisabledReason(upload.version)}
-                          onClick={() => setDeleteVersion(upload.version)}
+                          aria-label={t`Download version ${version}`}
+                          loading={downloadingVersion === upload.version}
+                          onClick={() => download(upload.version)}
                         >
-                          <PiTrash />
+                          <PiDownloadSimple />
                         </Button>
-                      </span>
-                    </Tooltip>
-                  </Flex>
-                </TableCell>
-              </TableRow>
-            ))}
+                      </Tooltip>
+                      <Tooltip
+                        content={
+                          deleteDisabledReason(upload.version) ?? t`Delete`
+                        }
+                      >
+                        {/* A disabled button gets no hover events, so the
+                          tooltip wraps a span */}
+                        <span>
+                          <Button
+                            variant="ghost"
+                            color="red"
+                            size="sm"
+                            aria-label={t`Delete version ${version}`}
+                            disabled={!!deleteDisabledReason(upload.version)}
+                            onClick={() => setDeleteVersion(upload.version)}
+                          >
+                            <PiTrash />
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    </Flex>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

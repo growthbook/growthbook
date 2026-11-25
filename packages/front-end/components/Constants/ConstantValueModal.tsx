@@ -9,6 +9,7 @@ import {
 } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPlus, PiTrash } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -50,6 +51,7 @@ export default function ConstantValueModal({
   onSaved: (revision: Revision) => void | Promise<void>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
@@ -114,6 +116,8 @@ export default function ConstantValueModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.watch("value"), envValues, cyclicKeys, existing.key]);
 
+  const cyclicRefList = cyclicRefs.map((k) => `@const:${k}`).join(", ");
+
   // Show override rows only for allowed envs (in env order); offer the rest in
   // the "add" dropdown.
   const overrideEnvIds = allowedEnvironments
@@ -143,7 +147,7 @@ export default function ConstantValueModal({
     <ModalStandard
       open={true}
       trackingEventModalType="constant-value-modal"
-      header="Edit Value"
+      header={t`Edit Value`}
       size="lg"
       close={close}
       cta={cta.label}
@@ -213,7 +217,7 @@ export default function ConstantValueModal({
 
       <Box mb="5">
         <FeatureValueField
-          label="Value"
+          label={t`Value`}
           id="constant-value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
@@ -224,10 +228,19 @@ export default function ConstantValueModal({
 
       {cyclicRefs.length > 0 && (
         <Callout status="warning" size="sm" mb="3">
-          {cyclicRefs.map((k) => `@const:${k}`).join(", ")}{" "}
-          {cyclicRefs.length === 1 ? "references" : "reference"} this constant,
-          creating a cycle. Cyclic references are left unresolved (rendered
-          as-is) when the SDK payload is built.
+          {cyclicRefs.length === 1 ? (
+            <Trans>
+              {cyclicRefList} references this constant, creating a cycle. Cyclic
+              references are left unresolved (rendered as-is) when the SDK
+              payload is built.
+            </Trans>
+          ) : (
+            <Trans>
+              {cyclicRefList} reference this constant, creating a cycle. Cyclic
+              references are left unresolved (rendered as-is) when the SDK
+              payload is built.
+            </Trans>
+          )}
         </Callout>
       )}
 
@@ -235,7 +248,7 @@ export default function ConstantValueModal({
         <Box mb="3">
           <Flex align="center" justify="between" mb="4">
             <Text as="div" weight="semibold">
-              Environment overrides
+              <Trans>Environment overrides</Trans>
             </Text>
             {addableEnvs.length > 0 && (
               <DropdownMenu
@@ -244,7 +257,8 @@ export default function ConstantValueModal({
                 trigger={
                   <Button variant="outline" size="md">
                     <Flex align="center" gap="1">
-                      <PiPlus /> Add override <PiCaretDownFill size={10} />
+                      <PiPlus /> <Trans>Add override</Trans>{" "}
+                      <PiCaretDownFill size={10} />
                     </Flex>
                   </Button>
                 }
@@ -262,7 +276,7 @@ export default function ConstantValueModal({
           </Flex>
           {overrideEnvIds.length === 0 ? (
             <Text as="div" size="sm" color="text-mid">
-              No overrides yet.
+              <Trans>No overrides yet.</Trans>
             </Text>
           ) : (
             overrideEnvIds.map((envId) => (
@@ -275,7 +289,7 @@ export default function ConstantValueModal({
                     size="2"
                     radius="full"
                     onClick={() => removeOverride(envId)}
-                    aria-label={`Remove ${envId} override`}
+                    aria-label={t`Remove ${envId} override`}
                   >
                     <PiTrash size={16} />
                   </IconButton>

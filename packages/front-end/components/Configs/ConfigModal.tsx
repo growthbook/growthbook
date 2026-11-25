@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
@@ -78,6 +79,7 @@ export default function ConfigModal({
   onSaved?: (revision: Revision) => void | Promise<void>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
@@ -139,7 +141,7 @@ export default function ConfigModal({
   );
   const cta = draftModeCta(draft.draftMode, {
     bypassesApproval: draft.selectorApprovalRequired,
-    publishLabel: "Save",
+    publishLabel: t`Save`,
   });
 
   // For create, the base/child distinction follows the selected parent.
@@ -195,10 +197,10 @@ export default function ConfigModal({
     <ModalStandard
       open={true}
       trackingEventModalType="config-modal"
-      header={editing ? "Edit Information" : "New Config"}
+      header={editing ? t`Edit Information` : t`New Config`}
       size="lg"
       close={close}
-      cta={editing ? cta.label : "Create"}
+      cta={editing ? cta.label : t`Create`}
       ctaColor={editing && cta.bypass ? "red" : "violet"}
       submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
@@ -263,9 +265,11 @@ export default function ConfigModal({
     >
       {!editing && (
         <Callout status="info" mb="3">
-          Configs are referenced from a Feature Flag — define the fields and
-          values here, then reference the Config from a Feature Flag to deliver
-          it to your SDKs.
+          <Trans>
+            Configs are referenced from a Feature Flag — define the fields and
+            values here, then reference the Config from a Feature Flag to
+            deliver it to your SDKs.
+          </Trans>
         </Callout>
       )}
 
@@ -284,9 +288,9 @@ export default function ConfigModal({
         />
       )}
 
-      <Field label="Name" required {...form.register("name")} />
+      <Field label={t`Name`} required {...form.register("name")} />
       <Field
-        label="Key"
+        label={t`Key`}
         required
         disabled={editing}
         {...form.register("key", {
@@ -300,13 +304,13 @@ export default function ConfigModal({
         <Box mb="3">
           <Box mb="1">
             <Text as="label" weight="semibold">
-              Description
+              <Trans>Description</Trans>
             </Text>
           </Box>
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this Config (markdown supported)"
+            placeholder={t`Add notes about this Config (markdown supported)`}
             autofocus={focusDescription}
             autofocusAtEnd
             showButtons={false}
@@ -323,18 +327,20 @@ export default function ConfigModal({
         >
           <Flex align="center" gap="1">
             <PiPlus />
-            <Text weight="medium">Add a description</Text>
+            <Text weight="medium">
+              <Trans>Add a description</Trans>
+            </Text>
           </Flex>
         </Link>
       )}
 
       {!editing && (
         <SelectField
-          label="Parent Config (optional)"
+          label={t`Parent Config (optional)`}
           value={form.watch("parent")}
           onChange={(v) => form.setValue("parent", v)}
           options={parentOptions}
-          initialOption="None (base Config)"
+          initialOption={t`None (base Config)`}
           sort={false}
           formatOptionLabel={(option, meta) => {
             const { value, label } = option;
@@ -359,7 +365,7 @@ export default function ConfigModal({
               </Flex>
             );
           }}
-          helpText="A child inherits its parent's fields and overrides a subset."
+          helpText={t`A child inherits its parent's fields and overrides a subset.`}
         />
       )}
 
@@ -368,17 +374,17 @@ export default function ConfigModal({
 
       {projectOptions.length > 0 && (
         <SelectField
-          label="Project"
+          label={t`Project`}
           value={form.watch("project")}
           options={projectOptions}
-          initialOption={canGlobalScope ? "All projects" : undefined}
+          initialOption={canGlobalScope ? t`All projects` : undefined}
           onChange={(v) => form.setValue("project", v)}
         />
       )}
 
       {editing && (
         <SelectOwner
-          placeholder="Optional"
+          placeholder={t`Optional`}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
@@ -387,11 +393,13 @@ export default function ConfigModal({
       {isBaseSelection && (
         <Box mt="3">
           <Checkbox
-            label="Allow extra fields"
+            label={t`Allow extra fields`}
             description={
               <Text weight="regular" color="text-high">
-                This Config, its child Configs and Feature Flag rules can set
-                keys beyond the schema.
+                <Trans>
+                  This Config, its child Configs and Feature Flag rules can set
+                  keys beyond the schema.
+                </Trans>
               </Text>
             }
             value={form.watch("extensible")}

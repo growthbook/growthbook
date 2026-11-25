@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
@@ -11,26 +12,29 @@ export default function ConfigLockModal({
   onConfirm: (reason?: string) => Promise<void>;
   close: () => void;
 }) {
+  const { t } = useLingui();
   const [reason, setReason] = useState("");
   return (
     <ModalStandard
       trackingEventModalType="config-lock"
       open={true}
       close={close}
-      header={`Lock "${configName}"`}
-      cta="Lock"
+      header={t`Lock "${configName}"`}
+      cta={t`Lock`}
       submit={async () => {
         await onConfirm(reason.trim() || undefined);
       }}
     >
-      <p>Nothing can be published until you unlock.</p>
+      <p>
+        <Trans>Nothing can be published until you unlock.</Trans>
+      </p>
       <Field
-        label="Reason (optional)"
+        label={t`Reason (optional)`}
         textarea
         minRows={2}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
-        placeholder="Why lock this Config?"
+        placeholder={t`Why lock this Config?`}
       />
     </ModalStandard>
   );

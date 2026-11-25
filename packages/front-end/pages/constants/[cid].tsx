@@ -30,6 +30,7 @@ import {
 } from "shared/util";
 import { isActiveDraftStatus } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -104,10 +105,13 @@ function ConstantValueDisplay({
   value: string | undefined;
   type: ConstantInterface["type"];
 }) {
+  const { t } = useLingui();
   if (!value) {
     return (
       <Text color="text-low">
-        <em>(empty)</em>
+        <em>
+          <Trans>(empty)</Trans>
+        </em>
       </Text>
     );
   }
@@ -117,7 +121,7 @@ function ConstantValueDisplay({
       type={type === "string" ? "string" : "json"}
       full
       showFullscreenButton
-      fullscreenHeader="Constant Value"
+      fullscreenHeader={t`Constant Value`}
     />
   );
 }
@@ -126,6 +130,7 @@ const constantTabs = ["overview", "review"] as const;
 type ConstantTab = (typeof constantTabs)[number];
 
 export default function ConstantDetailPage(): React.ReactElement {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const { cid } = router.query;
   // The detail-page route is addressed by the constant's `key` (immutable,
@@ -327,9 +332,10 @@ export default function ConstantDetailPage(): React.ReactElement {
   // A failed refresh keeps the revisions already shown.
   const loadError = error ?? (selectionSettled ? undefined : revisionsError);
   if (loadError) {
+    const loadErrorMessage = loadError.message;
     return (
       <Callout status="error" mt="4">
-        An error occurred: {loadError.message}
+        <Trans>An error occurred: {loadErrorMessage}</Trans>
       </Callout>
     );
   }
@@ -453,7 +459,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             {getStatusBadge("live", approvalRequired)}
           </>
         ) : (
-          <>the live Constant</>
+          <Trans>the live Constant</Trans>
         )
       }
       create={async ({ title, comment }) => {
@@ -490,7 +496,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             setShowAuditModal(true);
           }}
         >
-          Audit history
+          <Trans>Audit history</Trans>
         </DropdownMenuItem>
         {allRevisions.length >= 2 && (
           <DropdownMenuItem
@@ -499,7 +505,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               setCompareOpen(true);
             }}
           >
-            Compare revisions
+            <Trans>Compare revisions</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuGroup>
@@ -516,7 +522,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               >
                 {/* LIVE state: the endpoint flips against live, so the projected
                     state labels the opposite action. */}
-                {constant.archived ? "Unarchive" : "Archive"}
+                {constant.archived ? t`Unarchive` : t`Archive`}
               </DropdownMenuItem>
             )}
             {canDeleteNow && (
@@ -527,7 +533,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                   setConfirmDelete(true);
                 }}
               >
-                Delete
+                <Trans>Delete</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -536,6 +542,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     </DetailsPageMenu>
   );
 
+  const constantName = constant.name;
   const environmentValues = Object.entries(
     displayedConstant.environmentValues || {},
   );
@@ -544,7 +551,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     <>
       <PageHead
         breadcrumb={[
-          { display: "Constants", href: "/constants" },
+          { display: t`Constants`, href: "/constants" },
           { display: displayedConstant.name },
         ]}
       />
@@ -554,7 +561,7 @@ export default function ConstantDetailPage(): React.ReactElement {
         onRename={canEditNow ? () => setEditInfoOpen("info") : null}
         renameBlockedReason={editLockReason}
         badges={
-          constant.archived ? <Badge label="Archived" color="gray" /> : null
+          constant.archived ? <Badge label={t`Archived`} color="gray" /> : null
         }
         actions={
           <DetailsPageActions
@@ -576,9 +583,11 @@ export default function ConstantDetailPage(): React.ReactElement {
         onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
         triggers={
           <>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
             <TabsTrigger value="review">
-              Review &amp; Publish
+              <Trans>Review &amp; Publish</Trans>
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
             </TabsTrigger>
           </>
@@ -629,7 +638,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             }
             editInfoBlockedReason={editLockReason}
             references={{
-              rows: constantReferenceSections(references ?? {}),
+              rows: constantReferenceSections(references ?? {}, i18n),
               loading: referencesLoading,
               error: !!referencesError,
             }}
@@ -661,7 +670,7 @@ export default function ConstantDetailPage(): React.ReactElement {
           <Box className="contents container-fluid pagecontents">
             {tab === "overview" && (
               <SectionFrame
-                title="Value"
+                title={t`Value`}
                 actions={
                   canEditNow ? (
                     <Tooltip
@@ -673,7 +682,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                         disabled={!!editLockReason}
                         onClick={() => setEditValueOpen(true)}
                       >
-                        Edit
+                        <Trans>Edit</Trans>
                       </Button>
                     </Tooltip>
                   ) : null
@@ -686,7 +695,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                 {environmentValues.length > 0 && (
                   <>
                     <Text as="div" weight="semibold" mt="5" mb="3">
-                      Environment overrides
+                      <Trans>Environment overrides</Trans>
                     </Text>
                     <Flex direction="column" gap="4">
                       {environmentValues.map(([env, value]) => (
@@ -864,8 +873,11 @@ export default function ConstantDetailPage(): React.ReactElement {
           // Recomputed per target: the picker can change it after mount, and both
           // the footprint and the destination follow from restoring THAT snapshot
           // over current live — the same derivation the revert endpoint uses.
-          canLandRevertForTarget={(t) => {
-            const restore = getConstantRestoreChange(constant, t.target);
+          canLandRevertForTarget={(targetRevision) => {
+            const restore = getConstantRestoreChange(
+              constant,
+              targetRevision.target,
+            );
             // A revert that flips `archived` takes the Constant out of service, or
             // returns it, EVERYWHERE it serves — the footprint the endpoint now
             // requires. The changed-environment list is empty for a base-value-only
@@ -876,8 +888,8 @@ export default function ConstantDetailPage(): React.ReactElement {
             // without the revision touching `/archived` restores an archived Constant
             // with no patch to read. Same derivation RevertModal uses.
             const restoredState = applyTopLevelPatchOps(
-              t.target.snapshot as Record<string, unknown>,
-              t.target.proposedChanges,
+              targetRevision.target.snapshot as Record<string, unknown>,
+              targetRevision.target.proposedChanges,
             ) as { archived?: boolean };
             const flipsArchive =
               !!restoredState.archived !== !!constant?.archived;
@@ -943,19 +955,19 @@ export default function ConstantDetailPage(): React.ReactElement {
             labelOnlyEvents: [
               {
                 event: "constant.deleted",
-                getLabel: () => "Deleted",
+                getLabel: () => t`Deleted`,
                 alwaysVisible: true,
               },
             ],
             sections: [
               {
-                label: "Settings",
+                label: t`Settings`,
                 keys: ["name", "owner", "description", "project", "archived"],
                 render: renderConstantSettings,
                 getBadges: getConstantSettingsBadges,
               },
               {
-                label: "Value",
+                label: t`Value`,
                 keys: ["value", "environmentValues"],
                 render: renderConstantValues,
                 getBadges: getConstantValuesBadges,
@@ -972,9 +984,9 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete "${constant.name}"?`}
-          content="This permanently deletes the Constant. This cannot be undone."
-          yesText="Delete"
+          title={t`Delete "${constantName}"?`}
+          content={t`This permanently deletes the Constant. This cannot be undone.`}
+          yesText={t`Delete`}
           color="red"
           onConfirm={async () => {
             await apiCall(`/constants/${constant.id}`, { method: "DELETE" });

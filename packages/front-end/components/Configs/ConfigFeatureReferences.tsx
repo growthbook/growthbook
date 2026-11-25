@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiFlag, PiDotOutline } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -69,13 +70,16 @@ export default function ConfigFeatureReferences({
   loading: boolean;
   error?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   const nodeOf = (key: string) => lineage.find((n) => n.key === key);
 
   if (loading && !references) {
     return (
       <Flex align="center" gap="2" py="2" style={{ color: "var(--slate-11)" }}>
         <LoadingSpinner />
-        <span style={{ fontSize: "var(--font-size-1)" }}>Loading…</span>
+        <span style={{ fontSize: "var(--font-size-1)" }}>
+          <Trans>Loading…</Trans>
+        </span>
       </Flex>
     );
   }
@@ -85,7 +89,7 @@ export default function ConfigFeatureReferences({
   if (error && !references) {
     return (
       <HelperText status="error">
-        Couldn&apos;t load references. Try refreshing.
+        <Trans>Couldn&apos;t load references. Try refreshing.</Trans>
       </HelperText>
     );
   }
@@ -95,7 +99,7 @@ export default function ConfigFeatureReferences({
       <span
         style={{ fontSize: "var(--font-size-1)", color: "var(--slate-10)" }}
       >
-        No Feature Flags reference this Config family.
+        <Trans>No Feature Flags reference this Config family.</Trans>
       </span>
     );
   }
@@ -215,13 +219,13 @@ export default function ConfigFeatureReferences({
           <Branch>
             {f.defaultConfigKey && (
               <Box>
-                {groupLabel("based on")}
+                {groupLabel(t`based on`)}
                 {configRow(f.defaultConfigKey)}
               </Box>
             )}
             {f.ruleConfigKeys.length > 0 && (
               <Box>
-                {groupLabel("rules")}
+                {groupLabel(t`rules`)}
                 {f.ruleConfigKeys.map((key) => configRow(key))}
               </Box>
             )}

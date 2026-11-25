@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { SDKAttribute } from "shared/types/organization";
 import { CustomField } from "shared/types/custom-fields";
 import { attributeDataTypes } from "shared/constants";
@@ -24,7 +25,7 @@ const AttributeSearchFilters: FC<
     attributes: AttributeWithId[];
     customFields?: CustomField[];
     // What the archived filter calls these rows.
-    noun?: string;
+    noun?: "attributes" | "identifiers";
   }
 > = ({
   searchInputProps,
@@ -34,6 +35,7 @@ const AttributeSearchFilters: FC<
   customFields = [],
   noun = "attributes",
 }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -98,8 +100,8 @@ const AttributeSearchFilters: FC<
       if (f.type === "boolean") {
         // The query value stays lowercase.
         const values = [
-          { name: "Yes", searchValue: "yes" },
-          { name: "No", searchValue: "no" },
+          { name: t`Yes`, searchValue: "yes" },
+          { name: t`No`, searchValue: "no" },
         ].filter((v) => seen.has(v.searchValue));
         return values.length ? [{ field: f, values }] : [];
       }
@@ -119,7 +121,7 @@ const AttributeSearchFilters: FC<
       ].map((v) => ({ name: v, searchValue: v }));
       return values.length ? [{ field: f, values }] : [];
     });
-  }, [attributes, customFields]);
+  }, [attributes, customFields, t]);
 
   return (
     // Wraps within itself rather than dropping the whole group below the
@@ -128,6 +130,7 @@ const AttributeSearchFilters: FC<
       {!project && availableProjects.length > 0 && (
         <FilterDropdown
           filter="project"
+          heading={t`project`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -142,7 +145,7 @@ const AttributeSearchFilters: FC<
       {availableDatatypes.length > 0 && (
         <FilterDropdown
           filter="datatype"
-          heading="data type"
+          heading={t`data type`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -153,13 +156,14 @@ const AttributeSearchFilters: FC<
       {availableTags.length > 0 && (
         <FilterDropdown
           filter="tag"
+          heading={t`tag`}
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
-          items={availableTags.map((t) => ({
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+          items={availableTags.map((tag) => ({
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           }))}
           updateQuery={updateQuery}
         />
@@ -183,7 +187,7 @@ const AttributeSearchFilters: FC<
       {/* Always offered: with nothing archived it is still the way to undo the filter. */}
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -202,7 +206,11 @@ const AttributeSearchFilters: FC<
           }}
         >
           <FilterItem
-            item={`Archived ${noun}`}
+            item={
+              noun === "identifiers"
+                ? t`Archived identifiers`
+                : t`Archived attributes`
+            }
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

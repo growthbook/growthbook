@@ -1,6 +1,7 @@
 import React, { ChangeEvent, FC, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretRight, PiCaretDown, PiPlus, PiX } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -127,6 +128,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   showProjectFilter = true,
   extraFilters = [],
 }) => {
+  const { t, i18n } = useLingui();
   const { searchTerm, syntaxFilters } = useMemo(
     () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS),
     [searchValue],
@@ -198,7 +200,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     if (showProjectFilter && !project && projects.length > 0) {
       add({
         key: "project",
-        heading: "Project",
+        heading: t`Project`,
         items: projects.map((p) => ({
           name: p.name,
           id: p.id,
@@ -207,27 +209,27 @@ const SidebarExperimentFilters: FC<Props> = ({
       });
     }
     // Distinguished from the block's own calculation metric, directly above.
-    add({ key: "metric", heading: "Includes metric", items: metricItems });
-    add({ key: "is", heading: "Result", items: resultItems });
+    add({ key: "metric", heading: t`Includes metric`, items: metricItems });
+    add({ key: "is", heading: t`Result`, items: resultItems });
     add({
       key: "owner",
-      heading: "Owner",
+      heading: t`Owner`,
       items: owners.map((o) => ({ name: o, id: o, searchValue: o })),
     });
     if (showStatusFilter) {
-      add({ key: "status", heading: "Status", items: statusItems });
+      add({ key: "status", heading: t`Status`, items: statusItems });
     }
     add({
       key: "tag",
-      heading: "Tag",
-      items: availableTags.map((t) => ({
-        name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-        id: t,
-        searchValue: t,
+      heading: t`Tag`,
+      items: availableTags.map((tag) => ({
+        name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+        id: tag,
+        searchValue: tag,
       })),
     });
-    add({ key: "has", heading: "Type", items: typeItems });
-    add({ key: "health", heading: "Health", items: healthItems });
+    add({ key: "has", heading: t`Type`, items: typeItems });
+    add({ key: "health", heading: t`Health`, items: healthItems });
 
     return CATEGORY_ORDER.map((key) => byKey.get(key)).filter(
       (c): c is FilterCategory => !!c,
@@ -244,6 +246,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     healthItems,
     availableTags,
     showStatusFilter,
+    t,
   ]);
 
   const categoryByKey = useMemo(() => {
@@ -452,7 +455,7 @@ const SidebarExperimentFilters: FC<Props> = ({
         {options.length === 0 ? (
           <Box px="2" py="2">
             <Text size="sm" color="text-low">
-              No options
+              <Trans>No options</Trans>
             </Text>
           </Box>
         ) : (
@@ -496,6 +499,11 @@ const SidebarExperimentFilters: FC<Props> = ({
   // Expanded panel for a search-string category: combobox + selected chips +
   // Clear.
   const renderCategoryPanel = (category: FilterCategory) => {
+    const heading = category.heading;
+    // Mid-sentence the label is lowercase, except in German, where nouns stay
+    // capitalized. The locale-aware form handles Turkish İ/I.
+    const headingLower =
+      i18n.locale === "de" ? heading : heading.toLocaleLowerCase(i18n.locale);
     const selected = selectedValuesFor(category.key);
     const optionsOpen = optionsOpenField === category.key;
     const options = visibleOptionsFor(category);
@@ -534,7 +542,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             <div style={{ display: "block", width: "100%" }}>
               <Field
                 type="text"
-                placeholder={`Search by ${category.heading.toLowerCase()} name...`}
+                placeholder={t`Search by ${headingLower} name...`}
                 value={filterSearch}
                 onChange={(e) => {
                   setFilterSearch(e.target.value);
@@ -587,7 +595,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                 {valueChip(
                   labelNodeFor(category.key, value),
                   () => removeValue(category.key, value),
-                  `Remove ${category.heading} ${value}`,
+                  t`Remove ${heading} ${value}`,
                 )}
               </React.Fragment>
             ))}
@@ -600,7 +608,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               color="red"
               onClick={() => clearCategory(category.key)}
             >
-              Clear
+              <Trans>Clear</Trans>
             </Link>
           </Box>
         )}
@@ -696,7 +704,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                     setExpandedField("");
                   }}
                 >
-                  Clear
+                  <Trans>Clear</Trans>
                 </Link>
               </Box>
             ) : null}
@@ -709,7 +717,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   return (
     <Flex direction="column" gap="0">
       <Field
-        placeholder="Search..."
+        placeholder={t`Search...`}
         type="search"
         value={searchTerm}
         onChange={handleFreeTextChange}
@@ -719,16 +727,17 @@ const SidebarExperimentFilters: FC<Props> = ({
         <Flex wrap="wrap" gap="1" mt="2">
           {advancedFilters.map((filter, i) => {
             const heading = categoryByKey.get(filter.field)?.heading;
+            const values = filter.values.join(", ");
             const label =
               filter.negated && !filter.operator && heading
-                ? `Not ${heading}: ${filter.values.join(", ")}`
+                ? t`Not ${heading}: ${values}`
                 : filterToString(filter);
             return (
               <React.Fragment key={`advanced-${filter.field}-${i}`}>
                 {valueChip(
                   label,
                   () => removeFilter(filter),
-                  `Remove ${label} filter`,
+                  t`Remove ${label} filter`,
                 )}
               </React.Fragment>
             );

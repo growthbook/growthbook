@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Trans } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
@@ -103,16 +104,19 @@ export default function RevisionDropdown({
         ? r.datePublished
         : r.dateUpdated;
     if (publishedOnly) {
+      const publishedDate = revDate ? dateNoYear(revDate) : "";
       return revDate ? (
         <Text size="sm" color="text-low" whiteSpace="nowrap">
-          Published: {dateNoYear(revDate)}
+          <Trans>Published: {publishedDate}</Trans>
         </Text>
       ) : null;
     }
     return r.createdBy || revDate ? (
       <Text size="sm" color="text-low" whiteSpace="nowrap">
         {r.createdBy?.type === "system" ? (
-          <em>generated</em>
+          <em>
+            <Trans>generated</Trans>
+          </em>
         ) : r.createdBy ? (
           <EventUser user={r.createdBy} display="name" />
         ) : null}
@@ -150,7 +154,7 @@ export default function RevisionDropdown({
         <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="sm" color="text-low">
-              Show ramp-generated ({generatedCount})
+              <Trans>Show ramp-generated ({generatedCount})</Trans>
             </Text>
             <Switch
               size="sm"
@@ -164,7 +168,7 @@ export default function RevisionDropdown({
         <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="sm" color="text-low">
-              Show discarded ({discardedCount})
+              <Trans>Show discarded ({discardedCount})</Trans>
             </Text>
             <Switch
               size="sm"

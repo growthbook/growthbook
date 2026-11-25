@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
 
@@ -11,8 +12,10 @@ export default function RemoteSavedGroupSetupCallout() {
       dismissible={true}
       id="remote-saved-group-setup"
     >
-      Remote Groups require additional configuration:{" "}
-      <DocLink docSection="remoteSavedGroups">View docs</DocLink>
+      <Trans>
+        Remote Groups require additional configuration:{" "}
+        <DocLink docSection="remoteSavedGroups">View docs</DocLink>
+      </Trans>
     </Callout>
   );
 }

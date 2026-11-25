@@ -1,4 +1,5 @@
 import { Environment } from "shared/types/organization";
+import { useLingui } from "@lingui/react/macro";
 import SelectField, {
   FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
@@ -20,6 +21,7 @@ export default function EnvironmentDropdown({
   placeholder?: string;
   containerClassName?: string;
 }) {
+  const { t } = useLingui();
   return (
     <SelectField
       size="legacy"
@@ -29,7 +31,7 @@ export default function EnvironmentDropdown({
       onChange={setEnv}
       options={[
         {
-          label: "Type to search",
+          label: t`Type to search`,
           options: environments.map((e) => ({
             label: e.id,
             value: e.id,

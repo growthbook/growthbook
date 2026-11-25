@@ -23,6 +23,7 @@ import { isSDKOutdated } from "shared/sdk-versioning";
 import { PiCodeBold, PiFileHtml, PiWarningCircle } from "react-icons/pi";
 import { TbCloudCode } from "react-icons/tb";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { DocSection } from "@/components/DocLink";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
@@ -56,15 +57,20 @@ export type LanguageLogo = {
   packageUrl?: string;
 };
 
-const betaBadge = (
-  <Badge
-    label="BETA"
-    color="gray"
-    variant="soft"
-    size="xs"
-    style={{ position: "absolute", top: -16, right: -12 }}
-  />
-);
+function BetaBadge() {
+  const { t } = useLingui();
+  return (
+    <Badge
+      label={t`BETA`}
+      color="gray"
+      variant="soft"
+      size="xs"
+      style={{ position: "absolute", top: -16, right: -12 }}
+    />
+  );
+}
+
+const betaBadge = <BetaBadge />;
 
 export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
   "nocode-other": {
@@ -335,6 +341,7 @@ export default function SDKLanguageLogo({
   version?: string;
   hideExtra?: boolean;
 }) {
+  const { t } = useLingui();
   const { Icon, color, label, hideVersion, extra } =
     languageMapping[language] || languageMapping["other"];
 
@@ -342,13 +349,14 @@ export default function SDKLanguageLogo({
 
   let versionText: ReactElement | null = null;
   if (version !== undefined && !hideVersion) {
+    const versionLabel = version || "0";
     versionText = (
       <Text size="inherit" whiteSpace="nowrap">
         <Text size="sm" color="text-mid" ml="2">
-          ver. {version || "0"}
+          <Trans>ver. {versionLabel}</Trans>
         </Text>
         {versionOutdated && (
-          <Tooltip content="A new SDK version may be available">
+          <Tooltip content={t`A new SDK version may be available`}>
             <Box
               as="span"
               display="inline-block"
@@ -356,7 +364,7 @@ export default function SDKLanguageLogo({
               top={showLabel ? "-2px" : undefined}
               left={showLabel ? "2px" : "4px"}
               tabIndex={0}
-              aria-label="A new SDK version may be available"
+              aria-label={t`A new SDK version may be available`}
             >
               <PiWarningCircle color="var(--amber-11)" />
             </Box>

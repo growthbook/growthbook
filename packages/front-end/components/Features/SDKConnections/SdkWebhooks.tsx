@@ -23,6 +23,9 @@ import {
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
@@ -65,13 +68,13 @@ import SectionFrame from "@/components/SectionFrame";
 import WebhookErrorDetails from "./WebhookErrorDetails";
 
 // As the webhook editor names them; the review diff shows them too.
-export const PAYLOAD_FORMAT_LABELS: Record<string, string> = {
-  standard: "Standard",
-  "standard-no-payload": "Standard (no SDK Payload)",
-  sdkPayload: "SDK Payload only",
-  edgeConfig: "Vercel Edge Config (stringified payload)",
-  edgeConfigUnescaped: "Vercel Edge Config",
-  none: "None",
+export const PAYLOAD_FORMAT_LABELS: Record<string, MessageDescriptor> = {
+  standard: msg`Standard`,
+  "standard-no-payload": msg`Standard (no SDK Payload)`,
+  sdkPayload: msg`SDK Payload only`,
+  edgeConfig: msg`Vercel Edge Config (stringified payload)`,
+  edgeConfigUnescaped: msg`Vercel Edge Config`,
+  none: msg`None`,
 };
 
 // Rows predating `httpMethod` default to POST, and a default timeout is
@@ -101,6 +104,7 @@ export default function SdkWebhooks({
   // Reloads the connection and its revisions after a change lands.
   refresh: () => Promise<unknown>;
 } & SdkConnectionRevisionProps) {
+  const { t, i18n } = useLingui();
   const { selectedRevision, openRevisions, allRevisions } = revisionProps;
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
@@ -218,6 +222,8 @@ export default function SdkWebhooks({
     lockedDraft ||
     (keepsWebhook && !hasCommercialFeature("multiple-sdk-webhooks"));
 
+  const deleteWebhookName = deleteWebhook?.name ?? "";
+
   const reload = () => Promise.all([mutate(), refresh()]);
   const flow = useSdkConnectionRevisionFlow({
     connection,
@@ -242,7 +248,7 @@ export default function SdkWebhooks({
       approvalRequired={flow.approvalRequired}
     />
   );
-  const draftCta = flow.mode === "publish" ? undefined : "Save to draft";
+  const draftCta = flow.mode === "publish" ? undefined : t`Save to draft`;
 
   // `from` is the list the change was made to. The server refuses the save
   // if a webhook was added or removed since, which this list would undo.
@@ -278,7 +284,7 @@ export default function SdkWebhooks({
     const snapshots = currentWebhookSnapshots();
     if (!snapshots.some((s) => s.id === id)) {
       throw new Error(
-        "This webhook isn't in the version you're saving to. Pick another one above.",
+        t`This webhook isn't in the version you're saving to. Pick another one above.`,
       );
     }
     return snapshots;
@@ -354,6 +360,7 @@ export default function SdkWebhooks({
 
   const renderStatus = (live: WebhookInterface | undefined) => {
     if (live?.disabled || live?.error) {
+      const consecutiveFailures = live.consecutiveFailures;
       return (
         <Popover
           openOnHover
@@ -364,7 +371,7 @@ export default function SdkWebhooks({
               label={
                 <>
                   <PiWarningFill />
-                  {live.disabled ? "Disabled" : "Error"}
+                  {live.disabled ? t`Disabled` : t`Error`}
                 </>
               }
               color="red"
@@ -376,8 +383,9 @@ export default function SdkWebhooks({
             <Flex direction="column" gap="2">
               {live.disabled ? (
                 <Text weight="semibold">
-                  Disabled after {live.consecutiveFailures} consecutive
-                  failures.
+                  <Trans>
+                    Disabled after {consecutiveFailures} consecutive failures.
+                  </Trans>
                 </Text>
               ) : null}
               {live.error ? <WebhookErrorDetails error={live.error} /> : null}
@@ -400,13 +408,15 @@ export default function SdkWebhooks({
         />
       );
     }
-    return <Badge label="Never fired" color="gray" variant="soft" />;
+    return <Badge label={t`Never fired`} color="gray" variant="soft" />;
   };
 
   const renderTableRows = () => {
     return rows.map(({ snapshot, live, staged }) => {
       // History rows have no live row and snapshots drop `managedBy`, so take
       // it from the live webhook, or from the connection when it's managed.
+      const payloadFormatLabel =
+        PAYLOAD_FORMAT_LABELS[snapshot.payloadFormat ?? "standard"];
       const managedBy = pastRevision
         ? (liveById.get(snapshot.id)?.managedBy?.type ??
           connection.managedBy?.type)
@@ -416,20 +426,21 @@ export default function SdkWebhooks({
         !draftWebhookSnapshots || draftIds.has(snapshot.id)
           ? undefined
           : staged === "removed"
-            ? "Removed in this draft."
-            : "Added after this draft was created. Switch to the live version to change it.";
+            ? t`Removed in this draft.`
+            : t`Added after this draft was created. Switch to the live version to change it.`;
       // Headers are withheld from someone who can't edit every connection
       // the webhook fires for, and an edit would save over them.
       const editBlockedReason =
         notInDraftReason ??
         (live?.signingKey === ""
-          ? "This webhook also fires for SDK Connections you can't edit. Someone with access to all of them can change it."
+          ? t`This webhook also fires for SDK Connections you can't edit. Someone with access to all of them can change it.`
           : undefined);
       const hidden = (
         <Text color="text-mid" fontStyle="italic">
-          hidden
+          <Trans>hidden</Trans>
         </Text>
       );
+      const managedByLabel = managedBy ? capitalizeFirstLetter(managedBy) : "";
       return (
         <TableRow key={snapshot.id} align="start">
           <TableCell minWidth="150px">
@@ -441,9 +452,7 @@ export default function SdkWebhooks({
                 {staged ? <DraftChangeMark change={staged} spelled /> : null}
               </Flex>
               {managedBy ? (
-                <Badge
-                  label={`Managed by ${capitalizeFirstLetter(managedBy)}`}
-                />
+                <Badge label={t`Managed by ${managedByLabel}`} />
               ) : null}
             </Flex>
           </TableCell>
@@ -464,7 +473,7 @@ export default function SdkWebhooks({
               hidden
             ) : (
               <Text size="sm">
-                {PAYLOAD_FORMAT_LABELS[snapshot.payloadFormat ?? "standard"]}
+                {payloadFormatLabel ? i18n._(payloadFormatLabel) : null}
               </Text>
             )}
           </TableCell>
@@ -487,7 +496,7 @@ export default function SdkWebhooks({
                 variant="soft"
                 trigger={
                   <MoreMenuTrigger
-                    label="Webhook actions"
+                    label={t`Webhook actions`}
                     // Centred on the row's first line of text: (28 - 20) / 2.
                     style={{ marginBlock: -4 }}
                   />
@@ -503,7 +512,7 @@ export default function SdkWebhooks({
                       mutate();
                     }}
                   >
-                    Test
+                    <Trans>Test</Trans>
                   </DropdownMenuItem>
                 ) : null}
                 {!managedBy && canUpdateWebhook ? (
@@ -524,7 +533,7 @@ export default function SdkWebhooks({
                       });
                     }}
                   >
-                    Edit
+                    <Trans>Edit</Trans>
                   </DropdownMenuItem>
                 ) : null}
                 {!managedBy && canDeleteWebhook ? (
@@ -537,7 +546,7 @@ export default function SdkWebhooks({
                       setDeleteWebhook(snapshot);
                     }}
                   >
-                    Delete
+                    <Trans>Delete</Trans>
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenu>
@@ -551,16 +560,16 @@ export default function SdkWebhooks({
   return (
     <>
       <SectionFrame
-        title="SDK Webhooks"
+        title={t`SDK Webhooks`}
         actions={
           canCreateWebhooks ? (
             <Tooltip
               content={
                 pastRevision
-                  ? "Switch to live or a draft to change webhooks."
+                  ? t`Switch to live or a draft to change webhooks.`
                   : lockedDraft
                     ? SCHEDULE_EDIT_LOCK_REASON
-                    : "You can only have one webhook per SDK Connection in the free plan"
+                    : t`You can only have one webhook per SDK Connection in the free plan`
               }
               enabled={disableWebhookCreate && webhooksLoaded}
             >
@@ -572,7 +581,7 @@ export default function SdkWebhooks({
                 }}
                 icon={<PiPlusBold />}
               >
-                Add webhook
+                <Trans>Add webhook</Trans>
               </Button>
             </Tooltip>
           ) : null
@@ -587,13 +596,23 @@ export default function SdkWebhooks({
           >
             <TableHeader>
               <TableRow>
-                <TableColumnHeader>Webhook</TableColumnHeader>
-                <TableColumnHeader>Endpoint</TableColumnHeader>
-                <TableColumnHeader>Method</TableColumnHeader>
-                <TableColumnHeader width="130px">Format</TableColumnHeader>
-                <TableColumnHeader>Shared secret</TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Webhook</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Endpoint</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Method</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader width="130px">
+                  <Trans>Format</Trans>
+                </TableColumnHeader>
+                <TableColumnHeader>
+                  <Trans>Shared secret</Trans>
+                </TableColumnHeader>
                 <TableColumnHeader width="125px">
-                  Last success
+                  <Trans>Last success</Trans>
                 </TableColumnHeader>
                 <TableColumnHeader width="35px" />
               </TableRow>
@@ -606,15 +625,15 @@ export default function SdkWebhooks({
               icon={<PiWebhooksLogo size={20} />}
               title={
                 pastRevision
-                  ? "No webhooks in this revision"
-                  : "No webhooks yet"
+                  ? t`No webhooks in this revision`
+                  : t`No webhooks yet`
               }
               description={
-                <>
+                <Trans>
                   Webhooks fire on any change affecting this SDK Connection,
                   such as editing a feature or experiment.{" "}
                   <DocLink docSection="sdkWebhooks">Learn more</DocLink>
-                </>
+                </Trans>
               }
             />
           </Box>
@@ -645,10 +664,10 @@ export default function SdkWebhooks({
         <ModalStandard
           open={true}
           trackingEventModalType=""
-          header="Delete SDK Webhook"
+          header={t`Delete SDK Webhook`}
           size="md"
           close={() => setDeleteWebhook(null)}
-          cta={draftCta ?? "Delete"}
+          cta={draftCta ?? t`Delete`}
           ctaColor={flow.mode === "publish" ? "red" : "violet"}
           submit={() => handleDeleteViaRevision(deleteWebhook.id)}
         >
@@ -656,8 +675,8 @@ export default function SdkWebhooks({
             {destination}
             <Text>
               {flow.mode === "publish"
-                ? `"${deleteWebhook.name}" stops firing as soon as it's deleted.`
-                : `"${deleteWebhook.name}" keeps firing until the draft is published.`}
+                ? t`"${deleteWebhookName}" stops firing as soon as it's deleted.`
+                : t`"${deleteWebhookName}" keeps firing until the draft is published.`}
             </Text>
           </Flex>
         </ModalStandard>

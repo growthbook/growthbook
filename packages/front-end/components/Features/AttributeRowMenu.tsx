@@ -2,6 +2,7 @@ import React, { FC, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
 import { SDKAttribute } from "shared/types/organization";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -22,16 +23,31 @@ function AutoSyncedIdentifierWarning({
   undo,
 }: {
   attribute: SDKAttribute;
-  undo: string;
+  undo: "convert" | "unarchive";
 }) {
+  const { i18n } = useLingui();
   const { datasources } = useDefinitions();
   const affected = datasources.filter(syncsIdentifiersAutomatically);
   if (!attribute.hashAttribute || affected.length === 0) return null;
+  const datasourceNames = new Intl.ListFormat(i18n.locale).format(
+    affected.map((d) => d.name),
+  );
+  const property = attribute.property;
   return (
     <Callout status="warning" mt="3">
-      {new Intl.ListFormat("en").format(affected.map((d) => d.name))} will stop
-      using <code>{attribute.property}</code> as an identifier type, so
-      experiments assigned on it can&apos;t be analyzed there until you {undo}.
+      {undo === "convert" ? (
+        <Trans>
+          {datasourceNames} will stop using <code>{property}</code> as an
+          identifier type, so experiments assigned on it can&apos;t be analyzed
+          there until you convert it back.
+        </Trans>
+      ) : (
+        <Trans>
+          {datasourceNames} will stop using <code>{property}</code> as an
+          identifier type, so experiments assigned on it can&apos;t be analyzed
+          there until you unarchive it.
+        </Trans>
+      )}
     </Callout>
   );
 }
@@ -41,8 +57,10 @@ export function ConvertToAttributeItem({
 }: {
   attribute: SDKAttribute;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
+  const property = attribute.property;
   return (
     <DropdownMenuItem
       confirmation={{
@@ -57,24 +75,23 @@ export function ConvertToAttributeItem({
           });
           refreshOrganization();
         },
-        confirmationTitle: "Convert to Attribute",
-        cta: "Convert",
+        confirmationTitle: t`Convert to Attribute`,
+        cta: t`Convert`,
         ctaColor: "violet",
         getConfirmationContent: async () => (
           <>
-            <code>{attribute.property}</code> will no longer be offered for
-            assigning users in new experiments and percentage rollouts.
-            Experiments and rules that already use it will continue working, and
-            it stays available for targeting.
-            <AutoSyncedIdentifierWarning
-              attribute={attribute}
-              undo="convert it back"
-            />
+            <Trans>
+              <code>{property}</code> will no longer be offered for assigning
+              users in new experiments and percentage rollouts. Experiments and
+              rules that already use it will continue working, and it stays
+              available for targeting.
+            </Trans>
+            <AutoSyncedIdentifierWarning attribute={attribute} undo="convert" />
           </>
         ),
       }}
     >
-      Convert to Attribute
+      <Trans>Convert to Attribute</Trans>
     </DropdownMenuItem>
   );
 }
@@ -88,6 +105,7 @@ export function ArchiveAttributeItem({
   attribute: SDKAttribute;
   onDone: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const setArchived = async (archived: boolean) => {
@@ -107,37 +125,45 @@ export function ArchiveAttributeItem({
   if (attribute.archived) {
     return (
       <DropdownMenuItem onClick={() => setArchived(false)}>
-        Unarchive
+        <Trans>Unarchive</Trans>
       </DropdownMenuItem>
     );
   }
+  const property = attribute.property;
   return (
     <DropdownMenuItem
       confirmation={{
         submit: () => setArchived(true),
         confirmationTitle: attribute.hashAttribute
-          ? "Archive Identifier"
-          : "Archive Attribute",
-        cta: "Archive",
+          ? t`Archive Identifier`
+          : t`Archive Attribute`,
+        cta: t`Archive`,
         ctaColor: "violet",
         getConfirmationContent: async () => (
           <>
-            <code>{attribute.property}</code> will be hidden when creating or
-            editing{" "}
-            {attribute.hashAttribute
-              ? "experiments and targeting rules. Experiments and rules"
-              : "targeting rules. Rules"}{" "}
-            that already use it will continue working, and you can unarchive it
-            any time.
+            {attribute.hashAttribute ? (
+              <Trans>
+                <code>{property}</code> will be hidden when creating or editing
+                experiments and targeting rules. Experiments and rules that
+                already use it will continue working, and you can unarchive it
+                any time.
+              </Trans>
+            ) : (
+              <Trans>
+                <code>{property}</code> will be hidden when creating or editing
+                targeting rules. Rules that already use it will continue
+                working, and you can unarchive it any time.
+              </Trans>
+            )}
             <AutoSyncedIdentifierWarning
               attribute={attribute}
-              undo="unarchive it"
+              undo="unarchive"
             />
           </>
         ),
       }}
     >
-      Archive
+      <Trans>Archive</Trans>
     </DropdownMenuItem>
   );
 }
@@ -147,12 +173,16 @@ const AttributeRowMenu: FC<{
   onEdit: () => void;
   onConvertToIdentifier?: () => void;
 }> = ({ attribute, onEdit, onConvertToIdentifier }) => {
+  const { t } = useLingui();
   const [menuOpen, setMenuOpen] = useState(false);
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   if (!permissionsUtil.canCreateAttribute(attribute)) return null;
+
+  const property = attribute.property;
+  const datatype = attribute.datatype;
 
   return (
     <DropdownMenu
@@ -163,7 +193,7 @@ const AttributeRowMenu: FC<{
           radius="full"
           size="2"
           highContrast
-          aria-label={`Actions for attribute ${attribute.property}`}
+          aria-label={t`Actions for attribute ${property}`}
         >
           <PiDotsThreeVertical size={18} />
         </IconButton>
@@ -180,7 +210,7 @@ const AttributeRowMenu: FC<{
             setMenuOpen(false);
           }}
         >
-          Edit
+          <Trans>Edit</Trans>
         </DropdownMenuItem>
       )}
       {!attribute.archived &&
@@ -193,7 +223,7 @@ const AttributeRowMenu: FC<{
               setMenuOpen(false);
             }}
           >
-            Convert to Identifier
+            <Trans>Convert to Identifier</Trans>
           </DropdownMenuItem>
         )}
       {!attribute.archived && attribute.hashAttribute && (
@@ -214,21 +244,29 @@ const AttributeRowMenu: FC<{
             });
             refreshOrganization();
           },
-          confirmationTitle: "Delete Attribute",
-          cta: "Delete",
+          confirmationTitle: t`Delete Attribute`,
+          cta: t`Delete`,
           ctaColor: "red",
           getConfirmationContent: async () => (
             <>
-              Are you sure you want to delete the{" "}
-              {attribute.hashAttribute ? "identifier " : ""}
-              {attribute.datatype} attribute: <code>{attribute.property}</code>?
+              {attribute.hashAttribute ? (
+                <Trans>
+                  Are you sure you want to delete the identifier {datatype}{" "}
+                  attribute: <code>{property}</code>?
+                </Trans>
+              ) : (
+                <Trans>
+                  Are you sure you want to delete the {datatype} attribute:{" "}
+                  <code>{property}</code>?
+                </Trans>
+              )}
               <br />
-              This action cannot be undone.
+              <Trans>This action cannot be undone.</Trans>
             </>
           ),
         }}
       >
-        Delete
+        <Trans>Delete</Trans>
       </DropdownMenuItem>
     </DropdownMenu>
   );

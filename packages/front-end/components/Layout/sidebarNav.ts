@@ -1,5 +1,7 @@
 import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
 import { PiShieldCheck } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import {
   GBDatabase,
   GBExperiment,
@@ -13,14 +15,14 @@ import styles from "./Layout.module.scss";
 
 export const navlinks: SidebarLinkProps[] = [
   {
-    name: "Home",
+    name: msg`Home`,
     href: "/",
     Icon: BsHouse,
     path: /^$/,
     className: styles.first,
   },
   {
-    name: "Features",
+    name: msg`Features`,
     href: "/features",
     Icon: BsFlag,
     path: /^(features|constants|configs)/,
@@ -29,42 +31,42 @@ export const navlinks: SidebarLinkProps[] = [
     navigateOnExpand: true,
     subLinks: [
       {
-        name: "Feature Flags",
+        name: msg`Feature Flags`,
         href: "/features",
         path: /^features/,
       },
       {
-        name: "Configs",
+        name: msg`Configs`,
         href: "/configs",
         path: /^configs/,
         beta: true,
       },
       {
-        name: "Constants",
+        name: msg`Constants`,
         href: "/constants",
         path: /^constants/,
       },
     ],
   },
   {
-    name: "Experimentation",
+    name: msg`Experimentation`,
     href: "/experiments",
     path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
       {
-        name: "Experiments",
+        name: msg`Experiments`,
         href: "/experiments",
         path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
       },
       {
-        name: "Bandits",
+        name: msg`Bandits`,
         href: "/bandits",
         path: /^bandits?($|\/)/,
       },
       {
-        name: "Contextual Bandits",
+        name: msg`Contextual Bandits`,
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
         // Default ON; the remote flag only turns this off for specific orgs.
@@ -72,29 +74,29 @@ export const navlinks: SidebarLinkProps[] = [
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
-        name: "Interleaving",
+        name: msg`Interleaving`,
         href: "/interleavings",
         path: /^interleavings?($|\/)/,
         filter: ({ gb }) => isInterleavingEnabled(gb),
         beta: true,
       },
       {
-        name: "Holdouts",
+        name: msg`Holdouts`,
         href: "/holdouts",
         path: /^holdouts/,
       },
       {
-        name: "Templates",
+        name: msg`Templates`,
         href: "/experiments/templates",
         path: /^experiments\/templates/,
       },
       {
-        name: "Power Calculator",
+        name: msg`Power Calculator`,
         href: "/power-calculator",
         path: /^power-calculator/,
       },
       {
-        name: "Namespaces",
+        name: msg`Namespaces`,
         href: "/namespaces",
         path: /^namespaces/,
       },
@@ -106,39 +108,39 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Product Analytics",
+    name: msg`Product Analytics`,
     href: "/product-analytics/explore",
     path: /^(product-analytics|sql-explorer|session-replay)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
-        name: "Explore",
+        name: msg`Explore`,
         href: "/product-analytics/explore",
         path: /^product-analytics\/explore(\/(?!funnel|journey|sql).*)?$/,
       },
       {
-        name: "Funnels",
+        name: msg`Funnels`,
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
       },
       {
-        name: "User Journeys",
+        name: msg`User Journeys`,
         href: "/product-analytics/explore/journey",
         path: /^product-analytics\/explore\/journey/,
         beta: true,
       },
       {
-        name: "SQL Explorer",
+        name: msg`SQL Explorer`,
         href: "/product-analytics/explore/sql",
         path: /^product-analytics\/explore\/sql/,
       },
       {
-        name: "Dashboards",
+        name: msg`Dashboards`,
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
       },
       {
-        name: "Session Replay",
+        name: msg`Session Replay`,
         href: "/session-replay",
         path: /^session-replay/,
         beta: true,
@@ -147,64 +149,64 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Metrics and Data",
+    name: msg`Metrics and Data`,
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|populations)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
-        name: "Metrics",
+        name: msg`Metrics`,
         href: "/metrics",
         path: /^(metric\/|metrics|fact-metric|metric-group)/,
       },
       {
-        name: "Fact Tables",
+        name: msg`Fact Tables`,
         href: "/fact-tables",
         path: /^fact-tables/,
       },
       {
-        name: "Populations",
+        name: msg`Populations`,
         href: "/populations",
         path: /^populations/,
         filter: ({ gb }) => !!gb?.isOn("populations"),
       },
       {
-        name: "Segments",
+        name: msg`Segments`,
         href: "/segments",
         path: /^segment/,
         filter: ({ segments }) => segments.length > 0,
       },
       {
-        name: "Dimensions",
+        name: msg`Dimensions`,
         href: "/dimensions",
         path: /^dimension/,
       },
       {
-        name: "Data Sources",
+        name: msg`Data Sources`,
         href: "/datasources",
         path: /^datasources/,
       },
     ],
   },
   {
-    name: "Insights",
+    name: msg`Insights`,
     href: "/dashboard",
     Icon: GBLibrary,
     path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
-        name: "Dashboard",
+        name: msg`Dashboard`,
         href: "/dashboard",
         path: /^dashboard/,
       },
       {
-        name: "Learnings",
+        name: msg`Learnings`,
         href: "/learnings",
         path: /^learnings/,
       },
       {
-        name: "Timeline",
+        name: msg`Timeline`,
         href: "/timeline",
         path: /^(timeline)/,
       },
@@ -214,63 +216,63 @@ export const navlinks: SidebarLinkProps[] = [
       //   path: /^(interaction)/,
       // },
       {
-        name: "Metric Effects",
+        name: msg`Metric Effects`,
         href: "/metric-effects",
         path: /^(metric-effect)/,
       },
       {
-        name: "Metric Correlations",
+        name: msg`Metric Correlations`,
         href: "/correlations",
         path: /^(correlations)/,
       },
       {
-        name: "Presentations",
+        name: msg`Presentations`,
         href: "/presentations",
         path: /^presentation/,
       },
     ],
   },
   {
-    name: "SDK Configuration",
+    name: msg`SDK Configuration`,
     href: "/sdks",
     path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
       {
-        name: "SDK Connections",
+        name: msg`SDK Connections`,
         href: "/sdks",
         path: /^sdks/,
       },
       {
-        name: "Attributes",
+        name: msg`Attributes`,
         href: "/attributes",
         path: /^attributes/,
       },
       {
-        name: "Environments",
+        name: msg`Environments`,
         href: "/environments",
         path: /^environments/,
       },
       {
-        name: "Saved Groups",
+        name: msg`Saved Groups`,
         href: "/saved-groups",
         path: /^saved-groups/,
       },
       {
-        name: "Archetypes",
+        name: msg`Archetypes`,
         href: "/archetypes",
         path: /^archetypes/,
       },
       {
-        name: "Exposures Debugger",
+        name: msg`Exposures Debugger`,
         href: "/exposure-debugger",
         path: /^exposure-debugger/,
       },
     ],
   },
   {
-    name: "Settings",
+    name: msg`Settings`,
     href: "/settings",
     Icon: GBSettings,
     path: /^(settings|projects?|integrations|events|importing)/,
@@ -278,27 +280,27 @@ export const navlinks: SidebarLinkProps[] = [
     hideSubLinks: true,
     subLinks: [
       {
-        name: "General",
+        name: msg`General`,
         href: "/settings",
         path: /^settings$/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageOrgSettings(),
       },
       {
-        name: "Projects",
+        name: msg`Projects`,
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canViewProjectsPage(),
       },
       {
-        name: "Members",
+        name: msg`Members`,
         href: "/settings/team",
         path: /^settings\/team/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
       },
       {
-        name: "Tags",
+        name: msg`Tags`,
         href: "/settings/tags",
         path: /^settings\/tags/,
         filter: ({ permissionsUtils }) =>
@@ -306,18 +308,18 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteTag(),
       },
       {
-        name: "Custom Fields",
+        name: msg`Custom Fields`,
         href: "/settings/customfields",
         path: /^settings\/customfields/,
       },
       {
-        name: "API Keys",
+        name: msg`API Keys`,
         href: "/settings/keys",
         path: /^settings\/keys/,
         filter: ({ permissionsUtils }) => permissionsUtils.canViewApiKeys(),
       },
       {
-        name: "Manage PATs",
+        name: msg`Manage PATs`,
         href: "/settings/personal-access-tokens",
         path: /^settings\/personal-access-tokens/,
         filter: ({ permissionsUtils }) =>
@@ -325,20 +327,20 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManagePersonalAccessTokens(),
       },
       {
-        name: "Webhooks",
+        name: msg`Webhooks`,
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageSomeEventWebhooks(),
       },
       {
-        name: "Events Log",
+        name: msg`Events Log`,
         href: "/events",
         path: /^events/,
         filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
       },
       {
-        name: "Slack",
+        name: msg`Slack`,
         href: "/integrations/slack",
         path: /^integrations\/slack/,
         filter: ({ permissionsUtils }) =>
@@ -346,7 +348,7 @@ export const navlinks: SidebarLinkProps[] = [
       },
       {
         // The importer lives in General; this reaches it for roles that can't see General.
-        name: "Import Your Data",
+        name: msg`Import Your Data`,
         href: "/importing",
         path: /^importing/,
         filter: ({ permissionsUtils }) =>
@@ -359,21 +361,21 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canCreateProjects(),
       },
       {
-        name: "Usage",
+        name: msg`Usage`,
         href: "/settings/usage",
         path: /^settings\/usage/,
         filter: ({ permissionsUtils, isCloud }) =>
           permissionsUtils.canViewUsage() && isCloud,
       },
       {
-        name: "Custom Hooks",
+        name: msg`Custom Hooks`,
         href: "/settings/custom-hooks",
         path: /^settings\/custom-hooks/,
         filter: ({ permissionsUtils, isCloud }) =>
           !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
       },
       {
-        name: "Billing",
+        name: msg`Billing`,
         href: "/settings/billing",
         path: /^settings\/billing/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
@@ -381,7 +383,7 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Admin",
+    name: msg`Admin`,
     href: "/admin",
     Icon: PiShieldCheck,
     path: /^admin/,
@@ -389,17 +391,17 @@ export const navlinks: SidebarLinkProps[] = [
   },
 ];
 
-export const settingsNavLink = navlinks.find((l) => l.name === "Settings")!;
+export const settingsNavLink = navlinks.find((l) => l.href === "/settings")!;
 
 export function isSettingsRoute(route: string): boolean {
   return settingsNavLink.path.test(route.replace(/^\//, ""));
 }
 
 export type FlatNavItem = {
-  name: string;
+  name: MessageDescriptor;
   href: string;
   /** Top-level section label when this row is a child link */
-  parentName?: string;
+  parentName?: MessageDescriptor;
 };
 
 /**

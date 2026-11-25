@@ -1,6 +1,9 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -10,14 +13,15 @@ import SDKLanguageLogo, {
   LanguageFilter,
 } from "./SDKLanguageLogo";
 
-export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, string> = {
-  popular: "Popular",
-  all: "All",
-  browser: "Browser",
-  server: "Server",
-  mobile: "Mobile",
-  edge: "Edge",
-};
+export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, MessageDescriptor> =
+  {
+    popular: msg`Popular`,
+    all: msg`All`,
+    browser: msg`Browser`,
+    server: msg`Server`,
+    mobile: msg`Mobile`,
+    edge: msg`Edge`,
+  };
 
 export function SDKLanguageOption({
   language,
@@ -62,6 +66,7 @@ export default function SDKLanguageSelector({
   languageFilter?: LanguageFilter;
   setLanguageFilter?: (l: LanguageFilter) => void;
 }) {
+  const { t, i18n } = useLingui();
   const useTabs = !!setLanguageFilter;
 
   let selected = new Set(value);
@@ -146,7 +151,7 @@ export default function SDKLanguageSelector({
                 <span
                   className={tab === languageFilter ? "text-main" : undefined}
                 >
-                  {LANGUAGE_FILTER_LABELS[tab]}
+                  {i18n._(LANGUAGE_FILTER_LABELS[tab as LanguageFilter])}
                 </span>
               </TabsTrigger>
             ))}
@@ -172,14 +177,14 @@ export default function SDKLanguageSelector({
   }
 
   const groups: { label: string; languages: SDKLanguage[] }[] = [
-    { label: "Back-end", languages: backEnd },
-    { label: "Front-end", languages: frontEnd },
-    { label: "Mobile", languages: mobile },
-    { label: "Edge", languages: edge },
-    { label: "No/Low Code Platform", languages: nocode },
+    { label: t`Back-end`, languages: backEnd },
+    { label: t`Front-end`, languages: frontEnd },
+    { label: t`Mobile`, languages: mobile },
+    { label: t`Edge`, languages: edge },
+    { label: t`No/Low Code Platform`, languages: nocode },
   ];
   if (includeOther && (!limitLanguages || limitLanguages.includes("other"))) {
-    groups.push({ label: "Other", languages: ["other"] });
+    groups.push({ label: t`Other`, languages: ["other"] });
   }
 
   return (
@@ -209,7 +214,9 @@ export default function SDKLanguageSelector({
         // Level with the tiles beside it, which are as tall as an lg button.
         <Box mb="1" style={{ alignSelf: "flex-end" }}>
           <Flex align="center" height="40px" mb="4">
-            <Link onClick={() => setIncludeAll(true)}>Show all languages</Link>
+            <Link onClick={() => setIncludeAll(true)}>
+              <Trans>Show all languages</Trans>
+            </Link>
           </Flex>
         </Box>
       )}

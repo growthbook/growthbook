@@ -6,6 +6,9 @@ import {
 } from "shared/types/sdk-connection";
 import type { AppFeatures } from "shared/types/app-features";
 import { Box, Flex } from "@radix-ui/themes";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -34,11 +37,18 @@ import {
   SETTING_TITLES,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
-function Category({ title, children }: { title: string; children: ReactNode }) {
+function Category({
+  title,
+  children,
+}: {
+  title: MessageDescriptor;
+  children: ReactNode;
+}) {
+  const { i18n } = useLingui();
   return (
     <Box>
       <Heading as="h4" size="sm" mb="3">
-        {title}
+        {i18n._(title)}
       </Heading>
       <Flex direction="column" gap="2">
         {children}
@@ -108,12 +118,13 @@ export function ExperimentSettings({
 }
 
 export function MetadataSettings({ value, onChange, disabled }: GroupProps) {
+  const { t, i18n } = useLingui();
   const customFields = useCustomFields();
   return (
     <>
       {/* As a field's label above its control. */}
       <Text as="div" size="md" weight="semibold">
-        {SETTING_TITLES.includeMetadata}
+        {i18n._(SETTING_TITLES.includeMetadata)}
       </Text>
       <Checkbox
         weight="regular"
@@ -140,7 +151,7 @@ export function MetadataSettings({ value, onChange, disabled }: GroupProps) {
             <MultiSelectField
               size="md"
               disabled={disabled}
-              placeholder="No fields included"
+              placeholder={t`No fields included`}
               value={value.allowedCustomFieldsInMetadata}
               onChange={(fields) =>
                 onChange({ allowedCustomFieldsInMetadata: fields })
@@ -180,6 +191,7 @@ export function ObservabilitySettings({
   languages,
   sdkVersion,
 }: GroupProps & { languages: SDKLanguage[]; sdkVersion?: string }) {
+  const { i18n } = useLingui();
   const { showVisualEditor, showRedirects } = useCapabilities(
     languages,
     sdkVersion,
@@ -189,7 +201,7 @@ export function ObservabilitySettings({
       <Checkbox
         weight="regular"
         disabled={disabled}
-        label={SETTING_TITLES.ruleIds}
+        label={i18n._(SETTING_TITLES.ruleIds)}
         value={value.includeRuleIds}
         setValue={(v) => onChange({ includeRuleIds: v })}
       />
@@ -213,7 +225,7 @@ export function ObservabilitySettings({
   );
 }
 
-export const TRACES_TITLE = "Accept traces";
+export const TRACES_TITLE = msg`Accept traces`;
 
 // Shown while its flag is on, or wherever traces are already accepted.
 export function useShowTraces(
@@ -225,14 +237,15 @@ export function useShowTraces(
 }
 
 export function TracesSettings({ value, onChange, disabled }: GroupProps) {
+  const { t, i18n } = useLingui();
   return (
     <Checkbox
       weight="regular"
       disabled={disabled}
       value={value.tracesEnabled}
       setValue={(v) => onChange({ tracesEnabled: v })}
-      label={TRACES_TITLE}
-      description="Lets OpenTelemetry exporters send traces to GrowthBook with this connection's client key. Client keys aren't secret, so anyone with this one can send traces."
+      label={i18n._(TRACES_TITLE)}
+      description={t`Lets OpenTelemetry exporters send traces to GrowthBook with this connection's client key. Client keys aren't secret, so anyone with this one can send traces.`}
     />
   );
 }
@@ -241,9 +254,10 @@ export function TracesSettings({ value, onChange, disabled }: GroupProps) {
 export function proxyHostError({
   proxyEnabled,
   proxyHost,
-}: Pick<SDKConnectionAdvancedValue, "proxyEnabled" | "proxyHost">):
-  | string
-  | null {
+}: Pick<
+  SDKConnectionAdvancedValue,
+  "proxyEnabled" | "proxyHost"
+>): MessageDescriptor | null {
   if (!proxyEnabled || !proxyHost) return null;
   try {
     const { protocol } = new URL(proxyHost);
@@ -251,18 +265,20 @@ export function proxyHostError({
   } catch {
     // Not a URL.
   }
-  return "Enter a valid http:// or https:// URL";
+  return msg`Enter a valid http:// or https:// URL`;
 }
 
 // Self-hosted configures the proxy via env vars, so this is cloud-only.
 export function ProxySettings({ value, onChange, disabled }: GroupProps) {
+  const { i18n } = useLingui();
   const proxyHostId = useId();
+  const hostError = proxyHostError(value);
   return (
     <>
       <Checkbox
         weight="regular"
         disabled={disabled}
-        label={SETTING_TITLES.useProxy}
+        label={i18n._(SETTING_TITLES.useProxy)}
         value={value.proxyEnabled}
         setValue={(v) => onChange({ proxyEnabled: v })}
       />
@@ -275,12 +291,12 @@ export function ProxySettings({ value, onChange, disabled }: GroupProps) {
           disabled={disabled}
           value={value.proxyHost}
           onChange={(e) => onChange({ proxyHost: e.target.value })}
-          error={proxyHostError(value)}
+          error={hostError ? i18n._(hostError) : null}
           label={
             <Text as="label" htmlFor={proxyHostId} weight="semibold">
-              {SETTING_TITLES.proxyHost}{" "}
+              {i18n._(SETTING_TITLES.proxyHost)}{" "}
               <Text size="sm" weight="regular" color="text-mid">
-                (optional)
+                <Trans>(optional)</Trans>
               </Text>{" "}
               <ProxyHostTooltip />
             </Text>
@@ -353,7 +369,7 @@ export default function SDKConnectionAdvancedSettings({
           </Category>
 
           {showTraces && (
-            <Category title="Traces">
+            <Category title={msg`Traces`}>
               <TracesSettings value={value} onChange={onChange} />
             </Category>
           )}

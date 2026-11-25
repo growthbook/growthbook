@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Link from "@/ui/Link";
 
@@ -59,7 +60,7 @@ export default function ExpandableBlock({
           aria-controls={contentId}
           onClick={() => setExpanded((open) => !open)}
         >
-          {expanded ? "Show less" : "Show more"}
+          {expanded ? <Trans>Show less</Trans> : <Trans>Show more</Trans>}
         </Link>
       ) : null}
     </Box>

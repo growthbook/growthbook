@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import { metricTypeValidator } from "shared/validators";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useUser } from "@/services/UserContext";
@@ -19,6 +20,7 @@ const metricTypes = metricTypeValidator.options;
 const FactMetricSearchFilters: FC<
   BaseSearchFiltersProps & { factMetrics: FactMetricInterface[] }
 > = ({ searchInputProps, syntaxFilters, factMetrics, setSearchValue }) => {
+  const { t } = useLingui();
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -62,6 +64,7 @@ const FactMetricSearchFilters: FC<
     <Flex gap="5" align="center" wrap="wrap">
       <FilterDropdown
         filter="project"
+        heading={t`project`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -72,6 +75,7 @@ const FactMetricSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
+        heading={t`owner`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -82,28 +86,30 @@ const FactMetricSearchFilters: FC<
       />
       <FilterDropdown
         filter="tag"
+        heading={t`tag`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
+        items={availableTags.map((tag) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
+            name: <Tag tag={tag} key={tag} skipMargin={true} variant="dot" />,
+            id: tag,
+            searchValue: tag,
           };
         })}
         updateQuery={updateQuery}
       />
       <FilterDropdown
         filter="type"
+        heading={t`type`}
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={metricTypes.map((t) => {
+        items={metricTypes.map((type) => {
           return {
-            name: <FactMetricTypeDisplayName type={t} />,
-            id: t,
-            searchValue: t,
+            name: <FactMetricTypeDisplayName type={type} />,
+            id: type,
+            searchValue: type,
           };
         })}
         updateQuery={updateQuery}
@@ -111,7 +117,7 @@ const FactMetricSearchFilters: FC<
 
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
+          heading: t`more`,
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
@@ -130,7 +136,7 @@ const FactMetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Official metrics"
+            item={t`Official metrics`}
             exists={doesFilterExist("is", "official", "")}
           />
         </DropdownMenuItem>
@@ -148,7 +154,7 @@ const FactMetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived metrics"
+            item={t`Archived metrics`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

@@ -4,6 +4,7 @@ import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { truncateString } from "shared/util";
+import { Trans } from "@lingui/react/macro";
 import ScrollArea from "@/ui/ScrollArea";
 
 const formatter = Intl.NumberFormat("en-US", {
@@ -109,7 +110,13 @@ export default function BarChart100({
                   ></div>
                 </td>
                 <td title={key.length > maxKeyLength ? key : ""}>
-                  {key ? truncateString(key, maxKeyLength) : <em>unknown</em>}
+                  {key ? (
+                    truncateString(key, maxKeyLength)
+                  ) : (
+                    <em>
+                      <Trans>unknown</Trans>
+                    </em>
+                  )}
                 </td>
                 <td>{formatter.format(data[key])}</td>
               </tr>

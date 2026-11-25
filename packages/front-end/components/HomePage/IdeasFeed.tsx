@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useRouter } from "next/router";
 import { IdeaInterface } from "shared/types/idea";
 import { ago } from "shared/dates";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +13,7 @@ import Callout from "@/ui/Callout";
 const IdeasFeed: FC<{
   num?: number;
 }> = ({ num = 10 }) => {
+  const { t } = useLingui();
   const { project } = useDefinitions();
   const { data, error } = useApi<{
     ideas: IdeaInterface[];
@@ -30,7 +32,11 @@ const IdeasFeed: FC<{
 
   return (
     <div className="">
-      {data.ideas.length === 0 && <span>No recent ideas</span>}
+      {data.ideas.length === 0 && (
+        <span>
+          <Trans>No recent ideas</Trans>
+        </span>
+      )}
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {data.ideas.map((idea, i) => {
           const linkUrl = "/idea/" + idea.id;
@@ -52,7 +58,7 @@ const IdeasFeed: FC<{
                   {idea.impactScore && (
                     <div
                       className="float-right purple-circle"
-                      title="Impact score"
+                      title={t`Impact score`}
                     >
                       {idea.impactScore}
                     </div>

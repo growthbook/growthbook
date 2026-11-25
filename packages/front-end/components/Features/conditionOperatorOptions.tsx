@@ -4,13 +4,26 @@
 // shortLabel === label means no override yet for that operator.
 
 import React from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 
 export type OperatorOption = {
+  // English, for the select's search.
   label: string;
   shortLabel: string;
+  // What the menu and the selected value show; no shortMessage when the
+  // shortLabel is a symbol.
+  message: MessageDescriptor;
+  shortMessage?: MessageDescriptor;
   icon?: string;
   value: string;
 };
+
+function OperatorText({ message }: { message: MessageDescriptor }) {
+  const { i18n } = useLingui();
+  return <>{i18n._(message)}</>;
+}
 
 const ICON_WIDTH = 20;
 
@@ -35,119 +48,157 @@ export function formatOperatorLabel(
         >
           {opt.icon ?? ""}
         </span>
-        {opt.label}
+        <OperatorText message={opt.message} />
       </span>
     );
   }
-  return opt.shortLabel;
+  return opt.shortMessage ? (
+    <OperatorText message={opt.shortMessage} />
+  ) : (
+    opt.shortLabel
+  );
 }
 
 // Shared single-operator definitions
 const OP_EQ: OperatorOption = {
   icon: "=",
   label: "is equal to",
+  message: msg`is equal to`,
   shortLabel: "=",
   value: "$eq",
 };
 const OP_NE: OperatorOption = {
   icon: "≠",
   label: "is not equal to",
+  message: msg`is not equal to`,
   shortLabel: "≠",
   value: "$ne",
 };
 const OP_IN: OperatorOption = {
   label: "is any of",
+  message: msg`is any of`,
   shortLabel: "is any of",
+  shortMessage: msg`is any of`,
   value: "$in",
 };
 const OP_NIN: OperatorOption = {
   label: "is none of",
+  message: msg`is none of`,
   shortLabel: "is none of",
+  shortMessage: msg`is none of`,
   value: "$nin",
 };
 const OP_GT: OperatorOption = {
   icon: ">",
   label: "is greater than",
+  message: msg`is greater than`,
   shortLabel: ">",
   value: "$gt",
 };
 const OP_GTE: OperatorOption = {
   icon: "≥",
   label: "is greater than or equal to",
+  message: msg`is greater than or equal to`,
   shortLabel: "≥",
   value: "$gte",
 };
 const OP_LT: OperatorOption = {
   icon: "<",
   label: "is less than",
+  message: msg`is less than`,
   shortLabel: "<",
   value: "$lt",
 };
 const OP_LTE: OperatorOption = {
   icon: "≤",
   label: "is less than or equal to",
+  message: msg`is less than or equal to`,
   shortLabel: "≤",
   value: "$lte",
 };
 const OP_REGEX: OperatorOption = {
   label: "matches regex",
+  message: msg`matches regex`,
   shortLabel: "regex",
+  shortMessage: msg`regex`,
   value: "$regex",
 };
 const OP_NOT_REGEX: OperatorOption = {
   label: "does not match regex",
+  message: msg`does not match regex`,
   shortLabel: "not regex",
+  shortMessage: msg`not regex`,
   value: "$notRegex",
 };
 const OP_EXISTS: OperatorOption = {
   label: "is not NULL",
+  message: msg`is not NULL`,
   shortLabel: "is not NULL",
+  shortMessage: msg`is not NULL`,
   value: "$exists",
 };
 const OP_NOT_EXISTS: OperatorOption = {
   label: "is NULL",
+  message: msg`is NULL`,
   shortLabel: "is NULL",
+  shortMessage: msg`is NULL`,
   value: "$notExists",
 };
 const OP_TRUE: OperatorOption = {
   label: "is true",
+  message: msg`is true`,
   shortLabel: "is true",
+  shortMessage: msg`is true`,
   value: "$true",
 };
 const OP_FALSE: OperatorOption = {
   label: "is false",
+  message: msg`is false`,
   shortLabel: "is false",
+  shortMessage: msg`is false`,
   value: "$false",
 };
 const OP_INCLUDES: OperatorOption = {
   label: "includes",
+  message: msg`includes`,
   shortLabel: "includes",
+  shortMessage: msg`includes`,
   value: "$includes",
 };
 const OP_NOT_INCLUDES: OperatorOption = {
   label: "does not include",
+  message: msg`does not include`,
   shortLabel: "does not include",
+  shortMessage: msg`does not include`,
   value: "$notIncludes",
 };
 const OP_EMPTY: OperatorOption = {
   label: "is empty",
+  message: msg`is empty`,
   shortLabel: "is empty",
+  shortMessage: msg`is empty`,
   value: "$empty",
 };
 const OP_NOT_EMPTY: OperatorOption = {
   label: "is not empty",
+  message: msg`is not empty`,
   shortLabel: "is not empty",
+  shortMessage: msg`is not empty`,
   value: "$notEmpty",
 };
 // Set operators for enum-constrained array attributes ($in/$nin worded for arrays)
 const OP_INCLUDES_ANY: OperatorOption = {
   label: "includes any of",
+  message: msg`includes any of`,
   shortLabel: "includes any of",
+  shortMessage: msg`includes any of`,
   value: "$in",
 };
 const OP_INCLUDES_NONE: OperatorOption = {
   label: "includes none of",
+  message: msg`includes none of`,
   shortLabel: "includes none of",
+  shortMessage: msg`includes none of`,
   value: "$nin",
 };
 
@@ -155,36 +206,42 @@ const OP_INCLUDES_NONE: OperatorOption = {
 const OP_VEQ: OperatorOption = {
   icon: "=",
   label: "is equal to",
+  message: msg`is equal to`,
   shortLabel: "=",
   value: "$veq",
 };
 const OP_VNE: OperatorOption = {
   icon: "≠",
   label: "is not equal to",
+  message: msg`is not equal to`,
   shortLabel: "≠",
   value: "$vne",
 };
 const OP_VGT: OperatorOption = {
   icon: ">",
   label: "is greater than",
+  message: msg`is greater than`,
   shortLabel: ">",
   value: "$vgt",
 };
 const OP_VGTE: OperatorOption = {
   icon: "≥",
   label: "is greater than or equal to",
+  message: msg`is greater than or equal to`,
   shortLabel: "≥",
   value: "$vgte",
 };
 const OP_VLT: OperatorOption = {
   icon: "<",
   label: "is less than",
+  message: msg`is less than`,
   shortLabel: "<",
   value: "$vlt",
 };
 const OP_VLTE: OperatorOption = {
   icon: "≤",
   label: "is less than or equal to",
+  message: msg`is less than or equal to`,
   shortLabel: "≤",
   value: "$vlte",
 };
@@ -193,49 +250,65 @@ const OP_VLTE: OperatorOption = {
 const OP_AFTER: OperatorOption = {
   icon: ">",
   label: "is after",
+  message: msg`is after`,
   shortLabel: "is after",
+  shortMessage: msg`is after`,
   value: "$gt",
 };
 const OP_AFTER_ON: OperatorOption = {
   icon: "≥",
   label: "is after or on",
+  message: msg`is after or on`,
   shortLabel: "is after or on",
+  shortMessage: msg`is after or on`,
   value: "$gte",
 };
 const OP_BEFORE: OperatorOption = {
   icon: "<",
   label: "is before",
+  message: msg`is before`,
   shortLabel: "is before",
+  shortMessage: msg`is before`,
   value: "$lt",
 };
 const OP_BEFORE_ON: OperatorOption = {
   icon: "≤",
   label: "is before or on",
+  message: msg`is before or on`,
   shortLabel: "is before or on",
+  shortMessage: msg`is before or on`,
   value: "$lte",
 };
 
 // Saved group operators
 const OP_IN_GROUP: OperatorOption = {
   label: "is in the saved group",
+  message: msg`is in the saved group`,
   shortLabel: "is in the saved group",
+  shortMessage: msg`is in the saved group`,
   value: "$inGroup",
 };
 const OP_NOT_IN_GROUP: OperatorOption = {
   label: "is not in the saved group",
+  message: msg`is not in the saved group`,
   shortLabel: "is not in the saved group",
+  shortMessage: msg`is not in the saved group`,
   value: "$notInGroup",
 };
 
 // Prerequisite "live" operators
 const OP_LIVE: OperatorOption = {
   label: "is live",
+  message: msg`is live`,
   shortLabel: "is live",
+  shortMessage: msg`is live`,
   value: "$exists",
 };
 const OP_NOT_LIVE: OperatorOption = {
   label: "is not live",
+  message: msg`is not live`,
   shortLabel: "is not live",
+  shortMessage: msg`is not live`,
   value: "$notExists",
 };
 

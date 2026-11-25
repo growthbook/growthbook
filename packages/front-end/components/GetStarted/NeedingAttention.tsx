@@ -19,6 +19,7 @@ import {
 } from "shared/enterprise";
 import { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";
 import Avatar from "@/ui/Avatar";
@@ -58,6 +59,7 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
 };
 
 const NeedingAttention = (): React.ReactElement | null => {
+  const { t } = useLingui();
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
@@ -277,17 +279,17 @@ const NeedingAttention = (): React.ReactElement | null => {
         let avatar = <PiFlag />;
         switch (type) {
           case "feature":
-            label = id || label;
+            label = id || t`Feature`;
             url = `/features/${id}`;
             avatar = <PiFlagBold />;
             break;
           case "experiment":
-            label = experiments.find((e) => e.id === id)?.name || label;
+            label = experiments.find((e) => e.id === id)?.name || t`Experiment`;
             url = `/experiment/${id}`;
             avatar = <PiFlaskBold />;
             break;
           case "datasource":
-            label = getDatasourceById(id || "")?.name || label;
+            label = getDatasourceById(id || "")?.name || t`Data Source`;
             url = `/datasources/${id}`;
             avatar = <PiDatabaseBold />;
             break;
@@ -295,7 +297,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             label =
               getMetricById(id || "")?.name ||
               getFactMetricById(id || "")?.name ||
-              label;
+              t`Metric`;
             url = `/metric/${id}`;
             avatar = <PiChartLineBold />;
             break;
@@ -314,7 +316,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     return recentFeatures.length > 0 ? (
       <Box className="recent-items-container">
         <Text size="4" weight="medium" as="div">
-          Recent
+          <Trans>Recent</Trans>
         </Text>
         <Grid
           columns={{
@@ -366,7 +368,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       <Box mt="8">
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
-            Experiments requiring attention
+            <Trans>Experiments requiring attention</Trans>
           </Text>
           <Badge
             color="blue"
@@ -380,13 +382,17 @@ const NeedingAttention = (): React.ReactElement | null => {
           <table className="table gbtable needs-attentions-table mt-3 rounded-table">
             <thead>
               <tr>
-                <SortableTHExperiments field="name">Name</SortableTHExperiments>
-                <SortableTHExperiments field="project">
-                  Project
+                <SortableTHExperiments field="name">
+                  <Trans>Name</Trans>
                 </SortableTHExperiments>
-                <SortableTHExperiments field="id">Owner</SortableTHExperiments>
+                <SortableTHExperiments field="project">
+                  <Trans>Project</Trans>
+                </SortableTHExperiments>
+                <SortableTHExperiments field="id">
+                  <Trans>Owner</Trans>
+                </SortableTHExperiments>
                 <SortableTHExperiments field="status">
-                  Status
+                  <Trans>Status</Trans>
                 </SortableTHExperiments>
               </tr>
             </thead>
@@ -424,10 +430,12 @@ const NeedingAttention = (): React.ReactElement | null => {
         ) : (
           <Box mt="3" width="100%">
             <Flex direction="column">
-              <Text>No experiments requiring attention</Text>
+              <Text>
+                <Trans>No experiments requiring attention</Trans>
+              </Text>
               <div>
                 <LinkButton href="/experiments" mt="2">
-                  View all experiments
+                  <Trans>View all experiments</Trans>
                 </LinkButton>
               </div>
             </Flex>
@@ -452,23 +460,27 @@ const NeedingAttention = (): React.ReactElement | null => {
         return (
           <Flex gap="1" align="center">
             <ExperimentDot color="green" />
-            Approved
+            <Trans>Approved</Trans>
           </Flex>
         );
       case "pending-review":
         return (
           <Flex gap="1" align="center">
             <ExperimentDot color="amber" />
-            Pending Review
+            <Trans>Pending Review</Trans>
           </Flex>
         );
       case "draft":
-        return <span className="mr-3">Draft</span>;
+        return (
+          <span className="mr-3">
+            <Trans>Draft</Trans>
+          </span>
+        );
       case "changes-requested":
         return (
           <Flex gap="1" align="center">
             <ExperimentDot color="red" />
-            Changes Requested
+            <Trans>Changes Requested</Trans>
           </Flex>
         );
       default:
@@ -489,7 +501,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       <Box mt="6">
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
-            Feature flags requiring attention
+            <Trans>Feature flags requiring attention</Trans>
           </Text>
           <Badge
             color="blue"
@@ -506,16 +518,16 @@ const NeedingAttention = (): React.ReactElement | null => {
             <thead>
               <tr>
                 <SortableTHFeatureFlags field="featureId">
-                  Feature Key
+                  <Trans>Feature Key</Trans>
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="project">
-                  Project
+                  <Trans>Project</Trans>
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="ownerNameDisplay">
-                  Owner
+                  <Trans>Owner</Trans>
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="status">
-                  Status
+                  <Trans>Status</Trans>
                 </SortableTHFeatureFlags>
               </tr>
             </thead>
@@ -549,10 +561,12 @@ const NeedingAttention = (): React.ReactElement | null => {
         ) : (
           <Box mt="3" width="100%">
             <Flex direction="column">
-              <Text>No feature flags requiring attention</Text>
+              <Text>
+                <Trans>No feature flags requiring attention</Trans>
+              </Text>
               <div>
                 <LinkButton href="/features" mt="2">
-                  View all feature flags
+                  <Trans>View all feature flags</Trans>
                 </LinkButton>
               </div>
             </Flex>

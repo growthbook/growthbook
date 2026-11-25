@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { Flex, Text } from "@radix-ui/themes";
+import { useLingui } from "@lingui/react/macro";
 import track, { TrackEventProps } from "@/services/track";
 import { ModalEventName } from "@/types/app-events";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
@@ -96,9 +97,9 @@ const Modal: FC<ModalProps> = ({
   submitColor = "primary",
   open = true,
   hideCta = false,
-  cta = "Save",
+  cta,
   ctaEnabled = true,
-  closeCta = "Cancel",
+  closeCta,
   onClickCloseCta,
   includeCloseCta = true,
   disabledMessage,
@@ -137,6 +138,9 @@ const Modal: FC<ModalProps> = ({
   onBackdropClick,
   dismissible = false,
 }) => {
+  const { t } = useLingui();
+  const ctaContent = cta === undefined ? t`Save` : cta;
+  const closeCtaContent = closeCta === undefined ? t`Cancel` : closeCta;
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +223,10 @@ const Modal: FC<ModalProps> = ({
               )}
               {docSection && (
                 <DocLink useRadix={false} docSection={docSection}>
-                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+                  <Tooltip
+                    body={t`View Documentation`}
+                    className="ml-1 w-4 h-4"
+                  />
                 </DocLink>
               )}
             </h4>
@@ -233,7 +240,7 @@ const Modal: FC<ModalProps> = ({
                 e.preventDefault();
                 close();
               }}
-              aria-label="Close"
+              aria-label={t`Close`}
             >
               <span aria-hidden="true">×</span>
             </button>
@@ -250,7 +257,7 @@ const Modal: FC<ModalProps> = ({
                   e.preventDefault();
                   close();
                 }}
-                aria-label="Close"
+                aria-label={t`Close`}
               >
                 <Text aria-hidden="true" size="6">
                   &times;
@@ -335,7 +342,7 @@ const Modal: FC<ModalProps> = ({
                       close();
                     }}
                   >
-                    {isSuccess && successMessage ? "Close" : closeCta}
+                    {isSuccess && successMessage ? t`Close` : closeCtaContent}
                   </Button>
                 </div>
               ) : null}
@@ -353,7 +360,7 @@ const Modal: FC<ModalProps> = ({
                     color={submitColor === "danger" ? "red" : undefined}
                     style={fullWidthSubmit ? { width: "100%" } : undefined}
                   >
-                    {cta}
+                    {ctaContent}
                   </Button>
                 </UITooltip>
               ) : null}

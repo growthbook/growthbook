@@ -1,6 +1,7 @@
 import { ConfigInterface } from "shared/types/config";
 import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import CustomHooksSection from "@/components/CustomHooks/CustomHooksSection";
 
@@ -17,6 +18,7 @@ export default function ConfigCustomHooksSection({
   // to this config.
   lineage?: { key: string; parentKey: string | null; extendsKeys?: string[] }[];
 }) {
+  const { t } = useLingui();
   const ancestorKeys = useMemo(() => {
     const byKey = new Map(
       (lineage ?? []).map((n) => [
@@ -57,10 +59,10 @@ export default function ConfigCustomHooksSection({
       scope={{
         entityType: "config",
         entityId: config.key,
-        label: "Config + descendants",
+        label: t`Config + descendants`,
       }}
       projects={[config.project || ""]}
-      description="Run sandboxed JavaScript validation before this Config is published."
+      description={t`Run sandboxed JavaScript validation before this Config is published.`}
       canManage={canManage}
       modalProps={{
         config: {
@@ -73,12 +75,11 @@ export default function ConfigCustomHooksSection({
         },
       }}
       inherited={{
-        title: "Parent Config Hooks",
-        description:
-          "Inherited from an ancestor Config (scoped to descendants). These run on this Config's changes but are managed from the parent.",
+        title: t`Parent Config Hooks`,
+        description: t`Inherited from an ancestor Config (scoped to descendants). These run on this Config's changes but are managed from the parent.`,
         entityIds: ancestorKeys,
         column: {
-          header: "Parent Config",
+          header: t`Parent Config`,
           width: "260px",
           render: (h) => (
             <Link href={`/configs/${h.entityId}`}>{h.entityId}</Link>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans } from "@lingui/react/macro";
 import { FeatureRuleScope, isUnscopedRule } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
@@ -37,8 +38,10 @@ export default function useUnscopedRuleGate(
           acknowledged={acknowledged}
           setAcknowledged={setAcknowledged}
         >
-          Your organization requires rules to target specific environments or
-          Projects.
+          <Trans>
+            Your organization requires rules to target specific environments or
+            Projects.
+          </Trans>
         </ModalWarningBanner>
       ) : null,
   };

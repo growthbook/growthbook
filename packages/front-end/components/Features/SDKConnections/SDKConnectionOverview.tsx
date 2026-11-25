@@ -1,6 +1,7 @@
 import type { Revision } from "shared/enterprise";
 import { ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { savedGroupFormatFromConnection } from "shared/sdk-versioning";
 import SectionFrame from "@/components/SectionFrame";
@@ -80,6 +81,7 @@ export default function SDKConnectionOverview({
   viewingLive: boolean;
   onRevisionCreated: (revision: Revision) => void;
 }) {
+  const { t, i18n } = useLingui();
   const { getProjectById } = useDefinitions();
   const customFields = useCustomFields();
   const settings = useOrgSettings();
@@ -109,7 +111,7 @@ export default function SDKConnectionOverview({
       .map((row) => (
         <Row
           key={row.key}
-          label={row.label}
+          label={i18n._(row.label)}
           changed={canEdit && staged.stagedRows.includes(row)}
         >
           {canEdit ? (
@@ -142,7 +144,7 @@ export default function SDKConnectionOverview({
       ) : null}
 
       <SectionFrame
-        title={configSettingsTitle(connection)}
+        title={i18n._(configSettingsTitle(connection))}
         mb="4"
         actions={
           <Button
@@ -150,7 +152,7 @@ export default function SDKConnectionOverview({
             size="md"
             onClick={() => setShowSnippet(true)}
           >
-            Code snippet
+            <Trans>Code snippet</Trans>
           </Button>
         }
       >
@@ -161,11 +163,11 @@ export default function SDKConnectionOverview({
         />
       </SectionFrame>
 
-      <SectionFrame title="Connection" mt="4">
+      <SectionFrame title={t`Connection`} mt="4">
         <SettingRows>{rows(CONNECTION_ROWS)}</SettingRows>
       </SectionFrame>
 
-      <SectionFrame title="Payload" mt="4">
+      <SectionFrame title={t`Payload`} mt="4">
         <SettingRows>
           {security}
           {security.length ? <Separator size="4" /> : null}

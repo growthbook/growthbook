@@ -4,6 +4,7 @@ import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { Flex, Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -33,6 +34,7 @@ export default function FeaturesStats({
   orgSettings: OrganizationSettings;
   featureId: string;
 }) {
+  const { t } = useLingui();
   const router = useRouter();
   const {
     codeReferencesEnabled,
@@ -63,10 +65,8 @@ export default function FeaturesStats({
       <>
         <div className="contents container-fluid pagecontents">
           <PremiumEmptyState
-            title="Enable Code References"
-            description="Quickly see instances of feature flags being leveraged in your
-              codebase, with direct links from GrowthBook to the platform of
-              your choice."
+            title={t`Enable Code References`}
+            description={t`Quickly see instances of feature flags being leveraged in your codebase, with direct links from GrowthBook to the platform of your choice.`}
             commercialFeature="code-references"
             learnMoreLink="https://docs.growthbook.io/features/code-references"
           />
@@ -88,16 +88,20 @@ export default function FeaturesStats({
               alignItems: "center",
             }}
           >
-            <h2 className="m-0 ml-1">Enable Code References</h2>
+            <h2 className="m-0 ml-1">
+              <Trans>Enable Code References</Trans>
+            </h2>
             <p style={{ width: "32rem" }}>
-              Quickly see instances of feature flags being leveraged in your
-              codebase, with direct links from GrowthBook to the platform of
-              your choice.
+              <Trans>
+                Quickly see instances of feature flags being leveraged in your
+                codebase, with direct links from GrowthBook to the platform of
+                your choice.
+              </Trans>
             </p>
 
             <Tooltip
               shouldDisplay={!permissionsUtil.canManageOrgSettings()}
-              body="You need permission to manage organization settings to enable this feature."
+              body={t`You need permission to manage organization settings to enable this feature.`}
             >
               <Button
                 disabled={!permissionsUtil.canManageOrgSettings()}
@@ -105,7 +109,7 @@ export default function FeaturesStats({
                   router.push("/settings#configure-code-refs");
                 }}
               >
-                Go to settings
+                <Trans>Go to settings</Trans>
               </Button>
             </Tooltip>
           </div>
@@ -118,7 +122,7 @@ export default function FeaturesStats({
     return (
       <div className="contents container-fluid pagecontents">
         <Callout status="error" mt="4">
-          Failed to load code references.
+          <Trans>Failed to load code references.</Trans>
         </Callout>
       </div>
     );
@@ -130,62 +134,72 @@ export default function FeaturesStats({
       <Flex align="start" justify="between" mt="4" mb="5" gap="4">
         <Box flexShrink="1">
           <Heading mb="1" size="md" as="h3">
-            Code References
+            <Trans>Code References</Trans>
           </Heading>
           <Text mb="0">
-            References to this feature flag found in your codebase.
+            <Trans>
+              References to this feature flag found in your codebase.
+            </Trans>
           </Text>
         </Box>
       </Flex>
       {codeRefs.length > 0 ? (
-        codeRefs.map((codeRef, i) => (
-          <div key={i} className="appbox mb-4 p-3">
-            <div className="row mx-1 d-flex align-items-center">
-              <FaGitAlt />
-              <div className="mx-2">{codeRef.repo} </div>
-              <div className="mr-2">•</div>
-              <div>
-                {codeRef.refs.length} reference(s) found in{" "}
-                <code>{codeRef.branch}</code> branch.
+        codeRefs.map((codeRef, i) => {
+          const refCount = codeRef.refs.length;
+          const branch = codeRef.branch;
+          return (
+            <div key={i} className="appbox mb-4 p-3">
+              <div className="row mx-1 d-flex align-items-center">
+                <FaGitAlt />
+                <div className="mx-2">{codeRef.repo} </div>
+                <div className="mr-2">•</div>
+                <div>
+                  <Trans>
+                    {refCount} reference(s) found in <code>{branch}</code>{" "}
+                    branch.
+                  </Trans>
+                </div>
+              </div>
+              <div className="d-flex flex-column">
+                {codeRef.refs.map((ref, i) => (
+                  <div key={i} className="my-2 p-2">
+                    <div className="px-1">
+                      {codeRefsPlatformUrl && (
+                        <a
+                          href={generatePlatformUrl(
+                            codeRefsPlatformUrl,
+                            codeRef.repo,
+                            codeRef.branch,
+                            ref.filePath,
+                            ref.startingLineNumber +
+                              ((ref.lines.split("\n").length / 2) | 0),
+                          )}
+                        >
+                          <FaExternalLinkAlt className="mr-2 cursor-pointer" />
+                        </a>
+                      )}
+                      <code>{ref.filePath}</code>
+                    </div>
+                    <Code
+                      language="tsx"
+                      code={ref.lines}
+                      highlightLine={
+                        ref.startingLineNumber +
+                        ((ref.lines.split("\n").length / 2) | 0)
+                      }
+                      expandable={true}
+                      startingLineNumber={ref.startingLineNumber}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="d-flex flex-column">
-              {codeRef.refs.map((ref, i) => (
-                <div key={i} className="my-2 p-2">
-                  <div className="px-1">
-                    {codeRefsPlatformUrl && (
-                      <a
-                        href={generatePlatformUrl(
-                          codeRefsPlatformUrl,
-                          codeRef.repo,
-                          codeRef.branch,
-                          ref.filePath,
-                          ref.startingLineNumber +
-                            ((ref.lines.split("\n").length / 2) | 0),
-                        )}
-                      >
-                        <FaExternalLinkAlt className="mr-2 cursor-pointer" />
-                      </a>
-                    )}
-                    <code>{ref.filePath}</code>
-                  </div>
-                  <Code
-                    language="tsx"
-                    code={ref.lines}
-                    highlightLine={
-                      ref.startingLineNumber +
-                      ((ref.lines.split("\n").length / 2) | 0)
-                    }
-                    expandable={true}
-                    startingLineNumber={ref.startingLineNumber}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))
+          );
+        })
       ) : (
-        <div className="appbox p-3">No code references found.</div>
+        <div className="appbox p-3">
+          <Trans>No code references found.</Trans>
+        </div>
       )}
     </div>
   );

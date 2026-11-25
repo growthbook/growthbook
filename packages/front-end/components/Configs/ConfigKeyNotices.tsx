@@ -4,6 +4,9 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { ConfigValueIssue } from "shared/util";
 import { ConfigRelation, LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
@@ -71,6 +74,7 @@ export type KeyNotice = {
 };
 
 export function KeyNoticesIcon({ notices }: { notices: KeyNotice[] }) {
+  const { t } = useLingui();
   if (!notices.length) return null;
   const ranked = [...notices].sort((a, b) => b.severity - a.severity);
   return (
@@ -85,7 +89,7 @@ export function KeyNoticesIcon({ notices }: { notices: KeyNotice[] }) {
         // Focusable, so the tooltip opens from the keyboard too.
         tabIndex={0}
         role="img"
-        aria-label="Field notes"
+        aria-label={t`Field notes`}
         style={{
           display: "inline-flex",
           flexShrink: 0,
@@ -122,8 +126,12 @@ export function schemaIssuesNotice(issues: ConfigValueIssue[]): KeyNotice {
             <KeyList keys={[issue.path]} inverted /> {issue.message}
           </React.Fragment>
         ))}
-        . Publishing fails until {issues.length === 1 ? "it's" : "they're"}{" "}
-        fixed.
+        .{" "}
+        <Plural
+          value={issues.length}
+          one="Publishing fails until it's fixed."
+          other="Publishing fails until they're fixed."
+        />
       </>
     ),
   };
@@ -135,17 +143,28 @@ export function undeclaredKeysNotice(
   allowsExtra: boolean,
   size?: number,
 ): KeyNotice {
-  const them = keys.length === 1 ? "it" : "them";
   return {
     severity: allowsExtra ? 0 : 2,
     color: allowsExtra ? "var(--slate-9)" : "var(--amber-11)",
     icon: <PiLinkBreak size={size} />,
     message: (
       <>
-        Not in the schema: <KeyList keys={keys} inverted />.{" "}
-        {allowsExtra
-          ? `Still served, but unchecked, and validation rules see ${them} as null.`
-          : `Extra fields aren't allowed, so publishing fails until you remove ${them} or add ${them} to a schema.`}
+        <Trans>
+          Not in the schema: <KeyList keys={keys} inverted />.
+        </Trans>{" "}
+        {allowsExtra ? (
+          <Plural
+            value={keys.length}
+            one="Still served, but unchecked, and validation rules see it as null."
+            other="Still served, but unchecked, and validation rules see them as null."
+          />
+        ) : (
+          <Plural
+            value={keys.length}
+            one="Extra fields aren't allowed, so publishing fails until you remove it or add it to a schema."
+            other="Extra fields aren't allowed, so publishing fails until you remove them or add them to a schema."
+          />
+        )}
       </>
     ),
   };
@@ -159,12 +178,16 @@ export function reconciledFieldNotice(descendants: string[]): KeyNotice {
     severity: 1,
     color: "var(--violet-11)",
     icon: <RadixStatusIcon status="info" size="sm" />,
-    message: (
-      <>
-        <ConfigNames names={descendants} /> also {one ? "defines" : "define"}{" "}
-        this field. After publishing, {one ? "it uses" : "they use"} this one
-        instead and {one ? "keeps its value" : "keep their values"}.
-      </>
+    message: one ? (
+      <Trans>
+        <ConfigNames names={descendants} /> also defines this field. After
+        publishing, it uses this one instead and keeps its value.
+      </Trans>
+    ) : (
+      <Trans>
+        <ConfigNames names={descendants} /> also define this field. After
+        publishing, they use this one instead and keep their values.
+      </Trans>
     ),
   };
 }
@@ -180,23 +203,38 @@ export function ReconciledFieldsCallout({
     const one = keys.length === 1;
     return (
       <Callout status="info" mt="3">
-        <ConfigName name={name} /> also defines <KeyList keys={keys} />. After
-        publishing, it uses this Config&apos;s{" "}
-        {one ? "definition" : "definitions"} instead and keeps its{" "}
-        {one ? "value" : "values"}.
+        {one ? (
+          <Trans>
+            <ConfigName name={name} /> also defines <KeyList keys={keys} />.
+            After publishing, it uses this Config&apos;s definition instead and
+            keeps its value.
+          </Trans>
+        ) : (
+          <Trans>
+            <ConfigName name={name} /> also defines <KeyList keys={keys} />.
+            After publishing, it uses this Config&apos;s definitions instead and
+            keeps its values.
+          </Trans>
+        )}
       </Callout>
     );
   }
-  return (
-    <Callout status="info" mt="3">
+  const list = (
+    <>
       {descendants.map((d, i) => (
         <React.Fragment key={i}>
           {i > 0 && ", "}
           <ConfigName name={d.name} /> (<KeyList keys={d.keys} />)
         </React.Fragment>
-      ))}{" "}
-      also define these fields. After publishing, they use this Config&apos;s
-      definitions instead and keep their values.
+      ))}
+    </>
+  );
+  return (
+    <Callout status="info" mt="3">
+      <Trans>
+        {list} also define these fields. After publishing, they use this
+        Config&apos;s definitions instead and keep their values.
+      </Trans>
     </Callout>
   );
 }
@@ -204,30 +242,105 @@ export function ReconciledFieldsCallout({
 // Descendants a draft would leave with values that don't match the schema.
 export function DescendantImpactCallout({ nodes }: { nodes: LineageNode[] }) {
   if (!nodes.length) return null;
-  return (
-    <Callout status="warning" mt="3">
-      Publishing leaves descendant values that won&apos;t match the schema:{" "}
+  const list = (
+    <>
       {nodes.map((n, i) => (
         <React.Fragment key={n.key}>
           {i > 0 && "; "}
           <ConfigName name={n.name} /> (
           {!!n.orphanedFields?.length && (
-            <>
+            <Trans>
               undeclared <KeyList keys={n.orphanedFields} />
-            </>
+            </Trans>
           )}
           {!!n.orphanedFields?.length && !!n.incompatibleFields?.length && "; "}
           {!!n.incompatibleFields?.length && (
-            <>
+            <Trans>
               wrong type <KeyList keys={n.incompatibleFields} />
-            </>
+            </Trans>
           )}
           )
         </React.Fragment>
       ))}
-      . You&apos;ll be asked to confirm.
+    </>
+  );
+  return (
+    <Callout status="warning" mt="3">
+      <Trans>
+        Publishing leaves descendant values that won&apos;t match the schema:{" "}
+        {list}. You&apos;ll be asked to confirm.
+      </Trans>
     </Callout>
   );
+}
+
+// How another Config relates to this one, as it reads in a list.
+const RELATION_LABELS: Record<ConfigRelation, MessageDescriptor> = {
+  child: msg`child`,
+  descendant: msg`descendant`,
+  parent: msg`parent`,
+  ancestor: msg`ancestor`,
+  sibling: msg`sibling`,
+  related: msg`related`,
+};
+
+// One Config failing its validation rules, opening with how it relates to
+// this one.
+function SingleRuleFailure({
+  relation,
+  link,
+  count,
+  ruleNames,
+}: {
+  relation: ConfigRelation;
+  link: React.ReactNode;
+  count: number;
+  ruleNames: string;
+}) {
+  switch (relation) {
+    case "child":
+      return (
+        <Trans>
+          Child Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+    case "descendant":
+      return (
+        <Trans>
+          Descendant Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+    case "parent":
+      return (
+        <Trans>
+          Parent Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+    case "ancestor":
+      return (
+        <Trans>
+          Ancestor Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+    case "sibling":
+      return (
+        <Trans>
+          Sibling Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+    case "related":
+      return (
+        <Trans>
+          Related Config {link} fails validation{" "}
+          <Plural value={count} one="rule" other="rules" /> {ruleNames}.
+        </Trans>
+      );
+  }
 }
 
 // Other Configs in the family that fail their validation rules, each named by
@@ -237,6 +350,7 @@ export function FamilyRuleFailuresCallout({
 }: {
   failures: { node: LineageNode; relation: ConfigRelation }[];
 }) {
+  const { i18n } = useLingui();
   if (!failures.length) return null;
   const rules = (n: LineageNode) =>
     (n.invariantViolations ?? []).map((v) => `"${v.name}"`).join(", ");
@@ -247,25 +361,30 @@ export function FamilyRuleFailuresCallout({
   );
   if (failures.length === 1) {
     const [{ node, relation }] = failures;
-    const one = (node.invariantViolations?.length ?? 0) === 1;
     return (
       <Callout status="warning" mt="3">
-        {relation.charAt(0).toUpperCase() + relation.slice(1)} Config{" "}
-        {configLink(node)} fails validation {one ? "rule" : "rules"}{" "}
-        {rules(node)}.
+        <SingleRuleFailure
+          relation={relation}
+          link={configLink(node)}
+          count={node.invariantViolations?.length ?? 0}
+          ruleNames={rules(node)}
+        />
       </Callout>
     );
   }
-  return (
-    <Callout status="warning" mt="3">
-      Other Configs in this family fail validation rules:{" "}
+  const list = (
+    <>
       {failures.map(({ node, relation }, i) => (
         <React.Fragment key={node.key}>
           {i > 0 && "; "}
-          {relation} {configLink(node)} ({rules(node)})
+          {i18n._(RELATION_LABELS[relation])} {configLink(node)} ({rules(node)})
         </React.Fragment>
       ))}
-      .
+    </>
+  );
+  return (
+    <Callout status="warning" mt="3">
+      <Trans>Other Configs in this family fail validation rules: {list}.</Trans>
     </Callout>
   );
 }

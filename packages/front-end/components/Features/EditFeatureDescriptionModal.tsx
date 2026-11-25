@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useLingui } from "@lingui/react/macro";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
@@ -31,6 +32,7 @@ export default function EditFeatureDescriptionModal({
   mutate,
   setVersion,
 }: Props) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -76,7 +78,7 @@ export default function EditFeatureDescriptionModal({
 
   const conflict = useDraftConflict<{ description: string }>({
     initial: { description: feature.description || "" },
-    labels: { description: "Description" },
+    labels: { description: t`Description` },
     form,
     isNewDraft: mode === "new",
     entityNoun: "description",
@@ -86,7 +88,7 @@ export default function EditFeatureDescriptionModal({
     <ConflictProvider {...conflict.providerProps}>
       <ModalStandard
         trackingEventModalType="edit-feature-description-modal"
-        header="Edit Description"
+        header={t`Edit Description`}
         open={true}
         size="lg"
         close={close}
@@ -118,7 +120,7 @@ export default function EditFeatureDescriptionModal({
           if (resolvedVersion !== null && setVersion)
             setVersion(resolvedVersion);
         })}
-        cta={mode === "publish" ? "Save" : "Save to draft"}
+        cta={mode === "publish" ? t`Save` : t`Save to draft`}
         ctaEnabled={
           // The editor doesn't report trailing whitespace, so the text is
           // compared without it.
@@ -146,7 +148,7 @@ export default function EditFeatureDescriptionModal({
           onChange={(value) =>
             form.setValue("description", value, { shouldDirty: true })
           }
-          placeholder="Add context about this feature for your team"
+          placeholder={t`Add context about this feature for your team`}
           collapsibleToolbar
           autoFocus
           onUploadingChange={setUploading}

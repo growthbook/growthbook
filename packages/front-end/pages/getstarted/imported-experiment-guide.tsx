@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -15,6 +16,7 @@ import { useGetStarted } from "@/services/GetStartedProvider";
 import Callout from "@/ui/Callout";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
+  const { t } = useLingui();
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { experiments, loading: experimentsLoading, error } = useExperiments();
@@ -65,8 +67,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
     <div className="container pagecontents">
       <PageHead
         breadcrumb={[
-          { display: "Get Started", href: "/getstarted" },
-          { display: "Analyze Imported Experiments" },
+          { display: t`Get Started`, href: "/getstarted" },
+          { display: t`Analyze Imported Experiments` },
         ]}
       />
       {upgradeModal && (
@@ -76,11 +78,15 @@ const ImportedExperimentGuide = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      <h1 className="mb-3">Analyze Imported Experiments</h1>
+      <h1 className="mb-3">
+        <Trans>Analyze Imported Experiments</Trans>
+      </h1>
       <div className="d-flex align-middle">
         <span>
-          Want to run a new experiment?{" "}
-          <Link href="/getstarted/experiment-guide">View instructions</Link>{" "}
+          <Trans>
+            Want to run a new experiment?{" "}
+            <Link href="/getstarted/experiment-guide">View instructions</Link>
+          </Trans>{" "}
           <PiArrowRight />
         </span>
       </div>
@@ -122,17 +128,19 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Connect to Your Data Warehouse",
+                      step: t`Connect to Your Data Warehouse`,
                       source: "importedExperimentGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
-                  Connect to Your Data Warehouse
+                  <Trans>Connect to Your Data Warehouse</Trans>
                 </NextLink>
                 <Box mt="2">
-                  Allow GrowthBook to query your warehouse to compute traffic
-                  totals and metric results.
+                  <Trans>
+                    Allow GrowthBook to query your warehouse to compute traffic
+                    totals and metric results.
+                  </Trans>
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -174,17 +182,19 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Define Fact Tables and Metrics",
+                      step: t`Define Fact Tables and Metrics`,
                       source: "importedExperimentGuide",
                       stepKey: "createFactTables",
                     })
                   }
                 >
-                  Define Fact Tables and Metrics
+                  <Trans>Define Fact Tables and Metrics</Trans>
                 </NextLink>
                 <Box mt="2">
-                  Define fact tables for the main events in your data warehouse
-                  and build metrics based on those events.
+                  <Trans>
+                    Define fact tables for the main events in your data
+                    warehouse and build metrics based on those events.
+                  </Trans>
                 </Box>
                 <Separator size="4" my="4" />
               </div>
@@ -225,21 +235,28 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: `Import Your First Experiment${
-                        project && " in this Project"
-                      } &
-                      View Results`,
+                      step: project
+                        ? t`Import Your First Experiment in this Project & View Results`
+                        : t`Import Your First Experiment & View Results`,
                       source: "importedExperimentGuide",
                       stepKey: "importExperiment",
                     })
                   }
                 >
-                  Import Your First Experiment{project && " in this Project"} &
-                  View Results
+                  {project ? (
+                    <Trans>
+                      Import Your First Experiment in this Project & View
+                      Results
+                    </Trans>
+                  ) : (
+                    <Trans>Import Your First Experiment & View Results</Trans>
+                  )}
                 </NextLink>
                 <Box mt="2">
-                  Navigate to Experiments {">"} Add Experiment. In the popup,
-                  select “Analyze an Existing Experiment”
+                  <Trans>
+                    Navigate to Experiments {">"} Add Experiment. In the popup,
+                    select “Analyze an Existing Experiment”
+                  </Trans>
                 </Box>
               </div>
             </div>

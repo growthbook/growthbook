@@ -15,6 +15,7 @@ import { useRouter } from "next/router";
 import { holdsSdkConnectionDraftDestination } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Revision,
   getLiveRevision,
@@ -152,6 +153,7 @@ function buildDisplayedConnection(
 }
 
 export default function SDKConnectionPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { sdkid } = router.query;
 
@@ -319,7 +321,9 @@ export default function SDKConnectionPage() {
   if (!connection || !displayedConnection || !liveSnapshot || !staged) {
     return (
       <Box className="contents container-fluid pagecontents" pt="4">
-        <Callout status="error">Invalid SDK Connection id</Callout>
+        <Callout status="error">
+          <Trans>Invalid SDK Connection id</Trans>
+        </Callout>
       </Box>
     );
   }
@@ -331,6 +335,9 @@ export default function SDKConnectionPage() {
   const holdsDestinationOf = (revision: Revision | null) =>
     holdsSdkConnectionDraftDestination(permissionsUtil, connection, revision);
   const isExternallyManaged = !!connection.managedBy?.type;
+  const managedByName = connection.managedBy?.type
+    ? capitalizeFirstLetter(connection.managedBy.type)
+    : null;
   const canDelete =
     permissionsUtil.canDeleteSDKConnection(connection) && !isExternallyManaged;
 
@@ -401,7 +408,7 @@ export default function SDKConnectionPage() {
             {getStatusBadge("live", approvalRequired)}
           </>
         ) : (
-          <>the live SDK Connection</>
+          <Trans>the live SDK Connection</Trans>
         )
       }
       create={async ({ title, comment }) => {
@@ -445,7 +452,7 @@ export default function SDKConnectionPage() {
                   setDropdownOpen(false);
                 }}
               >
-                Compare revisions
+                <Trans>Compare revisions</Trans>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -459,7 +466,7 @@ export default function SDKConnectionPage() {
                 setDropdownOpen(false);
               }}
             >
-              Duplicate
+              <Trans>Duplicate</Trans>
             </DropdownMenuItem>
           )}
           {canUpdate && !isExternallyManaged && (
@@ -469,7 +476,11 @@ export default function SDKConnectionPage() {
                 setShowArchiveModal(true);
               }}
             >
-              {connection.archived ? "Unarchive" : "Archive"}
+              {connection.archived ? (
+                <Trans>Unarchive</Trans>
+              ) : (
+                <Trans>Archive</Trans>
+              )}
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
@@ -483,13 +494,13 @@ export default function SDKConnectionPage() {
                 tooltip={
                   connection.archived
                     ? undefined
-                    : "Archive this SDK Connection before deleting it."
+                    : t`Archive this SDK Connection before deleting it.`
                 }
                 confirmation={{
-                  confirmationTitle: "Delete SDK Connection",
-                  cta: "Delete",
+                  confirmationTitle: t`Delete SDK Connection`,
+                  cta: t`Delete`,
                   getConfirmationContent: async () =>
-                    "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
+                    t`Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.`,
                   submit: async () => {
                     await apiCall(`/sdk-connections/${connection.id}`, {
                       method: "DELETE",
@@ -500,7 +511,7 @@ export default function SDKConnectionPage() {
                   closeDropdown: () => setDropdownOpen(false),
                 }}
               >
-                Delete
+                <Trans>Delete</Trans>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </>
@@ -574,7 +585,7 @@ export default function SDKConnectionPage() {
 
       <PageHead
         breadcrumb={[
-          { display: "SDK Connections", href: "/sdks" },
+          { display: t`SDK Connections`, href: "/sdks" },
           { display: displayedConnection.name },
         ]}
       />
@@ -587,38 +598,42 @@ export default function SDKConnectionPage() {
           <>
             {/* Set the first time anything fetches with the key; never reset. */}
             {connection.connected ? (
-              <Tooltip content="An SDK or proxy has fetched features with this connection's key at least once.">
+              <Tooltip
+                content={t`An SDK or proxy has fetched features with this connection's key at least once.`}
+              >
                 {/* Focusable, so the explanation opens from the keyboard too. */}
                 <Box as="span" display="inline-block" tabIndex={0}>
                   <Badge
                     color="green"
                     variant="soft"
                     radius="full"
-                    label="Connected"
+                    label={t`Connected`}
                   />
                 </Box>
               </Tooltip>
             ) : (
               <>
-                <Tooltip content="Nothing has fetched features with this connection's key yet.">
+                <Tooltip
+                  content={t`Nothing has fetched features with this connection's key yet.`}
+                >
                   <Box as="span" display="inline-block" tabIndex={0}>
                     <Badge
                       color="gray"
                       variant="soft"
                       radius="full"
-                      label="Not connected"
+                      label={t`Not connected`}
                     />
                   </Box>
                 </Tooltip>
-                {canUpdate && <Link onClick={() => mutate()}>Retry</Link>}
+                {canUpdate && (
+                  <Link onClick={() => mutate()}>
+                    <Trans>Retry</Trans>
+                  </Link>
+                )}
               </>
             )}
-            {connection.managedBy?.type ? (
-              <Badge
-                label={`Managed by ${capitalizeFirstLetter(
-                  connection.managedBy.type,
-                )}`}
-              />
+            {managedByName ? (
+              <Badge label={t`Managed by ${managedByName}`} />
             ) : null}
           </>
         }
@@ -633,30 +648,36 @@ export default function SDKConnectionPage() {
       >
         {connection.archived ? (
           <Callout status="info" mt="3">
-            <strong>This SDK Connection is archived.</strong> It serves no
-            payload.
+            <Trans>
+              <strong>This SDK Connection is archived.</strong> It serves no
+              payload.
+            </Trans>
           </Callout>
         ) : displayedConnection.archived ? (
           <Callout status="warning" mt="3">
-            <strong>This draft will archive the SDK Connection.</strong> Once
-            published it will serve no payload.
+            <Trans>
+              <strong>This draft will archive the SDK Connection.</strong> Once
+              published it will serve no payload.
+            </Trans>
           </Callout>
         ) : null}
         <PayloadSizeCallout connection={connection} mt="3" mb="0" />
         {!supportsBucketingV2 && (
           <Callout status="warning" mt="3">
-            <Text weight="semibold">
-              Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
-            </Text>{" "}
-            Until then, new experiments in this connection&apos;s projects fall
-            back to V1.{" "}
-            <Link
-              href={docUrl(sdkDocSection ?? "sdks")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View docs
-            </Link>
+            <Trans>
+              <Text weight="semibold">
+                Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+              </Text>{" "}
+              Until then, new experiments in this connection&apos;s projects
+              fall back to V1.{" "}
+              <Link
+                href={docUrl(sdkDocSection ?? "sdks")}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View docs
+              </Link>
+            </Trans>
           </Callout>
         )}
       </DetailsPageTitleBar>
@@ -666,16 +687,20 @@ export default function SDKConnectionPage() {
         onValueChange={setTabAndScroll}
         triggers={
           <>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">
+              <Trans>Overview</Trans>
+            </TabsTrigger>
             <TabsTrigger value="webhooks">
-              Webhooks
+              <Trans>Webhooks</Trans>
               <TabCount count={webhookData?.webhooks?.length ?? 0} />
             </TabsTrigger>
             {!isCloud() && (
-              <TabsTrigger value="validation">Validation</TabsTrigger>
+              <TabsTrigger value="validation">
+                <Trans>Validation</Trans>
+              </TabsTrigger>
             )}
             <TabsTrigger value="review">
-              Review &amp; Publish
+              <Trans>Review &amp; Publish</Trans>
               <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
             </TabsTrigger>
           </>
@@ -835,10 +860,10 @@ export default function SDKConnectionPage() {
                 scope={{
                   entityType: "sdkConnection",
                   entityId: connection.id,
-                  label: "SDK Connection",
+                  label: t`SDK Connection`,
                 }}
                 projects={connection.projects}
-                description="Run sandboxed JavaScript validation before this SDK Connection or its webhooks are changed."
+                description={t`Run sandboxed JavaScript validation before this SDK Connection or its webhooks are changed.`}
                 // A connection-scoped hook is saved with no Projects.
                 canManage={permissionsUtil.canCreateCustomHook({
                   projects: [],

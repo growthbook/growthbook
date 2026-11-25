@@ -1,6 +1,7 @@
 import React, { FC } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
@@ -19,6 +20,7 @@ const ArchetypeAttributesModal: FC<{
   initialValues?: Partial<ArchetypeInterface>;
   source?: string;
 }> = ({ close, header, initialValues, source }) => {
+  const { t } = useLingui();
   const form = useForm<{
     name: string;
     description: string;
@@ -72,8 +74,8 @@ const ArchetypeAttributesModal: FC<{
       open={true}
       autoCloseOnSubmit={false}
       close={close}
-      cta="Save Archetype"
-      successMessage="Archetype saved successfully"
+      cta={t`Save Archetype`}
+      successMessage={t`Archetype saved successfully`}
       submit={
         hasPermissionToAddEditArchetypes
           ? form.handleSubmit(async (data) => {
@@ -95,15 +97,17 @@ const ArchetypeAttributesModal: FC<{
     >
       {!hasPermissionToAddEditArchetypes ? (
         <div>
-          You do not have permission to add or edit archetypes. Please contact
-          your account administrator.
+          <Trans>
+            You do not have permission to add or edit archetypes. Please contact
+            your account administrator.
+          </Trans>
         </div>
       ) : (
         <>
           <div>
             <Field
               size="legacy"
-              label={"Name"}
+              label={t`Name`}
               required={true}
               {...form.register("name")}
             />
@@ -111,7 +115,7 @@ const ArchetypeAttributesModal: FC<{
           <div>
             <Field
               size="legacy"
-              label={"Description"}
+              label={t`Description`}
               maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               textarea
@@ -121,36 +125,40 @@ const ArchetypeAttributesModal: FC<{
             <div className="form-group">
               <MultiSelectField
                 legacyHeight
-                label={<>Projects </>}
-                placeholder="All Projects"
+                label={
+                  <>
+                    <Trans>Projects</Trans>{" "}
+                  </>
+                }
+                placeholder={t`All Projects`}
                 value={form.watch("projects")}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
-                helpText="Assign this archetype to specific projects"
+                helpText={t`Assign this archetype to specific projects`}
               />
             </div>
           )}
           {environments.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                label="Environments"
-                placeholder="All environments"
+                label={t`Environments`}
+                placeholder={t`All environments`}
                 value={form.watch("environments")}
                 options={environments.map((env) => ({
                   label: env.id,
                   value: env.id,
                 }))}
                 onChange={(v) => form.setValue("environments", v)}
-                helpText="Limit this archetype to specific environments. Leave empty to show it in all environments."
+                helpText={t`Limit this archetype to specific environments. Leave empty to show it in all environments.`}
               />
             </div>
           )}
           <div className="mb-3">
             <Checkbox
               id="public"
-              label="Make archetype public"
-              description="Allow other team members to see this archetypal user for testing"
+              label={t`Make archetype public`}
+              description={t`Allow other team members to see this archetypal user for testing`}
               value={form.watch("isPublic")}
               setValue={(v) => form.setValue("isPublic", v)}
             />

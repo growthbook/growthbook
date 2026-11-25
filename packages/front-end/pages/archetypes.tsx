@@ -1,6 +1,7 @@
 import { ArchetypeInterface } from "shared/types/archetype";
 import React from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import { SimulateFeatureValues } from "@/components/Archetype/SimulateFeatureValues";
@@ -23,8 +24,12 @@ const ArchetypesPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents">
         <Tabs defaultValue="archetypes" persistInURL={true}>
           <TabsList>
-            <TabsTrigger value="archetypes">Archetypes</TabsTrigger>
-            <TabsTrigger value="simulate">Simulate</TabsTrigger>
+            <TabsTrigger value="archetypes">
+              <Trans>Archetypes</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="simulate">
+              <Trans>Simulate</Trans>
+            </TabsTrigger>
           </TabsList>
           <Box pt="4">
             <TabsContent value="archetypes">

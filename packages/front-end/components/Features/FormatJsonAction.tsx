@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { EditorAction } from "@/components/Forms/CodeTextArea";
 import { FormatJsonIcon } from "@/ui/ActionIcons";
 import { formatJSON } from "@/services/features";
@@ -11,9 +12,10 @@ export default function FormatJsonAction({
   value: string;
   setValue: (value: string) => void;
 }) {
+  const { t } = useLingui();
   return (
     <EditorAction
-      label="Format JSON"
+      label={t`Format JSON`}
       icon={<FormatJsonIcon size="sm" />}
       onClick={() => {
         const formatted = formatJSON(value);

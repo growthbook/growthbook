@@ -3,6 +3,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -31,6 +32,7 @@ const AddToHoldoutModal = ({
   mutate: () => void;
   setVersion: (version: number) => void;
 }) => {
+  const { t } = useLingui();
   const form = useForm({
     defaultValues: {
       holdout: feature.holdout?.id ? feature.holdout : undefined,
@@ -145,7 +147,7 @@ const AddToHoldoutModal = ({
 
   return (
     <ModalStandard
-      header="Add to holdout"
+      header={t`Add to holdout`}
       close={close}
       open={true}
       trackingEventModalType="add-feature-to-holdout"
@@ -188,26 +190,42 @@ const AddToHoldoutModal = ({
       {hasBlockers && (
         <Callout status="error" mt="3">
           <Text as="div">
-            A holdout can&apos;t be added to{" "}
-            {mode === "existing" ? "this draft" : "this Feature Flag"} until the
-            following are resolved:
+            {mode === "existing" ? (
+              <Trans>
+                A holdout can&apos;t be added to this draft until the following
+                are resolved:
+              </Trans>
+            ) : (
+              <Trans>
+                A holdout can&apos;t be added to this Feature Flag until the
+                following are resolved:
+              </Trans>
+            )}
           </Text>
           <ul style={{ marginBottom: 0 }}>
             {holdoutBlockers.nonDraftExperimentsWithoutHoldout.map((exp) => (
               <li key={`status-${exp.id}`}>
-                Experiment &ldquo;{exp.name}&rdquo; is {exp.status}. You
-                can&apos;t add a holdout in front of a non-draft experiment with
-                no holdout.
+                <Trans>
+                  Experiment &ldquo;{exp.name}&rdquo; is {exp.status}. You
+                  can&apos;t add a holdout in front of a non-draft experiment
+                  with no holdout.
+                </Trans>
               </li>
             ))}
             {holdoutBlockers.banditExperiments.map((exp) => (
               <li key={`bandit-${exp.id}`}>
-                &ldquo;{exp.name}&rdquo; is a Bandit, which can&apos;t run under
-                a holdout.
+                <Trans>
+                  &ldquo;{exp.name}&rdquo; is a Bandit, which can&apos;t run
+                  under a holdout.
+                </Trans>
               </li>
             ))}
             {holdoutBlockers.hasSafeRollout && (
-              <li>Remove the safe rollout rule before adding a holdout.</li>
+              <li>
+                <Trans>
+                  Remove the safe rollout rule before adding a holdout.
+                </Trans>
+              </li>
             )}
           </ul>
         </Callout>
@@ -230,14 +248,19 @@ const AddToHoldoutModal = ({
           {conflictingHoldoutExperiments.length > 0 && (
             <Callout status="error" mt="3">
               <Text as="div">
-                The selected holdout doesn&apos;t match the holdout these
-                experiments already belong to. Select their holdout to continue:
+                <Trans>
+                  The selected holdout doesn&apos;t match the holdout these
+                  experiments already belong to. Select their holdout to
+                  continue:
+                </Trans>
               </Text>
               <ul style={{ marginBottom: 0 }}>
                 {conflictingHoldoutExperiments.map((exp) => (
                   <li key={`holdout-${exp.id}`}>
-                    Experiment &ldquo;{exp.name}&rdquo; belongs to a different
-                    holdout.
+                    <Trans>
+                      Experiment &ldquo;{exp.name}&rdquo; belongs to a different
+                      holdout.
+                    </Trans>
                   </li>
                 ))}
               </ul>

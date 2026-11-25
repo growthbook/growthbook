@@ -1,4 +1,5 @@
 import { CustomHookInterface } from "shared/validators";
+import { useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
@@ -66,21 +67,21 @@ export default function CompareCustomHookEventsModal({
   onClose: () => void;
   onRevert: () => void;
 }) {
+  const { t } = useLingui();
   const { apiCall } = useAuth();
 
   return (
     <AuditHistoryExplorerModal<CustomHookInterface>
       entityId={hook.id}
-      entityName="Custom Hook"
+      entityName={t`Custom Hook`}
       config={CUSTOM_HOOK_DIFF_CONFIG}
       onClose={onClose}
       revert={
         canRevert
           ? {
-              cta: "Revert to this version",
-              confirmTitle: "Revert to this version?",
-              confirmBody:
-                "This replaces the hook's current code and settings with this version, recorded as a new change. You can revert again to undo it.",
+              cta: t`Revert to this version`,
+              confirmTitle: t`Revert to this version?`,
+              confirmBody: t`This replaces the hook's current code and settings with this version, recorded as a new change. You can revert again to undo it.`,
               onRevert: async (entry) => {
                 // The last raw id in the group produced the displayed post state.
                 const auditId = entry.rawIds[entry.rawIds.length - 1];

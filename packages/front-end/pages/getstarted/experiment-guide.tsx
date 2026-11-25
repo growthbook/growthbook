@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useRouter } from "next/router";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import Link from "@/ui/Link";
@@ -21,6 +22,7 @@ import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import Callout from "@/ui/Callout";
 
 const ExperimentGuide = (): React.ReactElement => {
+  const { t } = useLingui();
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
@@ -104,8 +106,8 @@ const ExperimentGuide = (): React.ReactElement => {
 
   // if coming from hypothesis generator, show slightly different UI
   const title = generatedHypothesis
-    ? "Run an Auto-generated Website Experiment"
-    : "Run an Experiment";
+    ? t`Run an Auto-generated Website Experiment`
+    : t`Run an Experiment`;
   const generatedExp = experiments.find(
     (e) => e.id === generatedHypothesis?.experiment,
   );
@@ -118,7 +120,7 @@ const ExperimentGuide = (): React.ReactElement => {
     <div className="container pagecontents">
       <PageHead
         breadcrumb={[
-          { display: "Get Started", href: "/getstarted" },
+          { display: t`Get Started`, href: "/getstarted" },
           { display: title },
         ]}
       />
@@ -132,10 +134,12 @@ const ExperimentGuide = (): React.ReactElement => {
       <h1 className="mb-3">{title}</h1>
       <div className="d-flex align-middle justify-content-between mb-4">
         <span className="mr-3">
-          Ran experiments on another platform?{" "}
-          <Link href="/getstarted/imported-experiment-guide">
-            View import instructions
-          </Link>{" "}
+          <Trans>
+            Ran experiments on another platform?{" "}
+            <Link href="/getstarted/imported-experiment-guide">
+              View import instructions
+            </Link>
+          </Trans>{" "}
           <PiArrowRight />
         </span>
         <ViewSampleDataButton />
@@ -178,16 +182,18 @@ const ExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Integrate the GrowthBook SDK into your app",
+                      step: t`Integrate the GrowthBook SDK into your app`,
                       source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "sdk",
                     })
                   }
                 >
-                  Integrate the GrowthBook SDK into your app
+                  <Trans>Integrate the GrowthBook SDK into your app</Trans>
                 </NextLink>
-                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Box mt="2">
+                  <Trans>Allow GrowthBook to communicate with your app.</Trans>
+                </Box>
                 <Separator size="4" my="4" />
               </div>
             </div>
@@ -230,7 +236,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }}
                     onClick={() =>
                       setStep({
-                        step: "Editing Your Auto-generated Experiment",
+                        step: t`Editing Your Auto-generated Experiment`,
                         source: "experimentGuide",
                         sourceParams: params.hypId
                           ? `hypId=${params.hypId}`
@@ -239,11 +245,13 @@ const ExperimentGuide = (): React.ReactElement => {
                       })
                     }
                   >
-                    Configure Your Auto-generated Experiment
+                    <Trans>Configure Your Auto-generated Experiment</Trans>
                   </NextLink>
                   <p className="mt-2">
-                    Define any additional settings, rules and targeting as
-                    desired. Then, click “Run experiment.”
+                    <Trans>
+                      Define any additional settings, rules and targeting as
+                      desired. Then, click “Run experiment.”
+                    </Trans>
                   </p>
                 </div>
               </div>
@@ -284,20 +292,22 @@ const ExperimentGuide = (): React.ReactElement => {
                     onClick={() =>
                       setStep({
                         step: project
-                          ? "Design the First Experiment for this Project"
-                          : "Design Your Organization’s First Experiment",
+                          ? t`Design the First Experiment for this Project`
+                          : t`Design Your Organization’s First Experiment`,
                         source: "experimentGuide",
                         stepKey: "createExperiment",
                       })
                     }
                   >
                     {project
-                      ? "Design the First Experiment for this Project"
-                      : "Design Your Organization’s First Experiment"}
+                      ? t`Design the First Experiment for this Project`
+                      : t`Design Your Organization’s First Experiment`}
                   </NextLink>
                   <Box mt="2">
-                    Create an experiment and change variations. Choose from
-                    Feature Flags, URL Redirects, or the Visual Editor (Pro).
+                    <Trans>
+                      Create an experiment and change variations. Choose from
+                      Feature Flags, URL Redirects, or the Visual Editor (Pro).
+                    </Trans>
                   </Box>
                   <Separator size="4" my="4" />
                 </div>
@@ -342,7 +352,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }}
                     onClick={() =>
                       setStep({
-                        step: "Start the Test",
+                        step: t`Start the Test`,
                         source: "experimentGuide",
                         stepKey: "startExperiment",
                       })
@@ -357,25 +367,33 @@ const ExperimentGuide = (): React.ReactElement => {
                             width={"260px"}
                             height={"96px"}
                           />
-                          <h4>Start the Test</h4>
+                          <h4>
+                            <Trans>Start the Test</Trans>
+                          </h4>
                           <p className="text-muted">
-                            Experiments {">"} [selected experiment]
+                            <Trans>
+                              Experiments {">"} [selected experiment]
+                            </Trans>
                           </p>
 
                           <p style={{ fontSize: "15px" }}>
-                            Click the “Start Experiment” button in the top right
-                            corner of the selected experiment.
+                            <Trans>
+                              Click the “Start Experiment” button in the top
+                              right corner of the selected experiment.
+                            </Trans>
                           </p>
                         </div>
                       }
                       popperStyle={{ maxWidth: "300px" }}
                     >
-                      Start the Test
+                      <Trans>Start the Test</Trans>
                     </Tooltip>
                   </NextLink>
                   <Box mt="2">
-                    Define any additional settings, rules and targeting as
-                    desired. Then, click “Run experiment.”
+                    <Trans>
+                      Define any additional settings, rules and targeting as
+                      desired. Then, click “Run experiment.”
+                    </Trans>
                   </Box>
                   <Separator size="4" my="4" />
                 </div>
@@ -417,18 +435,20 @@ const ExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Connect to Your Data Warehouse",
+                      step: t`Connect to Your Data Warehouse`,
                       source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
-                  Connect to Your Data Warehouse
+                  <Trans>Connect to Your Data Warehouse</Trans>
                 </NextLink>
                 <Box mt="2">
-                  Allow GrowthBook to query your warehouse to compute traffic
-                  totals and metric results.
+                  <Trans>
+                    Allow GrowthBook to query your warehouse to compute traffic
+                    totals and metric results.
+                  </Trans>
                 </Box>
               </div>
             </div>

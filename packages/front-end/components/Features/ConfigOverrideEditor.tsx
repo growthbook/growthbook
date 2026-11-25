@@ -3,6 +3,7 @@ import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { SchemaField } from "shared/types/feature";
 import { deepMergePatch } from "shared/util";
 import { isEqual } from "lodash";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   PiArrowCounterClockwise,
   PiInfo,
@@ -102,6 +103,7 @@ function OverrideValueInput({
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   const nf = field ? normalizeField(field) : null;
   const vt = fieldValueType(nf);
   const enumValues = vt !== "json" && vt !== "boolean" ? (nf?.enum ?? []) : [];
@@ -140,7 +142,7 @@ function OverrideValueInput({
           )
         }
         options={enumValues.map((v) => ({ value: v, label: v }))}
-        initialOption="value…"
+        initialOption={t`value…`}
         sort={false}
         disabled={disabled}
       />
@@ -153,13 +155,13 @@ function OverrideValueInput({
         <FeatureValueField
           id={`override-val-${fieldKey}`}
           value={text}
-          setValue={(t) => {
-            setText(t);
+          setValue={(nextText) => {
+            setText(nextText);
             try {
-              onChange(JSON.parse(t));
+              onChange(JSON.parse(nextText));
               setJsonError(null);
             } catch {
-              setJsonError("Invalid JSON");
+              setJsonError(t`Invalid JSON`);
             }
           }}
           valueType="json"
@@ -186,14 +188,14 @@ function OverrideValueInput({
           value={text}
           disabled={disabled}
           onChange={(e) => {
-            const t = e.target.value;
-            setText(t);
-            const n = Number(t);
-            if (t.trim() !== "" && Number.isFinite(n)) {
+            const nextText = e.target.value;
+            setText(nextText);
+            const n = Number(nextText);
+            if (nextText.trim() !== "" && Number.isFinite(n)) {
               onChange(n);
               setNumError(null);
             } else {
-              setNumError("Enter a valid number");
+              setNumError(t`Enter a valid number`);
             }
           }}
         />
@@ -210,9 +212,9 @@ function OverrideValueInput({
     <FeatureValueField
       id={`override-val-${fieldKey}`}
       value={text}
-      setValue={(t) => {
-        setText(t);
-        onChange(t);
+      setValue={(nextText) => {
+        setText(nextText);
+        onChange(nextText);
       }}
       valueType="string"
       constantContext={constantContext}
@@ -237,6 +239,7 @@ function EditableKey({
   onRename: (newKey: string) => void;
   disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   const [draft, setDraft] = useState(value);
   const trimmed = draft.trim();
   const collision = trimmed !== value && taken.has(trimmed);
@@ -267,7 +270,7 @@ function EditableKey({
           }
         }}
         disabled={disabled}
-        title={collision ? `"${trimmed}" is already in use` : undefined}
+        title={collision ? t`"${trimmed}" is already in use` : undefined}
         style={{
           fontFamily: "var(--code-font-family)",
           ...(invalid ? { borderColor: "var(--red-8)" } : {}),
@@ -304,6 +307,7 @@ function OverrideRow({
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   // A custom (non-schema) key carries no declared type, so it gets a selectable
   // one (default string) that drives the value editor and the value's stored
   // JSON shape. Declared fields use their schema type as before. Seeded from the
@@ -392,11 +396,13 @@ function OverrideRow({
             {showMerged && (
               <Box mt="1">
                 <Text as="p" size="sm" color="text-low" mb="0">
-                  Nested objects deep-merge onto the Config; arrays and scalars
-                  replace.
+                  <Trans>
+                    Nested objects deep-merge onto the Config; arrays and
+                    scalars replace.
+                  </Trans>
                 </Text>
                 <Text size="sm" color="text-low">
-                  Resolved:{" "}
+                  <Trans>Resolved:</Trans>{" "}
                   <code style={{ overflowWrap: "anywhere" }}>
                     {JSON.stringify(merged)}
                   </code>
@@ -443,7 +449,7 @@ function OverrideRow({
       <Flex align="center" style={{ minHeight: 32, minWidth: 0 }}>
         {isCustom ? (
           <Tooltip
-            body="Sets how the value is emitted (its encoding), not a validation rule."
+            body={t`Sets how the value is emitted (its encoding), not a validation rule.`}
             style={{ display: "block", width: "100%" }}
           >
             <Box style={{ width: "100%" }}>
@@ -452,11 +458,11 @@ function OverrideRow({
                 options={CUSTOM_FIELD_TYPE_OPTIONS}
                 sort={false}
                 disabled={disabled}
-                onChange={(t) => {
-                  if (t === customType) return;
-                  setCustomType(t);
+                onChange={(token) => {
+                  if (token === customType) return;
+                  setCustomType(token);
                   // Coerce the value to the new type's default so it stays valid.
-                  onSet(typeDefault(normalizeField(fieldForTypeToken(t))));
+                  onSet(typeDefault(normalizeField(fieldForTypeToken(token))));
                 }}
               />
             </Box>
@@ -485,11 +491,11 @@ function OverrideRow({
             <Flex align="center" gap="1">
               {field === null ? (
                 <>
-                  <PiTrash /> Delete
+                  <PiTrash /> <Trans>Delete</Trans>
                 </>
               ) : (
                 <>
-                  <PiArrowCounterClockwise /> Revert
+                  <PiArrowCounterClockwise /> <Trans>Revert</Trans>
                 </>
               )}
             </Flex>
@@ -503,7 +509,7 @@ function OverrideRow({
             }}
           >
             <Flex align="center" gap="1">
-              <PiPlusBold /> Override
+              <PiPlusBold /> <Trans>Override</Trans>
             </Flex>
           </Link>
         )}
@@ -531,16 +537,17 @@ function AddFieldControl({
   onAdd: (key: string) => void;
   disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   return (
     <Box mt="2" style={{ maxWidth: 260 }}>
       <SelectField
         value=""
         placeholder={
-          extensible ? "Add or create a field…" : "Add a field to override…"
+          extensible ? t`Add or create a field…` : t`Add a field to override…`
         }
         createable={extensible}
         keepCreatableWhenEmpty
-        formatCreateLabel={(v) => `Add "${v}"`}
+        formatCreateLabel={(v) => t`Add "${v}"`}
         options={addableFields.map((f) => ({ value: f.key, label: f.key }))}
         onChange={(key) => {
           const k = key.trim();
@@ -557,9 +564,10 @@ function AddFieldControl({
 
 // The Key / Value / Type column labels, shown above each field group.
 function ColumnHeaderRow(): React.ReactElement {
+  const { t } = useLingui();
   return (
     <Grid columns={GRID_TEMPLATE} gapX="5" pb="1" align="center">
-      {["Key", "Value", "Type"].map((l) => (
+      {[t`Key`, t`Value`, t`Type`].map((l) => (
         <Box key={l} style={{ minWidth: 0 }}>
           <Text
             size="sm"
@@ -592,6 +600,7 @@ export default function ConfigOverrideEditor({
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
   const { data, error } = useApi<ResolvedResponse>(
     `/configs/${encodeURIComponent(configKey)}/resolved`,
   );
@@ -707,13 +716,15 @@ export default function ConfigOverrideEditor({
   return (
     <Tabs defaultValue="form">
       <TabsList size="sm">
-        <TabsTrigger value="form">Form</TabsTrigger>
+        <TabsTrigger value="form">
+          <Trans>Form</Trans>
+        </TabsTrigger>
         <TabsTrigger value="json">JSON</TabsTrigger>
         {data && overrides !== null && rows.length > 0 && (
           <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
             <Switch
               size="sm"
-              label="Show all fields"
+              label={t`Show all fields`}
               value={showAll}
               onChange={(c) => setShowAll(c)}
               disabled={disabled}
@@ -725,18 +736,24 @@ export default function ConfigOverrideEditor({
       <TabsContent value="form">
         <Box mt="2">
           {error ? (
-            <Callout status="error">Failed to load config schema.</Callout>
+            <Callout status="error">
+              <Trans>Failed to load config schema.</Trans>
+            </Callout>
           ) : !data ? (
             <Flex align="center" gap="2" py="3">
-              <LoadingSpinner /> Loading config fields…
+              <LoadingSpinner /> <Trans>Loading config fields…</Trans>
             </Flex>
           ) : overrides === null ? (
             <Callout status="warning">
-              The current override isn&apos;t a plain JSON object. Edit it on
-              the JSON tab.
+              <Trans>
+                The current override isn&apos;t a plain JSON object. Edit it on
+                the JSON tab.
+              </Trans>
             </Callout>
           ) : rows.length === 0 && !extensible ? (
-            <Text color="text-low">This config defines no fields.</Text>
+            <Text color="text-low">
+              <Trans>This config defines no fields.</Trans>
+            </Text>
           ) : (
             <Box>
               <Box
@@ -747,8 +764,10 @@ export default function ConfigOverrideEditor({
                 {visibleRows.length === 0 ? (
                   <Flex align="center" justify="center" py="3">
                     <Text size="sm" color="text-low" fontStyle="italic">
-                      No overrides — the config&apos;s values apply as-is. Add a
-                      field below to override one.
+                      <Trans>
+                        No overrides — the config&apos;s values apply as-is. Add
+                        a field below to override one.
+                      </Trans>
                     </Text>
                   </Flex>
                 ) : (
@@ -756,7 +775,7 @@ export default function ConfigOverrideEditor({
                     {declaredRows.length > 0 && (
                       <>
                         <Heading as="h4" size="xs" mb="1">
-                          Schema Fields
+                          <Trans>Schema Fields</Trans>
                         </Heading>
                         <ColumnHeaderRow />
                       </>
@@ -769,10 +788,10 @@ export default function ConfigOverrideEditor({
                             <Separator size="4" mb="3" />
                           )}
                           <Heading as="h4" size="xs" mb="1">
-                            Custom Overrides
+                            <Trans>Custom Overrides</Trans>
                           </Heading>
                           <Text as="div" size="sm" color="text-low" mb="2">
-                            Not validated
+                            <Trans>Not validated</Trans>
                           </Text>
                         </Box>
                         <ColumnHeaderRow />

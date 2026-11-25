@@ -1,6 +1,7 @@
 import { ReactElement } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { teal, red } from "@radix-ui/colors";
+import { Trans } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 
@@ -25,7 +26,7 @@ export default function ConnectionStatus({
       {connected ? (
         <>
           <span className="text-success" style={{ color: teal.teal11 }}>
-            <FaCheckCircle /> Connected
+            <FaCheckCircle /> <Trans>Connected</Trans>
           </span>
         </>
       ) : (
@@ -33,7 +34,7 @@ export default function ConnectionStatus({
           {error ? (
             <>
               <span className="text-danger">
-                <FaExclamationTriangle /> error
+                <FaExclamationTriangle /> <Trans>error</Trans>
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
@@ -43,7 +44,9 @@ export default function ConnectionStatus({
                   body={
                     <>
                       <div className="mb-2">
-                        Encountered an error while trying to connect:
+                        <Trans>
+                          Encountered an error while trying to connect:
+                        </Trans>
                       </div>
                       {errorTxt ? (
                         <Callout status="error" mt="2">
@@ -51,7 +54,9 @@ export default function ConnectionStatus({
                         </Callout>
                       ) : (
                         <Callout status="error">
-                          <em>Unknown error</em>
+                          <em>
+                            <Trans>Unknown error</Trans>
+                          </em>
                         </Callout>
                       )}
                     </>
@@ -61,7 +66,7 @@ export default function ConnectionStatus({
             </>
           ) : (
             <span style={{ color: red.red11, fontWeight: 500, fontSize: 12 }}>
-              Not connected
+              <Trans>Not connected</Trans>
             </span>
           )}
         </>

@@ -1,6 +1,9 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
 import { FC, useEffect } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -12,15 +15,15 @@ import DropdownLink from "@/components/Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {
-  badgeText: "Demo",
+  badgeText: msg`Demo`,
   badgeColor: "#EB8045",
-  badgeTitle: "This is a demo project with sample data",
+  badgeTitle: msg`This is a demo project with sample data`,
 };
 
 type ProjectDropdownBadgeProps = {
-  badgeText: string;
+  badgeText: MessageDescriptor;
   badgeColor: string;
-  badgeTitle: string;
+  badgeTitle: MessageDescriptor;
 };
 
 const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
@@ -28,10 +31,11 @@ const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
   badgeColor,
   badgeTitle,
 }) => {
+  const { i18n } = useLingui();
   return (
     <div
       className="badge badge-pill position-absolute text-white"
-      title={badgeTitle}
+      title={i18n._(badgeTitle)}
       style={{
         backgroundColor: badgeColor,
         bottom: -6,
@@ -39,7 +43,7 @@ const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
         fontSize: "0.7em",
       }}
     >
-      {badgeText}
+      {i18n._(badgeText)}
     </div>
   );
 };
@@ -61,13 +65,14 @@ function ProjectName({
   size?: "small" | "large";
   badge: ProjectDropdownBadgeProps | null;
 }) {
+  const { t } = useLingui();
   return (
     <div
       className={clsx(className, "d-flex align-items-center")}
       style={{ padding: "5px 10px" }}
     >
       <div className="position-relative">
-        <LetterAvatar name={avatarName} defaultInitials="ALL" size={size} />
+        <LetterAvatar name={avatarName} defaultInitials={t`ALL`} size={size} />
         {badge ? <ProjectDropdownBadge {...badge} /> : null}
       </div>
       <div
@@ -90,6 +95,7 @@ function ProjectName({
 }
 
 export default function ProjectSelector() {
+  const { t } = useLingui();
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const current = getProjectById(project);
@@ -162,7 +168,7 @@ export default function ProjectSelector() {
           <ProjectName
             caret
             avatarName={current?.name || ""}
-            display={current?.name || "All Projects"}
+            display={current?.name || t`All Projects`}
             bold={true}
             badge={currentProjectIsDemoProject ? demoBadge : null}
             size="large"
@@ -172,7 +178,7 @@ export default function ProjectSelector() {
         <div className="mt-2 mx-2">
           <Field
             size="legacy"
-            placeholder="Search..."
+            placeholder={t`Search...`}
             type="search"
             {...searchInputProps}
           />
@@ -187,7 +193,7 @@ export default function ProjectSelector() {
             badge={null}
             className="text-dark"
             avatarName={""}
-            display={"All Projects"}
+            display={t`All Projects`}
             bold={!project}
           />
         </DropdownLink>

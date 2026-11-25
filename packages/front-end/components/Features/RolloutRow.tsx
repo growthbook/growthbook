@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { coveragePercentFormatter } from "@/services/utils";
 import RuleField from "./RuleField";
 import { PlainEntityBadge } from "./EntityBadge";
@@ -9,15 +10,17 @@ import styles from "./RolloutRow.module.scss";
 // detail follows "of units".
 export default function RolloutRow({
   coverage,
-  label = "Rollout",
+  label,
   children,
 }: {
   coverage: number;
   label?: string;
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
+  const labelText = label === undefined ? t`Rollout` : label;
   return (
-    <RuleField label={label}>
+    <RuleField label={labelText}>
       <Flex gap="3" align="center">
         <Box flexGrow="1" className={styles.track}>
           <Box
@@ -28,7 +31,7 @@ export default function RolloutRow({
         <Flex align="center" gap="2" wrap="wrap">
           <PlainEntityBadge label={coveragePercentFormatter.format(coverage)} />
           <span>
-            of units
+            <Trans>of units</Trans>
             {children}
           </span>
         </Flex>

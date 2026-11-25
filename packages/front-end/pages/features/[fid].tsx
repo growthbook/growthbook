@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { isActiveDraftStatus } from "shared/validators";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
@@ -41,6 +42,7 @@ const featureTabs = [
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
+  const { t } = useLingui();
   const router = useRouter();
   const orgSettings = useOrgSettings();
   const { fid } = router.query;
@@ -159,7 +161,12 @@ export default function FeaturePage() {
   const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
 
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    const errorMessage = error.message;
+    return (
+      <Callout status="error">
+        <Trans>An error occurred: {errorMessage}</Trans>
+      </Callout>
+    );
   }
 
   if (!data || !feature || !revision || !baseFeature) {
@@ -200,7 +207,7 @@ export default function FeaturePage() {
       <FeatureUsageProvider feature={feature}>
         <PageHead
           breadcrumb={[
-            { display: "Feature Flags", href: "/features" },
+            { display: t`Feature Flags`, href: "/features" },
             { display: feature.id },
           ]}
         />

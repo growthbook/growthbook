@@ -1,11 +1,13 @@
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /** A value such as a hash, ID or storage path, in monospace with a copy button. */
 export default function CopyableValue({ value }: { value: string }) {
+  const { t } = useLingui();
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1200,
   });
@@ -17,13 +19,13 @@ export default function CopyableValue({ value }: { value: string }) {
         </Text>
       </Box>
       {copySupported && (
-        <Tooltip content={copySuccess ? "Copied" : "Copy"}>
+        <Tooltip content={copySuccess ? t`Copied` : t`Copy`}>
           <IconButton
             type="button"
             variant="ghost"
             color="gray"
             size="1"
-            aria-label="Copy"
+            aria-label={t`Copy`}
             onClick={(e) => {
               // Inside clickable rows, so don't let the click through
               e.stopPropagation();

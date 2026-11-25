@@ -62,6 +62,7 @@ import {
 import { useDropzone } from "react-dropzone";
 import { Box, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -251,6 +252,7 @@ function PasteAndDrop({
   setUploadError: (message: string | null) => void;
   registerDrop: (handler: (files: File[]) => void) => void;
 }) {
+  const { t } = useLingui();
   const [editor] = useLexicalComposerContext();
   const { apiCall } = useAuth();
 
@@ -277,13 +279,13 @@ function PasteAndDrop({
         });
       } catch (e) {
         setUploadError(
-          e instanceof Error ? e.message : "Failed to upload image",
+          e instanceof Error ? e.message : t`Failed to upload image`,
         );
       } finally {
         setUploading(false);
       }
     },
-    [allowImages, apiCall, editor, setUploading, setUploadError],
+    [allowImages, apiCall, editor, setUploading, setUploadError, t],
   );
 
   useEffect(() => registerDrop(upload), [registerDrop, upload]);
@@ -433,6 +435,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   },
   ref,
 ) {
+  const { t } = useLingui();
   // A collapsed toolbar opens on content that already uses it, so editing
   // formatted text starts with the formatting in reach.
   const [toolbarOpen, setToolbarOpen] = useState(
@@ -551,7 +554,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           {/* After the text, so a dialog focuses the text rather than this. */}
           {collapsibleToolbar ? (
             <Tooltip
-              content={toolbarOpen ? "Hide formatting" : "Show formatting"}
+              content={toolbarOpen ? t`Hide formatting` : t`Show formatting`}
             >
               <IconButton
                 type="button"
@@ -559,7 +562,9 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
                 variant="soft"
                 color="gray"
                 className={styles.toolbarToggle}
-                aria-label={toolbarOpen ? "Hide formatting" : "Show formatting"}
+                aria-label={
+                  toolbarOpen ? t`Hide formatting` : t`Show formatting`
+                }
                 aria-expanded={toolbarOpen}
                 // Keeps the caret where it is, so the ribbon acts on the
                 // selection the writer already had.
@@ -600,7 +605,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           autoFocus={autoFocus}
           autoFocusAtEnd={autoFocusAtEnd}
         />
-        {uploading ? <div className={styles.uploading}>Uploading…</div> : null}
+        {uploading ? (
+          <div className={styles.uploading}>
+            <Trans>Uploading…</Trans>
+          </div>
+        ) : null}
         {uploadError ? (
           <Box px={size === "sm" ? "2" : "3"} pb={size === "sm" ? "2" : "3"}>
             <HelperText status="error" size="sm">

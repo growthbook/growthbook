@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -38,6 +39,7 @@ const NorthStarMetricDisplay = ({
   hoverDate?: number | null;
   onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
+  const { t } = useLingui();
   const {
     project,
     getDatasourceById,
@@ -97,7 +99,11 @@ const NorthStarMetricDisplay = ({
           {analysis && analysis?.result?.dates?.length ? (
             <>
               <strong className="ml-4 align-bottom">
-                Daily {isBinomialMetric(metric) ? "Average" : "Count"}
+                {isBinomialMetric(metric) ? (
+                  <Trans>Daily Average</Trans>
+                ) : (
+                  <Trans>Daily Count</Trans>
+                )}
               </strong>
               <DateGraph
                 type={isBinomialMetric(metric) ? "binomial" : "count"}
@@ -125,19 +131,28 @@ const NorthStarMetricDisplay = ({
             <>
               {hasQueries && status === "failed" && (
                 <Callout status="error" my="3">
-                  Error running the analysis.
+                  <Trans>Error running the analysis.</Trans>
                 </Callout>
               )}
               {hasQueries && status === "running" && (
                 <Callout status="info" my="3">
-                  Your analysis is currently running.
+                  <Trans>Your analysis is currently running.</Trans>
                 </Callout>
               )}
               {status !== "running" && status !== "failed" && (
                 <div className="mb-2">
                   <em>
-                    No data for this metric yet. Click the{" "}
-                    {analysis ? "Refresh Data" : "Run Analysis"} button below.
+                    {analysis ? (
+                      <Trans>
+                        No data for this metric yet. Click the Refresh Data
+                        button below.
+                      </Trans>
+                    ) : (
+                      <Trans>
+                        No data for this metric yet. Click the Run Analysis
+                        button below.
+                      </Trans>
+                    )}
                   </em>
                 </div>
               )}
@@ -147,7 +162,7 @@ const NorthStarMetricDisplay = ({
             isFactMetric(metric) ? (
               <RunQueriesButton
                 icon="refresh"
-                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                cta={analysis ? t`Refresh Data` : t`Run Analysis`}
                 mutate={mutate}
                 model={
                   analysis ?? {
@@ -197,7 +212,7 @@ const NorthStarMetricDisplay = ({
             ) : (
               <RunQueriesButton
                 icon="refresh"
-                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                cta={analysis ? t`Refresh Data` : t`Run Analysis`}
                 model={
                   data.data.metric ?? {
                     queries: [],

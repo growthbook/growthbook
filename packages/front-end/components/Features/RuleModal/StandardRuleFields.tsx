@@ -14,6 +14,7 @@ import {
   rampTargetMatchesRule,
 } from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
@@ -52,6 +53,7 @@ import RuleEnvironmentScopeField, {
 import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
+
 export type ScheduleType = "none" | "schedule" | "ramp";
 type ScheduleSelectorType = ScheduleType | "ramp-monitored";
 
@@ -121,6 +123,7 @@ export default function StandardRuleFields({
   isNew?: boolean;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
+  const { t } = useLingui();
   const form = useFormContext();
 
   // A config-backed feature default makes every rule an implicit sparse patch on
@@ -192,8 +195,8 @@ export default function StandardRuleFields({
   const rampAnchored =
     !!ruleRampSchedule &&
     ANCHORED_RAMP_SCHEDULE_STATUSES.includes(ruleRampSchedule.status);
-  const rampTargetId = ruleRampSchedule?.targets.find((t) =>
-    rampTargetMatchesRule(t, form.watch("id") ?? ""),
+  const rampTargetId = ruleRampSchedule?.targets.find((target) =>
+    rampTargetMatchesRule(target, form.watch("id") ?? ""),
   )?.id;
   const rampSetsCoverage =
     !!ruleRampSchedule &&
@@ -313,33 +316,56 @@ export default function StandardRuleFields({
     <>
       <Field
         size="legacy"
-        label="Description"
+        label={t`Description`}
         textarea
         minRows={1}
         maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder={t`Short human-readable description of the rule`}
       />
       <ConflictCallout field="description" />
 
       {rampSyncsTargeting && (
         <Callout status="info" mt="5">
-          This rule is part of a ramp-up that is{" "}
-          {ruleRampSchedule?.status === "paused" ? "paused" : "not running yet"}
-          .{" "}
-          {rampControlsCoverage
-            ? "The rollout % is managed by the ramp-up plan, so it can't be changed here. Anything else you change "
-            : "Anything you change "}
-          takes effect when you publish and stays in place as the ramp-up
-          continues.
+          {ruleRampSchedule?.status === "paused" ? (
+            rampControlsCoverage ? (
+              <Trans>
+                This rule is part of a ramp-up that is paused. The rollout % is
+                managed by the ramp-up plan, so it can&apos;t be changed here.
+                Anything else you change takes effect when you publish and stays
+                in place as the ramp-up continues.
+              </Trans>
+            ) : (
+              <Trans>
+                This rule is part of a ramp-up that is paused. Anything you
+                change takes effect when you publish and stays in place as the
+                ramp-up continues.
+              </Trans>
+            )
+          ) : rampControlsCoverage ? (
+            <Trans>
+              This rule is part of a ramp-up that is not running yet. The
+              rollout % is managed by the ramp-up plan, so it can&apos;t be
+              changed here. Anything else you change takes effect when you
+              publish and stays in place as the ramp-up continues.
+            </Trans>
+          ) : (
+            <Trans>
+              This rule is part of a ramp-up that is not running yet. Anything
+              you change takes effect when you publish and stays in place as the
+              ramp-up continues.
+            </Trans>
+          )}
         </Callout>
       )}
       {rampLocksTargeting && (
         <Callout status="info" mt="5" icon={<PiLockSimple />}>
-          This rule is part of a running ramp-up. Pause it before changing the
-          environments, rollout %, targeting, or value. Once paused, your
-          changes take effect when you publish and stay in place when the
-          ramp-up resumes.
+          <Trans>
+            This rule is part of a running ramp-up. Pause it before changing the
+            environments, rollout %, targeting, or value. Once paused, your
+            changes take effect when you publish and stay in place when the
+            ramp-up resumes.
+          </Trans>
         </Callout>
       )}
       <RuleEnvironmentScopeField
@@ -353,7 +379,9 @@ export default function StandardRuleFields({
 
       <Box mb="5">
         <FeatureValueField
-          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+          label={
+            ruleType === "rollout" ? t`Value to roll out` : t`Value to force`
+          }
           id="value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
@@ -377,19 +405,23 @@ export default function StandardRuleFields({
 
       <div className="mb-3">
         <Heading as="h3" size="sm" mb="2">
-          Release plan
+          <Trans>Release plan</Trans>
         </Heading>
         {releasePlanLocked && (
           <HelperText status="info" mb="2" icon={<PiLockSimple />}>
             <Box>
               <Text as="div">
                 {pendingScheduleRemoval
-                  ? "Locked while schedule removal is pending"
-                  : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
+                  ? t`Locked while schedule removal is pending`
+                  : isSimpleSchedule
+                    ? t`Locked while Schedule is running`
+                    : t`Locked while Ramp-up is running`}
               </Text>
               {!pendingScheduleRemoval && (
                 <Text as="div" mt="1" size="sm">
-                  To change the release plan, pause or end the Ramp-up
+                  <Trans>
+                    To change the release plan, pause or end the Ramp-up
+                  </Trans>
                 </Text>
               )}
             </Box>
@@ -403,29 +435,28 @@ export default function StandardRuleFields({
           options={[
             {
               value: "none",
-              label: "Live immediately",
-              description: "Rule is always on when enabled",
+              label: t`Live immediately`,
+              description: t`Rule is always on when enabled`,
             },
             {
               value: "schedule",
               label: (
                 <Flex align="center" gap="2">
-                  Start and end date
+                  <Trans>Start and end date</Trans>
                   <PaidFeatureBadge commercialFeature="schedule-feature-flag" />
                   {showScheduleBadge && isSimpleSchedule && (
                     <RampScheduleBadge rs={ruleRampSchedule!} simpleSchedule />
                   )}
                 </Flex>
               ),
-              description:
-                "Turn the rule on or off on specific dates, no gradual rollout",
+              description: t`Turn the rule on or off on specific dates, no gradual rollout`,
               disabled: !canScheduleFeatureFlags,
             },
             {
               value: "ramp",
               label: (
                 <Flex align="center" gap="2">
-                  Ramp-up
+                  <Trans>Ramp-up</Trans>
                   <PaidFeatureBadge commercialFeature="ramp-schedules" />
                   {showScheduleBadge &&
                     !isSimpleSchedule &&
@@ -437,8 +468,7 @@ export default function StandardRuleFields({
                     )}
                 </Flex>
               ),
-              description:
-                "Gradually increase traffic over time, with optional scheduling",
+              description: t`Gradually increase traffic over time, with optional scheduling`,
               disabled: !canUseRampSchedules,
             },
             {
@@ -447,7 +477,7 @@ export default function StandardRuleFields({
                 <Flex align="center" gap="2">
                   <Flex align="center" gap="1">
                     <MonitoredIcon size={16} />
-                    Monitored Ramp-up
+                    <Trans>Monitored Ramp-up</Trans>
                   </Flex>
                   <PaidFeatureBadge commercialFeature="safe-rollout" />
                   {showScheduleBadge &&
@@ -460,8 +490,7 @@ export default function StandardRuleFields({
                     )}
                 </Flex>
               ),
-              description:
-                "Ramp-up with guardrail monitoring and auto-rollback",
+              description: t`Ramp-up with guardrail monitoring and auto-rollback`,
               disabled: !canUseRampSchedules,
             },
           ]}
@@ -521,16 +550,16 @@ export default function StandardRuleFields({
                                 })
                               }
                             >
-                              Remove schedule
+                              <Trans>Remove schedule</Trans>
                             </Button>
                           }
                         >
-                          This schedule has finished.
+                          <Trans>This schedule has finished.</Trans>
                         </Callout>
                       )}
                       {isPendingRemoval && (
                         <Callout status="info" mt="3" size="sm">
-                          Schedule will be removed on save.
+                          <Trans>Schedule will be removed on save.</Trans>
                         </Callout>
                       )}
                     </>
@@ -543,9 +572,11 @@ export default function StandardRuleFields({
               rampSectionState.startDate &&
               new Date(rampSectionState.startDate).getTime() > Date.now() && (
                 <Callout status="warning" mt="4">
-                  This rule is currently enabled and will remain live until the
-                  schedule starts. Disable the rule first if you don&apos;t want
-                  it serving traffic before then.
+                  <Trans>
+                    This rule is currently enabled and will remain live until
+                    the schedule starts. Disable the rule first if you
+                    don&apos;t want it serving traffic before then.
+                  </Trans>
                 </Callout>
               )}
           </Box>
@@ -555,7 +586,7 @@ export default function StandardRuleFields({
       </div>
 
       <Heading as="h3" size="sm" mb="4" mt="6">
-        Targeting
+        <Trans>Targeting</Trans>
       </Heading>
       {rampLocksTargeting ? (
         <Box mb="4" style={{ opacity: 0.6 }}>
@@ -568,10 +599,16 @@ export default function StandardRuleFields({
               condition={form.watch("condition") || ""}
               savedGroups={form.watch("savedGroups")}
               prerequisites={form.watch("prerequisites")}
-              prefix={<Text weight="medium">IF</Text>}
+              prefix={
+                <Text weight="medium">
+                  <Trans>IF</Trans>
+                </Text>
+              }
             />
           ) : (
-            <em>No targeting (all traffic will be included)</em>
+            <em>
+              <Trans>No targeting (all traffic will be included)</Trans>
+            </em>
           )}
         </Box>
       ) : (
@@ -618,7 +655,7 @@ export default function StandardRuleFields({
               form.setValue("savedGroups", savedGroups)
             }
             project={feature.project || ""}
-            label="Saved Groups"
+            label={t`Saved Groups`}
           />
           <ConflictCallout field="savedGroups" />
 
@@ -630,7 +667,7 @@ export default function StandardRuleFields({
             attributeProjects={attributeProjects}
             savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeSelectIndicator}
-            label="Attributes"
+            label={t`Attributes`}
           />
           <ConflictCallout field="condition" />
 
@@ -644,7 +681,7 @@ export default function StandardRuleFields({
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
-            label="Prerequisite Features"
+            label={t`Prerequisite Features`}
             onRuleCyclicChange={onRuleCyclicChange}
           />
           <ConflictCallout field="prerequisites" />
@@ -652,8 +689,10 @@ export default function StandardRuleFields({
       )}
       {isCyclic && (
         <Callout status="error">
-          A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
-          dependency. Remove this prerequisite to continue.
+          <Trans>
+            A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+            dependency. Remove this prerequisite to continue.
+          </Trans>
         </Callout>
       )}
     </>
