@@ -1024,6 +1024,54 @@ describe("getInitialExposureQuery", () => {
     expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
   });
 
+  describe("Snowplow reads the experiment_viewed self-describing event", () => {
+    const snowplow = (type: string) =>
+      getInitialExposureQuery({
+        ...datasource,
+        type,
+        settings: { ...datasource.settings, schemaFormat: "snowplow" },
+      } as unknown as DataSourceInterfaceWithParams);
+
+    it("filters on the GrowthBook event, not a structured event", () => {
+      const sql = snowplow("snowflake");
+      expect(sql).toContain("event_vendor = 'io.growthbook'");
+      expect(sql).toContain("event_name = 'experiment_viewed'");
+      expect(sql).not.toContain("se_action");
+    });
+
+    it("uses camelCase keys in Snowflake", () => {
+      expect(snowplow("snowflake")).toContain(
+        "unstruct_event_io_growthbook_experiment_viewed_1:experimentId::varchar as experiment_id",
+      );
+    });
+
+    it.each(["bigquery", "databricks", "athena"])(
+      "uses snake_case struct fields in %s",
+      (type) => {
+        expect(snowplow(type)).toContain(
+          "unstruct_event_io_growthbook_experiment_viewed_1.variation_id as variation_id",
+        );
+      },
+    );
+
+    it.each(["redshift", "postgres"])(
+      "joins the event's own table in %s",
+      (type) => {
+        const sql = snowplow(type);
+        expect(sql).toContain(
+          "JOIN analytics.io_growthbook_experiment_viewed_1 ev",
+        );
+        expect(sql).toContain(
+          "ev.root_id = event_id AND ev.root_tstamp = collector_tstamp",
+        );
+      },
+    );
+
+    it("keeps the structured-event query for other warehouses", () => {
+      expect(snowplow("vertica")).toContain("se_action = 'Experiment Viewed'");
+    });
+  });
+
   it("reads GA4 experiment and variation ids from either value column", () => {
     const sql = getInitialExposureQuery({
       ...datasource,

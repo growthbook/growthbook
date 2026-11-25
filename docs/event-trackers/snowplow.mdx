@@ -102,6 +102,20 @@ Schema URI:
 iglu:io.growthbook/experiment_viewed/jsonschema/1-0-0
 ```
 
+## Analyzing experiments in your warehouse
+
+When you connect a Snowplow Data Source, GrowthBook creates an Experiment Assignment Query that reads the `experiment_viewed` event above. The column holding the event depends on your warehouse and loader:
+
+| Warehouse | Where the event is |
+| --- | --- |
+| Snowflake | `unstruct_event_io_growthbook_experiment_viewed_1:experimentId` in the `events` table |
+| BigQuery, Databricks, Athena | `unstruct_event_io_growthbook_experiment_viewed_1.experiment_id` in the `events` table |
+| Redshift, Postgres | Its own table, `io_growthbook_experiment_viewed_1`, joined to `events` on `root_id` and `root_tstamp` |
+
+Snowplow's `domain_userid` column maps to the `anonymous_id` identifier type, and `user_id` maps to `user_id`. Link your `domain_user_id` attribute to `anonymous_id` so experiments hashed on it use the right assignment query.
+
+If you use BigQuery Loader 1.x, the column name carries the full version (`unstruct_event_io_growthbook_experiment_viewed_1_0_0`); edit the query to match. If you track exposures as structured events instead, edit the query to filter on `se_action` and read `se_label` and `se_property`. See [how Snowplow schemas translate to the warehouse](https://docs.snowplow.io/docs/api-reference/loaders-storage-targets/schemas-in-warehouse/) for details.
+
 ## Testing your Integration with Snowplow Micro
 
 [Snowplow Micro](https://docs.snowplow.io/docs/data-product-studio/data-quality/snowplow-micro/basic-usage/) is a lightweight tool that lets you test and validate your event tracking locally.

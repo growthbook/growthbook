@@ -74,6 +74,7 @@ type GetExperimentSqlOptions = {
   actionPrefix?: string;
   siteId?: string | number;
   categoryName?: string;
+  dataSourceType?: DataSourceType;
 };
 
 export interface SchemaInterface {
