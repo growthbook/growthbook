@@ -1057,7 +1057,8 @@ export default function ConfigJsonEditor({
     holdsPage && ribbonEl
       ? createPortal(
           <StagedEditsBar
-            changes={null}
+            // Value edits rewrite the schema, so they're discarded together.
+            changes={<Text weight="medium">Unsaved changes</Text>}
             saving={saving}
             saveDisabled={!canSave}
             onDiscard={handleCancel}

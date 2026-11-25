@@ -14,11 +14,32 @@
   padding: var(--space-2) var(--space-4);
 }
 
-// Settings pages cap their content on the left; the bar's content keeps to it.
-:global(.settings-layout) .bar {
-  padding-left: var(--page-padding);
+// On Settings pages, from the side nav across the Settings nav: over it (999
+// too, but earlier in the DOM) and under the slide-out sidebar (1000). The
+// count lines up with the Settings nav's text, and Save ends on the page
+// content's right edge.
+.pinned {
+  --pinned-left: var(--sidebar-width);
+  position: fixed;
+  left: var(--pinned-left);
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  padding-left: calc(
+    var(--settings-nav-left) + var(--settings-nav-inset) - var(--pinned-left)
+  );
   padding-right: max(
     var(--page-padding),
-    100% - var(--page-padding) - var(--settings-content-max-width)
+    100% - var(--settings-layout-left) - var(--page-padding) - var(
+        --settings-content-max-width
+      )
   );
+  // The side nav is a drawer from here down.
+  @media (max-width: 1180px) {
+    --pinned-left: 0px;
+  }
+}
+
+.pinnedSpacer {
+  height: var(--bottom-bar-clearance, 0px);
 }

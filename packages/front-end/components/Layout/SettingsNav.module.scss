@@ -1,7 +1,8 @@
 .nav {
   position: fixed;
   top: var(--header-height);
-  bottom: var(--settings-nav-inset);
+  // Above a save bar along the window's bottom, so it covers no links.
+  bottom: calc(var(--settings-nav-inset) + var(--bottom-bar-clearance, 0px));
   left: var(--settings-nav-left);
   width: var(--settings-nav-width);
   display: flex;
@@ -42,18 +43,15 @@
 .scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+}
+
+.items {
   // 4px on the left: the items' text sits on the title's edge, their fills
   // 8px outside it.
   padding: 4px 12px var(--space-3) 4px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-
-  // Room for General's fixed save bar, so the last items scroll clear of it.
-  .nav & {
-    padding-bottom: var(--space-8);
-  }
 }
 
 .group {

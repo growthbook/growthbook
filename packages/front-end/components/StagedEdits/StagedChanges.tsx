@@ -15,7 +15,8 @@ import Tooltip from "@/ui/Tooltip";
 
 export type StagedReview = { before: unknown; after: unknown };
 
-// A save bar's list of staged edits, opened from its count.
+// A save bar's list of unsaved changes, opened from their count, to review
+// and discard each one.
 export function StagedChangesPopover({
   open,
   onOpenChange,
@@ -34,7 +35,14 @@ export function StagedChangesPopover({
       side="top"
       align="start"
       sideOffset={8}
-      contentStyle={{ width: 640, maxWidth: "90vw", padding: "12px 16px" }}
+      contentStyle={{
+        width: 640,
+        maxWidth: "90vw",
+        // Expanded diffs can outgrow a short window, so the list scrolls.
+        maxHeight: "var(--radix-popover-content-available-height)",
+        overflowY: "auto",
+        padding: "12px 16px",
+      }}
       trigger={
         <Button
           variant="ghost"
@@ -42,7 +50,7 @@ export function StagedChangesPopover({
           icon={<PiCaretUp />}
           iconPosition="right"
         >
-          {count} staged {count === 1 ? "change" : "changes"}
+          {count} unsaved {count === 1 ? "change" : "changes"}
         </Button>
       }
       content={
