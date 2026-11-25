@@ -1735,14 +1735,14 @@ export async function refreshSDKPayloadCache({
   );
   const interleavings =
     await context.models.interleavings.getAllPayloadInterleavings();
-  // Holdouts, contextual bandits and interleavings carry targeting the
-  // features and experiments do not.
   const orgEnvironments = getEnvironments(context.org);
   const allQaOverrides = orgEnvironments.some(
     (e) => !isProductionEnvironment(e),
   )
     ? await context.models.experimentQaOverrides.getAllForPayload()
     : [];
+  // Holdouts, contextual bandits, interleavings and QA overrides carry
+  // targeting the features and experiments do not.
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -3994,7 +3994,6 @@ export function getNextScheduledUpdate(
   return new Date(sortedFutureDates[0]);
 }
 
-// Specific hashing entrypoint for Feature rules
 // Attribute conditions only. A prerequisite's `id` is a Feature Flag key, and
 // hashing by attribute name would rewrite it when `id` is a secure attribute.
 function hashTargetingConditions(
@@ -4013,6 +4012,7 @@ function hashTargetingConditions(
   });
 }
 
+// Specific hashing entrypoint for Feature rules
 export function applyFeatureHashing(
   features: Record<string, FeatureDefinition>,
   attributes: SDKAttributeSchema,

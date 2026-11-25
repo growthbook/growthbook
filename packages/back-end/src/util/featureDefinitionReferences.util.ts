@@ -15,7 +15,7 @@ export type FeatureDefinitionSources = {
   bandits?: Iterable<TargetingSource>;
   // Interleavings target their `$interleave:` pseudo flag.
   interleavings?: Iterable<TargetingSource>;
-  // QA override filters (`override.filters`) narrow a draft's QA rule.
+  // QA override filters (`override.filters`) target a draft's QA rules.
   qaOverrides?: Iterable<TargetingSource>;
 };
 
