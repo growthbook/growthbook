@@ -21,9 +21,15 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
-  runContextualStatsEngine: jest.fn(),
-}));
+jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => {
+  const actual = jest.requireActual(
+    "back-end/src/enterprise/services/contextualBanditStats",
+  );
+  return {
+    ...actual,
+    runContextualStatsEngine: jest.fn(),
+  };
+});
 jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
   const actual = jest.requireActual(
     "back-end/src/enterprise/services/contextualBandits",

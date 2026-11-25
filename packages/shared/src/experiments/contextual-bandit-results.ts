@@ -1,3 +1,4 @@
+import type { ContextualBanditVariationStatus } from "shared/validators";
 import type {
   ContextualBanditSnapshot,
   ContextualBanditResponseSnapshot,
@@ -11,6 +12,7 @@ import {
   computeOverallVariationMeans,
   computeOverallVariationWeights,
 } from "./contextual-bandit-weights";
+import { isActiveVariation } from "./contextual-bandit-variation-changes";
 
 /** Minimal variation identity needed to label the leaf-first results view. */
 export type ContextualBanditResultsVariation = {
@@ -226,4 +228,74 @@ export function buildContextualBanditResultsView(
     overall: { variations: overallVariations },
     leaves,
   };
+}
+
+export type ContextualBanditVariationIdentity = {
+  id: string;
+  key: string;
+  status?: ContextualBanditVariationStatus;
+};
+
+export type UnknownVariationCause =
+  | { kind: "empty"; value: string }
+  | { kind: "caseOrWhitespace"; value: string; expectedKey: string }
+  | { kind: "growthbookId"; value: string; expectedKey?: string }
+  | { kind: "index"; value: string; expectedKey?: string }
+  | { kind: "unrecognized"; value: string };
+
+const normalizeVariationValue = (value: string): string =>
+  value.trim().toLowerCase();
+
+export function classifyUnknownVariation(
+  value: string,
+  variations: ContextualBanditVariationIdentity[],
+): UnknownVariationCause {
+  if (value === "") {
+    return { kind: "empty", value };
+  }
+
+  const byId = variations.find((v) => v.id === value);
+  if (byId) {
+    return { kind: "growthbookId", value, expectedKey: byId.key };
+  }
+  if (/^var_/.test(value)) {
+    return { kind: "growthbookId", value };
+  }
+
+  const normalized = normalizeVariationValue(value);
+  const byNormalizedKey = variations.find(
+    (v) => normalizeVariationValue(v.key) === normalized,
+  );
+  if (byNormalizedKey) {
+    return {
+      kind: "caseOrWhitespace",
+      value,
+      expectedKey: byNormalizedKey.key,
+    };
+  }
+
+  if (/^\d+$/.test(value)) {
+    const index = Number(value);
+    const activeVariations = variations.filter(isActiveVariation);
+    if (
+      Number.isInteger(index) &&
+      index >= 0 &&
+      index < activeVariations.length
+    ) {
+      return {
+        kind: "index",
+        value,
+        expectedKey: activeVariations[index]?.key,
+      };
+    }
+  }
+
+  return { kind: "unrecognized", value };
+}
+
+export function classifyUnknownVariations(
+  values: string[],
+  variations: ContextualBanditVariationIdentity[],
+): UnknownVariationCause[] {
+  return values.map((value) => classifyUnknownVariation(value, variations));
 }
