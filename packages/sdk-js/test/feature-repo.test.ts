@@ -204,6 +204,17 @@ describe("feature-repo", () => {
   });
 
   it("uses cache and can refresh manually", async () => {
+    // Widen the staleness window so worker scheduling jitter from parallel test
+    // suites can't turn a "cache is fresh" hit into a background refetch.
+    // The sleeps below are sized to still cross it when staleness is expected.
+    configureCache({
+      staleTTL: 500,
+      maxAge: 2000,
+      cacheKey: localStorageCacheKey,
+      backgroundSync: true,
+      disableCache: false,
+    });
+
     // Value from api is "initial"
     const features = {
       foo: {
@@ -267,7 +278,7 @@ describe("feature-repo", () => {
     expect(f.mock.calls.length).toEqual(1);
 
     // Wait a bit for cache to become stale and refresh again
-    await sleep(100);
+    await sleep(550);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(2);
 
@@ -760,6 +771,135 @@ describe("feature-repo", () => {
     growthbook.destroy();
     setPolyfills({ EventSource });
     cleanup();
+  });
+
+  it("does not subscribe when streaming is explicitly false", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ streaming: false });
+
+    // Features load over HTTP and the explicit opt-out is preserved
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    await sleep(150);
+    expect(spyEventSource).not.toHaveBeenCalled();
+    expect(f.mock.calls.length).toEqual(1);
+
+    growthbook.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+  });
+
+  it("does not subscribe when a GrowthBookClient inits without streaming", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const client = new GrowthBookClient({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await client.init();
+
+    // Features load over HTTP, no streaming channel is opened
+    expect(f.mock.calls.length).toEqual(1);
+    expect(client.evalFeature("foo", { attributes: {} }).value).toEqual(
+      "initial",
+    );
+
+    await sleep(150);
+    expect(spyEventSource).not.toHaveBeenCalled();
+    expect(f.mock.calls.length).toEqual(1);
+
+    client.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+  });
+
+  it("subscribes when a GrowthBookClient inits with streaming", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const client = new GrowthBookClient({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await client.init({ streaming: true });
+
+    expect(f.mock.calls.length).toEqual(1);
+    expect(client.evalFeature("foo", { attributes: {} }).value).toEqual(
+      "initial",
+    );
+
+    // The explicit opt-in opens the stream and applies pushed updates
+    await sleep(150);
+    expect(client.evalFeature("foo", { attributes: {} }).value).toEqual(
+      "streaming",
+    );
+    expect(client.getPayload()).toEqual(streamingPayload);
+    expect(f.mock.calls.length).toEqual(1);
+
+    client.destroy();
+    cleanup();
+    event.clear();
   });
 
   it("keeps the payload when the EventSource polyfill is not a constructor", async () => {
