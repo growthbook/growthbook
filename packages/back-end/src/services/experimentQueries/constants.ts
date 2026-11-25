@@ -1,6 +1,10 @@
 // Always max to 200 metrics per query
 export const MAX_METRICS_PER_QUERY = 200;
 
+// Columns a metrics query spends before its metrics: up to 100 dimensions
+// (overkill, but also adds in buffer) + 1 for variation + 2 for users and count.
+export const BASE_COLUMNS_PER_QUERY = 103;
+
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
 export const MAX_ROWS_CLUSTER_UNITS_QUERY = 20;

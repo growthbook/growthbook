@@ -1,0 +1,35 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  {% if disabled %}
+    GrowthBook Proxy disabled for SDK Connection {{ connectionName|noHyperlink }}
+  {% else %}
+    GrowthBook Proxy failing for SDK Connection {{ connectionName|noHyperlink }}
+  {% endif %}
+{% endblock %}
+
+{% block title %}
+  {% if disabled %}
+    The GrowthBook Proxy for "{{ connectionName|noHyperlink }}" was disabled
+  {% else %}
+    The GrowthBook Proxy for "{{ connectionName|noHyperlink }}" is failing
+  {% endif %}
+{% endblock %}
+
+{% block top %}
+  {% if disabled %}
+    <p>GrowthBook disabled the proxy after too many consecutive failures. SDKs using it no longer get updates.</p>
+  {% else %}
+    <p>GrowthBook couldn't send the latest SDK payload to the proxy. If this connection no longer uses a proxy, turn it off on the SDK Connection.</p>
+  {% endif %}
+  <p>{{ error }}</p>
+  {% if disabled %}
+    <p>Fix the cause, then use Recheck on the SDK Connection to turn the proxy back on. If changes to the connection need approval, publish an approved change that enables the proxy instead.</p>
+  {% endif %}
+  {{ utils.button("View SDK Connection", connectionUrl) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>You are receiving this email because you are an admin of this GrowthBook organization.</p>
+{% endblock %}

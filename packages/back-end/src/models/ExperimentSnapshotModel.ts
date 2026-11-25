@@ -13,6 +13,10 @@ import {
   isString,
 } from "shared/util";
 import {
+  fillLegacyPValueCorrection,
+  getNewMetricsUpdate,
+} from "shared/experiments";
+import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -85,6 +89,23 @@ const experimentSnapshotSchema = new mongoose.Schema({
   triggeredBy: String,
   report: String,
   runnerKind: String,
+  updateScope: new mongoose.Schema(
+    {
+      kind: String,
+      parentSnapshotId: String,
+      queriedMetricIds: [String],
+      updatesInARow: Number,
+      base: new mongoose.Schema(
+        {
+          dateCreated: Date,
+          runStarted: Date,
+          cutoffDate: Date,
+        },
+        { _id: false },
+      ),
+    },
+    { _id: false },
+  ),
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
@@ -392,6 +413,14 @@ async function populateSnapshotAnalyses(
     snapshots,
     metricIds,
   );
+  const pValueCorrection = context.org.settings?.pValueCorrection ?? null;
+  snapshots.forEach((snapshot) =>
+    fillLegacyPValueCorrection({
+      snapshot,
+      pValueCorrection,
+      hydratedMetricIds: metricIds,
+    }),
+  );
   return snapshotOrSnapshots;
 }
 
@@ -522,6 +551,7 @@ export async function updateSnapshot({
     ReturnType<typeof updateExperimentAnalysisSummary>
   > | null = null;
   let shouldRunEagerDimensionAnalyses = false;
+  let superseded = false;
 
   try {
     const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
@@ -612,11 +642,22 @@ export async function updateSnapshot({
       });
     }
 
+    const newMetricsUpdate = getNewMetricsUpdate(experimentSnapshot);
+    superseded =
+      !!newMetricsUpdate &&
+      experimentSnapshot.status === "success" &&
+      !(await isParentStillLatestOverall(
+        context,
+        experimentSnapshot,
+        newMetricsUpdate.parentSnapshotId,
+      ));
+
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
       experimentSnapshot.status === "success" &&
       findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
-        null;
+        null &&
+      !superseded;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
@@ -734,6 +775,7 @@ export async function updateSnapshot({
 
   if (
     experimentSnapshot.status === "success" &&
+    !superseded &&
     // Only use main snapshots or those triggered automatically for dashboards
     experimentSnapshot.triggeredBy !== "manual-dashboard" &&
     (experimentSnapshot.triggeredBy === "update-dashboards" ||
@@ -1186,26 +1228,119 @@ export async function findLatestSuccessfulReportSnapshotId(
   return doc?.id ?? null;
 }
 
+const latestSuccessfulOverallQuery = (
+  context: Context,
+  experiment: string,
+  phase: number,
+): FilterQuery<ExperimentSnapshotDocument> => ({
+  organization: context.org.id,
+  experiment,
+  phase,
+  dimension: null,
+  type: "standard",
+  status: "success",
+});
+
 /** Analysis end date of a phase's newest successful Overall snapshot, read without its analyses. */
 export async function findLatestSuccessfulSnapshotEndDate(
   context: Context,
   { experiment, phase }: { experiment: string; phase: number },
 ): Promise<Date | null> {
   const doc = await ExperimentSnapshotModel.findOne(
-    {
-      organization: context.org.id,
-      experiment,
-      phase,
-      dimension: null,
-      type: "standard",
-      status: "success",
-    },
+    latestSuccessfulOverallQuery(context, experiment, phase),
     { "settings.endDate": 1 },
     { sort: { dateCreated: -1 } },
   )
     .lean<{ settings?: { endDate?: Date | string } }>()
     .exec();
   return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
+}
+
+/** The latest successful Overall snapshot, without its analysis results. */
+export async function findLatestSuccessfulOverallSnapshot(
+  context: Context,
+  { experiment, phase }: { experiment: string; phase: number },
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    latestSuccessfulOverallQuery(context, experiment, phase),
+    null,
+    { sort: { dateCreated: -1 } },
+  );
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getSnapshotQueryPointers(
+  context: Context,
+  id: string,
+): Promise<Queries | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    { organization: context.org.id, id },
+    { queries: 1 },
+  )
+    .lean<Pick<ExperimentSnapshotInterface, "queries">>()
+    .exec();
+  return doc?.queries ?? null;
+}
+
+export type NewMetricsUpdateAncestor = Pick<
+  ExperimentSnapshotInterface,
+  "id" | "type" | "updateScope" | "queries"
+> & {
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    | "metricSettings"
+    | "clusterLevelMetricIds"
+    | "endDateIsCutoff"
+    | "plannedAt"
+    | "goalMetrics"
+    | "guardrailMetrics"
+  >;
+};
+
+export async function findNewMetricsUpdateAncestor(
+  context: Context,
+  id: string,
+): Promise<NewMetricsUpdateAncestor | null> {
+  return ExperimentSnapshotModel.findOne(
+    { organization: context.org.id, id },
+    {
+      _id: 0,
+      id: 1,
+      type: 1,
+      updateScope: 1,
+      queries: 1,
+      "settings.metricSettings": 1,
+      "settings.clusterLevelMetricIds": 1,
+      "settings.endDateIsCutoff": 1,
+      "settings.plannedAt": 1,
+      "settings.goalMetrics": 1,
+      "settings.guardrailMetrics": 1,
+    },
+  )
+    .lean<NewMetricsUpdateAncestor>()
+    .exec();
+}
+
+async function isParentStillLatestOverall(
+  context: Context,
+  snapshot: Pick<ExperimentSnapshotInterface, "id" | "experiment" | "phase">,
+  parentSnapshotId: string,
+): Promise<boolean> {
+  const latestOther = await ExperimentSnapshotModel.findOne(
+    {
+      ...latestSuccessfulOverallQuery(
+        context,
+        snapshot.experiment,
+        snapshot.phase,
+      ),
+      id: { $ne: snapshot.id },
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return latestOther?.id === parentSnapshotId;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
@@ -1324,6 +1459,7 @@ const snapshotStatusProjection = {
   banditResult: 1,
   type: 1,
   triggeredBy: 1,
+  updateScope: 1,
 } as const;
 
 function toSnapshotStatusSummary(
@@ -1341,6 +1477,7 @@ function toSnapshotStatusSummary(
     banditResult: raw.banditResult,
     type: raw.type,
     triggeredBy: raw.triggeredBy,
+    updateScope: raw.updateScope,
   };
 }
 

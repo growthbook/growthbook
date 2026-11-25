@@ -363,6 +363,49 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
+  it("dates a new-metrics update's results by its base update, not its own run", () => {
+    const refresh = makeSnapshot();
+    const dataEnd = new Date("2025-01-02T00:00:00.000Z");
+    const baseRanAt = new Date("2025-01-02T00:05:00.000Z");
+    const baseRunStarted = new Date("2025-01-02T00:05:00.130Z");
+    const ranAt = new Date("2025-01-05T09:30:00.000Z");
+    Object.assign(refresh, {
+      dateCreated: ranAt,
+      runStarted: ranAt,
+      settings: { ...refresh.settings, endDate: dataEnd },
+      updateScope: {
+        kind: "new_metrics" as const,
+        parentSnapshotId: "snp_base",
+        queriedMetricIds: ["met_1"],
+        base: {
+          dateCreated: baseRanAt,
+          runStarted: baseRunStarted,
+          cutoffDate: dataEnd,
+        },
+      },
+    });
+    const fullRun = { ...refresh, updateScope: undefined };
+
+    const toDates = (snapshot: typeof refresh) => {
+      const { dateEnd, dateUpdated } = toSnapshotApiInterface(
+        makeExperiment(),
+        snapshot,
+        new Map(),
+        [],
+      );
+      return { dateEnd, dateUpdated };
+    };
+
+    expect(toDates(refresh)).toEqual({
+      dateEnd: baseRunStarted.toISOString(),
+      dateUpdated: baseRanAt.toISOString(),
+    });
+    expect(toDates(fullRun)).toEqual({
+      dateEnd: ranAt.toISOString(),
+      dateUpdated: ranAt.toISOString(),
+    });
+  });
+
   it("emits 0 (not null) for missing statistics to preserve its contract", () => {
     const snapshot = makeSnapshot();
     snapshot.analyses = [

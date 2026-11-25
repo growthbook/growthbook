@@ -116,7 +116,11 @@ If a constant feeds a [config](/features/configs) whose running-experiment guard
 
 ## Editing and approvals
 
-Constant changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the constant's project. You can view past versions, compare revisions, and revert from the constant's page.
+Constant changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the constant's project. A constant's page has **Overview** and **Review & Publish** tabs, a revision dropdown, and a right rail with the constant's details, what references it, and the selected revision. Compare revisions from the ⋮ menu, and revert from the **Review & Publish** tab.
+
+Edit the value with **Edit** on the **Value** section, and the name, description, owner, and Project from **Edit Information**. Each change is saved to the draft you're viewing, your own open draft, or a new draft by default. If you can publish without a review, you can choose to publish it at once instead. The button reads **Save to draft**, **Publish** (**Save** in **Edit Information**), or **Bypass approval & publish** when publishing skips a required approval.
+
+An archived constant shows a callout at the top of its page, a draft that would archive it shows a warning, and a draft that would unarchive it says so.
 
 Archiving is blocked while a constant is still referenced — the archive dialog lists every feature and constant that uses it, so you can remove those references first.
 
@@ -126,4 +130,4 @@ Constants are fully manageable over the [REST API](/api/#tag/constants) — crea
 
 ## Permissions
 
-Creating, editing, and deleting constants requires the **Manage Constants** permission (the `ConstantsFullAccess` policy), which is included in the Engineer, Experimenter, and Admin roles by default. Constants can be scoped to specific projects.
+Constants share their policies with Feature Flags and Configs. **Full access** (`FlagsFullAccess`) covers creating constants, editing drafts, reviewing, publishing, reverting, archiving, and deleting, and a [custom role](/account/user-permissions#custom-roles) can grant any of those actions on its own. Full access is included in the Engineer, Experimenter, Project Admin, and Admin roles by default. Constants can be scoped to specific projects.

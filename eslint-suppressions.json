@@ -437,14 +437,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactFilterModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/FactTables/FactMetricList.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -481,12 +473,12 @@
       "count": 6
     }
   },
-  "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
+  "packages/front-end/components/Features/DeletePrerequisiteModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
-  "packages/front-end/components/Features/EditFeatureInfoModalNew.tsx": {
+  "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
@@ -569,11 +561,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Features/LegacyScheduleInputs.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -595,11 +582,6 @@
     }
   },
   "packages/front-end/components/Features/PrerequisiteModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/PrerequisiteStatusRow.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1659,11 +1641,6 @@
     }
   },
   "packages/front-end/pages/fact-metrics/[fmid].tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/fact-tables/[ftid].tsx": {
     "no-restricted-imports": {
       "count": 1
     }

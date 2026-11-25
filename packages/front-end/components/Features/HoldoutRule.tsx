@@ -31,14 +31,12 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
 import RuleField, { TargetingField } from "./RuleField";
-import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 interface Props {
   feature: FeatureInterface;
@@ -96,7 +94,6 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     const getStatusIndicator = useExperimentStatusIndicator();
-    const redesign = useFeaturePageRedesign();
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
@@ -194,7 +191,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 )}
 
                 {/* Shown on hover, as the menu is. */}
-                {redesign && canEdit && !isLocked && !isDeleted ? (
+                {canEdit && !isLocked && !isDeleted ? (
                   <RuleEditButton onClick={() => setRuleModal()} />
                 ) : null}
                 {canEdit && lockedBySchedule ? (
@@ -224,31 +221,15 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                           Re-enable holdout
                         </DropdownMenuItem>
                       ) : (
-                        <>
-                          {/* The redesign has it on the card itself. */}
-                          {!redesign && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setRuleModal();
-                                  setDropdownOpen(false);
-                                }}
-                              >
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem
-                            color="red"
-                            onClick={() => {
-                              setDropdownOpen(false);
-                              setRemoveModal(true);
-                            }}
-                          >
-                            Remove from holdout
-                          </DropdownMenuItem>
-                        </>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setRemoveModal(true);
+                          }}
+                        >
+                          Remove from holdout
+                        </DropdownMenuItem>
                       )}
                     </DropdownMenuGroup>
                   </DropdownMenu>

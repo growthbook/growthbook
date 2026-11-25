@@ -52,6 +52,8 @@ Each step has the following settings:
 
 Funnel metrics support [Metric Windows](/app/metrics#metric-windows), a [metric delay](/app/metrics#metric-delay), a target MDE, and [Bayesian priors](/app/metrics#bayesian-priors). The metric window bounds which events are eligible at all; step conversion windows then apply inside that envelope.
 
+Set **Metric goal** to **Decrease the metric value** when fewer units reaching the last step is better, such as a funnel that ends in a cancellation. The goal applies to every step, so each step's row in the results treats a decrease as an improvement too.
+
 [Metric Slices](/app/metrics#metric-slices) are not supported for funnel metrics.
 
 ## How steps are resolved

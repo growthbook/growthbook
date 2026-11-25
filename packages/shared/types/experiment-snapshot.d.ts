@@ -120,6 +120,7 @@ export interface MetricForSnapshot {
     targetMDE?: number;
   };
 }
+
 export interface DimensionForSnapshot {
   /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;
@@ -228,9 +229,48 @@ export interface ExperimentSnapshotSettings {
   // endDate is read, conversions included. Otherwise conversion windows extend
   // past endDate.
   endDateIsCutoff?: boolean;
+  // The instant the update was planned. Without a cutoff, skipPartialData
+  // counts metric conversion windows back from it. The units query reads the
+  // time its SQL is generated instead and keeps exposures up to the earlier of
+  // that and the end date, so an end date in the future makes it depend on that
+  // time. Absent on snapshots planned before it was stored.
+  plannedAt?: Date;
   /** @deprecated */
   manual?: boolean;
 }
+
+/**
+ * A new-metrics update: a complete Overall snapshot that copied a previous
+ * snapshot's finished queries and queried only `queriedMetricIds`, pinned to
+ * that snapshot's end date.
+ */
+export interface SnapshotNewMetricsUpdate {
+  kind: "new_metrics";
+  // The snapshot whose queries were copied and whose metric settings were kept.
+  parentSnapshotId: string;
+  // Experiment metric ids this run queried. Their slices and funnel steps
+  // were queried with them and are not listed.
+  queriedMetricIds: string[];
+  // How many new-metrics updates in a row end with this one, itself included.
+  // Missing on those stored before it was.
+  updatesInARow?: number;
+  // The full snapshot (not itself a new-metrics update) that the chain of
+  // new-metrics updates started from.
+  base: {
+    dateCreated: Date;
+    // The results endpoint reports it as the dateEnd.
+    runStarted: Date | null;
+    // Null when the base analyzed through its run time.
+    cutoffDate: Date | null;
+  };
+}
+
+/** Which metrics an update computed. Absent when it computed every metric. */
+export type ExperimentSnapshotUpdateScope = SnapshotNewMetricsUpdate;
+
+export type SnapshotUpdateScopeKind =
+  | "all_metrics"
+  | ExperimentSnapshotUpdateScope["kind"];
 
 export interface ExperimentSnapshotInterface {
   // Fields that uniquely define the snapshot
@@ -256,6 +296,7 @@ export interface ExperimentSnapshotInterface {
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
   runnerKind?: SnapshotQueryRunnerKind;
+  updateScope?: ExperimentSnapshotUpdateScope;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -298,6 +339,7 @@ export type SnapshotStatusSummary = Pick<
   | "banditResult"
   | "type"
   | "triggeredBy"
+  | "updateScope"
 >;
 
 export interface ExperimentSnapshotHealth {

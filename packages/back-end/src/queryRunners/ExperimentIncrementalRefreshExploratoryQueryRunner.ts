@@ -196,6 +196,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const metricSourceGroups = getIncrementalRefreshMetricSources({
     metrics: factMetrics,
     existingMetricSources: existingSources ?? [],
+    extendExistingSources: false,
     integration,
     snapshotSettings,
   });

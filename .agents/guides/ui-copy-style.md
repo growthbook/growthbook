@@ -40,6 +40,7 @@ The glossary:
 | Fact Metric                   | Fact Metrics         | Lowercase "metric" only when not referring to the Fact Metric resource.                                                                |
 | Feature Flag                  | Feature Flags        | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                             |
 | Saved Group                   | Saved Groups         |                                                                                                                                        |
+| Saved Filter                  | Saved Filters        | A named SQL condition stored on a Fact Table for reuse. A filter a single metric applies inline is a "row filter" (lowercase).         |
 | SDK Connection                | SDK Connections      |                                                                                                                                        |
 | Experiment Template           | Experiment Templates | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template").            |
 | Experiment Decision Framework | -                    | Title Case. Abbreviated as "EDF".                                                                                                      |

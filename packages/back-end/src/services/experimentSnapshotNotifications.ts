@@ -1,4 +1,5 @@
 import { findAnalysisComputeFailure, getSnapshotAnalysis } from "shared/util";
+import { getSnapshotSideEffects } from "shared/experiments";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -18,7 +19,8 @@ export async function notifySnapshotUpdateFailure({
   if (
     snapshot.type !== "standard" ||
     snapshot.report ||
-    failureCause === "cancelled"
+    failureCause === "cancelled" ||
+    !getSnapshotSideEffects(snapshot).ownsUpdateFailedAlert
   )
     return;
   const computeFailed =

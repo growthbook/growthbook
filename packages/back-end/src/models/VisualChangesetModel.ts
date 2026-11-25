@@ -23,6 +23,7 @@ import type {
 } from "back-end/src/services/changesetOwner";
 import { ApiReqContext } from "back-end/types/api";
 import { NotFoundError } from "back-end/src/util/errors";
+import { assertNoInjectedJs } from "back-end/src/util/visualChanges";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -291,6 +292,7 @@ export async function createVisualChange(
   visualChange: VisualChange,
   owner: ChangesetOwner,
 ): Promise<{ nModified: number }> {
+  assertNoInjectedJs([visualChange]);
   const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(id, organization);
 
@@ -353,6 +355,7 @@ export async function updateVisualChange({
   visualChangeId: string;
   payload: Partial<VisualChange>;
 }): Promise<{ nModified: number }> {
+  assertNoInjectedJs([payload]);
   const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(
     changesetId,
@@ -418,6 +421,7 @@ export const createVisualChangeset = async ({
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
 }): Promise<VisualChangesetInterface> => {
+  assertNoInjectedJs(visualChanges ?? []);
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
@@ -480,6 +484,10 @@ export const updateVisualChangeset = async ({
   // Writes only if nothing has updated it since `visualChangeset` was read.
   guarded?: boolean;
 }) => {
+  assertNoInjectedJs(updates.visualChanges ?? [], {
+    stored: visualChangeset.visualChanges,
+    variations: owner?.editableVariations(),
+  });
   // pick() preserves explicit-undefined keys, which would flow into $set and
   // could unset fields if Mongoose's casting behavior changes. Strip them.
   const safeUpdates = pickBy(

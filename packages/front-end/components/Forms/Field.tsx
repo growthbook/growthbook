@@ -4,6 +4,13 @@ import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
+import { TextWeights } from "@/ui/Text";
+
+const LABEL_FONT_WEIGHTS: Record<TextWeights, number> = {
+  regular: 400,
+  medium: 500,
+  semibold: 600,
+};
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
@@ -20,6 +27,7 @@ export type BaseFieldProps = {
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  labelWeight?: TextWeights;
   customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
@@ -55,6 +63,7 @@ const Field = forwardRef(
       containerStyle,
       inputGroupClassName,
       labelClassName,
+      labelWeight = "semibold",
       label,
       markRequired,
       prepend,
@@ -140,6 +149,22 @@ const Field = forwardRef(
     }
 
     const customClassName = customClassNameProp || "";
+    const labelElement = label ? (
+      <label
+        htmlFor={fieldId}
+        className={clsx(labelClassName)}
+        style={{ fontWeight: LABEL_FONT_WEIGHTS[labelWeight] }}
+      >
+        {label}
+        {markRequired && <span className="text-danger ml-1">*</span>}
+      </label>
+    ) : null;
+    const counterElement =
+      currentLength !== undefined && otherProps.maxLength ? (
+        <div className="font-weight-light">
+          <small>{`${currentLength} / ${otherProps.maxLength}`}</small>
+        </div>
+      ) : null;
     return (
       <div
         className={clsx(
@@ -150,23 +175,12 @@ const Field = forwardRef(
         )}
         style={containerStyle}
       >
-        <div className="d-flex flex-row justify-content-between">
-          {label && (
-            <label
-              htmlFor={fieldId}
-              className={clsx(labelClassName)}
-              style={{ fontWeight: 600 }}
-            >
-              {label}
-              {markRequired && <span className="text-danger ml-1">*</span>}
-            </label>
-          )}
-          {currentLength !== undefined && otherProps.maxLength ? (
-            <div className="font-weight-light">
-              <small>{`${currentLength} / ${otherProps.maxLength}`}</small>
-            </div>
-          ) : null}
-        </div>
+        {(labelElement || counterElement) && (
+          <div className="d-flex flex-row justify-content-between">
+            {labelElement}
+            {counterElement}
+          </div>
+        )}
         {component}
         {error && (
           <HelperText status={errorLevel} mt="1">

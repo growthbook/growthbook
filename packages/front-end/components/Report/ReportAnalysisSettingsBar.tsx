@@ -1,6 +1,9 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
@@ -149,14 +152,12 @@ export default function ReportAnalysisSettingsBar({
                   }
                 />
               )}
-              {snapshot.runStarted && (
-                <div className="text-right mt-3">
-                  <Metadata
-                    label="Run date"
-                    value={datetime(snapshot.runStarted)}
-                  />
-                </div>
-              )}
+              <div className="text-right mt-3">
+                <Metadata
+                  label="Run date"
+                  value={datetime(getSnapshotDataAsOfDate(snapshot))}
+                />
+              </div>
             </div>
           }
         />
@@ -252,13 +253,13 @@ export default function ReportAnalysisSettingsBar({
             ) : null}
           </div>
           <div className="col-auto px-0">
-            {hasData && snapshot.runStarted ? (
+            {hasData ? (
               <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
                 <Text
                   weight="medium"
                   style={{ color: "var(--color-text-mid)" }}
                 >
-                  Updated {ago(snapshot.runStarted ?? "")}
+                  Updated {ago(getSnapshotDataAsOfDate(snapshot))}
                 </Text>
               </Box>
             ) : null}

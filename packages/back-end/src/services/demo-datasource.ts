@@ -604,6 +604,7 @@ async function ensureDemoSnapshot(
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
       postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
       pValueThreshold: scopedSettings.pValueThreshold.value,
+      pValueCorrection: scopedSettings.pValueCorrection.value,
     });
 
   const metricMap = await getMetricMap(context);

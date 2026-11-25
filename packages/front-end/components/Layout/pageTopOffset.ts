@@ -3,6 +3,9 @@ import { useCallback, useRef, useSyncExternalStore } from "react";
 /** Keep in sync with --header-height in global.scss. */
 const HEADER_HEIGHT_PX = 56;
 
+/** A pinned tab row's height. Keep in sync with --tabs-bar-height in global.scss. */
+const TABS_BAR_HEIGHT_PX = 45;
+
 // A bar pinned under the app header (the getting-started bar) pushes down
 // what sticks or fills the window below it. The tallest is
 // --pinned-bar-height; with the header's height it makes --page-top-offset
@@ -82,10 +85,10 @@ export function useTabsTop(): number {
   return usePageTopOffset() - 1;
 }
 
-// The original feature page's tab row (--tabs-bar-height there). Banners pin
-// under it on both versions of the feature page.
-const FEATURE_TABS_BAR_HEIGHT_PX = 40;
-
-export function useFeatureTabsBottom(): number {
-  return useTabsTop() + FEATURE_TABS_BAR_HEIGHT_PX;
+/**
+ * Under pinned tabs, where what sticks beneath them pins. Keep in sync with
+ * --tabs-bottom in global.scss.
+ */
+export function useTabsBottom(): number {
+  return useTabsTop() + TABS_BAR_HEIGHT_PX;
 }

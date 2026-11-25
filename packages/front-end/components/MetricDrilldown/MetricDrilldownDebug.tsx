@@ -1,13 +1,14 @@
 import { FC, useMemo, useRef, useState } from "react";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  getVariationForSupplementalResult,
+  SupplementalField,
+} from "shared/experiments";
 import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
   SignificanceThresholds,
-  BayesianVariationResponseIndividual,
-  FrequentistVariationResponseIndividual,
-  BaselineResponse,
 } from "shared/types/stats";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -20,7 +21,6 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Heading from "@/ui/Heading";
 import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
-import { SupplementalField } from "./helpers";
 
 type ComparisonSection = "variance" | "prior" | "capping";
 
@@ -43,8 +43,6 @@ interface MetricDrilldownDebugProps {
   reportDate: Date;
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
-  /** All non-slice goal rows, used to recompute family-wide adjusted p-values. */
-  goalRows?: ExperimentTableRow[];
   sequentialTestingEnabled?: boolean;
   experimentStatus?: ExperimentStatus;
 }
@@ -92,27 +90,13 @@ function createSupplementalRow(
   description: string,
   supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
 ): ExperimentTableRow {
-  const newVariations = baseRow.variations.map((variation) => {
-    const supplemental = variation.supplementalResults?.[supplementalField] as
-      | BayesianVariationResponseIndividual
-      | FrequentistVariationResponseIndividual
-      | BaselineResponse
-      | undefined;
-
-    if (!supplemental) {
-      return variation;
-    }
-
-    return {
-      ...variation,
-      ...supplemental,
-    };
-  });
-
   return {
     ...baseRow,
     label: createRowLabel(description),
-    variations: newVariations,
+    variations: getVariationForSupplementalResult({
+      metricResults: baseRow,
+      field: supplementalField,
+    }),
     metricSnapshotSettings: getSupplementalMetricSnapshotSettings(
       baseRow.metricSnapshotSettings,
       supplementalField,
@@ -139,7 +123,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   reportDate,
   isLatestPhase,
   pValueCorrection,
-  goalRows,
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
@@ -189,6 +172,8 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
         ? "0 0 0 2px var(--violet-8)"
         : "0 0 0 0 transparent",
   });
+
+  const resolvedStatsEngine = statsEngine || DEFAULT_STATS_ENGINE;
 
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
@@ -344,13 +329,11 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       <Box mt="4" style={{ paddingBottom: 6 }}>
         <MetricDrilldownAdjustmentSummary
           row={row}
-          statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
+          statsEngine={resolvedStatsEngine}
           differenceType={differenceType}
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           significanceThresholds={significanceThresholds}
-          goalRows={goalRows}
-          pValueCorrection={pValueCorrection}
           onAdjustmentClick={handleAdjustmentClick}
         />
       </Box>

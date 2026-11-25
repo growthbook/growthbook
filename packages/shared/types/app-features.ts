@@ -43,7 +43,6 @@ export type AppFeatures = {
   "fact-table-table-mode": boolean;
   "fact-tables": boolean;
   "feature-list-realtime-graphs": boolean;
-  "feature-page-redesign-v1": boolean;
   "feature-usage": boolean;
   "feature-usage-auto-refresh-interval": Record<string, unknown>;
   "feature-usage-code": boolean;
