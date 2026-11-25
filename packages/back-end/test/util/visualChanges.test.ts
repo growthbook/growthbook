@@ -21,6 +21,8 @@ describe("assertNoInjectedJs", () => {
     attr("title", "JavaScript: a primer"),
     attr("aria-label", ": continued", "append"),
     html(`<img src="/js.png" alt="JavaScript: a primer">`),
+    html(`<select><option value="a" selected>A &lt; B</option></select>`),
+    html(`<table><tr><td>1 < 2<br>ok</td></tr></table><p>open paragraph`),
     // Ways to clear a handler that is already on the page
     {
       domMutations: [{ selector: "a", action: "remove", attribute: "onclick" }],
@@ -46,6 +48,22 @@ describe("assertNoInjectedJs", () => {
     html(`<svg><a><set attributeName=href to="x;javascript:alert(1)" />`),
     // Raw text in HTML, but live markup when the target is inside an <svg>
     html(`<style><img src=x onerror=alert(1)></style>`),
+    // Dropped by an HTML5 parser, kept by a browser with customizable <select>
+    html(`<select><img src=x onerror=alert(1)></select>`),
+    html(`<select><option><img src=x onerror=alert(1)></option></select>`),
+    html(`<select><button onclick=alert(1)>x</button></select>`),
+    html(`<select><a href="jav&#x61;script:alert(1)">x</a></select>`),
+    html(`<select><svg><style><img src=x onerror=alert(1)></style></svg>`),
+    html(`<select><script>alert(1)</script></select>`),
+    html(`<select><!-- a --!><img src=x onerror=alert(1)><!-- b --></select>`),
+    html(`<select><![CDATA[ x ><img src=x onerror=alert(1)> ]]></select>`),
+    html(
+      `<select><iframe><!--</iframe><img src=x onerror=alert(1)>--></select>`,
+    ),
+    // Kept by a browser when the mutation targets <html> or a table row
+    html(`<body onscroll=alert(1)>x</body>`),
+    html(`<frameset onresize=alert(1)><frame onload=alert(1)></frameset>`),
+    html(`<div></div><td onclick=alert(1)>x</td>`),
     // Halves of a payload split across two appends
     html(`<img src=x onerror="alert(1)`, "append"),
     html(`<img src=x one`, "append"),
@@ -64,6 +82,70 @@ describe("assertNoInjectedJs", () => {
     { css: "a { background: url(javascript:alert(1)) }" },
   ])("blocks %j", (change) => {
     expect(() => assertNoInjectedJs([change])).toThrow(/JavaScript/);
+  });
+
+  it("checks deeply nested raw text in linear time", () => {
+    let value = "x";
+    for (let i = 0; i < 30; i++) {
+      value = `<select></select><title>${value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")}</title>`;
+    }
+    const start = Date.now();
+    expect(() => assertNoInjectedJs([html(value)])).not.toThrow();
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+
+  const on = (selector: string) => ({
+    domMutations: [
+      { selector, action: "set" as const, attribute: "html", value: "x" },
+    ],
+  });
+
+  it.each([
+    "script",
+    "script[type]",
+    "head > SCRIPT",
+    "body script#ld",
+    ":is(div, script)",
+    "svg|script",
+    "base",
+    "head base[href]",
+  ])("blocks a mutation of %s", (selector) => {
+    expect(() => assertNoInjectedJs([on(selector)])).toThrow(
+      /targets a <script> or <base> element/,
+    );
+    // Clearing an attribute is enough to arm a <script type="application/ld+json">
+    expect(() =>
+      assertNoInjectedJs([
+        { domMutations: [{ selector, action: "remove", attribute: "type" }] },
+      ]),
+    ).toThrow(/JavaScript/);
+  });
+
+  it.each([
+    ".base",
+    "#script",
+    "div.base-layer > p",
+    "noscript",
+    "script-loader",
+    "basefont",
+    `[alt="Customer base"]`,
+    `a[href*="script"]`,
+    `[aria-label="Run script"] span`,
+  ])("allows a mutation of %s", (selector) => {
+    expect(() => assertNoInjectedJs([on(selector)])).not.toThrow();
+  });
+
+  it("limits how many tags an HTML mutation can have", () => {
+    expect(() =>
+      assertNoInjectedJs([html("<p>x</p>".repeat(2500))]),
+    ).not.toThrow();
+    const start = Date.now();
+    expect(() => assertNoInjectedJs([html("<div>".repeat(20000))])).toThrow(
+      "cannot have more than 20,000 tags",
+    );
+    expect(Date.now() - start).toBeLessThan(100);
   });
 
   const stored = {
