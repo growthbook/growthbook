@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { EventInterface } from "shared/types/events/event";
 import type { EventWebHookInterface } from "shared/types/event-webhook";
 import {
@@ -43,6 +44,13 @@ function asRecord(value: unknown): JsonRecord {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+// A long key ends in a hash of the whole, so cutting it keeps it unique.
+function aggregationKey(key: string): string {
+  if (key.length <= MAX_KEY) return key;
+  const hash = createHash("sha256").update(key).digest("hex").slice(0, 12);
+  return `${key.slice(0, MAX_KEY - hash.length - 1)}:${hash}`;
 }
 
 function truncate(value: string, max: number): string {
@@ -318,11 +326,9 @@ export function buildDatadogChangeEvent({
       MAX_TITLE,
     ),
     timestamp: new Date(envelope.created).toISOString(),
-    aggregation_key:
-      `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`.slice(
-        0,
-        MAX_KEY,
-      ),
+    aggregation_key: aggregationKey(
+      `growthbook:${envelope.event.split(".")[0]}:${asString(eventObject(envelope).id)}`,
+    ),
     tags: [
       ...environments.map((env) => `env:${env}`),
       ...(service ? [`service:${service}`] : []),

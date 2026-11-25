@@ -477,6 +477,32 @@ describe("getDatadogNotificationPayload", () => {
     });
   });
 
+  it("keeps keys and names within Datadog's limits", () => {
+    const length = (n: number) =>
+      expect.stringMatching(new RegExp(`^.{${n}}$`));
+    const send = (id: string) =>
+      getDatadogNotificationPayload({
+        event: asEvent(featureUpdated({ data: { object: flag({ id }) } })),
+        eventWebHook: webhook({ datadog: { service: "s".repeat(200) } }),
+      });
+    expect(send("k".repeat(200) + "a")).toMatchObject({
+      data: {
+        attributes: {
+          aggregation_key: length(100),
+          attributes: {
+            changed_resource: { name: length(128) },
+            impacted_resources: [{ name: length(128) }],
+          },
+        },
+      },
+    });
+    // Flags that differ only past the limit stay in their own groups.
+    const key = (id: string) =>
+      (send(id)?.data as { attributes: { aggregation_key: string } }).attributes
+        .aggregation_key;
+    expect(key("k".repeat(200) + "a")).not.toBe(key("k".repeat(200) + "b"));
+  });
+
   it("tags a shared change with where its dependents in the webhook's scope changed", () => {
     const savedGroupUpdated = featureUpdated({
       event: "savedGroup.updated",
