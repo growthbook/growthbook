@@ -305,7 +305,7 @@ const BreakDownResults: FC<{
             entered into the experiment, but were not activated.
           </Callout>
         )}
-        {!isBandit && (
+        {!isBandit && !redesign && (
           <div className="users">
             <Collapsible
               trigger={

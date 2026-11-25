@@ -80,7 +80,12 @@ import Metadata from "@/ui/Metadata";
 import Tooltip from "@/ui/Tooltip";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import DimensionChooser, {
+  getDimensionDisplayName,
+} from "@/components/Dimensions/DimensionChooser";
+import UsersTable from "@/components/Experiment/UsersTable";
+import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { useResultsRedesign } from "@/components/Experiment/ResultsRedesign";
@@ -159,6 +164,7 @@ export default function AnalysisSettingsSummary({
   const resultsRedesign = useResultsRedesign();
   const {
     getDatasourceById,
+    getDimensionById,
     getExperimentMetricById,
     getFactTableById,
     factTables,
@@ -761,6 +767,14 @@ export default function AnalysisSettingsSummary({
   // like filters do.
   const otherViewChanges =
     (variationFilter?.length ?? 0) + (baselineRow ? 1 : 0);
+  // Units per dimension value, where the results break down by one.
+  const breakdownDimensionId =
+    analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension ?? "";
+  const showDimensionBreakdown =
+    resultsRedesign &&
+    hasData &&
+    !!breakdownDimensionId &&
+    !breakdownDimensionId.startsWith("pre:date");
   const unitCount = (label: string, count: number) =>
     resultsRedesign ? (
       <Text size="sm" color="text-low">
@@ -812,6 +826,26 @@ export default function AnalysisSettingsSummary({
               </>
             ) : snapshot ? (
               unitCount(getUnitDisplayName(userIdType), totalUnits)
+            ) : null}
+
+            {showDimensionBreakdown ? (
+              <Popover
+                align="end"
+                trigger={<Link type="button">Dimension breakdown</Link>}
+                content={
+                  <UsersTable
+                    dimension={
+                      getDimensionDisplayName(
+                        breakdownDimensionId,
+                        (id) => getDimensionById(id)?.name || undefined,
+                      ) || "Dimension"
+                    }
+                    results={analysis?.results ?? []}
+                    variations={variations}
+                    settings={orgSettings}
+                  />
+                }
+              />
             ) : null}
 
             <Flex align="center" gap="2">
