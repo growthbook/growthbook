@@ -182,7 +182,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             >
               Expires
             </SortableTableColumnHeader>
-            {hasActions && <TableColumnHeader width="40px" />}
+            {hasActions && <TableColumnHeader width="46px" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -197,7 +197,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             </TableRow>
           )}
           {sortedKeys.map(({ key }) => (
-            <TableRow key={key.id}>
+            <TableRow key={key.id} align="start">
               <TableCell style={dimStyle(key)}>
                 {key.description}
                 {key.disabled && (
@@ -322,7 +322,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 />
               </TableCell>
               {hasActions && (
-                <TableCell>
+                <TableCell justify="end">
                   <ApiKeyRowMenu
                     apiKey={key}
                     canDeleteKeys={canDeleteKeys}

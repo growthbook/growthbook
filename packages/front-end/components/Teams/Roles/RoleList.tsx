@@ -1,7 +1,6 @@
 import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -15,6 +14,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
+  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -45,7 +45,7 @@ export default function RoleList() {
               organization.settings?.defaultRole?.role === r.id;
             const isDeactivated = deactivatedRoles.includes(r.id);
             return (
-              <TableRow key={r.id}>
+              <TableRow key={r.id} align="start">
                 <TableCell>
                   <Flex align="center" gap="2">
                     <Link href={`/settings/role/${r.id}`}>
@@ -60,18 +60,14 @@ export default function RoleList() {
                   </Flex>
                 </TableCell>
                 <TableCell>{r.description}</TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   <DropdownMenu
                     trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={18} />
-                      </IconButton>
+                      <MoreMenuTrigger
+                        label={`Actions for ${r.id}`}
+                        size="sm"
+                        style={{ margin: 0 }}
+                      />
                     }
                     menuPlacement="end"
                     variant="soft"

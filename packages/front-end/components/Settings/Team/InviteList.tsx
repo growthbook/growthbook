@@ -1,7 +1,6 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { PiX } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -27,6 +26,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
+  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -177,7 +177,7 @@ const InviteList: FC<{
               project,
             });
             return (
-              <TableRow key={key}>
+              <TableRow key={key} align="start">
                 <TableCell>{email}</TableCell>
                 <TableCell title={datetime(dateCreated)}>
                   {date(dateCreated)}
@@ -191,18 +191,14 @@ const InviteList: FC<{
                   </TableCell>
                 )}
                 <TableCell />
-                <TableCell justify="center" px="0">
+                <TableCell justify="end" pl="0">
                   <DropdownMenu
                     trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={18} />
-                      </IconButton>
+                      <MoreMenuTrigger
+                        label={`Actions for ${email}`}
+                        size="sm"
+                        style={{ margin: 0 }}
+                      />
                     }
                     menuPlacement="end"
                     variant="soft"

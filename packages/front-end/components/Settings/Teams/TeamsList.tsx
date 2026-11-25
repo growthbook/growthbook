@@ -2,8 +2,7 @@ import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,6 +25,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
+  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -92,6 +92,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
               return (
                 <TableRow
                   key={t.id}
+                  align="start"
                   onClick={() => {
                     router.push(`/settings/team/${t.id}`);
                   }}
@@ -120,19 +121,19 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                     <CollapsedRuleRows rows={rows.projectRoles} />
                   </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell
+                    justify="end"
+                    pl="0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {canManageTeam && !teamIsExternallyManaged ? (
                       <DropdownMenu
                         trigger={
-                          <IconButton
-                            variant="ghost"
-                            color="gray"
-                            radius="full"
-                            size="2"
-                            highContrast
-                          >
-                            <BsThreeDotsVertical size={18} />
-                          </IconButton>
+                          <MoreMenuTrigger
+                            label={`Actions for ${t.name}`}
+                            size="sm"
+                            style={{ margin: 0 }}
+                          />
                         }
                         menuPlacement="end"
                         variant="soft"

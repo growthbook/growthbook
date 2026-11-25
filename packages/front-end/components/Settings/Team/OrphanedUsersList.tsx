@@ -1,6 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -14,6 +13,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import {
+  MoreMenuTrigger,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -78,21 +78,17 @@ const OrphanedUsersList: FC<{
         <TableBody>
           {Array.from(users).map(({ id, email, name }) => {
             return (
-              <TableRow key={id}>
+              <TableRow key={id} align="start">
                 <TableCell>{name}</TableCell>
                 <TableCell>{email}</TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   <DropdownMenu
                     trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={18} />
-                      </IconButton>
+                      <MoreMenuTrigger
+                        label={`Actions for ${name || email}`}
+                        size="sm"
+                        style={{ margin: 0 }}
+                      />
                     }
                     menuPlacement="end"
                     variant="soft"

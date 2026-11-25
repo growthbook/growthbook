@@ -1,10 +1,9 @@
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 
 interface ApiKeyRowMenuProps {
@@ -36,16 +35,11 @@ export default function ApiKeyRowMenu({
   return (
     <DropdownMenu
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-          aria-label="API key actions"
-        >
-          <BsThreeDotsVertical size={18} />
-        </IconButton>
+        <MoreMenuTrigger
+          label={`Actions for ${apiKey.description || "API key"}`}
+          size="sm"
+          style={{ margin: 0 }}
+        />
       }
       menuPlacement="end"
       variant="soft"
