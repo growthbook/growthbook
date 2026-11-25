@@ -64,6 +64,24 @@ function queries(...ids: string[]) {
 }
 
 describe("mergePastExperimentResults", () => {
+  it("skips rows tracked under a QA override's key", () => {
+    const { experiments } = mergePastExperimentResults({
+      previous: {},
+      results: [
+        result("eq_1", "checkout::gb-qa", false),
+        result("eq_1", "checkout", false),
+        result("eq_1", "legacy::qa", false),
+      ],
+      exposureQueries: queries("eq_1"),
+      runStarted,
+    });
+
+    expect(experiments.map((e) => e.trackingKey).sort()).toEqual([
+      "checkout",
+      "legacy::qa",
+    ]);
+  });
+
   it("merges normalized stored weights using user counts", () => {
     const { experiments } = mergePastExperimentResults({
       previous: {

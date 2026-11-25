@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
+  isQaTrackingKey,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 import {
@@ -203,6 +204,8 @@ function aggregatePastExperiments(
   });
 
   result.experiments.forEach((e) => {
+    // QA override traffic, not an experiment to import.
+    if (isQaTrackingKey(e.experiment_id)) return;
     const key = getKey(e.experiment_id, e.exposureQueryId, e.identifierType);
     let el = experimentMap.get(key);
     if (!el) {

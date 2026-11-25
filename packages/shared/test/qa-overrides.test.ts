@@ -245,14 +245,15 @@ describe("reorderQaOverridesInEnvironment", () => {
 
 describe("QA tracking key", () => {
   it("marks a key so QA exposures can be told apart from real ones", () => {
-    expect(getQaTrackingKey("checkout")).toBe("checkout::qa");
+    expect(getQaTrackingKey("checkout")).toBe("checkout::gb-qa");
     expect(isQaTrackingKey(getQaTrackingKey("checkout"))).toBe(true);
   });
 
   it("only matches the suffix", () => {
     expect(isQaTrackingKey("checkout")).toBe(false);
-    expect(isQaTrackingKey("checkout::qa::v2")).toBe(false);
-    expect(isQaTrackingKey("::qa-checkout")).toBe(false);
+    expect(isQaTrackingKey("checkout::gb-qa::v2")).toBe(false);
+    expect(isQaTrackingKey("::gb-qa-checkout")).toBe(false);
+    expect(isQaTrackingKey("checkout::qa")).toBe(false);
     expect(isQaTrackingKey("")).toBe(false);
     expect(isQaTrackingKey(undefined)).toBe(false);
   });

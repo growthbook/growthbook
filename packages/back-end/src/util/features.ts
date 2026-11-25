@@ -43,6 +43,7 @@ import {
   FeatureDefinition,
   FeatureDefinitionRule,
   FeatureMetadata,
+  QaOverrideMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -72,9 +73,17 @@ import {
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import {
+  QaPlans,
+  applyQaServing,
+  excludeQaMatches,
+  qaOverrideMetadata,
+  targetingOf,
+} from "back-end/src/util/qaOverrides";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
@@ -1083,6 +1092,7 @@ export function getFeatureDefinition({
   includeRuleIds,
   includeExperimentNames,
   includeDraftExperimentRefs,
+  qaPlans,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -1111,6 +1121,8 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
+  // How each draft experiment's QA overrides are served on this connection.
+  qaPlans?: QaPlans;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -1230,8 +1242,12 @@ export function getFeatureDefinition({
     const hasRuleLevelGates = rules?.some((r) => {
       if (r.type === "experiment-ref") {
         const exp = experimentMap.get(r.experimentId);
-        const phase = exp?.phases?.slice(-1)?.[0];
-        return !!phase?.prerequisites?.length;
+        const servings =
+          exp?.status === "draft" ? qaPlans?.get(exp.id) : undefined;
+        const phases = servings?.length
+          ? servings.map((s) => s.phase)
+          : [exp?.phases?.slice(-1)?.[0]];
+        return phases.some((phase) => !!phase?.prerequisites?.length);
       }
       if (r.type === "contextual-bandit-ref") {
         return !!cbMap?.get(r.contextualBanditId)?.prerequisites?.length;
@@ -1242,32 +1258,6 @@ export function getFeatureDefinition({
       return null;
     }
   }
-
-  // If the feature has a holdout and it's enabled for the environment, add holdout as a
-  // pseudo force rule with a prerequisite condition. The environment being enabled is
-  // already checked in the getAllPayloadHoldouts function.
-  const holdoutRule: FeatureDefinitionRule[] =
-    hasPrerequisites &&
-    feature.holdout &&
-    holdoutsMap &&
-    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
-      environment
-    ]?.enabled
-      ? [
-          {
-            ...(includeRuleIds
-              ? { id: `holdout_${md5(feature.id + feature.holdout.id)}` }
-              : {}),
-            parentConditions: [
-              {
-                id: getHoldoutFeatureDefId(feature.holdout.id),
-                condition: { value: "holdoutcontrol" },
-              },
-            ],
-            force: valueForSDK(feature.holdout.value),
-          },
-        ]
-      : [];
 
   // convert prerequisites to force rules (only when connection has prerequisites capability)
   const prerequisiteRules = hasPrerequisites
@@ -1298,10 +1288,11 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const defRules = [
-    ...holdoutRule,
-    ...prerequisiteRules,
-    ...(rules
+  // Who the QA overrides served below apply to.
+  const qaMatches: (ConditionInterface | undefined)[] = [];
+
+  const featureRules =
+    rules
       ?.filter((r) => {
         return isRuleEnabled(r, date);
       })
@@ -1318,12 +1309,20 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (exp.status === "draft" && !includeDraftExperimentRefs)
+          const qaServings =
+            exp.status === "draft" ? qaPlans?.get(exp.id) : undefined;
+          const hasExpQaOverride = !!qaServings?.length;
+
+          if (
+            exp.status === "draft" &&
+            !includeDraftExperimentRefs &&
+            !hasExpQaOverride
+          )
             return null;
 
           if (
             !includeExperimentInPayload(exp, [], {
-              includeDrafts: includeDraftExperimentRefs,
+              includeDrafts: includeDraftExperimentRefs || hasExpQaOverride,
             })
           )
             return null;
@@ -1331,129 +1330,176 @@ export function getFeatureDefinition({
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
           if (!phase) return null;
-          if (!hasPrerequisites && phase?.prerequisites?.length) return null;
+          // Everything the rule takes from a phase. QA overrides are served by
+          // building the same rule from an adjusted copy of the phase.
+          const buildRule = (
+            phase: ExperimentPhase,
+          ): FeatureDefinitionRule | null => {
+            const expRule: FeatureDefinitionRule = { ...rule };
 
-          const condition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: phase.condition,
-            savedGroups: phase.savedGroups,
-          });
-          if (condition) {
-            rule.condition = condition;
-          }
-
-          if (phase?.prerequisites?.length) {
-            rule.parentConditions = prerequisiteParentConditions(
-              phase.prerequisites,
+            const condition = mergeConditionAndSavedGroups({
               savedGroupStrategy,
-            );
-          }
-
-          rule.coverage = phase.coverage;
-
-          if (exp.hashAttribute) {
-            rule.hashAttribute = exp.hashAttribute;
-          }
-          if (exp.fallbackAttribute) {
-            rule.fallbackAttribute = exp.fallbackAttribute;
-          }
-          if (exp.disableStickyBucketing) {
-            rule.disableStickyBucketing = exp.disableStickyBucketing;
-          }
-          if (exp.bucketVersion) {
-            rule.bucketVersion = exp.bucketVersion;
-          }
-          if (exp.minBucketVersion) {
-            rule.minBucketVersion = exp.minBucketVersion;
-          }
-          if (
-            phase.namespace &&
-            phase.namespace.enabled &&
-            phase.namespace.name
-          ) {
-            applyNamespaceToPayload(rule, phase.namespace, namespacesMap);
-          }
-
-          if (phase.seed) {
-            rule.seed = phase.seed;
-          }
-          rule.hashVersion = exp.hashVersion;
-
-          // Stopped experiment. Origin/main's Mongoose `[]` seed silently
-          // dropped malformed legacy rules lacking `variations`; we no longer
-          // seed defaults, so guard against missing arrays here and below.
-          if (exp.status === "stopped") {
-            const variation = r.variations?.find(
-              (v) => v.variationId === exp.releasedVariationId,
-            );
-            if (!variation) return null;
-
-            // A config-backed feature composes every arm as a sparse patch on
-            // the base (the invariant above), so force sparse there regardless
-            // of the stored flag — a rule retro-fitted onto config-backing may
-            // still carry sparse=false. Matches the CB-ref / inline-experiment
-            // arms below. Non-config features keep their independent sparse.
-            const armSparse = r.sparse || configBacked;
-
-            // If a variation has been rolled out to 100%
-            rule.force = valueForSDK(variation.value, armSparse);
-          }
-          // Running experiment
-          else {
-            const armSparse = r.sparse || configBacked;
-            rule.variations = getLatestPhaseVariations(exp).map((v) => {
-              const variation = r.variations?.find(
-                (ruleVariation) => v.id === ruleVariation.variationId,
-              );
-              return variation ? valueForSDK(variation.value, armSparse) : null;
+              condition: phase.condition,
+              savedGroups: phase.savedGroups,
             });
-            rule.weights = phase.variationWeights;
-
-            rule.key = exp.trackingKey;
-            const phaseVariations = getLatestPhaseVariations(exp);
-            rule.meta = includeExperimentNames
-              ? phaseVariations.map((v) => ({ key: v.key, name: v.name }))
-              : phaseVariations.map((v) => ({ key: v.key }));
-            rule.phase = exp.phases.length - 1 + "";
-            if (includeExperimentNames) rule.name = exp.name;
-          }
-          if (rule.condition)
-            savedGroupStrategy.finalizeCondition(rule.condition);
-          if (rule.parentConditions)
-            savedGroupStrategy.finalizeCondition(rule.parentConditions);
-          if (metadataOptions) {
-            const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
-              {
-                // No project here — metadata.projects comes solely from the
-                // rule's own scope below, not the experiment's project.
-                customFields: exp.customFields,
-                tags: exp.tags,
-                statusUpdateSchedule: exp.statusUpdateSchedule,
-              },
-              metadataOptions,
-              projectsMap,
-            );
-            if (expMetadata) rule.metadata = expMetadata;
-            applyRuleProjectMetadata(
-              rule,
-              r,
-              deliveryProjects,
-              metadataOptions,
-              projectsMap,
-            );
-          }
-
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            if (condition) {
+              expRule.condition = condition;
             }
-            return picked;
+
+            if (phase?.prerequisites?.length) {
+              expRule.parentConditions = prerequisiteParentConditions(
+                phase.prerequisites,
+                savedGroupStrategy,
+              );
+            }
+
+            expRule.coverage = phase.coverage;
+
+            if (exp.hashAttribute) {
+              expRule.hashAttribute = exp.hashAttribute;
+            }
+            if (exp.fallbackAttribute) {
+              expRule.fallbackAttribute = exp.fallbackAttribute;
+            }
+            if (exp.disableStickyBucketing) {
+              expRule.disableStickyBucketing = exp.disableStickyBucketing;
+            }
+            if (exp.bucketVersion) {
+              expRule.bucketVersion = exp.bucketVersion;
+            }
+            if (exp.minBucketVersion) {
+              expRule.minBucketVersion = exp.minBucketVersion;
+            }
+            if (
+              phase.namespace &&
+              phase.namespace.enabled &&
+              phase.namespace.name
+            ) {
+              applyNamespaceToPayload(expRule, phase.namespace, namespacesMap);
+            }
+
+            if (phase.seed) {
+              expRule.seed = phase.seed;
+            }
+            expRule.hashVersion = exp.hashVersion;
+
+            // Stopped experiment. Origin/main's Mongoose `[]` seed silently
+            // dropped malformed legacy rules lacking `variations`; we no longer
+            // seed defaults, so guard against missing arrays here and below.
+            if (exp.status === "stopped") {
+              const variation = r.variations?.find(
+                (v) => v.variationId === exp.releasedVariationId,
+              );
+              if (!variation) return null;
+
+              // A config-backed feature composes every arm as a sparse patch on
+              // the base (the invariant above), so force sparse there regardless
+              // of the stored flag — a rule retro-fitted onto config-backing may
+              // still carry sparse=false. Matches the CB-ref / inline-experiment
+              // arms below. Non-config features keep their independent sparse.
+              const armSparse = r.sparse || configBacked;
+
+              // If a variation has been rolled out to 100%
+              expRule.force = valueForSDK(variation.value, armSparse);
+            }
+            // Running experiment
+            else {
+              const armSparse = r.sparse || configBacked;
+              expRule.variations = getLatestPhaseVariations(exp).map((v) => {
+                const variation = r.variations?.find(
+                  (ruleVariation) => v.id === ruleVariation.variationId,
+                );
+                return variation
+                  ? valueForSDK(variation.value, armSparse)
+                  : null;
+              });
+              expRule.weights = phase.variationWeights;
+
+              expRule.key = exp.trackingKey;
+              const phaseVariations = getLatestPhaseVariations(exp);
+              expRule.meta = includeExperimentNames
+                ? phaseVariations.map((v) => ({ key: v.key, name: v.name }))
+                : phaseVariations.map((v) => ({ key: v.key }));
+              expRule.phase = exp.phases.length - 1 + "";
+              if (includeExperimentNames) expRule.name = exp.name;
+            }
+
+            return expRule;
+          };
+
+          const finalizeExperimentRule = (
+            rule: FeatureDefinitionRule,
+            qaOverride?: QaOverrideMetadata,
+          ) => {
+            if (metadataOptions) {
+              const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
+                {
+                  // No project here — metadata.projects comes solely from the
+                  // rule's own scope below, not the experiment's project.
+                  customFields: exp.customFields,
+                  tags: exp.tags,
+                  statusUpdateSchedule: exp.statusUpdateSchedule,
+                },
+                metadataOptions,
+                projectsMap,
+              );
+              if (expMetadata) rule.metadata = expMetadata;
+              applyRuleProjectMetadata(
+                rule,
+                r,
+                deliveryProjects,
+                metadataOptions,
+                projectsMap,
+              );
+            }
+            // Sent whatever the connection's metadata options are.
+            if (qaOverride) rule.metadata = { ...rule.metadata, qaOverride };
+            targetingOf(rule).forEach((targeting) => {
+              if (targeting.condition)
+                savedGroupStrategy.finalizeCondition(targeting.condition);
+              if (targeting.parentConditions)
+                savedGroupStrategy.finalizeCondition(
+                  targeting.parentConditions,
+                );
+            });
+
+            if (allowedKeys) {
+              const picked = pick(
+                rule,
+                allowedKeys.featureRuleKeys,
+              ) as FeatureDefinitionRule;
+              if (includeRuleIds && (rule.id ?? null) !== null) {
+                (picked as Record<string, unknown>).id = rule.id;
+              }
+              return picked;
+            }
+            return rule;
+          };
+
+          const prerequisitesUnsupported = (served: ExperimentPhase) =>
+            !hasPrerequisites && !!served.prerequisites?.length;
+
+          // One rule per QA override, in place of the draft's own rule.
+          if (qaServings?.length) {
+            return qaServings.flatMap((serving) => {
+              if (prerequisitesUnsupported(serving.phase)) return [];
+              const qaRule = buildRule(serving.phase);
+              const configured = buildRule(phase);
+              if (!qaRule || !configured) return [];
+              qaMatches.push(serving.match);
+              return [
+                finalizeExperimentRule(
+                  applyQaServing(qaRule, exp, serving),
+                  qaOverrideMetadata(configured, exp, serving),
+                ),
+              ];
+            });
           }
-          return rule;
+
+          if (prerequisitesUnsupported(phase)) return null;
+          const expRule = buildRule(phase);
+          if (!expRule) return null;
+          return finalizeExperimentRule(expRule);
         }
 
         if (r.type === "contextual-bandit-ref") {
@@ -1809,8 +1855,45 @@ export function getFeatureDefinition({
         }
         return rule;
       })
-      ?.filter(isRule) ?? []),
-  ];
+      ?.flat()
+      ?.filter(isRule) ?? [];
+
+  // The holdout's force rule sits above the experiment rules, so testers a QA
+  // override applies to must skip it.
+  const holdoutExclusion = excludeQaMatches(qaMatches);
+
+  // If the feature has a holdout and it's enabled for the environment, add holdout as a
+  // pseudo force rule with a prerequisite condition. The environment being enabled is
+  // already checked in the getAllPayloadHoldouts function.
+  const holdoutRule: FeatureDefinitionRule[] =
+    hasPrerequisites &&
+    holdoutExclusion !== null &&
+    feature.holdout &&
+    holdoutsMap &&
+    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
+      environment
+    ]?.enabled
+      ? [
+          {
+            ...(includeRuleIds
+              ? { id: `holdout_${md5(feature.id + feature.holdout.id)}` }
+              : {}),
+            parentConditions: [
+              {
+                id: getHoldoutFeatureDefId(feature.holdout.id),
+                condition: { value: "holdoutcontrol" },
+              },
+            ],
+            ...(holdoutExclusion ? { condition: holdoutExclusion } : {}),
+            force: valueForSDK(feature.holdout.value),
+          },
+        ]
+      : [];
+  holdoutRule.forEach((r) => {
+    if (r.condition) savedGroupStrategy.finalizeCondition(r.condition);
+  });
+
+  const defRules = [...holdoutRule, ...prerequisiteRules, ...featureRules];
 
   let def: FeatureDefinition = {
     // Route through valueForSDK (not a bare resolve) so a config-backed feature's

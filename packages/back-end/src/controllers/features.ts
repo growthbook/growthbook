@@ -554,7 +554,9 @@ export type SDKPayloadParams = Pick<
   | "includeTagsInMetadata"
   | "includeReferencedPrerequisites"
 > &
-  Partial<Pick<SDKConnectionInterface, "organization">> & {
+  // Without an `id` the payload is built for no connection in particular, and
+  // QA overrides are left out.
+  Partial<Pick<SDKConnectionInterface, "organization" | "id">> & {
     // Extend languages to allow "legacy" for old API keys
     languages: SDKLanguage[] | ["legacy"];
   };
@@ -589,6 +591,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       key: connection.key,
+      id: connection.id,
       organization: connection.organization,
       environment: connection.environment,
       projects: connection.projects,
@@ -734,6 +737,7 @@ export async function getFeatureDefinitionsWithCache({
       // it, so filtering here too would only make the two disagree.
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
+      sdkConnectionId: params.id,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)

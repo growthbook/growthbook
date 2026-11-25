@@ -2,6 +2,7 @@ import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
 import { z } from "zod";
 import uniqid from "uniqid";
+import groupBy from "lodash/groupBy";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
@@ -31,9 +32,12 @@ import {
   getConfigBackingPatch,
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
+  isProductionEnvironment,
   getTargetingProjectIds,
   isDefined,
   namespacesToMap,
+  qaOverrideAppliesToConnection,
+  sortQaOverrides,
   recursiveWalk,
   ruleAppliesToEnv,
   TargetingScopedEntity,
@@ -93,6 +97,7 @@ import {
   FeatureDefinition,
   FeatureMetadata,
   InterleavingDefinitions,
+  QaOverrideMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -136,6 +141,7 @@ import {
   SDKAttributeSchema,
 } from "shared/types/organization";
 import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
+import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
@@ -212,6 +218,14 @@ import {
   filterRefreshableSDKConnections,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
+import {
+  QaPlans,
+  QaServing,
+  applyQaServing,
+  planQaOverridesByExperiment,
+  qaOverrideMetadata,
+  targetingOf,
+} from "back-end/src/util/qaOverrides";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
@@ -268,6 +282,7 @@ export function generateFeaturesPayload({
   includeExperimentNames,
   cbMap,
   includeDraftExperimentRefs,
+  qaPlans,
   rampMonitoredRuleMap,
   payloadProjects,
   carriedPrerequisiteIds,
@@ -300,6 +315,7 @@ export function generateFeaturesPayload({
   includeExperimentNames?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
+  qaPlans?: QaPlans;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   payloadProjects?: string[];
   // Carried by prerequisite closure: built against their own delivery scope,
@@ -340,6 +356,7 @@ export function generateFeaturesPayload({
       includeRuleIds,
       includeExperimentNames,
       includeDraftExperimentRefs,
+      qaPlans,
       rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
@@ -577,6 +594,12 @@ export type URLRedirectExperiment = {
   urlRedirect: URLRedirectInterface;
 };
 
+// An auto experiment split into one entry per QA override. `experiment` carries
+// the phase that override serves, `configuredPhase` the experiment's own.
+type QaExpanded<T> = T & {
+  qa?: { serving: QaServing; configuredPhase: ExperimentPhase };
+};
+
 export function generateAutoExperimentsPayload({
   visualExperiments,
   urlRedirectExperiments,
@@ -596,6 +619,7 @@ export function generateAutoExperimentsPayload({
   organization,
   savedGroupStrategy: providedSavedGroupStrategy,
   includeExperimentNames,
+  qaPlans,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -615,6 +639,7 @@ export function generateAutoExperimentsPayload({
   organization?: OrganizationInterface;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeExperimentNames?: boolean;
+  qaPlans?: QaPlans;
 }): AutoExperimentWithMetadata[] {
   const savedGroupStrategy =
     providedSavedGroupStrategy ??
@@ -629,8 +654,32 @@ export function generateAutoExperimentsPayload({
     e: AutoExperimentWithMetadata | null,
   ): e is AutoExperimentWithMetadata => !!e;
 
+  // A draft with QA overrides is served as one auto experiment per override,
+  // each on the phase that override serves. Split here so the prerequisite
+  // reduction below sees the phase that is actually served.
+  const withQaServings = <T extends VisualExperiment | URLRedirectExperiment>(
+    experiments: T[],
+  ): QaExpanded<T>[] =>
+    experiments.flatMap((data) => {
+      const { experiment: e } = data;
+      const servings = e.status === "draft" ? qaPlans?.get(e.id) : undefined;
+      const configuredPhase = e.phases[e.phases.length - 1];
+      if (!servings?.length || !configuredPhase) return [data];
+      return servings.map((serving) => ({
+        ...data,
+        experiment: {
+          ...e,
+          // A copy: the prerequisite reduction below rewrites this phase, and
+          // for an override that serves the experiment as configured it is
+          // the same object as configuredPhase.
+          phases: [...e.phases.slice(0, -1), { ...serving.phase }],
+        },
+        qa: { serving, configuredPhase },
+      }));
+    });
+
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
-    visualExperiments,
+    withQaServings(visualExperiments),
     features,
     environment,
     savedGroups,
@@ -638,7 +687,7 @@ export function generateAutoExperimentsPayload({
   );
 
   const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
-    urlRedirectExperiments,
+    withQaServings(urlRedirectExperiments),
     features,
     environment,
     savedGroups,
@@ -650,150 +699,174 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
-    sortedAutoExperiments.map((data) => {
-      const { experiment: e } = data;
-      if (e.status === "stopped" && e.excludeFromPayload) return null;
+  // Everything the auto experiment takes from a phase.
+  const autoExperimentForPhase = (
+    data: VisualExperiment | URLRedirectExperiment,
+    phase: ExperimentPhase,
+  ): AutoExperimentWithMetadata => {
+    const { experiment: e } = data;
 
-      const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
+    const variations = getLatestPhaseVariations(e);
 
-      const variations = getLatestPhaseVariations(e);
+    const hasForcedVariation = e.status === "stopped" && e.releasedVariationId;
 
-      const hasForcedVariation =
-        e.status === "stopped" && e.releasedVariationId;
+    const forcedVariation = hasForcedVariation
+      ? variations.find((v) => v.id === e.releasedVariationId)
+      : null;
 
-      const forcedVariation = hasForcedVariation
-        ? variations.find((v) => v.id === e.releasedVariationId)
-        : null;
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: phase.condition,
+      savedGroups: phase.savedGroups,
+    });
 
-      const condition = mergeConditionAndSavedGroups({
-        savedGroupStrategy,
-        condition: phase?.condition,
-        savedGroups: phase?.savedGroups,
-      });
+    const prerequisites = (phase.prerequisites ?? [])
+      .map((p) => {
+        const condition = mergeConditionAndSavedGroups({
+          savedGroupStrategy,
+          condition: p.condition,
+        });
+        if (!condition) return null;
+        return {
+          id: p.id,
+          condition,
+        };
+      })
+      .filter(isDefined);
 
-      const prerequisites = (phase?.prerequisites ?? [])
-        ?.map((p) => {
-          const condition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: p.condition,
-          });
-          if (!condition) return null;
-          return {
-            id: p.id,
-            condition,
-          };
-        })
-        .filter(isDefined);
+    const implementationId =
+      data.type === "redirect" ? data.urlRedirect.id : data.visualChangeset.id;
 
-      if (!phase) return null;
-
-      if (capabilities !== undefined) {
-        if (!capabilities.includes("redirects") && data.type === "redirect")
-          return null;
-        if (!capabilities.includes("prerequisites") && prerequisites.length > 0)
-          return null;
-      }
-
-      const implementationId =
-        data.type === "redirect"
-          ? data.urlRedirect.id
-          : data.visualChangeset.id;
-
-      const exp: AutoExperimentWithMetadata = {
-        key: e.trackingKey,
-        changeId: sha256(
-          `${e.trackingKey}_${data.type}_${implementationId}`,
-          "",
-        ),
-        status: e.status,
-        variations: variations.map((v) => {
-          if (data.type === "redirect") {
-            const match = data.urlRedirect.destinationURLs.find(
-              (d) => d.variation === v.id,
-            );
-            return {
-              urlRedirect: match?.url || "",
-            };
-          }
-
-          const match = data.visualChangeset.visualChanges.find(
-            (vc) => vc.variation === v.id,
+    const exp: AutoExperimentWithMetadata = {
+      key: e.trackingKey,
+      changeId: sha256(`${e.trackingKey}_${data.type}_${implementationId}`, ""),
+      status: e.status,
+      variations: variations.map((v) => {
+        if (data.type === "redirect") {
+          const match = data.urlRedirect.destinationURLs.find(
+            (d) => d.variation === v.id,
           );
           return {
-            css: match?.css || "",
-            js: match?.js || "",
-            domMutations: match?.domMutations || [],
+            urlRedirect: match?.url || "",
           };
-        }) as AutoExperiment["variations"],
-        hashVersion: e.hashVersion,
-        hashAttribute: e.hashAttribute,
-        fallbackAttribute: e.fallbackAttribute,
-        disableStickyBucketing: e.disableStickyBucketing,
-        bucketVersion: e.bucketVersion,
-        minBucketVersion: e.minBucketVersion,
-        urlPatterns:
-          data.type === "redirect"
-            ? [
-                {
-                  include: true,
-                  pattern: data.urlRedirect.urlPattern,
-                  type: "simple",
-                },
-              ]
-            : data.visualChangeset.urlPatterns,
-        weights: phase.variationWeights,
-        meta: variations.map((v) =>
-          includeExperimentNames === true
-            ? { key: v.key, name: v.name }
-            : { key: v.key },
-        ),
-        seed: phase.seed,
-        ...(includeExperimentNames === true ? { name: e.name } : {}),
-        phase: `${e.phases.length - 1}`,
-        force: forcedVariation
-          ? variations.indexOf(forcedVariation)
-          : undefined,
-        condition,
-        coverage: phase.coverage,
-      };
+        }
 
-      // Handle namespace
-      if (phase?.namespace?.enabled && phase.namespace.name) {
-        applyNamespaceToPayload(
-          exp,
-          phase.namespace,
-          namespacesToMap(organization?.settings?.namespaces),
+        const match = data.visualChangeset.visualChanges.find(
+          (vc) => vc.variation === v.id,
         );
-      }
+        return {
+          css: match?.css || "",
+          js: match?.js || "",
+          domMutations: match?.domMutations || [],
+        };
+      }) as AutoExperiment["variations"],
+      hashVersion: e.hashVersion,
+      hashAttribute: e.hashAttribute,
+      fallbackAttribute: e.fallbackAttribute,
+      disableStickyBucketing: e.disableStickyBucketing,
+      bucketVersion: e.bucketVersion,
+      minBucketVersion: e.minBucketVersion,
+      urlPatterns:
+        data.type === "redirect"
+          ? [
+              {
+                include: true,
+                pattern: data.urlRedirect.urlPattern,
+                type: "simple",
+              },
+            ]
+          : data.visualChangeset.urlPatterns,
+      weights: phase.variationWeights,
+      meta: variations.map((v) =>
+        includeExperimentNames === true
+          ? { key: v.key, name: v.name }
+          : { key: v.key },
+      ),
+      seed: phase.seed,
+      ...(includeExperimentNames === true ? { name: e.name } : {}),
+      phase: `${e.phases.length - 1}`,
+      force: forcedVariation ? variations.indexOf(forcedVariation) : undefined,
+      condition,
+      coverage: phase.coverage,
+    };
 
-      if (prerequisites.length) {
-        exp.parentConditions = prerequisites;
-      }
+    // Handle namespace
+    if (phase.namespace?.enabled && phase.namespace.name) {
+      applyNamespaceToPayload(
+        exp,
+        phase.namespace,
+        namespacesToMap(organization?.settings?.namespaces),
+      );
+    }
 
-      if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
-        exp.persistQueryString = true;
-      }
+    if (prerequisites.length) {
+      exp.parentConditions = prerequisites;
+    }
 
-      return finalizeAutoExperiment(exp, {
-        metadataSource: {
-          project: e.project,
-          customFields: e.customFields,
-          tags: e.tags,
-          statusUpdateSchedule: e.statusUpdateSchedule,
-        },
-        metadataOptions: {
-          includeProjectIdInMetadata,
-          includeCustomFieldsInMetadata,
-          allowedCustomFieldsInMetadata,
-          includeTagsInMetadata,
-          includeExperimentScheduleInMetadata,
-        },
-        projectsMap,
-        savedGroupStrategy,
-        capabilities,
-      });
+    if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
+      exp.persistQueryString = true;
+    }
+
+    return exp;
+  };
+
+  const buildAutoExperiment = (
+    data: QaExpanded<VisualExperiment | URLRedirectExperiment>,
+  ): AutoExperimentWithMetadata | null => {
+    const { experiment: e, qa } = data;
+    if (e.status === "stopped" && e.excludeFromPayload) return null;
+
+    const phase = e.phases?.slice(-1)?.[0];
+    if (!phase) return null;
+
+    const exp = autoExperimentForPhase(data, phase);
+
+    if (capabilities !== undefined) {
+      if (!capabilities.includes("redirects") && data.type === "redirect")
+        return null;
+      if (
+        !capabilities.includes("prerequisites") &&
+        exp.parentConditions?.length
+      )
+        return null;
+    }
+
+    let qaOverride: QaOverrideMetadata | undefined;
+    if (qa) {
+      const configured = autoExperimentForPhase(data, qa.configuredPhase);
+      qaOverride = qaOverrideMetadata(configured, e, qa.serving);
+      applyQaServing(exp, e, qa.serving);
+      // Each override is its own auto experiment, and the SDK skips drafts.
+      exp.changeId = sha256(
+        `${configured.changeId}_${qa.serving.override.id}`,
+        "",
+      );
+      exp.status = "running";
+    }
+
+    return finalizeAutoExperiment(exp, {
+      metadataSource: {
+        project: e.project,
+        customFields: e.customFields,
+        tags: e.tags,
+        statusUpdateSchedule: e.statusUpdateSchedule,
+      },
+      metadataOptions: {
+        includeProjectIdInMetadata,
+        includeCustomFieldsInMetadata,
+        allowedCustomFieldsInMetadata,
+        includeTagsInMetadata,
+        includeExperimentScheduleInMetadata,
+      },
+      projectsMap,
+      savedGroupStrategy,
+      capabilities,
+      qaOverride,
     });
+  };
+
+  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
+    sortedAutoExperiments.map(buildAutoExperiment);
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
     cbVisualExperiments,
@@ -907,12 +980,14 @@ function finalizeAutoExperiment(
     projectsMap,
     savedGroupStrategy,
     capabilities,
+    qaOverride,
   }: {
     metadataSource: Parameters<typeof buildPayloadMetadata>[0];
     metadataOptions: Parameters<typeof buildPayloadMetadata>[1];
     projectsMap?: Map<string, ProjectInterface>;
     savedGroupStrategy: SavedGroupPayloadStrategy;
     capabilities?: SDKCapability[];
+    qaOverride?: QaOverrideMetadata;
   },
 ): AutoExperimentWithMetadata {
   const metadata = buildPayloadMetadata<ExperimentMetadata>(
@@ -921,9 +996,13 @@ function finalizeAutoExperiment(
     projectsMap,
   );
   if (metadata) exp.metadata = metadata;
+  // Sent whatever the connection's metadata options are.
+  if (qaOverride) exp.metadata = { ...exp.metadata, qaOverride };
 
-  savedGroupStrategy.finalizeCondition(exp.condition);
-  savedGroupStrategy.finalizeCondition(exp.parentConditions);
+  targetingOf(exp).forEach((targeting) => {
+    savedGroupStrategy.finalizeCondition(targeting.condition);
+    savedGroupStrategy.finalizeCondition(targeting.parentConditions);
+  });
 
   if (capabilities !== undefined) {
     const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
@@ -1081,19 +1160,22 @@ export function getUsedSavedGroupIds(
       seedIds.add(id),
     );
   };
+  const addTargetingToUsedGroupIds = ({
+    condition,
+    parentConditions,
+  }: ReturnType<typeof targetingOf>[number]) => {
+    addConditionToUsedGroupIds(condition);
+    addConditionToUsedGroupIds(parentConditions);
+  };
   Object.values(features).forEach((feature) => {
     if (!feature.rules) {
       return;
     }
-    feature.rules.forEach((rule) => {
-      addConditionToUsedGroupIds(rule.condition);
-      addConditionToUsedGroupIds(rule.parentConditions);
-    });
+    feature.rules.flatMap(targetingOf).forEach(addTargetingToUsedGroupIds);
   });
-  experimentsDefinitions.forEach((experimentDefinition) => {
-    addConditionToUsedGroupIds(experimentDefinition.condition);
-    addConditionToUsedGroupIds(experimentDefinition.parentConditions);
-  });
+  experimentsDefinitions
+    .flatMap(targetingOf)
+    .forEach(addTargetingToUsedGroupIds);
 
   const used = findAllReferencedSavedGroupIds(seedIds, groupMap);
   // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
@@ -1653,8 +1735,14 @@ export async function refreshSDKPayloadCache({
   );
   const interleavings =
     await context.models.interleavings.getAllPayloadInterleavings();
-  // Holdouts, contextual bandits and interleavings carry targeting the
-  // features and experiments do not.
+  const orgEnvironments = getEnvironments(context.org);
+  const allQaOverrides = orgEnvironments.some(
+    (e) => !isProductionEnvironment(e),
+  )
+    ? await context.models.experimentQaOverrides.getAllForPayload()
+    : [];
+  // Holdouts, contextual bandits, interleavings and QA overrides carry
+  // targeting the features and experiments do not.
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -1663,6 +1751,7 @@ export async function refreshSDKPayloadCache({
     ],
     bandits: cbMap.values(),
     interleavings,
+    qaOverrides: allQaOverrides.map((o) => o.filters),
   });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
@@ -1699,6 +1788,12 @@ export async function refreshSDKPayloadCache({
   if (sdkConnections.some((c) => c.includeProjectIdInMetadata)) {
     const allProjects = await context.models.projects.getAll();
     rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
+  if (allQaOverrides.length) {
+    rawData.qaOverridesByEnvironment = new Map(
+      Object.entries(groupBy(allQaOverrides, "environment")),
+    );
   }
 
   const payloadSizeLimitBytes = await getSdkPayloadSizeLimitBytes();
@@ -1748,6 +1843,15 @@ export async function refreshSDKPayloadCache({
             includeTagsInMetadata: connection.includeTagsInMetadata,
             includeExperimentScheduleInMetadata:
               connection.includeExperimentScheduleInMetadata,
+            qaOverrides: qaOverridesForConnection({
+              overrides: rawData.qaOverridesByEnvironment?.get(env),
+              connection: {
+                id: connection.id,
+                environment: env,
+                projects: filteredProjects,
+              },
+              environments: orgEnvironments,
+            }),
           },
           data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
@@ -1887,11 +1991,13 @@ export async function getFeatureDefinitionsResponse({
     for (const k in features) {
       if (features[k]?.rules) {
         for (const rule of features[k].rules ?? []) {
-          if (rule.condition) {
-            inlineSavedGroups(rule.condition);
-          }
-          if (rule.parentConditions) {
-            inlineSavedGroups(rule.parentConditions);
+          for (const targeting of targetingOf(rule)) {
+            if (targeting.condition) {
+              inlineSavedGroups(targeting.condition);
+            }
+            if (targeting.parentConditions) {
+              inlineSavedGroups(targeting.parentConditions);
+            }
           }
         }
       }
@@ -2038,6 +2144,7 @@ export type FeatureDefinitionArgs = {
   hashSecureAttributes?: boolean;
   savedGroupFormat?: SavedGroupFormat;
   includeReferencedPrerequisites?: boolean;
+  sdkConnectionId?: string;
 };
 
 // Pre-fetched data to build one connection's payload. Bulk refresh shares this and adds holdoutsMap per env; may include visualExperiments/urlRedirectExperiments to avoid repeated DB queries.
@@ -2069,6 +2176,7 @@ export type SDKPayloadRawData = {
   // Hoisted for the same reason as `constantMap`: prerequisite closure needs it
   // per connection. Built in buildSDKPayloadForConnection when omitted.
   featuresMap?: Map<string, FeatureInterface>;
+  qaOverridesByEnvironment?: Map<string, ExperimentQaOverrideInterface[]>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -2092,7 +2200,42 @@ export type ConnectionPayloadOptions = {
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
 };
+
+// The production check is a second safeguard for overrides saved before
+// their environment became production.
+export function qaOverridesForConnection({
+  overrides,
+  connection,
+  environments,
+}: {
+  overrides: ExperimentQaOverrideInterface[] | undefined;
+  // [] serves every project, null serves none.
+  connection: {
+    id: string;
+    environment: string;
+    projects: string[] | null | undefined;
+  };
+  environments: Environment[];
+}): Map<string, ExperimentQaOverrideInterface[]> | undefined {
+  if (!overrides?.length) return undefined;
+  if (connection.projects === null) return undefined;
+  const env = environments.find((e) => e.id === connection.environment);
+  if (!env || isProductionEnvironment(env)) return undefined;
+  const scope = { ...connection, projects: connection.projects ?? [] };
+  const byExperiment = new Map(
+    Object.entries(
+      groupBy(
+        sortQaOverrides(overrides).filter((o) =>
+          qaOverrideAppliesToConnection(o, scope),
+        ),
+        "experiment",
+      ),
+    ),
+  );
+  return byExperiment.size ? byExperiment : undefined;
+}
 
 // Full input for building one connection's SDK payload
 export type SDKPayloadBuildInput = {
@@ -2141,6 +2284,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     includeExperimentScheduleInMetadata,
+    qaOverrides,
   } = connection;
 
   if (projects === null) {
@@ -2259,6 +2403,15 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
   });
 
+  // Planned once, so flag rules and auto experiments serve each override to
+  // the same testers.
+  const qaPlans = planQaOverridesByExperiment({
+    experiments: data.experimentMap,
+    overrides: qaOverrides,
+    compileTargeting: (targeting) =>
+      mergeConditionAndSavedGroups({ savedGroupStrategy, ...targeting }),
+  });
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -2276,6 +2429,7 @@ export async function buildSDKPayloadForConnection(
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
     includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
+    qaPlans,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -2309,6 +2463,7 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupStrategy,
     includeExperimentNames,
+    qaPlans,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -2528,6 +2683,16 @@ export async function getFeatureDefinitions(
     cbVisualExperiments,
   );
 
+  const qaOverrides = args.sdkConnectionId
+    ? qaOverridesForConnection({
+        overrides:
+          await context.models.experimentQaOverrides.findByEnvironment(
+            environment,
+          ),
+        connection: { id: args.sdkConnectionId, environment, projects },
+        environments: getEnvironments(context.org),
+      })
+    : undefined;
   const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -2536,6 +2701,9 @@ export async function getFeatureDefinitions(
     ],
     bandits: cbMap.values(),
     interleavings,
+    qaOverrides: [...(qaOverrides?.values() ?? [])]
+      .flat()
+      .map((o) => o.filters),
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
@@ -2544,6 +2712,7 @@ export async function getFeatureDefinitions(
       capabilities: args.capabilities,
       environment,
       projects: projects ?? null,
+      qaOverrides,
       includeReferencedPrerequisites: args.includeReferencedPrerequisites,
       encryptPayload: args.encryptPayload,
       encryptionKey: args.encryptionKey,
@@ -3825,6 +3994,24 @@ export function getNextScheduledUpdate(
   return new Date(sortedFutureDates[0]);
 }
 
+// Attribute conditions only. A prerequisite's `id` is a Feature Flag key, and
+// hashing by attribute name would rewrite it when `id` is a secure attribute.
+function hashTargetingConditions(
+  rule: Parameters<typeof targetingOf>[0],
+  attributes: SDKAttributeSchema,
+  salt: string,
+) {
+  targetingOf(rule).forEach((targeting) => {
+    if (targeting.condition) {
+      targeting.condition = hashStrings({
+        obj: targeting.condition,
+        salt,
+        attributes,
+      });
+    }
+  });
+}
+
 // Specific hashing entrypoint for Feature rules
 export function applyFeatureHashing(
   features: Record<string, FeatureDefinition>,
@@ -3836,13 +4023,7 @@ export function applyFeatureHashing(
       const feature = features[key];
       if (feature?.rules) {
         feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
-          if (rule?.condition) {
-            rule.condition = hashStrings({
-              obj: rule.condition,
-              salt,
-              attributes,
-            });
-          }
+          if (rule) hashTargetingConditions(rule, attributes, salt);
           return rule;
         });
       }
@@ -3860,13 +4041,7 @@ export function applyExperimentHashing(
   salt: string,
 ): AutoExperiment[] {
   return experiments.map((experiment) => {
-    if (experiment?.condition) {
-      experiment.condition = hashStrings({
-        obj: experiment.condition,
-        salt,
-        attributes,
-      });
-    }
+    if (experiment) hashTargetingConditions(experiment, attributes, salt);
     return experiment;
   });
 }

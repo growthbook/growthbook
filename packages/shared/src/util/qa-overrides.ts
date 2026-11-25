@@ -18,9 +18,10 @@ type LinkedFeatureForStatus = Pick<
   "feature" | "state" | "environmentStates" | "draftRevisionVersion"
 >;
 
-// QA exposures are tracked under `<trackingKey>::qa` so they never mix with
-// the experiment's real results.
-export const QA_TRACKING_KEY_SUFFIX = "::qa";
+// QA exposures are tracked under `<trackingKey>::gb-qa` so they never mix with
+// the experiment's real results. The suffix is reserved: no experiment's own
+// tracking key may end with it, so any key that does is QA traffic.
+export const QA_TRACKING_KEY_SUFFIX = "::gb-qa";
 
 export function getQaTrackingKey(trackingKey: string): string {
   return `${trackingKey}${QA_TRACKING_KEY_SUFFIX}`;

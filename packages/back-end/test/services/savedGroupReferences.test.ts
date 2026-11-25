@@ -27,6 +27,10 @@ describe("loadSavedGroupReferences", () => {
   const context = (
     bandits: ReturnType<typeof bandit>[],
     interleavings: ReturnType<typeof bandit>[] = [],
+    qaOverrides: {
+      experiment: string;
+      filters: Record<string, unknown>;
+    }[] = [],
   ) =>
     ({
       org: { id: "org", settings: { environments: [{ id: "production" }] } },
@@ -34,6 +38,7 @@ describe("loadSavedGroupReferences", () => {
         savedGroups: { getAllWithoutValues: async () => [group] },
         contextualBandits: { getAll: async () => bandits },
         interleavings: { getAll: async () => interleavings },
+        experimentQaOverrides: { getAllForPayload: async () => qaOverrides },
       },
     }) as unknown as ReqContext;
 
@@ -97,6 +102,36 @@ describe("loadSavedGroupReferences", () => {
 
     const refs = await loadSavedGroupReferences(context([]), "sg_1");
     expect(refs?.experiments.map((e) => e.id)).toEqual(["exp_holdout"]);
+  });
+
+  it("counts a draft experiment whose QA override filters name the group", async () => {
+    jest.mocked(getAllExperiments).mockImplementation(async (...args) =>
+      args[1]?.type === "holdout"
+        ? []
+        : ([
+            { id: "exp_qa", name: "QA draft", project: "p1", phases: [{}] },
+            { id: "exp_other", name: "Other", project: "p1", phases: [{}] },
+          ] as never),
+    );
+
+    const refs = await loadSavedGroupReferences(
+      context(
+        [],
+        [],
+        [
+          {
+            experiment: "exp_qa",
+            filters: { savedGroups: [{ match: "any", ids: ["sg_1"] }] },
+          },
+          {
+            experiment: "exp_other",
+            filters: { savedGroups: [{ match: "any", ids: ["sg_10"] }] },
+          },
+        ],
+      ),
+      "sg_1",
+    );
+    expect(refs?.experiments.map((e) => e.id)).toEqual(["exp_qa"]);
   });
 
   it("counts bandits that name the group, not stopped ones or a longer id", async () => {
