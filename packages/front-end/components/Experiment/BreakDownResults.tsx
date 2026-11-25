@@ -435,7 +435,7 @@ const BreakDownResults: FC<{
                         paddingLeft: row.isSliceRow ? childIndent : undefined,
                       }}
                     >
-                      {getRenderLabelColumn({})({
+                      {getRenderLabelColumn({ redesign: !!redesign })({
                         label,
                         metric: row.metric,
                         row,

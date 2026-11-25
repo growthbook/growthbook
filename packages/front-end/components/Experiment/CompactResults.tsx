@@ -451,6 +451,7 @@ const CompactResults: FC<{
             getChildRowCounts,
             sliceTagsFilter,
             customMetricSlices,
+            redesign: !!redesign,
           })}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -511,6 +512,7 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              redesign: !!redesign,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -571,6 +573,7 @@ const CompactResults: FC<{
               getChildRowCounts,
               sliceTagsFilter,
               customMetricSlices,
+              redesign: !!redesign,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -605,6 +608,7 @@ export function getRenderLabelColumn({
   getChildRowCounts,
   sliceTagsFilter,
   customMetricSlices,
+  redesign = false,
 }: {
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
@@ -617,6 +621,8 @@ export function getRenderLabelColumn({
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
   customMetricSlices?: CustomMetricSlice[];
+  // The results redesign names each slice on one line, as "column: value".
+  redesign?: boolean;
 }) {
   // Resolved per metric rather than per row: a step row only links to the
   // drilldown when the funnel actually has slices to show there.
@@ -682,6 +688,20 @@ export function getRenderLabelColumn({
               <>
                 {row.sliceLevels.map((dl, index) => {
                   const content = (() => {
+                    if (redesign) {
+                      return (
+                        <>
+                          <span style={{ fontWeight: 400 }}>{dl.column}: </span>
+                          {dl.levels.length ? (
+                            dl.levels[0]
+                          ) : (
+                            <span style={{ fontVariant: "small-caps" }}>
+                              {dl.datatype === "string" ? "other" : "null"}
+                            </span>
+                          )}
+                        </>
+                      );
+                    }
                     if (dl.levels.length === 0) {
                       const emptyValue =
                         dl.datatype === "string" ? "other" : "null";
@@ -732,9 +752,11 @@ export function getRenderLabelColumn({
               label
             )}
           </div>
-          <div className="ml-2 text-muted small">
-            {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
-          </div>
+          {redesign ? null : (
+            <div className="ml-2 text-muted small">
+              {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
+            </div>
+          )}
         </div>
       );
     }
