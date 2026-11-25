@@ -110,7 +110,7 @@ export function LastDelivery({
     <Flex align="center" gap="2">
       <DeliveryStatusBadge log={log} />
       <Tooltip content={datetime(date)}>
-        <Text color="text-mid" whiteSpace="nowrap">
+        <Text size="inherit" color="text-mid" whiteSpace="nowrap">
           {ago(date)}
         </Text>
       </Tooltip>

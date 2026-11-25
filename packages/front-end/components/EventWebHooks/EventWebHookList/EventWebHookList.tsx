@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowRight, PiPlus } from "react-icons/pi";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LinkButton from "@/ui/LinkButton";
@@ -99,6 +100,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               <TableColumnHeader>Webhook</TableColumnHeader>
               <TableColumnHeader>Endpoint</TableColumnHeader>
               <TableColumnHeader>Events</TableColumnHeader>
+              <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Last delivery</TableColumnHeader>
               <TableColumnHeader>Status</TableColumnHeader>
             </TableRow>
@@ -137,12 +139,16 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
                   </TableCell>
                   <TableCell>
                     {SHOWS_ENDPOINT.has(payloadType) ? (
-                      <Text size="sm" mono overflowWrap="anywhere">
+                      <Text size="inherit" mono overflowWrap="anywhere">
                         {url}
                       </Text>
                     ) : (
                       <Tooltip content="Slack and Discord webhook URLs carry their own credentials, so they aren't shown.">
-                        <Text color="text-mid" fontStyle="italic">
+                        <Text
+                          size="inherit"
+                          color="text-mid"
+                          fontStyle="italic"
+                        >
                           hidden
                         </Text>
                       </Tooltip>
@@ -154,13 +160,18 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
                     })}
                   </TableCell>
                   <TableCell>
+                    <WebhookFilters webhook={eventWebHook} />
+                  </TableCell>
+                  <TableCell>
                     {eventWebHook.lastRunAt && lastState !== "none" ? (
                       <LastDelivery
                         log={{ result: lastState, responseCode: null }}
                         date={eventWebHook.lastRunAt}
                       />
                     ) : (
-                      <Text color="text-mid">None yet</Text>
+                      <Text size="inherit" color="text-mid">
+                        None yet
+                      </Text>
                     )}
                   </TableCell>
                   <TableCell>
@@ -175,6 +186,40 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
     </div>
   );
 };
+
+// The environments, Projects and tags a webhook is limited to.
+function WebhookFilters({ webhook }: { webhook: EventWebHookInterface }) {
+  const { getProjectById } = useDefinitions();
+  const filters = [
+    { label: "Environments", values: webhook.environments ?? [] },
+    {
+      label: "Projects",
+      values: (webhook.projects ?? []).map(
+        (id) => getProjectById(id)?.name ?? id,
+      ),
+    },
+    { label: "Tags", values: webhook.tags ?? [] },
+  ].filter((filter) => filter.values.length > 0);
+  if (!filters.length) {
+    return (
+      <Text size="inherit" color="text-mid">
+        None
+      </Text>
+    );
+  }
+  return (
+    <Flex direction="column" gap="1">
+      {filters.map(({ label, values }) => (
+        <Text key={label} size="inherit">
+          <Text size="inherit" color="text-mid">
+            {label}:
+          </Text>{" "}
+          {values.join(", ")}
+        </Text>
+      ))}
+    </Flex>
+  );
+}
 
 export const EventWebHookListContainer = () => {
   const { data, error } = useApi<{

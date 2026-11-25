@@ -107,7 +107,7 @@ const WebhooksPage: FC = () => {
           </TableHeader>
           <TableBody>
             {webhookSecrets.map((secret) => (
-              <TableRow key={secret.id}>
+              <TableRow key={secret.id} align="center">
                 <TableCell>
                   <CopyableCode value={secret.key} />
                 </TableCell>
@@ -121,7 +121,7 @@ const WebhooksPage: FC = () => {
                 </TableCell>
                 <TableCell>{datetime(secret.dateCreated)}</TableCell>
                 <TableCell>{datetime(secret.dateUpdated)}</TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   {canManageSecrets && (
                     <DropdownMenu
                       variant="soft"

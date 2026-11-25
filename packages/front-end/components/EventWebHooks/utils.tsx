@@ -16,6 +16,7 @@ import { SiDatadog } from "react-icons/si";
 import { FormatOptionLabelMeta } from "react-select";
 import { Flex } from "@radix-ui/themes";
 import { SingleValue } from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { isCloud } from "@/services/env";
 
@@ -280,7 +281,9 @@ export const displayedEvents = (
       {shown.map((event, i) => (
         <React.Fragment key={event}>
           {i > 0 && ", "}
-          <code style={{ color: "var(--violet-11)" }}>{event}</code>
+          <Text size="inherit" mono>
+            {event}
+          </Text>
         </React.Fragment>
       ))}
       {hidden.length > 0 && (
@@ -290,7 +293,9 @@ export const displayedEvents = (
             content={
               <Flex direction="column" gap="1">
                 {hidden.map((event) => (
-                  <code key={event}>{event}</code>
+                  <Text key={event} size="inherit" mono>
+                    {event}
+                  </Text>
                 ))}
               </Flex>
             }
