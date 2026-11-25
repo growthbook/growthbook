@@ -819,9 +819,7 @@ export default function AnalysisSettingsSummary({
             {showDimensionBreakdown ? (
               <Popover
                 align="start"
-                trigger={
-                  <Link type="button">{breakdownDimensionName} breakdown</Link>
-                }
+                trigger={<Link type="button">Dimension traffic</Link>}
                 content={
                   <UsersTable
                     dimension={breakdownDimensionName}
