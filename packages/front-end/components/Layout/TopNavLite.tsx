@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { Flex, Text } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   PiCaretDownFill,
   PiCircleHalf,
@@ -37,7 +38,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -45,7 +46,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
 
@@ -53,7 +54,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            <Trans>Theme</Trans>
           </div>
         );
     }
@@ -89,7 +90,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiCircleHalf size="16" className="mr-1" />
-            System Default
+            <Trans>System Default</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -101,7 +102,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiSunDim size="16" className="mr-1" />
-            Light
+            <Trans>Light</Trans>
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -113,7 +114,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
         >
           <span>
             <PiMoon size="16" className="mr-1" />
-            Dark
+            <Trans>Dark</Trans>
           </span>
         </DropdownMenuItem>
       </>
@@ -146,7 +147,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           safeLogout();
         }}
       >
-        Sign Out
+        <Trans>Sign Out</Trans>
       </DropdownMenuItem>
     );
   };
