@@ -12,7 +12,7 @@ import React, {
 import { MdCheck } from "react-icons/md";
 import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
 import { v4 as uuidv4 } from "uuid";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
@@ -65,6 +65,7 @@ type Props = {
 };
 
 const PagedModal: FC<Props> = (props) => {
+  const { i18n } = useLingui();
   const {
     step,
     setStep,
@@ -187,7 +188,8 @@ const PagedModal: FC<Props> = (props) => {
     sendTrackingEvent("modal-page-change", {
       step: step + 1,
       steps: steps?.length,
-      pageName,
+      // Page titles are translated; only English ones keep the data comparable.
+      pageName: i18n.locale === "en" ? pageName : "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
