@@ -247,7 +247,8 @@ export class GrowthBookClient<
     }
     // Trigger refresh in feature repository
     // Streaming is opt-in: without an explicit `streaming` init option, no
-    // subscription is created (GrowthBookClient has no `backgroundSync` option)
+    // subscription is created (GrowthBookClient has no `backgroundSync` option,
+    // so refreshes without `streaming` leave the global switch untouched)
     return refreshFeatures({
       instance: this,
       timeout,

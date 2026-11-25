@@ -738,7 +738,75 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("does not subscribe when calling loadFeatures() without autoRefresh", async () => {
+  it("keeps deprecated loadFeatures auto-subscription behavior", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    // Legacy behavior of the deprecated loadFeatures(): unlike init(), streaming
+    // is on by default, so the subscription is opened without opting in
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.loadFeatures();
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Only autoRefresh/subscribeToChanges instances receive pushed updates
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook2.loadFeatures({ autoRefresh: true });
+
+    expect(f.mock.calls.length).toEqual(1);
+    await sleep(150);
+
+    expect(spyEventSource).toHaveBeenCalled();
+    expect(spyEventSource.mock.calls[0][0]).toEqual(
+      "https://fakeapi.sample.io/sub/qwerty1234",
+    );
+
+    growthbook.destroy();
+    growthbook2.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+    event.clear();
+  });
+
+  it("does not open a streaming subscription when refreshFeatures does not opt in", async () => {
     const apiPayload = {
       features: {
         foo: {
@@ -757,15 +825,58 @@ describe("feature-repo", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
     });
-    await growthbook.loadFeatures();
+    await growthbook.init();
 
-    // Features load successfully
+    // The cached-fresh refresh path does not subscribe either
+    await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(1);
-    expect(growthbook.evalFeature("foo").value).toEqual("initial");
 
-    // But no streaming subscription is started
+    // The stale re-fetch path (network) also stays subscription-free without
+    // an explicit opt-in
     await sleep(150);
+    await growthbook.refreshFeatures();
+    expect(f.mock.calls.length).toEqual(2);
+    await sleep(100);
     expect(spyEventSource).not.toHaveBeenCalled();
+
+    growthbook.destroy();
+    setPolyfills({ EventSource });
+    cleanup();
+  });
+
+  it("opens a streaming subscription when refreshFeatures opts in", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [f, cleanup] = mockApi(apiPayload, true);
+
+    const spyEventSource = spyEventSourcePolyfill();
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init();
+
+    // init() without streaming does not subscribe
+    expect(f.mock.calls.length).toEqual(1);
+    expect(spyEventSource).not.toHaveBeenCalled();
+
+    // Opting in on a later refresh opens the streaming subscription
+    await growthbook.refreshFeatures({ streaming: true });
+    expect(spyEventSource).toHaveBeenCalled();
+    expect(spyEventSource.mock.calls[0][0]).toEqual(
+      "https://fakeapi.sample.io/sub/qwerty1234",
+    );
+
+    // Opting in during a cache hit does not trigger an extra features fetch
     expect(f.mock.calls.length).toEqual(1);
 
     growthbook.destroy();

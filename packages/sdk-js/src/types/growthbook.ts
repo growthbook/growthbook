@@ -823,6 +823,12 @@ export type LoadFeaturesOptions = {
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+  /**
+   * Opt in to a background subscription (SSE) for this refresh. Off by default,
+   * same as `streaming` in `init()`. Passing `false` mirrors the deprecated
+   * global `backgroundSync: false` opt-out.
+   */
+  streaming?: boolean;
 };
 
 export type DestroyOptions = {

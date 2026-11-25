@@ -155,8 +155,9 @@ export async function refreshFeatures({
 }): Promise<FetchResponse> {
   // Legacy opt-out: an explicit `false` disables background sync for every
   // instance in this process (same as configureCache({ backgroundSync: false })).
-  // When undefined, the caller did not opt in - it neither enables nor
-  // disables anything, so no subscription is started for this refresh.
+  // Undefined means the caller did not opt in: leave the global switch (which
+  // legacy paths and explicit opt-ins rely on) untouched; this refresh alone
+  // starts no subscription - see startAutoRefresh.
   if (backgroundSync === false) {
     cacheSettings.backgroundSync = false;
   }
@@ -500,11 +501,12 @@ async function fetchFeatures(
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch.
 // The stream only starts when the global master switch is on (cacheSettings.backgroundSync,
-// turned off by the legacy opt-out) AND this refresh opted in - either forceSSE (an explicit
-// `streaming: true` init), `backgroundSync` (an explicit `streaming`/legacy `backgroundSync`
-// option), or the instance subscribed to background updates (streaming/pollingInterval).
-// Plain fetches for unsubscribed instances never open a stream, so a subscription exists
-// only when asked for.
+// turned off by the legacy configureCache/explicit-backgroundSync:false opt-out) AND this
+// refresh opted in - `forceSSE` (an explicit `streaming: true` handshake), `backgroundSync`
+// (an explicit `streaming`/legacy `backgroundSync`/caller-resolved option), or the instance
+// already subscribed to background updates (streaming, pollingInterval, or the deprecated
+// loadFeatures autoRefresh options). Fetches for unsubscribed instances never open a
+// stream, so a subscription only exists when something asked for one.
 function startAutoRefresh(
   instance: GrowthBook | GrowthBookClient,
   forceSSE: boolean = false,

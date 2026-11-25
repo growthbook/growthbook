@@ -328,7 +328,7 @@ There is an alternate synchronous version of init named `initSync`, which can be
 
 The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enabled, changes to features within GrowthBook will be streamed to the SDK in realtime as they are published. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
 
-Streaming is opt-in: no subscription is created unless you pass `streaming: true` to `init()`/`initSync()` (or set the deprecated `backgroundSync` option).
+Streaming is opt-in: no subscription is created unless you pass `streaming: true` to `init()`/`initSync()`/`refreshFeatures()`/`prefetchPayload()` (or set the deprecated `backgroundSync` option). Users of the deprecated `loadFeatures()` are not affected: it keeps auto-subscribing to background updates like it did before.
 
 ### Streaming in Browser Environments
 

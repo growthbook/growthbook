@@ -180,19 +180,24 @@ If you want to refresh the features at any time (e.g. when a navigation event oc
 
 #### Streaming Updates
 
-By default, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+Streaming is opt-in: `init()` does not open any streaming connection unless you pass `streaming: true`. When enabled, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
 
-If you want to disable streaming updates (to limit API usage on GrowthBook Cloud for example), you can set `backgroundSync` to `false`.
+Opting into streaming with init looks like this:
 
 ```ts
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
+});
 
-  // Disable background streaming connection
-  backgroundSync: false,
+// Wait for features to be downloaded
+await gb.init({
+  // Open a streaming connection for automatic background updates
+  streaming: true,
 });
 ```
+
+The deprecated `loadFeatures` method keeps its historic default of auto-subscribing to background updates. To opt into streaming without it, pass `streaming: true` to `init` instead, or keep using the deprecated `backgroundSync` constructor option (`false` still disables streaming updates, to limit API usage on GrowthBook Cloud for example).
 
 ### Custom Integration
 
