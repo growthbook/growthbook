@@ -1,15 +1,18 @@
 import React from "react";
 import clsx from "clsx";
+import { useLingui } from "@lingui/react/macro";
 import LoadingSpinner from "./LoadingSpinner";
 import styles from "./LoadingOverlay.module.scss";
 
 export default function LoadingOverlay({
-  text = "Loading...",
+  text,
   relativePosition = false,
 }: {
   text?: string;
   relativePosition?: boolean;
 }): React.ReactElement {
+  const { t } = useLingui();
+  const loadingText = text === undefined ? t`Loading...` : text;
   const overlayClasses = clsx(styles.overlay, {
     relativePositionOverlay: relativePosition,
   });
@@ -19,7 +22,7 @@ export default function LoadingOverlay({
   return (
     <div className={overlayClasses}>
       <div className={overlayTextClasses}>
-        <LoadingSpinner /> {text}
+        <LoadingSpinner /> {loadingText}
       </div>
     </div>
   );

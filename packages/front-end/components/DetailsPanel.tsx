@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import {
   DiscussionInterface,
   DiscussionParentType,
@@ -230,9 +231,11 @@ function DetailsWithDiscussion({
           alignText
           style={{ flex: 1, minWidth: 0, boxShadow: "none" }}
         >
-          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="details">
+            <Trans>Details</Trans>
+          </TabsTrigger>
           <TabsTrigger value="comments">
-            Comments
+            <Trans>Comments</Trans>
             {commentCount > 0 && (
               <Badge
                 label={commentCount.toString()}

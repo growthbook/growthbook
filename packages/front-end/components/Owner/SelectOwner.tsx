@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import Owner from "@/components/Avatar/Owner";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -16,6 +17,7 @@ export default function SelectOwner({
   placeholder = "",
   disabled = false,
 }: Props) {
+  const { t } = useLingui();
   const { users } = useUser();
 
   const memberOptions = useMemo(() => {
@@ -41,7 +43,7 @@ export default function SelectOwner({
   return (
     <SelectField
       size="legacy"
-      label="Owner"
+      label={t`Owner`}
       labelClassName="font-weight-bold"
       options={options}
       value={value}

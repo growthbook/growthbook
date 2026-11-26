@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { CommercialFeature } from "shared/enterprise";
+import { Trans } from "@lingui/react/macro";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
@@ -58,7 +59,7 @@ const PremiumEmptyState: FC<Props> = ({
                       variant="outline"
                       external={true}
                     >
-                      Learn more
+                      <Trans>Learn more</Trans>
                     </LinkButton>
                   </div>
                 )}
@@ -67,12 +68,13 @@ const PremiumEmptyState: FC<Props> = ({
                     setUpgradeModal(true);
                   }}
                 >
-                  Upgrade to{" "}
-                  {lowestPlanLevel === "enterprise"
-                    ? "Enterprise"
-                    : lowestPlanLevel === "pro"
-                      ? "Pro"
-                      : "access"}
+                  {lowestPlanLevel === "enterprise" ? (
+                    <Trans>Upgrade to Enterprise</Trans>
+                  ) : lowestPlanLevel === "pro" ? (
+                    <Trans>Upgrade to Pro</Trans>
+                  ) : (
+                    <Trans>Upgrade to access</Trans>
+                  )}
                 </Button>
               </div>
               {image && (

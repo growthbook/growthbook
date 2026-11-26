@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Text } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 
@@ -33,7 +34,7 @@ const OutdatedBadge: FC<{
       <Badge
         label={
           <>
-            {hasData ? "Outdated" : "Update required"}
+            {hasData ? <Trans>Outdated</Trans> : <Trans>Update required</Trans>}
             <PiInfo size={14} />
           </>
         }

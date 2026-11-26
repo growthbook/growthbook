@@ -1,5 +1,6 @@
 import { Text } from "@radix-ui/themes";
 import { MouseEvent } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag, { TagProps } from "./Tag";
@@ -39,6 +40,7 @@ export default function SortedTags({
   linkEntity,
   onTagClick,
 }: Props) {
+  const { t } = useLingui();
   const { tags: all } = useDefinitions();
   if (!tags || !tags.length) return null;
 
@@ -121,11 +123,12 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const overflowTags = sorted.slice(showEllipsisAtIndex);
+    const overflowCount = overflowTags.length;
     const moreTagsCopy = ellipsisFormat
-      ? ellipsisFormat(overflowTags.length)
-      : `${overflowTags.length} more tag${
-          overflowTags.length === 1 ? "" : "s"
-        }...`;
+      ? ellipsisFormat(overflowCount)
+      : overflowCount === 1
+        ? t`${overflowCount} more tag...`
+        : t`${overflowCount} more tags...`;
     const tagElements = renderTags(overflowTags, false);
     return (
       <Tooltip

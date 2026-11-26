@@ -8,6 +8,7 @@ import {
   useEffect,
 } from "react";
 import clsx from "clsx";
+import { useLingui } from "@lingui/react/macro";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface Props
@@ -39,12 +40,14 @@ const Button: FC<Props> = ({
   loading: _externalLoading,
   loadingClassName = "btn-secondary disabled",
   stopPropagation,
-  loadingCta = "Loading",
+  loadingCta,
   errorClassName = "text-danger ml-2",
   errorStyle,
   setErrorText,
   ...otherProps
 }) => {
+  const { t } = useLingui();
+  const loadingCtaText = loadingCta === undefined ? t`Loading` : loadingCta;
   const [_internalLoading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const loading = _externalLoading || _internalLoading;
@@ -82,7 +85,7 @@ const Button: FC<Props> = ({
       >
         {loading ? (
           <>
-            <LoadingSpinner /> {loadingCta}
+            <LoadingSpinner /> {loadingCtaText}
           </>
         ) : (
           children

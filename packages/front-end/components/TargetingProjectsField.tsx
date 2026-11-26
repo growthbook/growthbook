@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiInfo, PiPlusBold, PiX } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RadioGroup from "@/ui/RadioGroup";
@@ -33,10 +34,11 @@ export default function TargetingProjectsField({
   setAllProjects,
   targetingProjects,
   setTargetingProjects,
-  entityLabel = "Feature Flag",
+  entityLabel,
   baseline: baselineProp,
   ...marginProps
 }: TargetingProjectsFieldProps) {
+  const { t } = useLingui();
   const { projects, targetingOptOutProjectIds } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const [enabled, setEnabled] = useState<boolean>(
@@ -60,11 +62,11 @@ export default function TargetingProjectsField({
   const disabledReason = (projectId: string) =>
     [
       targetingOptOutProjectIds.includes(projectId)
-        ? "This Project doesn't allow targeting from other Projects' Feature Flags"
+        ? t`This Project doesn't allow targeting from other Projects' Feature Flags`
         : null,
       permissionsUtil.canTargetFeatureProjects([projectId])
         ? null
-        : "You don't have permission to target this Project",
+        : t`You don't have permission to target this Project`,
     ]
       .filter((reason): reason is string => reason !== null)
       .join(". ");
@@ -85,8 +87,8 @@ export default function TargetingProjectsField({
       .filter((id) => !projects.some((p) => p.id === id))
       .map((id) => ({
         value: id,
-        label: "Hidden Project",
-        tooltip: `A Project you don't have access to (${id})`,
+        label: t`Hidden Project`,
+        tooltip: t`A Project you don't have access to (${id})`,
       })),
   ];
   const canTargetAll =
@@ -98,29 +100,31 @@ export default function TargetingProjectsField({
   );
   const hiddenOptedOut = optedOutNames.filter((n) => n === null).length;
   const namedOptedOut = optedOutNames.filter((n): n is string => n !== null);
+  const hiddenOptedOutText =
+    hiddenOptedOut === 1
+      ? t`${hiddenOptedOut} Project you don't have access to`
+      : t`${hiddenOptedOut} Projects you don't have access to`;
+  const optedOutList = [
+    ...namedOptedOut,
+    ...(hiddenOptedOut ? [hiddenOptedOutText] : []),
+  ].join(", ");
   const allProjectsReason = [
     targetingOptOutProjectIds.length > 0
-      ? `${[
-          ...namedOptedOut,
-          ...(hiddenOptedOut
-            ? [
-                `${hiddenOptedOut} ${
-                  hiddenOptedOut === 1 ? "Project" : "Projects"
-                } you don't have access to`,
-              ]
-            : []),
-        ].join(", ")} ${
-          targetingOptOutProjectIds.length === 1 ? "doesn't" : "don't"
-        } allow targeting`
+      ? targetingOptOutProjectIds.length === 1
+        ? t`${optedOutList} doesn't allow targeting`
+        : t`${optedOutList} don't allow targeting`
       : null,
     permissionsUtil.canTargetFeatureProjects("all")
       ? null
-      : "Requires permission to target all Projects",
+      : t`Requires permission to target all Projects`,
   ]
     .filter((reason): reason is string => reason !== null)
     .join(". ");
 
-  const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
+  const help =
+    entityLabel === undefined
+      ? t`Also include this Feature Flag in these Projects' SDK payloads`
+      : t`Also include this ${entityLabel} in these Projects' SDK payloads`;
 
   return (
     <Box {...marginProps}>
@@ -133,7 +137,7 @@ export default function TargetingProjectsField({
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
-            Targeting Projects
+            <Trans>Targeting Projects</Trans>
             <Tooltip body={<Text as="div">{help}</Text>}>
               <PiInfo color="var(--color-text-low)" className="ml-1" />
             </Tooltip>
@@ -143,7 +147,7 @@ export default function TargetingProjectsField({
         <>
           <Flex align="center" gap="1" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
-              Additional Targeting Projects
+              <Trans>Additional Targeting Projects</Trans>
             </label>
             <Tooltip body={help}>
               <PiInfo />
@@ -162,7 +166,7 @@ export default function TargetingProjectsField({
               }}
             >
               <PiX className="mr-1" />
-              Remove targeting
+              <Trans>Remove targeting</Trans>
             </Link>
           </Flex>
           <RadioGroup
@@ -173,7 +177,7 @@ export default function TargetingProjectsField({
             options={[
               {
                 value: "specific",
-                label: "Specific Projects",
+                label: t`Specific Projects`,
                 renderOutsideItem: true,
                 renderOnSelect: (
                   <Box pl="5">
@@ -188,7 +192,7 @@ export default function TargetingProjectsField({
                         !canTarget(o.value) &&
                         !targetingProjects.includes(o.value)
                       }
-                      placeholder="No Projects selected"
+                      placeholder={t`No Projects selected`}
                       sort={false}
                       showCopyButton={false}
                       containerClassName="w-full"
@@ -198,7 +202,7 @@ export default function TargetingProjectsField({
               },
               {
                 value: "all",
-                label: "All Projects",
+                label: t`All Projects`,
                 itemClassName: "mt-2",
                 disabled: !canTargetAll,
                 disabledReason: allProjectsReason,

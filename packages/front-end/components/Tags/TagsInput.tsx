@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
+import { useLingui } from "@lingui/react/macro";
 import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField, { MultiSelectFieldSize } from "@/ui/MultiSelectField";
@@ -37,12 +38,14 @@ const TagsInput: FC<{
   label,
   closeMenuOnSelect = false,
   tagOptions,
-  prompt = "Tags...",
+  prompt,
   creatable = true,
   customClassName,
   size,
   legacyLabelFormatting,
 }) => {
+  const { t } = useLingui();
+  const promptText = prompt === undefined ? t`Tags...` : prompt;
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   if (!tagOptions) tagOptions = tags;
@@ -147,7 +150,7 @@ const TagsInput: FC<{
       closeMenuOnSelect={closeMenuOnSelect}
       autoFocus={autoFocus}
       customStyles={tagStyles}
-      placeholder={prompt}
+      placeholder={promptText}
       creatable={creatable}
       customClassName={customClassName}
     />

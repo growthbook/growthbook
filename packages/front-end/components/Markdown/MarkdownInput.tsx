@@ -13,6 +13,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { AISuggestionType } from "shared/ai";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -30,7 +31,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
-const Loading = () => <div>Loading</div>;
+const Loading = () => (
+  <div>
+    <Trans>Loading</Trans>
+  </div>
+);
 
 const MarkdownInput: FC<{
   value: string;
@@ -71,8 +76,8 @@ const MarkdownInput: FC<{
   placeholder,
   hidePreview,
   aiSuggestFunction,
-  aiButtonText = "Get AI Suggestion",
-  aiSuggestionHeader = "Suggestion",
+  aiButtonText: aiButtonTextProp,
+  aiSuggestionHeader: aiSuggestionHeaderProp,
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
@@ -80,6 +85,14 @@ const MarkdownInput: FC<{
   onAISuggestionReceived,
   trackingSource,
 }) => {
+  const { t } = useLingui();
+  const aiButtonText =
+    aiButtonTextProp === undefined ? t`Get AI Suggestion` : aiButtonTextProp;
+  const aiSuggestionHeader =
+    aiSuggestionHeaderProp === undefined
+      ? t`Suggestion`
+      : aiSuggestionHeaderProp;
+  const aiDisabledMessage = t`AI is disabled for your organization. Adjust in settings.`;
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
@@ -159,7 +172,8 @@ const MarkdownInput: FC<{
         setUploading(false);
       })
       .catch((e) => {
-        alert("Failed to upload image: " + e);
+        const reason = String(e);
+        alert(t`Failed to upload image: ${reason}`);
         setUploading(false);
       });
   };
@@ -198,24 +212,24 @@ const MarkdownInput: FC<{
           setLoading(false);
         } else {
           setLoading(false);
-          setError("Failed to get AI suggestion");
+          setError(t`Failed to get AI suggestion`);
         }
       } catch (e) {
         setLoading(false);
         if (e.message) {
           setError(e.message);
         } else {
-          setError("Failed to get AI suggestion. API request error");
+          setError(t`Failed to get AI suggestion. API request error`);
         }
       }
     } else {
-      setError("AI is disabled for your organization. Adjust in settings.");
+      setError(aiDisabledMessage);
     }
   };
 
   return (
     <Box className="">
-      {loading && <LoadingOverlay text="Generating..." />}
+      {loading && <LoadingOverlay text={t`Generating...`} />}
       <Tabs
         value={activeControlledTab}
         onValueChange={(tab) =>
@@ -225,9 +239,11 @@ const MarkdownInput: FC<{
         {!hidePreview && (
           <Flex align="center" justify="between">
             <TabsList>
-              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="write">
+                <Trans>Write</Trans>
+              </TabsTrigger>
               <TabsTrigger value="preview" disabled={!value}>
-                Preview
+                <Trans>Preview</Trans>
               </TabsTrigger>
             </TabsList>
           </Flex>
@@ -299,13 +315,16 @@ const MarkdownInput: FC<{
                         color: "var(--gray-11)",
                       }}
                     >
-                      Upload images by dragging &amp; dropping or clicking here
+                      <Trans>
+                        Upload images by dragging &amp; dropping or clicking
+                        here
+                      </Trans>
                     </span>
                     <a
                       href="https://guides.github.com/features/mastering-markdown/"
                       target="_blank"
                       rel="noreferrer"
-                      title="Github-flavored Markdown is supported"
+                      title={t`Github-flavored Markdown is supported`}
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         color: "var(--gray-12)",
@@ -334,7 +353,7 @@ const MarkdownInput: FC<{
                 <Box flexGrow="1" />
                 {onCancel && (
                   <Button variant="ghost" color="gray" onClick={onCancel}>
-                    Cancel
+                    <Trans>Cancel</Trans>
                   </Button>
                 )}
                 {cta && (
@@ -359,16 +378,10 @@ const MarkdownInput: FC<{
                     disabled={loading}
                     onClick={() => doAISuggestion("suggest")}
                   >
-                    <BsStars /> {loading ? "Generating..." : aiButtonText}
+                    <BsStars /> {loading ? t`Generating...` : aiButtonText}
                   </Button>
                 ) : (
-                  <Tooltip
-                    body={
-                      !aiEnabled
-                        ? "AI is disabled for your organization. Adjust in settings."
-                        : ""
-                    }
-                  >
+                  <Tooltip body={!aiEnabled ? aiDisabledMessage : ""}>
                     <Button
                       variant="soft"
                       onClick={() => {
@@ -382,9 +395,7 @@ const MarkdownInput: FC<{
                             }, 0);
                           }
                         } else {
-                          setError(
-                            "AI is disabled for your organization. Adjust in settings.",
-                          );
+                          setError(aiDisabledMessage);
                         }
                       }}
                     >
@@ -405,10 +416,12 @@ const MarkdownInput: FC<{
                       variant="ghost"
                       onClick={() => doAISuggestion("try-again")}
                     >
-                      <PiArrowClockwise /> Try Again
+                      <PiArrowClockwise /> <Trans>Try Again</Trans>
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
-                      <Tooltip body="Overwrite content above with suggested content.">
+                      <Tooltip
+                        body={t`Overwrite content above with suggested content.`}
+                      >
                         <Button
                           variant="soft"
                           onClick={() => {
@@ -419,12 +432,12 @@ const MarkdownInput: FC<{
                             });
                           }}
                         >
-                          Use Suggested
+                          <Trans>Use Suggested</Trans>
                         </Button>
                       </Tooltip>
                     )}
                     {revertValue && value == aiSuggestionText && (
-                      <Tooltip body="Revert to previous content.">
+                      <Tooltip body={t`Revert to previous content.`}>
                         <Button
                           variant="soft"
                           onClick={() => {
@@ -435,7 +448,7 @@ const MarkdownInput: FC<{
                             });
                           }}
                         >
-                          Revert
+                          <Trans>Revert</Trans>
                         </Button>
                       </Tooltip>
                     )}

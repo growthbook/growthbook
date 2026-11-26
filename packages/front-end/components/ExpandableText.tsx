@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Box } from "@radix-ui/themes";
 import clsx from "clsx";
+import { Trans } from "@lingui/react/macro";
 import Link from "@/ui/Link";
 import styles from "./ExpandableText.module.scss";
 
@@ -176,7 +177,7 @@ export function ExpandableTextBody({
           className={clsx(styles.more, !linkBelow && styles.atLineEnd)}
           onClick={expand}
         >
-          … expand
+          <Trans>… expand</Trans>
         </Link>
       ) : null}
     </Box>

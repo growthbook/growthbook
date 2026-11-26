@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import styles from "./UnsavedDot.module.scss";
 
 // Marks a field with an unsaved change, left of its label. Its parent is
@@ -8,11 +9,12 @@ export default function UnsavedDot({
   // `firstLine` centres it on a checkbox's first line.
   align?: "center" | "firstLine";
 }) {
+  const { t } = useLingui();
   return (
     <span
       className={align === "firstLine" ? styles.checkDot : styles.fieldDot}
       role="img"
-      aria-label="Unsaved"
+      aria-label={t`Unsaved`}
     />
   );
 }

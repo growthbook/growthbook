@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import { AISuggestionType } from "shared/ai";
 import AISuggestButton from "@/components/Markdown/AISuggestButton";
 import RichTextEditor, { RichTextHeight } from "@/ui/RichTextEditor";
@@ -83,7 +84,9 @@ export default function AIRichTextField({
                     setBeforeSuggestion(null);
                   }}
                 >
-                  <Text weight="semibold">Undo suggestion</Text>
+                  <Text weight="semibold">
+                    <Trans>Undo suggestion</Trans>
+                  </Text>
                 </Link>
               ) : null}
             </Flex>

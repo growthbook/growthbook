@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { PiWarning } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
@@ -77,10 +78,12 @@ export function PanelText({ children }: { children: ReactNode }) {
   );
 }
 
-export function EmptyValue({ label = "None" }: { label?: string }) {
+export function EmptyValue({ label }: { label?: string }) {
+  const { t } = useLingui();
+  const labelText = label === undefined ? t`None` : label;
   return (
     <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-      {label}
+      {labelText}
     </Text>
   );
 }
@@ -106,14 +109,16 @@ export function HiddenProject({ id }: { id: string }) {
   return (
     <Tooltip
       content={
-        <>
+        <Trans>
           A Project you don&apos;t have access to, or one that no longer exists
           (<code>{id}</code>)
-        </>
+        </Trans>
       }
     >
       {/* Focusable, so the explanation reaches keyboard users too. */}
-      <em tabIndex={0}>Hidden Project</em>
+      <em tabIndex={0}>
+        <Trans>Hidden Project</Trans>
+      </em>
     </Tooltip>
   );
 }
@@ -125,11 +130,12 @@ export function OwnerField({
   owner: string;
   action?: ReactNode;
 }) {
+  const { t } = useLingui();
   return (
     <Metadata
       size="sm"
       stacked
-      label="Owner"
+      label={t`Owner`}
       action={action}
       value={<PersonValue id={owner} />}
     />
@@ -143,6 +149,7 @@ export function ProjectField({
   project: string | undefined;
   action?: ReactNode;
 }) {
+  const { t } = useLingui();
   const {
     projects,
     project: currentProject,
@@ -158,7 +165,7 @@ export function ProjectField({
     <Metadata
       size="sm"
       stacked
-      label="Project"
+      label={t`Project`}
       action={action}
       value={
         !project ? (
@@ -168,7 +175,7 @@ export function ProjectField({
             {hidden ? (
               <HiddenProject id={project} />
             ) : currentProject && currentProject !== project ? (
-              <Tooltip content="Not in your current Project">
+              <Tooltip content={t`Not in your current Project`}>
                 <span>
                   {projectName}{" "}
                   <PiWarning style={{ color: "var(--amber-11)" }} />
@@ -193,11 +200,12 @@ export function TagsField({
   type: Parameters<typeof tagLinkProps>[0];
   action?: ReactNode;
 }) {
+  const { t } = useLingui();
   return (
     <Metadata
       size="sm"
       stacked
-      label="Tags"
+      label={t`Tags`}
       action={action}
       value={
         tags?.length ? (

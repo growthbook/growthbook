@@ -1,5 +1,6 @@
 import { Box } from "@radix-ui/themes";
 import { MouseEvent } from "react";
+import { Trans } from "@lingui/react/macro";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
@@ -38,7 +39,7 @@ export default function LinkedTag({
   const tooltipContent = entity ? (
     <>
       <Box>
-        View other {entity} with the <strong>{tag}</strong> tag
+        <ViewOtherWithTag entity={entity} tag={tag} />
       </Box>
       {description && <Box mt="2">{description}</Box>}
     </>
@@ -51,4 +52,46 @@ export default function LinkedTag({
   );
 
   return <Tag {...tagProps} tag={tag} label={label} />;
+}
+
+// One whole sentence per entity, so each reads naturally once translated.
+function ViewOtherWithTag({ entity, tag }: { entity: string; tag: string }) {
+  switch (entity) {
+    case "features":
+      return (
+        <Trans>
+          View other features with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+    case "experiments":
+      return (
+        <Trans>
+          View other experiments with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+    case "metrics":
+      return (
+        <Trans>
+          View other metrics with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+    case "bandits":
+      return (
+        <Trans>
+          View other bandits with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+    case "contextual-bandits":
+      return (
+        <Trans>
+          View other contextual-bandits with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+    default:
+      return (
+        <Trans>
+          View other {entity} with the <strong>{tag}</strong> tag
+        </Trans>
+      );
+  }
 }

@@ -1,5 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { Trans } from "@lingui/react/macro";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
@@ -24,7 +25,9 @@ export default function AnalysisSettingInfo({
           </Text>
           {drilldownHint && (
             <Text as="p" size="sm">
-              Click in the table to drill down and see the impact.
+              <Trans>
+                Click in the table to drill down and see the impact.
+              </Trans>
             </Text>
           )}
         </Flex>

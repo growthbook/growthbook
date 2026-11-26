@@ -3,6 +3,9 @@ import { OLD_TEMP_ROLLOUT_DAYS, StaleFeatureReason } from "shared/util";
 import { FeatureValueType } from "shared/types/feature";
 import { ago } from "shared/dates";
 import { PiArrowClockwise } from "react-icons/pi";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 // eslint-disable-next-line no-restricted-imports
 import { Badge, Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -17,20 +20,20 @@ import { isPartiallyStale } from "@/services/health";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import styles from "./StaleFeatureIcon.module.scss";
 
-const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
-  "never-stale": "Stale detection is disabled.",
-  "recently-updated": "Updated within the last two weeks.",
-  "active-draft": "Active draft in progress.",
-  "has-dependents": "Used by a non-stale dependent feature or experiment.",
-  "no-rules": "No rules defined.",
-  "rules-one-sided": "All reachable rules are one-sided.",
-  "abandoned-draft": "Draft not updated in over a month.",
-  "toggled-off": "Environment is disabled.",
-  "active-experiment": "Live experiment rule in this environment.",
-  "temp-rollout": "Temp rollout from a recently stopped experiment.",
-  "old-temp-rollout": `Only serves a temp rollout from an experiment stopped ${OLD_TEMP_ROLLOUT_DAYS}+ days ago.`,
-  "has-rules": "Has rules with targeting conditions.",
-  error: "Error evaluating staleness.",
+const staleReasonToMessageMap: Record<StaleFeatureReason, MessageDescriptor> = {
+  "never-stale": msg`Stale detection is disabled.`,
+  "recently-updated": msg`Updated within the last two weeks.`,
+  "active-draft": msg`Active draft in progress.`,
+  "has-dependents": msg`Used by a non-stale dependent feature or experiment.`,
+  "no-rules": msg`No rules defined.`,
+  "rules-one-sided": msg`All reachable rules are one-sided.`,
+  "abandoned-draft": msg`Draft not updated in over a month.`,
+  "toggled-off": msg`Environment is disabled.`,
+  "active-experiment": msg`Live experiment rule in this environment.`,
+  "temp-rollout": msg`Temp rollout from a recently stopped experiment.`,
+  "old-temp-rollout": msg`Only serves a temp rollout from an experiment stopped ${OLD_TEMP_ROLLOUT_DAYS}+ days ago.`,
+  "has-rules": msg`Has rules with targeting conditions.`,
+  error: msg`Error evaluating staleness.`,
 };
 
 function VerdictChip({
@@ -67,6 +70,7 @@ export default function StaleFeatureIcon({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { t, i18n } = useLingui();
   const [rerunning, setRerunning] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   const [, tick] = useIncrementer();
@@ -91,11 +95,11 @@ export default function StaleFeatureIcon({
         <Box>
           <span style={{ color: "var(--gray-11)" }}>
             <Text size="lg" weight="semibold">
-              Stale detection off
+              <Trans>Stale detection off</Trans>
             </Text>
           </span>
           <Text as="div" size="md" color="text-low" mt="1">
-            Stale detection is disabled for this feature.
+            <Trans>Stale detection is disabled for this feature.</Trans>
           </Text>
         </Box>
       </Flex>
@@ -109,7 +113,7 @@ export default function StaleFeatureIcon({
               onDisable();
             }}
           >
-            Enable stale detection
+            <Trans>Enable stale detection</Trans>
           </Button>
         </Flex>
       )}
@@ -129,7 +133,7 @@ export default function StaleFeatureIcon({
           contentStyle={{ maxWidth: 600, textAlign: "left" }}
           trigger={
             <span className={styles.listTrigger}>
-              <VerdictChip color="gray" label="Stale detection off" />
+              <VerdictChip color="gray" label={t`Stale detection off`} />
             </span>
           }
           content={neverStaleContent}
@@ -147,15 +151,15 @@ export default function StaleFeatureIcon({
           className={styles.freshBadge}
           onClick={() => setOpen(true)}
         >
-          Stale detection off
+          <Trans>Stale detection off</Trans>
         </Badge>
         {open && (
           <Modal
             open={open}
             close={() => setOpen(false)}
-            header="Stale Status"
+            header={t`Stale Status`}
             trackingEventModalType="stale-feature-status"
-            closeCta="Close"
+            closeCta={t`Close`}
           >
             {neverStaleContent}
           </Modal>
@@ -174,7 +178,7 @@ export default function StaleFeatureIcon({
       return (
         <span style={{ whiteSpace: "nowrap" }}>
           <Text size="sm" color="text-low">
-            Computing staleness…
+            <Trans>Computing staleness…</Trans>
           </Text>
         </span>
       );
@@ -195,9 +199,9 @@ export default function StaleFeatureIcon({
           <Modal
             open={open}
             close={() => setOpen(false)}
-            header="Stale Status"
+            header={t`Stale Status`}
             trackingEventModalType="stale-feature-status"
-            closeCta="Close"
+            closeCta={t`Close`}
           >
             {loadingContent}
           </Modal>
@@ -213,6 +217,12 @@ export default function StaleFeatureIcon({
   const mixed = isPartiallyStale(staleData);
 
   const envEntries = Object.entries(envResults);
+  const computedAgo = computedAt ? ago(new Date(computedAt)) : null;
+  // Reasons the map doesn't know show as they came.
+  const reasonText = (reason: string) => {
+    const reasonMessage = staleReasonToMessageMap[reason as StaleFeatureReason];
+    return reasonMessage ? i18n._(reasonMessage) : reason;
+  };
 
   const handleRerun = fetchStaleData
     ? async () => {
@@ -237,22 +247,24 @@ export default function StaleFeatureIcon({
             textTransform="uppercase"
             mb="1"
           >
-            Overall Status
+            <Trans>Overall Status</Trans>
           </Text>
           {staleData.stale ? (
             <span style={{ color: "var(--yellow-11)" }}>
               <Text size="lg" weight="semibold">
-                Stale
+                <Trans>Stale</Trans>
               </Text>
             </span>
           ) : (
             <span style={{ color: "var(--green-10)" }}>
               <Text size="lg" weight="semibold">
-                Not stale
+                <Trans>Not stale</Trans>
               </Text>
               {mixed && (
                 <Text as="div" size="md" color="text-low" mt="1">
-                  Some environments are stale. See the breakdown below.
+                  <Trans>
+                    Some environments are stale. See the breakdown below.
+                  </Trans>
                 </Text>
               )}
             </span>
@@ -269,10 +281,10 @@ export default function StaleFeatureIcon({
               textTransform="uppercase"
               mb="1"
             >
-              Reason
+              <Trans>Reason</Trans>
             </Text>
             <Text size="md" as="div">
-              {staleReasonToMessageMap[staleReason]}
+              {i18n._(staleReasonToMessageMap[staleReason])}
             </Text>
           </Box>
         )}
@@ -286,7 +298,7 @@ export default function StaleFeatureIcon({
               color="text-mid"
               textTransform="uppercase"
             >
-              Environment Statuses
+              <Trans>Environment Statuses</Trans>
             </Text>
 
             <Box mt="2" style={{ maxHeight: 300, overflowY: "auto" }}>
@@ -297,9 +309,15 @@ export default function StaleFeatureIcon({
                 <thead>
                   <tr>
                     <th style={{ width: "20%" }} />
-                    <th style={{ width: "15%" }}>Status</th>
-                    <th style={{ width: "25%" }}>Reason</th>
-                    <th>Evaluates to</th>
+                    <th style={{ width: "15%" }}>
+                      <Trans>Status</Trans>
+                    </th>
+                    <th style={{ width: "25%" }}>
+                      <Trans>Reason</Trans>
+                    </th>
+                    <th>
+                      <Trans>Evaluates to</Trans>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,21 +331,21 @@ export default function StaleFeatureIcon({
                       <td>
                         {info.stale ? (
                           <span style={{ color: "var(--yellow-11)" }}>
-                            <Text weight="semibold">Stale</Text>
+                            <Text weight="semibold">
+                              <Trans>Stale</Trans>
+                            </Text>
                           </span>
                         ) : (
                           <span style={{ color: "var(--green-10)" }}>
-                            <Text weight="semibold">Not Stale</Text>
+                            <Text weight="semibold">
+                              <Trans>Not Stale</Trans>
+                            </Text>
                           </span>
                         )}
                       </td>
                       <td>
                         <Text size="sm" color="text-mid">
-                          {info.reason
-                            ? (staleReasonToMessageMap[
-                                info.reason as StaleFeatureReason
-                              ] ?? info.reason)
-                            : null}
+                          {info.reason ? reasonText(info.reason) : null}
                         </Text>
                       </td>
                       <td>
@@ -368,7 +386,7 @@ export default function StaleFeatureIcon({
         <Flex direction="column" align="end" gap="2" mt="2">
           {computedAt && (
             <Text size="sm" color="text-low">
-              Last calculated: {ago(new Date(computedAt))}
+              <Trans>Last calculated: {computedAgo}</Trans>
             </Text>
           )}
           {(handleRerun || onDisable) && (
@@ -380,7 +398,8 @@ export default function StaleFeatureIcon({
                   onClick={handleRerun}
                   disabled={rerunning}
                 >
-                  {rerunning ? <LoadingSpinner /> : <PiArrowClockwise />} Re-run
+                  {rerunning ? <LoadingSpinner /> : <PiArrowClockwise />}{" "}
+                  <Trans>Re-run</Trans>
                 </Button>
               )}
               {onDisable && (
@@ -393,7 +412,7 @@ export default function StaleFeatureIcon({
                     onDisable();
                   }}
                 >
-                  Disable stale detection
+                  <Trans>Disable stale detection</Trans>
                 </Button>
               )}
             </Flex>
@@ -405,7 +424,11 @@ export default function StaleFeatureIcon({
 
   const badgeColor = staleData.stale ? "yellow" : "green";
   const badgeClass = staleData.stale ? styles.staleBadge : styles.freshBadge;
-  const label = staleData.stale ? "Stale" : mixed ? "Not stale*" : "Not stale";
+  const label = staleData.stale
+    ? t`Stale`
+    : mixed
+      ? t`Not stale*`
+      : t`Not stale`;
 
   if (context === "list") {
     return (
@@ -445,9 +468,9 @@ export default function StaleFeatureIcon({
         <Modal
           open={open}
           close={() => setOpen(false)}
-          header="Stale Status"
+          header={t`Stale Status`}
           trackingEventModalType="stale-feature-status"
-          closeCta="Close"
+          closeCta={t`Close`}
           size="lg"
         >
           {body}

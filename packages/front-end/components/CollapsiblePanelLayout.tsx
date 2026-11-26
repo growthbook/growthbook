@@ -11,6 +11,7 @@ import {
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiSidebarSimple, PiSidebarSimpleFill } from "react-icons/pi";
+import { useLingui } from "@lingui/react/macro";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import Tooltip from "@/ui/Tooltip";
@@ -382,15 +383,23 @@ export function DetailsPanelToggle({
   open,
   setOpen,
   side = "right",
-  name = "details",
+  name,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   side?: "left" | "right";
   name?: string;
 }) {
+  const { t } = useLingui();
   const left = side === "left";
-  const label = `${open ? "Hide" : "Show"} ${name}`;
+  const label =
+    name === undefined
+      ? open
+        ? t`Hide details`
+        : t`Show details`
+      : open
+        ? t`Hide ${name}`
+        : t`Show ${name}`;
   const Icon = open ? PiSidebarSimpleFill : PiSidebarSimple;
   return (
     <Tooltip content={label}>

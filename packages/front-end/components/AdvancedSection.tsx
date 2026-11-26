@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
+import { Trans } from "@lingui/react/macro";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 
@@ -17,7 +18,7 @@ export default function AdvancedSection({
     <>
       <CollapseTrigger open={open} onOpenChange={setOpen} caret="start">
         <Text weight="medium" color="text-high">
-          Advanced
+          <Trans>Advanced</Trans>
         </Text>
       </CollapseTrigger>
       <Collapse open={open}>

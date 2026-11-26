@@ -6,6 +6,7 @@ import {
 } from "shared/types/discussion";
 import { datetime } from "shared/dates";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
@@ -40,11 +41,13 @@ const DiscussionThread: FC<{
   id,
   allowNewComments = true,
   showTitle = false,
-  title = "Add comment",
+  title,
   projects,
   compact = false,
   fillHeight = false,
 }) => {
+  const { t } = useLingui();
+  const titleText = title === undefined ? t`Add comment` : title;
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const [edit, setEdit] = useState<number | null>(null);
@@ -110,6 +113,7 @@ const DiscussionThread: FC<{
           const user = users.get(comment.userId);
           const email = user ? user.email : comment.userEmail;
           const name = user ? user.name : comment.userName;
+          const commentDate = datetime(comment.date);
           const eventUser = {
             type: "dashboard" as const,
             id: comment.userId,
@@ -125,11 +129,11 @@ const DiscussionThread: FC<{
                   <CommentCard
                     compact={compact}
                     user={eventUser}
-                    metadata={`commented on ${datetime(comment.date)}`}
+                    metadata={t`commented on ${commentDate}`}
                     metadataExtra={
                       comment.edited && (
                         <Text color="text-low" size="sm" fontStyle="italic">
-                          &bull; edited
+                          &bull; <Trans>edited</Trans>
                         </Text>
                       )
                     }
@@ -140,7 +144,7 @@ const DiscussionThread: FC<{
                             <DropdownMenu
                               trigger={
                                 <MoreMenuTrigger
-                                  label="Comment actions"
+                                  label={t`Comment actions`}
                                   size="sm"
                                   // Undo the ghost variant's negative margin.
                                   style={{ margin: 0 }}
@@ -150,13 +154,13 @@ const DiscussionThread: FC<{
                               menuPlacement="end"
                             >
                               <DropdownMenuItem onClick={() => setEdit(i)}>
-                                Edit
+                                <Trans>Edit</Trans>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 color="red"
                                 confirmation={{
-                                  confirmationTitle: "Delete Comment",
-                                  cta: "Delete",
+                                  confirmationTitle: t`Delete Comment`,
+                                  cta: t`Delete`,
                                   submit: async () => {
                                     await apiCall(
                                       `/discussion/${type}/${id}/${i}`,
@@ -166,7 +170,7 @@ const DiscussionThread: FC<{
                                   },
                                 }}
                               >
-                                Delete
+                                <Trans>Delete</Trans>
                               </DropdownMenuItem>
                             </DropdownMenu>
                           )
@@ -174,7 +178,7 @@ const DiscussionThread: FC<{
                     body={
                       edit === i ? (
                         <CommentForm
-                          cta="Save"
+                          cta={t`Save`}
                           onSave={() => {
                             mutate();
                             setEdit(null);
@@ -207,8 +211,8 @@ const DiscussionThread: FC<{
     ) : (
       <Text color="text-low" fontStyle="italic" size={compact ? "sm" : "md"}>
         {allowNewComments
-          ? "No comments yet. Add the first one!"
-          : "No comments."}
+          ? t`No comments yet. Add the first one!`
+          : t`No comments.`}
       </Text>
     );
 
@@ -260,13 +264,13 @@ const DiscussionThread: FC<{
         >
           {showTitle ? (
             <Heading as="h4" size="sm" mb="3">
-              {title}
+              {titleText}
             </Heading>
           ) : fillHeight ? null : (
             <Separator size="4" mb="4" />
           )}
           <CommentForm
-            cta="Comment"
+            cta={t`Comment`}
             onSave={mutate}
             index={-1}
             id={id}

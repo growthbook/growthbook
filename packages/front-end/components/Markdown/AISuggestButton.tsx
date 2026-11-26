@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BsStars } from "react-icons/bs";
 import { AISuggestionType } from "shared/ai";
+import { useLingui } from "@lingui/react/macro";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -8,8 +9,6 @@ import OptInModal from "@/components/License/OptInModal";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-
-const AI_DISABLED = "AI is disabled for your organization. Adjust in settings.";
 
 export interface Props {
   // Resolves to an empty string when there's no suggestion.
@@ -25,10 +24,13 @@ export interface Props {
 export default function AISuggestButton({
   suggest,
   onSuggestion,
-  label = "Get AI Suggestion",
+  label,
   trackingSource,
   onError,
 }: Props) {
+  const { t } = useLingui();
+  const labelText = label === undefined ? t`Get AI Suggestion` : label;
+  const AI_DISABLED = t`AI is disabled for your organization. Adjust in settings.`;
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [loading, setLoading] = useState(false);
@@ -44,10 +46,10 @@ export default function AISuggestButton({
     setLoading(true);
     try {
       const suggestion = await suggest("suggest");
-      if (!suggestion) throw new Error("Failed to get AI suggestion");
+      if (!suggestion) throw new Error(t`Failed to get AI suggestion`);
       onSuggestion(suggestion);
     } catch (e) {
-      onError(e.message || "Failed to get AI suggestion. API request error");
+      onError(e.message || t`Failed to get AI suggestion. API request error`);
     } finally {
       setLoading(false);
     }
@@ -56,12 +58,12 @@ export default function AISuggestButton({
   const button = !hasCommercialFeature("ai-suggestions") ? (
     <PremiumTooltip commercialFeature="ai-suggestions">
       <Button size="sm" variant="outline" disabled>
-        <BsStars /> {label}
+        <BsStars /> {labelText}
       </Button>
     </PremiumTooltip>
   ) : aiAgreedTo && aiEnabled ? (
     <Button size="sm" variant="outline" disabled={loading} onClick={run}>
-      <BsStars /> {loading ? "Generating..." : label}
+      <BsStars /> {loading ? t`Generating...` : labelText}
     </Button>
   ) : (
     <Tooltip body={aiEnabled ? "" : AI_DISABLED}>
@@ -70,7 +72,7 @@ export default function AISuggestButton({
         variant="outline"
         onClick={() => (aiAgreedTo ? onError(AI_DISABLED) : setOptIn(true))}
       >
-        <BsStars /> {label}
+        <BsStars /> {labelText}
       </Button>
     </Tooltip>
   );

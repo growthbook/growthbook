@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
@@ -206,7 +207,7 @@ const OpenVisualEditorLink: FC<{
   beforeLeave,
   button = (
     <>
-      Open AI Visual Editor
+      <Trans>Open AI Visual Editor</Trans>
       <PiArrowSquareOut
         className="ml-1"
         style={{ position: "relative", top: "-2px" }}
@@ -214,6 +215,7 @@ const OpenVisualEditorLink: FC<{
     </>
   ),
 }) => {
+  const { t } = useLingui();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
@@ -276,16 +278,19 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="AI Visual Editor Target URL"
+          header={t`AI Visual Editor Target URL`}
           close={() => setShowEditorUrlDialog(false)}
-          closeCta="Close"
-          cta="Open settings"
+          closeCta={t`Close`}
+          cta={t`Open settings`}
           submit={openSettings}
         >
-          You&apos;ll need to define the{" "}
-          <strong>AI Visual Editor Target URL</strong> in your experiment&apos;s
-          settings first. This will configure which web page will be opened when
-          you click on the &quot;Open AI Visual Editor&quot; button.
+          <Trans>
+            You&apos;ll need to define the{" "}
+            <strong>AI Visual Editor Target URL</strong> in your
+            experiment&apos;s settings first. This will configure which web page
+            will be opened when you click on the &quot;Open AI Visual
+            Editor&quot; button.
+          </Trans>
         </Modal>
       )}
 
@@ -293,16 +298,16 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="GrowthBook AI Visual Editor Extension"
+          header={t`GrowthBook AI Visual Editor Extension`}
           close={() => setShowExtensionDialog(false)}
-          closeCta="Close"
-          cta="View extension"
+          closeCta={t`Close`}
+          cta={t`View extension`}
           submit={() => {
             window.open(VISUAL_EDITOR_EXTENSION_LINK);
           }}
         >
           {browser === "chrome" ? (
-            <>
+            <Trans>
               You&apos;ll need to install the GrowthBook AI Visual Editor
               browser extension to use the AI Visual Editor.{" "}
               <a
@@ -322,12 +327,12 @@ const OpenVisualEditorLink: FC<{
                 Click here to proceed anyway
               </a>
               .
-            </>
+            </Trans>
           ) : (
-            <>
+            <Trans>
               The AI Visual Editor extension is currently available for Chrome.
               We&apos;re working on bringing it to other browsers.
-            </>
+            </Trans>
           )}
         </Modal>
       )}
