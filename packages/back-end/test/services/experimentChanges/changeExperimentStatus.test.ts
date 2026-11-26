@@ -21,6 +21,7 @@ import {
   isTerminalPublishError,
 } from "back-end/src/util/errors";
 import {
+  assertBlockingChecklistTasksComplete,
   assertScheduledStartNotHardBlocked,
   assertStartNotBlocked,
   getExperimentStartChecklistStatus,
@@ -98,11 +99,15 @@ const invalidSplit = {
   ...draft,
   phases: [{ variationWeights: [0.53, 0.5] }],
 } as unknown as ExperimentInterface;
+const getCustomFieldsMock = jest.fn();
 const context = {
   org: { id: "org_1" },
   userId: "u_1",
   permissions: { canUpdateExperiment: () => true },
-  models: { urlRedirects: { findByExperiment: async () => [] } },
+  models: {
+    urlRedirects: { findByExperiment: async () => [] },
+    customFields: { getCustomFields: getCustomFieldsMock },
+  },
 } as unknown as ReqContext;
 const draftFlag = {
   feature: { id: "flag_1" },
@@ -122,6 +127,7 @@ beforeEach(() => {
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
   getFeaturesByIdsMock.mockResolvedValue([]);
+  getCustomFieldsMock.mockResolvedValue(null);
 });
 
 describe("startExperiment", () => {
@@ -337,6 +343,146 @@ describe("custom launch checklist tasks", () => {
         ],
       }),
     ).toEqual({ hypothesis: "complete", customField: "complete" });
+  });
+
+  it("hard-blocks only a task set to block the start", async () => {
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        { task: "Get sign-off", completionType: "manual", blockStart: true },
+        { task: "Tell support", completionType: "manual" },
+      ],
+    });
+
+    const items = await getExperimentStartChecklistStatus(context, draft);
+    expect(items.find((item) => item.key === "Get sign-off")).toMatchObject({
+      hardBlock: true,
+    });
+    expect(
+      items.find((item) => item.key === "Tell support"),
+    ).not.toHaveProperty("hardBlock");
+  });
+
+  it("never lets a skipped checklist past a task set to block the start", async () => {
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          task: "Add a description",
+          completionType: "auto",
+          propertyKey: "description",
+          blockStart: true,
+        },
+      ],
+    });
+
+    await expect(
+      startExperiment({
+        context,
+        experimentId: "exp_1",
+        skipChecklist: true,
+        bypassLockdown: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({
+            key: "Add a description",
+            hardBlock: true,
+          }),
+        ],
+      },
+    });
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("drops a Custom Field task the experiment can't hold a value for", async () => {
+    const fieldTask = (customFieldId: string) => ({
+      task: `Fill in ${customFieldId}`,
+      completionType: "auto",
+      propertyKey: "customField",
+      customFieldId,
+      blockStart: true,
+    });
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        fieldTask("ticket"),
+        fieldTask("flagOnly"),
+        fieldTask("inactive"),
+        fieldTask("otherProject"),
+        fieldTask("thisProject"),
+        fieldTask("deleted"),
+      ],
+    });
+    const field = (id: string, extra: object = {}) => ({
+      id,
+      sections: ["experiment"],
+      ...extra,
+    });
+    getCustomFieldsMock.mockResolvedValue({
+      fields: [
+        field("ticket"),
+        field("flagOnly", { sections: ["feature"] }),
+        field("inactive", { active: false }),
+        field("otherProject", { projects: ["prj_2"] }),
+        field("thisProject", { projects: ["prj_1"] }),
+      ],
+    });
+
+    expect(await customStatuses({ ...draft, project: "prj_1" })).toEqual({
+      "Fill in ticket": "incomplete",
+      "Fill in thisProject": "incomplete",
+    });
+    expect(await customStatuses(draft)).toEqual({
+      "Fill in ticket": "incomplete",
+    });
+  });
+});
+
+describe("assertBlockingChecklistTasksComplete", () => {
+  const checklistWith = (blockStart: boolean) =>
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          task: "Add a description",
+          completionType: "auto",
+          propertyKey: "description",
+          blockStart,
+        },
+      ],
+    });
+
+  it("refuses while a blocking task is incomplete", async () => {
+    checklistWith(true);
+
+    await expect(
+      assertBlockingChecklistTasksComplete(context, draft),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      message: "Experiment cannot be started: Add a description",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({
+            key: "Add a description",
+            hardBlock: true,
+          }),
+        ],
+      },
+    });
+  });
+
+  it("lets a task through once done, or when it doesn't block", async () => {
+    checklistWith(true);
+    await expect(
+      assertBlockingChecklistTasksComplete(context, {
+        ...draft,
+        description: "Bigger buttons",
+      }),
+    ).resolves.toBeUndefined();
+
+    checklistWith(false);
+    await expect(
+      assertBlockingChecklistTasksComplete(context, draft),
+    ).resolves.toBeUndefined();
   });
 });
 

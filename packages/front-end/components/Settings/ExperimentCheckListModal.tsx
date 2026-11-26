@@ -165,6 +165,7 @@ export default function ExperimentCheckListModal({
                 setExperimentLaunchChecklist={setExperimentLaunchChecklist}
                 newTaskInput={newTaskInput}
                 setNewTaskInput={setNewTaskInput}
+                projectId={projectParams?.projectId}
               />
             ) : null}
           </Box>

@@ -153,6 +153,7 @@ const checklistItems = (
     linkedFeatures: [],
     visualChangesets: [],
     connections: [],
+    customFields: [],
     ...args,
   });
 

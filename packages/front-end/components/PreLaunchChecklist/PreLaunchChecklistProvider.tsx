@@ -16,6 +16,7 @@ import {
 } from "react";
 import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
@@ -61,6 +62,7 @@ export function useLaunchChecklistData(
     shouldRun: () => enabled,
   });
   const { data: sdkData, error: sdkError } = useSDKConnections();
+  const customFields = useCustomFields();
   const connections = useMemo(
     () =>
       (sdkData?.connections ?? []).filter((connection) =>
@@ -71,6 +73,7 @@ export function useLaunchChecklistData(
   return {
     checklist: data?.checklist,
     connections,
+    customFields,
     // Counting before both arrive would count the SDK Connection row as missing.
     loading: enabled && ((!data && !error) || (!sdkData && !sdkError)),
     loadError: enabled && !!error,
@@ -114,10 +117,8 @@ export function PreLaunchChecklistProvider({
   const isActive =
     experiment.status === "draft" && experiment.type !== "holdout";
 
-  const { checklist, connections, loading, loadError } = useLaunchChecklistData(
-    experiment,
-    isActive,
-  );
+  const { checklist, connections, customFields, loading, loadError } =
+    useLaunchChecklistData(experiment, isActive);
 
   const [showSdkForm, setShowSdkForm] = useState(false);
 
@@ -155,6 +156,7 @@ export function PreLaunchChecklistProvider({
               visualChangesets,
               urlRedirects,
               checklist,
+              customFields,
               connections,
               openAnalysisSettings: canOpenAnalysis
                 ? (focus) => handlers.current.openAnalysisSettings?.(focus)
@@ -181,6 +183,7 @@ export function PreLaunchChecklistProvider({
       visualChangesets,
       urlRedirects,
       checklist,
+      customFields,
       connections,
       canOpenAnalysis,
       canOpenImplementation,

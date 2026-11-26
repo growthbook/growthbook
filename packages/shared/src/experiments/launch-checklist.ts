@@ -4,6 +4,7 @@ import type {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import type { CustomField } from "shared/types/custom-fields";
 import type { VisualChange } from "shared/types/visual-changeset";
 import {
   experimentHasLiveLinkedChanges,
@@ -38,6 +39,11 @@ export type LaunchChecklistItem = {
 };
 
 type ChecklistExperiment = ExperimentInterface | ExperimentInterfaceStringDates;
+
+export type ChecklistCustomField = Pick<
+  CustomField,
+  "id" | "active" | "sections" | "projects"
+>;
 
 const complete = (done: boolean): LaunchChecklistItem["status"] =>
   done ? "complete" : "incomplete";
@@ -167,6 +173,7 @@ export function getLaunchChecklistItems({
   urlRedirects,
   sdkConnections,
   checklist,
+  customFields,
   publishingFeatureId,
 }: {
   experiment: ChecklistExperiment;
@@ -182,6 +189,8 @@ export function getLaunchChecklistItems({
     tasks?: ChecklistTask[];
     hiddenBuiltInItems?: BuiltInChecklistItemKey[];
   } | null;
+  // The org's Custom Fields, to drop tasks for ones the experiment can't hold.
+  customFields: ChecklistCustomField[];
   // Publishing this flag's draft is what starts the experiment.
   publishingFeatureId?: string;
 }): LaunchChecklistItem[] {
@@ -364,6 +373,36 @@ export function getLaunchChecklistItems({
     });
   }
 
+  items.push(...getCustomTaskItems({ experiment, checklist, customFields }));
+
+  return items;
+}
+
+// Whether the experiment's edit form offers this Custom Field: active, for
+// experiments, and global or for the experiment's Project.
+function customFieldApplies(
+  field: ChecklistCustomField,
+  project: string | undefined,
+): boolean {
+  if (field.active === false || !field.sections?.includes("experiment")) {
+    return false;
+  }
+  const projects = (field.projects ?? []).map((p) => p.trim()).filter(Boolean);
+  return !projects.length || (!!project && projects.includes(project));
+}
+
+/** The org's own tasks that apply to this experiment. */
+export function getCustomTaskItems({
+  experiment,
+  checklist,
+  customFields,
+}: {
+  experiment: ChecklistExperiment;
+  checklist?: { tasks?: ChecklistTask[] } | null;
+  customFields: ChecklistCustomField[];
+}): LaunchChecklistItem[] {
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const items: LaunchChecklistItem[] = [];
   checklist?.tasks?.forEach((task, index) => {
     const manual = task.completionType === "manual";
     if (!manual && !task.propertyKey) return;
@@ -374,6 +413,11 @@ export function getLaunchChecklistItems({
     ) {
       return;
     }
+    // A field the experiment can't hold a value for could never be done.
+    if (!manual && task.propertyKey === "customField") {
+      const field = customFields.find((f) => f.id === task.customFieldId);
+      if (!field || !customFieldApplies(field, experiment.project)) return;
+    }
     items.push({
       key: task.task,
       label:
@@ -382,11 +426,10 @@ export function getLaunchChecklistItems({
           : task.task,
       status: complete(isTaskComplete(experiment, task)),
       required: true,
-      hardBlock: false,
+      hardBlock: !!task.blockStart,
       manual,
       customTask: { index, url: task.url, propertyKey: task.propertyKey },
     });
   });
-
   return items;
 }
