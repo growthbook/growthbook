@@ -30,7 +30,10 @@ import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { DashboardBlockComments } from "@/enterprise/components/Dashboards/DashboardComments";
+import {
+  DashboardBlockAnnotations,
+  DashboardBlockComments,
+} from "@/enterprise/components/Dashboards/DashboardComments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -637,10 +640,22 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
         {"id" in block && block.id ? (
-          <DashboardBlockComments
-            blockId={block.id}
-            blockTitle={block.title || getDefaultValueForTitle(block.type)}
-          />
+          <>
+            {/* Only a chart over time has a day to mark. */}
+            {["line", "area"].includes(
+              (block as { config?: { chartType?: string } }).config
+                ?.chartType ?? "",
+            ) ? (
+              <DashboardBlockAnnotations
+                blockId={block.id}
+                blockTitle={block.title || getDefaultValueForTitle(block.type)}
+              />
+            ) : null}
+            <DashboardBlockComments
+              blockId={block.id}
+              blockTitle={block.title || getDefaultValueForTitle(block.type)}
+            />
+          </>
         ) : null}
 
         {isEditing ? (

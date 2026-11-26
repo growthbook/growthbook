@@ -89,6 +89,7 @@ export const addDashboardCommentBody = z
     threadId: z.string().optional(),
     blockId: z.string().optional(),
     version: z.number().int().min(1).optional(),
+    annotationDate: z.iso.date().optional(),
     content: z.string(),
   })
   .strict();

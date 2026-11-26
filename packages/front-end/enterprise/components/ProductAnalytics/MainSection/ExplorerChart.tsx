@@ -118,6 +118,40 @@ function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
 }
 
 /** Legend + series list order: group each metric’s current then previous (same as axis tooltip). */
+// Each note becomes a dashed vertical line on the bucket that holds its date.
+function withAnnotations(
+  series: unknown[],
+  annotations: { date: string; text: string }[],
+  xValues: string[],
+  color: string,
+): unknown[] {
+  const data = annotations.flatMap((a) => {
+    const at = new Date(a.date).getTime();
+    const bucket = [...xValues]
+      .reverse()
+      .find((x) => new Date(x).getTime() <= at);
+    return bucket ? [{ xAxis: bucket, name: a.text }] : [];
+  });
+  if (!data.length || !series.length) return series;
+  return [
+    {
+      ...(series[0] as object),
+      markLine: {
+        symbol: "none",
+        lineStyle: { type: "dashed", color },
+        label: {
+          formatter: "{b}",
+          color,
+          overflow: "truncate",
+          width: 140,
+        },
+        data,
+      },
+    },
+    ...series.slice(1),
+  ];
+}
+
 function sortSeriesConfigsForCompareLegendOrder(
   seriesConfigs: unknown[],
   comparisonPeriodLabels: {
@@ -146,6 +180,7 @@ export default function ExplorerChart({
   submittedPreviousTimeFrame = null,
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
+  annotations,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -157,6 +192,8 @@ export default function ExplorerChart({
   animate?: boolean;
   submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
   submittedComparisonMode?: ComparisonMode | null;
+  /** Dated notes drawn as dashed lines on a chart over time. */
+  annotations?: { date: string; text: string }[];
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
@@ -816,7 +853,15 @@ export default function ExplorerChart({
       },
       xAxis,
       yAxis,
-      series: seriesConfigs,
+      series:
+        firstDimensionIsDate && !isBarType
+          ? withAnnotations(
+              seriesConfigs,
+              annotations ?? [],
+              sortedXValues,
+              textColor,
+            )
+          : seriesConfigs,
     };
   }, [
     exploration,
@@ -830,6 +875,7 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    annotations,
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,

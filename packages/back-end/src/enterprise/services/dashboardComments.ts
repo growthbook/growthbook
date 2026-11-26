@@ -41,6 +41,7 @@ export async function addDashboardComment(
     threadId?: string;
     blockId?: string;
     version?: number;
+    annotationDate?: string;
     content: string;
   },
 ): Promise<DashboardCommentThreadInterface> {
@@ -67,6 +68,7 @@ export async function addDashboardComment(
     dashboardId,
     blockId: input.blockId,
     version: input.version,
+    ...(input.annotationDate ? { annotationDate: input.annotationDate } : {}),
     comments: [comment],
   });
 }

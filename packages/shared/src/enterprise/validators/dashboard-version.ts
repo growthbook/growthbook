@@ -49,7 +49,7 @@ export type DashboardVersionInterface = z.infer<
   typeof dashboardVersionInterface
 >;
 
-// A discussion on one block. Resolving it is not versioned.
+// A discussion on one block, or a dated note on its chart. Resolving it is not versioned.
 export const dashboardCommentThreadInterface = z
   .object({
     id: z.string(),
@@ -58,6 +58,7 @@ export const dashboardCommentThreadInterface = z
     blockId: z.string(),
     version: z.number().int().min(1), // The version it was started on
     resolved: z.boolean().optional(),
+    annotationDate: z.iso.date().optional(), // Set on an annotation: the day its note marks
     comments: z.array(
       z
         .object({
