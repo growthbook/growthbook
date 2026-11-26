@@ -60,6 +60,30 @@ describe("backend", () => {
       ).toEqual("SELECT amount as value from db.purchase");
     });
 
+    it("replaces the experiment's project", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * FROM events WHERE project_id = '{{ project.publicId }}' AND gb_project = '{{ project.id }}'`,
+          {
+            startDate,
+            endDate,
+            project: { id: "prj_abc123", publicId: "checkout-team" },
+          },
+        ),
+      ).toEqual(
+        "SELECT * FROM events WHERE project_id = 'checkout-team' AND gb_project = 'prj_abc123'",
+      );
+    });
+
+    it("leaves a project filter out when there is no project", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * FROM events WHERE 1=1{{#if project.publicId}} AND project_id = '{{ project.publicId }}'{{/if}}`,
+          { startDate, endDate },
+        ),
+      ).toEqual("SELECT * FROM events WHERE 1=1");
+    });
+
     it("throws error when eventName is in sql but is not set", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ snakecase eventName }}`, {
@@ -90,7 +114,7 @@ describe("backend", () => {
           customFields: { foo: "bar" },
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, project, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
@@ -113,7 +137,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, project, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
