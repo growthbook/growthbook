@@ -182,16 +182,15 @@ const BaseClass = MakeModelClass({
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
-  // Every saved exploration in the org, ignoring the caller's read permissions.
-  // Only for authoritative dependency scans (e.g. blocking deletion of a fact
-  // table column an exploration still references), where missing an exploration
-  // the caller cannot read would let the delete through and leave that
-  // exploration generating SQL for a column that no longer exists. Never return
-  // these to the caller.
-  public async dangerousGetAllForDependencyScan(): Promise<
-    ProductAnalyticsExploration[]
-  > {
-    return this._find({}, { bypassReadPermissionChecks: true });
+  // Cached results on one datasource, newest first, without their result rows
+  // (journeys can be large). Read-filtered, so callers only see what they can read.
+  // shortcut: loads every cached row for the datasource; add a
+  // { datasource, dateUpdated } index or a cap if the cache grows large.
+  public getAllWithoutResultsForDatasource(datasource: string) {
+    return this._find(
+      { datasource },
+      { projection: { result: 0 }, sort: { dateUpdated: -1 } },
+    );
   }
 
   /**

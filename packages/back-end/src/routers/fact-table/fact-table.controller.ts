@@ -22,6 +22,7 @@ import {
   ColumnInterface,
   FactTableColumnType,
   FullFactTableColumns,
+  ColumnCachedExplorations,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -51,9 +52,10 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getSourceIntegrationObject,
-  getIntegrationIdentifierQuote,
+  getDatasourceIdentifierQuote,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getColumnCachedExplorations } from "back-end/src/enterprise/services/product-analytics";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
   runColumnDetectionQuery,
@@ -1313,20 +1315,41 @@ export const deleteColumn = async (
     context.permissions.throwPermissionError();
   }
 
-  const datasource = await getDataSourceById(context, factTable.datasource);
   await deleteColumnInDb(
     context,
     factTable,
     req.params.column,
-    datasource
-      ? getIntegrationIdentifierQuote(
-          getSourceIntegrationObject(context, datasource),
-        )
-      : '"',
+    await getDatasourceIdentifierQuote(context, factTable.datasource),
   );
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+// Shown in the delete modal so the user can check the cached explorations that
+// use a virtual column before deleting it.
+export const getColumnCachedExplorationsForDelete = async (
+  req: AuthRequest<null, { id: string; column: string }>,
+  res: Response<{ status: 200 } & ColumnCachedExplorations>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new NotFoundError("Could not find fact table with that id");
+  }
+  if (!factTable.columns.some((c) => c.column === req.params.column)) {
+    throw new NotFoundError("Could not find that column");
+  }
+
+  res.status(200).json({
+    status: 200,
+    ...(await getColumnCachedExplorations(
+      context,
+      factTable,
+      req.params.column,
+    )),
   });
 };
 

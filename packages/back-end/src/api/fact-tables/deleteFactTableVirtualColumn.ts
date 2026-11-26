@@ -1,10 +1,6 @@
 import { deleteFactTableVirtualColumnValidator } from "shared/validators";
 import { deleteColumn, getFactTable } from "back-end/src/models/FactTableModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  getSourceIntegrationObject,
-  getIntegrationIdentifierQuote,
-} from "back-end/src/services/datasource";
+import { getDatasourceIdentifierQuote } from "back-end/src/services/datasource";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 
@@ -34,18 +30,13 @@ export const deleteFactTableVirtualColumn = createApiRequestHandler(
   }
 
   // The datasource's identifier-quote style makes the dependency scan
-  // (nested virtual columns, filters, explorations, ...) treat quoted
+  // (nested virtual columns, filters, dashboards, ...) treat quoted
   // identifiers correctly for this dialect.
-  const datasource = await getDataSourceById(req.context, factTable.datasource);
   await deleteColumn(
     req.context,
     factTable,
     req.params.id,
-    datasource
-      ? getIntegrationIdentifierQuote(
-          getSourceIntegrationObject(req.context, datasource),
-        )
-      : '"',
+    await getDatasourceIdentifierQuote(req.context, factTable.datasource),
   );
 
   return {

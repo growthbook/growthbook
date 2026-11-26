@@ -1,6 +1,11 @@
-import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  ColumnInterface,
+  ColumnCachedExplorations,
+} from "shared/types/fact-table";
 import { useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { ago } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
@@ -10,15 +15,79 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useApi from "@/hooks/useApi";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { EXPLORER_TYPE_LABELS } from "@/enterprise/components/ProductAnalytics/util";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnModal from "./ColumnModal";
+
+// Cached explorations never block the delete, but they fail on their next run,
+// so the modal lists them for the user to check first.
+function DeleteVirtualColumnContent({
+  factTableId,
+  column,
+}: {
+  factTableId: string;
+  column: string;
+}) {
+  const { data, error } = useApi<ColumnCachedExplorations>(
+    `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/cached-explorations`,
+  );
+  const total = data?.total ?? 0;
+  const explorations = data?.explorations ?? [];
+
+  return (
+    <Box>
+      {error ? (
+        <Callout status="warning" mb="3">
+          Couldn&apos;t check for cached explorations that use this column. You
+          can still delete the column.
+        </Callout>
+      ) : !data ? (
+        <Flex align="center" gap="2" mb="3">
+          <LoadingSpinner />
+          <Text color="text-mid">Checking for cached explorations…</Text>
+        </Flex>
+      ) : total > 0 ? (
+        <Callout status="warning" mb="3">
+          <Text as="p" mb="1">
+            {total} cached exploration{total === 1 ? " uses" : "s use"} this
+            column and will fail the next time{" "}
+            {total === 1 ? "it runs" : "they run"}. Open any you still need
+            before you delete it.
+          </Text>
+          <Flex direction="column" gap="1">
+            {explorations.map((e) => (
+              <Text key={e.id}>
+                <Link href={e.url} external>
+                  {EXPLORER_TYPE_LABELS[e.datasetType]} exploration
+                </Link>{" "}
+                · last run {ago(e.dateUpdated)}
+              </Text>
+            ))}
+            {total > explorations.length && (
+              <Text>{total - explorations.length} more not shown</Text>
+            )}
+          </Flex>
+        </Callout>
+      ) : null}
+      <Text as="p">
+        This will remove the virtual column. Metrics or filters that reference
+        it will need to be updated.
+      </Text>
+    </Box>
+  );
+}
 
 function VirtualColumnRowMenu({
   column,
@@ -90,8 +159,12 @@ function VirtualColumnRowMenu({
               confirmation={{
                 confirmationTitle: "Delete Virtual Column",
                 cta: "Delete",
-                getConfirmationContent: async () =>
-                  "This will remove the virtual column. Metrics or filters that reference it will need to be updated.",
+                getConfirmationContent: async () => (
+                  <DeleteVirtualColumnContent
+                    factTableId={factTableId}
+                    column={column.column}
+                  />
+                ),
                 submit: async () => {
                   await apiCall(
                     `/fact-tables/${factTableId}/column/${column.column}`,

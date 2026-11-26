@@ -38,6 +38,7 @@ import {
   funnelSettingsValidator,
   conditionalInlineFiltersValidator,
 } from "shared/validators";
+import type { DatasetType } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
@@ -286,4 +287,15 @@ export type RowFilterTestResults = FactFilterTestResults & {
   where: string;
   // The whole query, when the filters apply to SQL we generated
   generatedSql?: string;
+};
+
+// Cached explorations that use a virtual column, shown before it's deleted.
+export type ColumnCachedExplorations = {
+  total: number;
+  explorations: {
+    id: string;
+    datasetType: DatasetType;
+    dateUpdated: Date;
+    url: string;
+  }[];
 };

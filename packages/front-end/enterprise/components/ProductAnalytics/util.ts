@@ -65,6 +65,17 @@ import {
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 import { renumberStepNames } from "@/components/FactTables/funnelStepUpdates";
+
+export const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
+  metric: "Metric",
+  fact_table: "Fact Table",
+  data_source: "Data Source",
+  sql: "SQL",
+  funnel: "Funnel",
+  journey: "User Journey",
+  population: "Population",
+};
+
 export {
   getAvailableDimensionColumns,
   getRelevantFactTableIds,

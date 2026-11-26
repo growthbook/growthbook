@@ -16,6 +16,7 @@ import {
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
+  explorationConfigReferencesColumn,
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
@@ -30,6 +31,7 @@ import {
   validateJourneyStepColumns,
 } from "shared/journeys";
 import {
+  ColumnCachedExplorations,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -39,7 +41,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getDatasourceIdentifierQuote,
+  getSourceIntegrationObject,
+} from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunners/ProductAnalyticsExplorationQueryRunner";
 import { ApiReqContext } from "back-end/types/api";
@@ -527,4 +532,55 @@ export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
   }
   const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
   return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
+}
+
+const CACHED_EXPLORATIONS_LIMIT = 10;
+
+// Cached explorations the caller can read that use `columnName`, shown as an
+// advisory warning before a virtual column delete (they never block it). Every
+// run writes a cache row, so re-runs that open the same Explorer page collapse
+// into the newest one. Population previews have no Explorer page, so they're left out.
+export async function getColumnCachedExplorations(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  columnName: string,
+): Promise<ColumnCachedExplorations> {
+  const [cached, identifierQuote] = await Promise.all([
+    context.models.analyticsExplorations.getAllWithoutResultsForDatasource(
+      factTable.datasource,
+    ),
+    getDatasourceIdentifierQuote(context, factTable.datasource),
+  ]);
+
+  const seenUrls = new Set<string>();
+  const explorations: ColumnCachedExplorations["explorations"] = [];
+  for (const e of cached) {
+    const { config } = e;
+    if (config.dataset.type === "population") continue;
+    if (
+      !explorationConfigReferencesColumn(
+        config,
+        factTable.id,
+        columnName,
+        identifierQuote,
+        factTable.filters,
+      )
+    ) {
+      continue;
+    }
+    const url = getProductAnalyticsExplorationUrl(config);
+    if (seenUrls.has(url)) continue;
+    seenUrls.add(url);
+    explorations.push({
+      id: e.id,
+      datasetType: config.dataset.type,
+      dateUpdated: e.dateUpdated,
+      url,
+    });
+  }
+
+  return {
+    total: explorations.length,
+    explorations: explorations.slice(0, CACHED_EXPLORATIONS_LIMIT),
+  };
 }
