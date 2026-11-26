@@ -647,7 +647,7 @@ export function assertStartNotBlocked(plan: StartPlan): void {
     hard.length === 1
       ? `Experiment cannot be started: ${hard[0].messages[0]}`
       : hard.length
-        ? "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed"
+        ? "Experiment cannot be started: some items must be resolved and cannot be bypassed"
         : "Experiment cannot be started: required checklist items are incomplete",
     plan.checklistItems.filter((item) => keys.has(item.key)),
     plan.blocking,
