@@ -570,7 +570,16 @@ export function getExperimentFactMetricsQuery(
     return [...agg, ...kllResolved].map((c) => c.name);
   };
 
-  // Source 0 drives the flattened join and arrives via `m.*`.
+  // Source 0 drives the flattened join. Its columns, in the order its per-user
+  // aggregate emits them (a funnel query never has bandit periods).
+  const flattenedBaseColumns = [
+    "variation",
+    ...dimensionCols.map((c) => c.alias),
+    baseIdType,
+    ...(clusterIdColumn ? [clusterIdColumn] : []),
+    "timestamp",
+    ...columnNamesForSource(0),
+  ];
   const flattenedSourceColumns = flattenUnitMetrics
     ? factTablesWithIndices
         .filter((f) => f.index !== 0)
@@ -1105,6 +1114,7 @@ export function getExperimentFactMetricsQuery(
         ? getFlattenedUnitMetricsCTE({
             tableName: unitMetricsBaseTable,
             perUserAggTableName: userMetricAggTablePrefix,
+            baseColumns: flattenedBaseColumns,
             sourceColumns: flattenedSourceColumns,
             baseIdType,
           })

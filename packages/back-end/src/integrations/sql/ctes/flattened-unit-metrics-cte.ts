@@ -12,6 +12,7 @@
 export function getFlattenedUnitMetricsCTE({
   tableName,
   perUserAggTableName,
+  baseColumns,
   sourceColumns,
   baseIdType,
 }: {
@@ -19,18 +20,28 @@ export function getFlattenedUnitMetricsCTE({
   /** Per-source per-user aggregate; source i is suffixed with `i` (0 is bare). */
   perUserAggTableName: string;
   /**
+   * Source 0's columns, which drive the join. Named one by one when given:
+   * past one join, ClickHouse keeps the columns of `m.*` qualified
+   * (`m.variation`), so later CTEs can't read them by bare name. Without
+   * them, source 0 arrives via `m.*`.
+   */
+  baseColumns?: string[];
+  /**
    * Sources above 0 to join, with the output columns to take from each, in
-   * source order. Source 0 drives the join and arrives via `m.*`.
+   * source order.
    */
   sourceColumns: { index: number; columns: string[] }[];
   baseIdType: string;
 }): string {
   const sourceAlias = (index: number) => `m${index}`;
+  const baseSelect = baseColumns
+    ? baseColumns.map((col) => `m.${col} AS ${col}`).join("\n          , ")
+    : "m.*";
 
   return `
       , ${tableName} AS (
         SELECT
-          m.*
+          ${baseSelect}
           ${sourceColumns
             .flatMap(({ index, columns }) =>
               columns.map((col) => `, ${sourceAlias(index)}.${col} AS ${col}`),
