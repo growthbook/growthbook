@@ -34,16 +34,16 @@ import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
   ProductAnalyticsStaticDimension,
-  FactTableDataset,
   ExplorationConfig,
-  DataSourceDataset,
-  SqlDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
   ResolvedExplorationPopulation,
   dateGranularity,
+  FactTableValue,
+  DataSourceValue,
+  SqlValue,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
@@ -62,9 +62,11 @@ import { factTableHasResolvableColumn } from "./columns";
 /*
  * Vocabulary used in this file:
  * - Metric: a saved fact metric (FactMetricInterface), and ids that point to one.
+ * - Simple value: a fact table, data source or SQL dataset value (a row count,
+ *   a column sum, or a count of unique units) with no saved metric behind it.
  * - Series: one output column of an exploration: a value, a ratio's
- *   denominator, or the Population count. A series comes from a metric, from a
- *   fact table / data source / SQL value, or from a Population.
+ *   denominator, or the Population count. A series comes from a metric, a
+ *   simple value, or a Population.
  * - Measure: what a series computes from the rows (see parseMeasure).
  */
 
@@ -171,7 +173,6 @@ interface FactTableGroup {
   index: number;
   factTable: MinimalFactTable;
   series: Series[];
-  units: string[];
 }
 interface SeriesSql {
   role: SeriesRole;
@@ -232,6 +233,12 @@ function getValueColumn(alias: string): string {
   return alias.endsWith("_denominator") ? alias : `${alias}_numerator`;
 }
 
+// The distinct units a group's series aggregate by, in order of first use.
+// Each becomes unit0, unit1, ... in the group's SQL.
+function getSeriesUnits(series: Series[]): string[] {
+  return Array.from(new Set(series.flatMap((s) => (s.unit ? [s.unit] : []))));
+}
+
 // A metric's series type, with the settings its type uses. Proportion and
 // daily participation metrics are defined per unit; requiring their measure
 // kind here lets the measure's own plan decide per-unit aggregation.
@@ -284,15 +291,11 @@ function getMetricSeriesType(
   return assertNever(metricType);
 }
 
-// A fact table, data source or SQL value: a row count, a column sum, or a
-// count of distinct units
-function getSimpleValueSeries(
-  value:
-    | FactTableDataset["values"][number]
-    | DataSourceDataset["values"][number]
-    | SqlDataset["values"][number],
-  index: number,
-): Series {
+// A fact table, data source or SQL dataset value: a row count, a column sum,
+// or a count of unique units, with no saved metric behind it.
+type SimpleValue = FactTableValue | DataSourceValue | SqlValue;
+
+function getSimpleValueSeries(value: SimpleValue, index: number): Series {
   const { valueType, valueColumn, rowFilters } = value;
   const measure: Measure =
     valueType === "unit_count"
@@ -314,17 +317,6 @@ function getSimpleValueSeries(
     measure,
     type: "simpleValue",
   };
-}
-
-function getSimpleValueSeriesAndUnits(
-  values:
-    | FactTableDataset["values"]
-    | DataSourceDataset["values"]
-    | SqlDataset["values"],
-): { series: Series[]; units: string[] } {
-  const series = values.map(getSimpleValueSeries);
-  const units = new Set(values.flatMap((v) => (v.unit ? [v.unit] : [])));
-  return { series, units: Array.from(units) };
 }
 
 // A Population counts its distinct members: units with matching rows that pass
@@ -377,7 +369,6 @@ function getPopulationFactTableGroups(
       index: Object.keys(groups).length,
       factTable: toMinimalFactTable(factTable),
       series: [],
-      units: [],
     };
     const group = groups[factTable.id];
     group.series.push({
@@ -388,7 +379,6 @@ function getPopulationFactTableGroups(
       measure: getPopulationMeasure(value),
       type: "population",
     });
-    if (!group.units.includes(value.unit)) group.units.push(value.unit);
   });
   return Object.values(groups);
 }
@@ -435,7 +425,7 @@ function getFactTableGroups({
             config.dataset.columnTypes,
             datasourceSettings,
           ),
-          ...getSimpleValueSeriesAndUnits(config.dataset.values),
+          series: config.dataset.values.map(getSimpleValueSeries),
         },
       ];
     }
@@ -452,7 +442,7 @@ function getFactTableGroups({
             config.dataset.columnTypes,
             datasourceSettings,
           ),
-          ...getSimpleValueSeriesAndUnits(config.dataset.values),
+          series: config.dataset.values.map(getSimpleValueSeries),
         },
       ];
     case "fact_table":
@@ -468,7 +458,7 @@ function getFactTableGroups({
           {
             index: 0,
             factTable: toMinimalFactTable(factTable),
-            ...getSimpleValueSeriesAndUnits(config.dataset.values),
+            series: config.dataset.values.map(getSimpleValueSeries),
           },
         ];
       })();
@@ -529,7 +519,6 @@ function getFactTableGroups({
               index: Object.keys(groups).length,
               factTable: toMinimalFactTable(factTable),
               series: [],
-              units: [],
             };
           }
           const group = groups[factTable.id];
@@ -541,9 +530,6 @@ function getFactTableGroups({
             measure: numeratorMeasure,
             ...seriesType,
           });
-          if (value.unit && !group.units.includes(value.unit)) {
-            group.units.push(value.unit);
-          }
 
           if (originalMetric.metricType === "ratio" && denominator) {
             const denominatorFactTable = factTableMap.get(
@@ -559,7 +545,6 @@ function getFactTableGroups({
                 index: Object.keys(groups).length,
                 factTable: toMinimalFactTable(denominatorFactTable),
                 series: [],
-                units: [],
               };
             }
             const denominatorGroup = groups[denominatorFactTable.id];
@@ -570,12 +555,6 @@ function getFactTableGroups({
               measure: withValueRowFilters(denominator),
               ...seriesType,
             });
-            if (
-              value.denominatorUnit &&
-              !denominatorGroup.units.includes(value.denominatorUnit)
-            ) {
-              denominatorGroup.units.push(value.denominatorUnit);
-            }
           }
           valueIndex++;
         }
@@ -1486,7 +1465,7 @@ function generateFactTableRowsCTE(
   });
 
   // Select all units
-  factTableGroup.units.forEach((unit, i) => {
+  getSeriesUnits(factTableGroup.series).forEach((unit, i) => {
     const unitColumn = getFactTableIdColumnExpression(
       factTableGroup.factTable,
       unit,
@@ -1842,7 +1821,6 @@ export function buildFunnelSql(
     index: 0,
     factTable: toMinimalFactTable(initialFactTable),
     series: [],
-    units: [],
   };
   const dimensionExpr = dimension
     ? generateDimensionExpression(
@@ -2369,7 +2347,7 @@ export function generateProductAnalyticsSQL(
 
     // Add the unit aggregation CTEs
     Object.entries(unitSeries).forEach(([unit, seriesSqls]) => {
-      const unitIndex = factTableGroup.units.indexOf(unit);
+      const unitIndex = getSeriesUnits(factTableGroup.series).indexOf(unit);
       if (unitIndex === -1) {
         throw new Error(`Unit ${unit} not found in fact table group`);
       }
