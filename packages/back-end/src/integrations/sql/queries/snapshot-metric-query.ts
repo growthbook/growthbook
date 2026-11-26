@@ -307,6 +307,7 @@ WITH
     endDate: metricEnd,
     experimentId: settings.experimentId,
     phase: settings.phase,
+    project: settings.project,
     customFields: settings.customFields,
     factTableMap,
   })})
@@ -320,6 +321,7 @@ WITH
         endDate: metricEnd,
         experimentId: settings.experimentId,
         phase: settings.phase,
+        project: settings.project,
         customFields: settings.customFields,
         factTableMap,
         useDenominator: true,

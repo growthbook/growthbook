@@ -72,6 +72,7 @@ export function compileSqlTemplate(
     templateVariables,
     customFields,
     phase,
+    project,
   }: SQLVars,
   dialect?: SqlDialect,
 ) {
@@ -101,6 +102,8 @@ export function compileSqlTemplate(
     ...templateVariables,
     customFields: customFields || {},
     phase: phase || {},
+    // Empty outside an experiment, e.g. in a Fact Table preview
+    project: project || {},
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),

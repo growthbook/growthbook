@@ -259,6 +259,7 @@ export function getExperimentUnitsQuery(
           endDate: unitsSettings.endDate,
           experimentId: unitsSettings.experimentId,
           phase: unitsSettings.phase,
+          project: unitsSettings.project,
           customFields: unitsSettings.customFields,
         },
         dialect,
@@ -330,6 +331,7 @@ export function getExperimentUnitsQuery(
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,
+            project: unitsSettings.project,
             customFields: unitsSettings.customFields,
             factTableMap,
           })})
@@ -349,6 +351,7 @@ export function getExperimentUnitsQuery(
               endDate: unitsSettings.endDate,
               experimentId: unitsSettings.experimentId,
               phase: unitsSettings.phase,
+              project: unitsSettings.project,
               customFields: unitsSettings.customFields,
             },
           )})`

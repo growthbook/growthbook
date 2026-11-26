@@ -41,6 +41,7 @@ import {
   MetricSnapshotSettings,
   ExperimentReportSSRData,
 } from "shared/types/report";
+import type { ProjectSQLVar } from "shared/types/sql";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
@@ -89,6 +90,7 @@ import {
   createMetricEligibilityResolver,
   assertValidClusterExperimentConfig,
   ClusterExperimentConfigFields,
+  getProjectSQLVar,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -525,6 +527,7 @@ export async function createReportSnapshot({
     metricGroups,
     datasource,
     experiment,
+    project: await getProjectSQLVar(context, experiment?.project),
   });
 
   const snapshotType = "report";
@@ -605,6 +608,7 @@ export function getReportSnapshotSettings({
   metricGroups,
   datasource,
   experiment,
+  project,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -616,6 +620,8 @@ export function getReportSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | null;
+  // From getProjectSQLVar: SQL templates read it as `project`
+  project?: ProjectSQLVar;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -766,6 +772,7 @@ export function getReportSnapshotSettings({
     phase: {
       index: phaseIndex + "",
     },
+    ...(project ? { project } : {}),
     customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,

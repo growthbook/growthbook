@@ -119,6 +119,28 @@ The filter will still be added above even when the phase index is `0`, despite t
 
 </Note>
 
+## Project Filters
+
+When a query runs as part of an experiment analysis, the experiment's Project is available as two template variables:
+
+- `project.id` is the GrowthBook id, for example `prj_abc123`.
+- `project.publicId` is the Project's **Public ID**, which you can edit in the Project's settings, for example `checkout-team`.
+
+If one table holds data for many projects, set each Project's Public ID to the value in your table, then filter on it. This can make queries much faster when the project column is part of the table's sort or partition key.
+
+The project isn't set when the experiment has no Project, or outside an experiment (for example, when previewing a Fact Table), so wrap the filter in a conditional block:
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  event_type
+FROM events
+WHERE
+  1=1
+  {{#if project.publicId}} AND project_id = {{sqlstring project.publicId}} {{/if}}
+```
+
 ## Custom Field Filters
 
 <CommercialFeature feature="custom-metadata" />

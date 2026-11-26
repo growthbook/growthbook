@@ -134,6 +134,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
           endDate: scanEndDate,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
+          project: params.settings.project,
           customFields: params.settings.customFields,
           metricsWithIndices: metricData.map((m, i) => ({
             metric: m.metric,

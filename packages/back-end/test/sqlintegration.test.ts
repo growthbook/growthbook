@@ -492,6 +492,32 @@ describe("bigquery integration", () => {
     );
   });
 
+  it("fills the experiment's project into a fact table's SQL", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, anonymous_id, timestamp, value FROM events WHERE project_id = '{{ project.publicId }}'",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+      project: { id: "prj_abc123", publicId: "checkout-team" },
+    });
+
+    expect(result).toContain("FROM events WHERE project_id = 'checkout-team'");
+  });
+
   it("uses the fact table's timestamp column and aliases it to timestamp", () => {
     const factTable = factTableFactory.build({
       sql: "SELECT user_id, anonymous_id, event_time, value FROM events",

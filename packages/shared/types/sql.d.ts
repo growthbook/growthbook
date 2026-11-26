@@ -58,11 +58,18 @@ export type PhaseSQLVar = {
   index?: string;
 };
 
+// The experiment's Project: `{{ project.id }}` and `{{ project.publicId }}`.
+export type ProjectSQLVar = {
+  id?: string;
+  publicId?: string;
+};
+
 export type SQLVars = {
   startDate: Date;
   endDate?: Date;
   experimentId?: string;
   phase?: PhaseSQLVar;
+  project?: ProjectSQLVar;
   customFields?: Record<string, unknown>;
   templateVariables?: TemplateVariables;
 };

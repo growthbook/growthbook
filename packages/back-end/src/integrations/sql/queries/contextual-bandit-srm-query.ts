@@ -112,6 +112,7 @@ export function getContextualBanditSrmQuery(
             endDate,
             experimentId: settings.experimentId,
             phase: settings.phase,
+            project: settings.project,
             customFields: settings.customFields,
           },
           dialect,

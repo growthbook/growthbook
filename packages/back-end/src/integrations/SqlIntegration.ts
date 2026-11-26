@@ -2048,6 +2048,7 @@ export default abstract class SqlIntegration
                   endDate: settings.endDate,
                   experimentId: settings.experimentId,
                   phase: settings.phase,
+                  project: settings.project,
                   customFields: settings.customFields,
                 },
               )})`
@@ -2061,6 +2062,7 @@ export default abstract class SqlIntegration
               endDate: settings.endDate,
               experimentId: settings.experimentId,
               phase: settings.phase,
+              project: settings.project,
               customFields: settings.customFields,
               // TODO(incremental-refresh): add incremental start data as template variable
             },
@@ -2583,6 +2585,7 @@ export default abstract class SqlIntegration
           endDate: metricEnd,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
+          project: params.settings.project,
           customFields: params.settings.customFields,
           castIdToString: true,
           addFiltersToWhere: true,
