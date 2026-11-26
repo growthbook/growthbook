@@ -11,6 +11,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import { CustomField } from "shared/types/custom-fields";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
@@ -128,6 +129,7 @@ export function getChecklistItems({
   urlRedirects = [],
   connections,
   checklist,
+  customFields,
   /** When publishing from a feature draft page, waive the unrelated-edits gate
    *  for that feature — the user is explicitly reviewing the full draft. */
   publishingFeatureId,
@@ -144,6 +146,7 @@ export function getChecklistItems({
   urlRedirects?: URLRedirectInterface[];
   connections: SDKConnectionInterface[];
   checklist?: ExperimentLaunchChecklistInterface;
+  customFields: CustomField[];
   publishingFeatureId?: string;
   openAnalysisSettings?: ((focus: AnalysisFormFocus | null) => void) | null;
   openImplementation?: (() => void) | null;
@@ -165,6 +168,7 @@ export function getChecklistItems({
     urlRedirects,
     sdkConnections: connections,
     checklist,
+    customFields,
     publishingFeatureId,
   }).map((item): CheckListItem => {
     const row = toRow(item, linkedFeatures);

@@ -98,11 +98,15 @@ const invalidSplit = {
   ...draft,
   phases: [{ variationWeights: [0.53, 0.5] }],
 } as unknown as ExperimentInterface;
+const getCustomFieldsMock = jest.fn();
 const context = {
   org: { id: "org_1" },
   userId: "u_1",
   permissions: { canUpdateExperiment: () => true },
-  models: { urlRedirects: { findByExperiment: async () => [] } },
+  models: {
+    urlRedirects: { findByExperiment: async () => [] },
+    customFields: { getCustomFields: getCustomFieldsMock },
+  },
 } as unknown as ReqContext;
 const draftFlag = {
   feature: { id: "flag_1" },
@@ -122,6 +126,7 @@ beforeEach(() => {
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
   getFeaturesByIdsMock.mockResolvedValue([]);
+  getCustomFieldsMock.mockResolvedValue(null);
 });
 
 describe("startExperiment", () => {
@@ -387,6 +392,48 @@ describe("custom launch checklist tasks", () => {
       },
     });
     expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("drops a Custom Field task the experiment can't hold a value for", async () => {
+    const fieldTask = (customFieldId: string) => ({
+      task: `Fill in ${customFieldId}`,
+      completionType: "auto",
+      propertyKey: "customField",
+      customFieldId,
+      blockStart: true,
+    });
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        fieldTask("ticket"),
+        fieldTask("flagOnly"),
+        fieldTask("inactive"),
+        fieldTask("otherProject"),
+        fieldTask("thisProject"),
+        fieldTask("deleted"),
+      ],
+    });
+    const field = (id: string, extra: object = {}) => ({
+      id,
+      sections: ["experiment"],
+      ...extra,
+    });
+    getCustomFieldsMock.mockResolvedValue({
+      fields: [
+        field("ticket"),
+        field("flagOnly", { sections: ["feature"] }),
+        field("inactive", { active: false }),
+        field("otherProject", { projects: ["prj_2"] }),
+        field("thisProject", { projects: ["prj_1"] }),
+      ],
+    });
+
+    expect(await customStatuses({ ...draft, project: "prj_1" })).toEqual({
+      "Fill in ticket": "incomplete",
+      "Fill in thisProject": "incomplete",
+    });
+    expect(await customStatuses(draft)).toEqual({
+      "Fill in ticket": "incomplete",
+    });
   });
 });
 

@@ -2,9 +2,12 @@ import isEqual from "lodash/isEqual";
 import {
   getAllVariations,
   getLaunchChecklistItems,
+  type LaunchChecklistItem,
   sdkConnectionServesProject,
   withScheduledBy,
 } from "shared/experiments";
+import type { CustomField } from "shared/types/custom-fields";
+import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { ScopedSettings } from "shared/settings";
@@ -211,14 +214,7 @@ export async function getExperimentStartChecklistStatus(
       findVisualChangesetsByExperiment(experiment.id, context.org.id),
       context.models.urlRedirects.findByExperiment(experiment.id),
     ]);
-  const checklist = orgHasPremiumFeature(context.org, "custom-launch-checklist")
-    ? (experiment.project &&
-        (await getExperimentLaunchChecklist(
-          context.org.id,
-          experiment.project,
-        ))) ||
-      (await getExperimentLaunchChecklist(context.org.id, ""))
-    : null;
+  const checklist = await getChecklistForExperiment(context, experiment);
 
   return getLaunchChecklistItems({
     experiment,
@@ -229,7 +225,20 @@ export async function getExperimentStartChecklistStatus(
       sdkConnectionServesProject(c, experiment.project),
     ),
     checklist,
-  }).map(({ key, required, status, manual, label, hardBlock, featureId }) => ({
+    customFields: await getChecklistCustomFields(context, checklist),
+  }).map(toStartChecklistItemStatus);
+}
+
+function toStartChecklistItemStatus({
+  key,
+  required,
+  status,
+  manual,
+  label,
+  hardBlock,
+  featureId,
+}: LaunchChecklistItem): StartChecklistItemStatus {
+  return {
     key,
     required,
     status,
@@ -237,7 +246,35 @@ export async function getExperimentStartChecklistStatus(
     reason: label,
     ...(hardBlock ? { hardBlock } : {}),
     ...(featureId ? { featureId } : {}),
-  }));
+  };
+}
+
+// The Project's checklist, else the organization's.
+async function getChecklistForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  if (!orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
+    return null;
+  }
+  return (
+    (experiment.project &&
+      (await getExperimentLaunchChecklist(
+        context.org.id,
+        experiment.project,
+      ))) ||
+    (await getExperimentLaunchChecklist(context.org.id, ""))
+  );
+}
+
+async function getChecklistCustomFields(
+  context: ReqContext | ApiReqContext,
+  checklist: ExperimentLaunchChecklistInterface | null,
+): Promise<CustomField[]> {
+  if (!checklist?.tasks?.some((t) => t.propertyKey === "customField")) {
+    return [];
+  }
+  return (await context.models.customFields.getCustomFields())?.fields ?? [];
 }
 
 async function loadAndValidateExperimentForStatusChange(

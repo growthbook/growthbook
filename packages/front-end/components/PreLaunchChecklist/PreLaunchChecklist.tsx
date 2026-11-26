@@ -379,6 +379,7 @@ export function PreLaunchChecklistForDraftFeature({
   const {
     checklist: customChecklist,
     connections,
+    customFields,
     loading: checklistLoading,
     loadError,
   } = useLaunchChecklistData(experiment);
@@ -397,11 +398,19 @@ export function PreLaunchChecklistForDraftFeature({
           linkedFeatures: experimentData?.linkedFeatures ?? [],
           visualChangesets: [],
           checklist: customChecklist,
+          customFields,
           connections,
           publishingFeatureId: feature.id,
         }),
       ),
-    [experiment, experimentData, customChecklist, connections, feature.id],
+    [
+      experiment,
+      experimentData,
+      customChecklist,
+      customFields,
+      connections,
+      feature.id,
+    ],
   );
 
   const hasHardBlockers = summary.blocking > 0;
