@@ -46,6 +46,12 @@ To define a custom task, type the item in the text box and click **Add Task**. A
 
 Click **Save** to enable the checklist on all experiments.
 
+### Block the Start Until a Task Is Done
+
+By default, anyone starting an experiment can bypass incomplete tasks. To make a task mandatory, check **Block start** next to it, or check **Block the start until this task is done** when adding it. While a blocking task is incomplete, the experiment can't be started, from the app or the REST API (`skipChecklist` doesn't skip it), and a scheduled start won't go ahead while it's incomplete.
+
+For example, add the pre-defined hypothesis and description tasks and set both to block the start, so every experiment has them before it runs.
+
 ### Project-Level Checklists
 
 You can also create a project-level checklist. This checklist will override the organization-level checklist for all experiments in the project.
