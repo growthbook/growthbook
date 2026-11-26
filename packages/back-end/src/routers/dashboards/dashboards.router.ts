@@ -70,6 +70,20 @@ export const updateDashboardBody = z
   })
   .strict();
 
+export const saveDashboardDraftBody = updateDashboardBody.pick({
+  title: true,
+  blocks: true,
+  globalControls: true,
+  comparison: true,
+});
+
+export const revertDashboardDraftBody = z
+  .object({
+    blockId: z.string().optional(),
+    setting: z.enum(["title", "globalControls", "comparison"]).optional(),
+  })
+  .strict();
+
 export const publishDashboardDraftBody = z
   .object({ note: z.string().optional() })
   .strict();
@@ -168,6 +182,14 @@ router.get(
   validateRequestMiddleware({ params: dashboardParams }),
   dashboardsController.getDashboardDraft,
 );
+router.put(
+  "/:id/draft",
+  validateRequestMiddleware({
+    body: saveDashboardDraftBody,
+    params: dashboardParams,
+  }),
+  dashboardsController.saveDashboardDraft,
+);
 router.post(
   "/:id/draft",
   validateRequestMiddleware({ params: dashboardParams }),
@@ -185,6 +207,27 @@ router.post(
   "/:id/draft/summary",
   validateRequestMiddleware({ params: dashboardParams }),
   dashboardsController.summarizeDashboardDraft,
+);
+router.get(
+  "/:id/versions",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboardVersions,
+);
+router.post(
+  "/:id/draft/restore",
+  validateRequestMiddleware({
+    body: z.object({ version: z.number().int() }).strict(),
+    params: dashboardParams,
+  }),
+  dashboardsController.restoreDashboardVersion,
+);
+router.post(
+  "/:id/draft/revert",
+  validateRequestMiddleware({
+    body: revertDashboardDraftBody,
+    params: dashboardParams,
+  }),
+  dashboardsController.revertDashboardDraftChange,
 );
 router.post(
   "/:id/draft/undo",

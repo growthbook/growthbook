@@ -46,6 +46,8 @@ import { secondsUntilAICanBeUsedAgainForPrompt } from "back-end/src/enterprise/s
 import {
   createDashboardBody,
   publishDashboardDraftBody,
+  revertDashboardDraftBody,
+  saveDashboardDraftBody,
   updateDashboardBody,
 } from "./dashboards.router";
 export { postDashboardBuilderChat } from "back-end/src/enterprise/services/dashboard-builder-agent";
@@ -198,6 +200,19 @@ export async function updateDashboard(
     updates as UpdateProps<DashboardInterface>,
   );
 
+  // The draft carries its own title, which would undo this rename at publish.
+  if (updates.title && !dashboard.experimentId) {
+    const draft = await context.models.dashboardVersions.getDraft(id);
+    if (draft && draft.content.title !== updates.title) {
+      await dashboardVersions.editDashboardDraft(
+        context,
+        id,
+        { op: "set-settings", settings: { title: updates.title } },
+        { silent: true },
+      );
+    }
+  }
+
   res.status(200).json({
     status: 200,
     dashboard: updatedDashboard,
@@ -321,7 +336,7 @@ export async function refreshDashboardData(
 }
 
 export async function getDashboardSnapshots(
-  req: AuthRequest<never, { id: string }, never>,
+  req: AuthRequest<never, { id: string }, { version?: string }>,
   res: ResponseWithStatusAndError<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
@@ -340,6 +355,12 @@ export async function getDashboardSnapshots(
         ...dashboard.blocks,
         ...(await dashboardVersions.getDashboardWorkingContent(context, id))
           .blocks,
+        // A version being previewed from the history.
+        ...(req.query.version
+          ? ((await dashboardVersions.getDashboardVersions(context, id)).find(
+              (v) => String(v.version) === req.query.version,
+            )?.content.blocks ?? [])
+          : []),
       ];
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
@@ -472,6 +493,79 @@ export async function editDashboardDraft(
           req.params.id,
           req.body,
         );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function saveDashboardDraft(
+  req: AuthRequest<
+    z.infer<typeof saveDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const context = getContextFromReq(req);
+  const { blocks, ...settings } = req.body;
+  const draft = await dashboardVersions.saveDashboardDraftContent(
+    context,
+    req.params.id,
+    {
+      ...settings,
+      ...(blocks
+        ? {
+            blocks: blocks
+              .map(migrateBlock)
+              .map((block) =>
+                dashboardBlockHasIds(block)
+                  ? block
+                  : generateDashboardBlockIds(context.org.id, block),
+              ),
+          }
+        : {}),
+    },
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function getDashboardVersions(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<{
+    status: number;
+    versions: DashboardVersionInterface[];
+  }>,
+) {
+  const versions = await dashboardVersions.getDashboardVersions(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, versions });
+}
+
+export async function restoreDashboardVersion(
+  req: AuthRequest<{ version: number }, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.restoreDashboardVersion(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.version,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function revertDashboardDraftChange(
+  req: AuthRequest<
+    z.infer<typeof revertDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.revertDashboardDraftChange(
+    getContextFromReq(req),
+    req.params.id,
+    req.body,
+  );
   return res.status(200).json({ status: 200, draft });
 }
 

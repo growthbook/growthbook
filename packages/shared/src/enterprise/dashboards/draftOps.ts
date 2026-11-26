@@ -51,8 +51,10 @@ export interface DashboardContentChange {
     | "block-removed"
     | "settings";
   blockId?: string;
+  setting?: DashboardVersionSetting;
   summary: string;
 }
+export type DashboardVersionSetting = "title" | "globalControls" | "comparison";
 
 // Result ids change on every run, so they say nothing about what a block shows.
 const NOT_CONTENT = [
@@ -70,18 +72,25 @@ export function diffDashboardContent(
   after: DashboardVersionContent,
 ): DashboardContentChange[] {
   const changes: DashboardContentChange[] = [];
-  const settings = (changed: boolean, summary: string) => {
-    if (changed) changes.push({ type: "settings", summary });
+  const settings = (
+    setting: DashboardVersionSetting,
+    changed: boolean,
+    summary: string,
+  ) => {
+    if (changed) changes.push({ type: "settings", setting, summary });
   };
   settings(
+    "title",
     before.title !== after.title,
     `Renamed the dashboard to "${after.title}"`,
   );
   settings(
+    "globalControls",
     !isEqual(before.globalControls ?? {}, after.globalControls ?? {}),
     "Changed the dashboard date range and filters",
   );
   settings(
+    "comparison",
     !isEqual(before.comparison, after.comparison),
     "Changed the comparison period",
   );

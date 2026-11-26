@@ -71,10 +71,13 @@ export default function DashboardSnapshotProvider({
   experiment,
   dashboard,
   mutateDefinitions,
+  version,
   children,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   dashboard?: DashboardInterface;
+  // An earlier version being previewed, so its blocks' data loads too.
+  version?: number;
   mutateDefinitions: () => Promise<unknown> | void;
   children: ReactNode;
 }) {
@@ -110,9 +113,12 @@ export default function DashboardSnapshotProvider({
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
     explorations: ProductAnalyticsExploration[];
-  }>(`/dashboards/${dashboard?.id}/snapshots`, {
-    shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
-  });
+  }>(
+    `/dashboards/${dashboard?.id}/snapshots${version ? `?version=${version}` : ""}`,
+    {
+      shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
+    },
+  );
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
 

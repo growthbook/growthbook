@@ -21,14 +21,11 @@ import {
   DashboardDraftOpInput,
   DashboardInterface,
   DashboardVersionInterface,
-  diffDashboardContent,
 } from "shared/enterprise";
 import type { AIChatMention } from "shared/ai-chat";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PageHead from "@/components/Layout/PageHead";
@@ -43,6 +40,7 @@ import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
 import { LOCALSTORAGE_EXPLORER_DATASOURCE_KEY } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DashboardEditor from "./DashboardEditor";
 import DashboardModal from "./DashboardModal";
+import DashboardDraftChanges from "./DashboardDraftChanges";
 import DashboardSnapshotProvider, {
   DashboardSnapshotContext,
 } from "./DashboardSnapshotProvider";
@@ -157,10 +155,8 @@ export default function DashboardBuilderView({
     if (picked) setDatasourceId(picked);
   }, [setDatasourceId]);
   const datasourceName = getDatasourceById(datasourceId)?.name ?? "";
-  const { getUserDisplay } = useUser();
   const [publishOpen, setPublishOpen] = useState(false);
   const [note, setNote] = useState("");
-  const [draftingNote, setDraftingNote] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const {
@@ -279,27 +275,6 @@ export default function DashboardBuilderView({
   };
   const editDraft = (op: DashboardDraftOpInput) => draftCall("/ops", op);
 
-  // Who last touched each block (or the settings), for the list shown at publish.
-  const authors = new Map(
-    (draft?.changes ?? []).map((c) => [
-      c.blockId ?? "",
-      c.byAI ? "AI Assistant" : getUserDisplay(c.userId),
-    ]),
-  );
-  const draftNote = async () => {
-    setDraftingNote(true);
-    try {
-      const res = await apiCall<{ summary: string }>(
-        `/dashboards/${dashboard.id}/draft/summary`,
-        { method: "POST" },
-      );
-      setNote(res.summary);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
-    }
-    setDraftingNote(false);
-  };
-
   // Replies link to a block as #block-<id>; scroll to it and flash it.
   const showBlock = (e: MouseEvent<HTMLElement>) => {
     const id = (e.target as HTMLElement)
@@ -378,36 +353,14 @@ export default function DashboardBuilderView({
             await mutate();
           }}
         >
-          <Flex direction="column" gap="2">
-            <Text weight="semibold">Changes in This Version</Text>
-            {diffDashboardContent(dashboard, content).map((change) => (
-              <Flex key={change.summary} justify="between" gap="3">
-                <Text size="sm">{change.summary}</Text>
-                <Text size="sm" color="text-low">
-                  {authors.get(change.blockId ?? "")}
-                </Text>
-              </Flex>
-            ))}
-            <Field
-              label="Version Note"
-              textarea
-              minRows={2}
-              placeholder="What changed, for people reading the version history"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+          {draft ? (
+            <DashboardDraftChanges
+              dashboard={dashboard}
+              draft={draft}
+              note={note}
+              setNote={setNote}
             />
-            <Box>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<BsStars />}
-                onClick={draftNote}
-                loading={draftingNote}
-              >
-                Draft with AI
-              </Button>
-            </Box>
-          </Flex>
+          ) : null}
         </DashboardModal>
       ) : null}
       <Box

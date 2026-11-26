@@ -13,6 +13,7 @@ import {
   DashboardInterface,
   DashboardVersionContent,
   DashboardVersionInterface,
+  DashboardVersionSetting,
   DASHBOARD_GRID_COLS,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
@@ -259,6 +260,111 @@ export async function publishDashboardDraft(
     await versions.update(version, { status: "draft" });
     throw e;
   }
+}
+
+// The manual editor saves whole content; the draft's change list is derived from the difference.
+export async function saveDashboardDraftContent(
+  context: ReqContext,
+  dashboardId: string,
+  updates: Partial<DashboardVersionContent>,
+): Promise<DashboardVersionInterface> {
+  const draft = await getOrCreateDashboardDraft(context, dashboardId);
+  const updated = await context.models.dashboardVersions.updateWithCas(
+    draft.id,
+    ["dateUpdated"],
+    (current) => {
+      if (current.status !== "draft") return null;
+      const next = { ...current.content, ...updates };
+      const content = {
+        ...next,
+        blocks: normalizeLayouts(
+          resolveGlobalControlsBlockEnrollment({
+            existingGlobalControls: current.content.globalControls,
+            nextGlobalControls: next.globalControls,
+            nextBlocks: next.blocks,
+          }) ?? next.blocks,
+          next.grid?.cols ?? DASHBOARD_GRID_COLS,
+        ),
+      };
+      const changes = diffDashboardContent(current.content, content).map(
+        ({ type, blockId }) => ({
+          type: type === "block-moved" ? ("block-edited" as const) : type,
+          blockId,
+          userId: context.userId,
+          date: new Date(),
+        }),
+      );
+      if (!changes.length) return { content };
+      return {
+        content,
+        changes: [...current.changes, ...changes],
+        undo: [...(current.undo ?? []), current.content].slice(-UNDO_STEPS),
+      };
+    },
+  );
+  if (!updated) {
+    throw new ConflictError("This draft was published or discarded");
+  }
+  return updated;
+}
+
+// Published versions for anyone who can read the dashboard; the draft only for its editors.
+export async function getDashboardVersions(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardVersionInterface[]> {
+  const dashboard = await context.models.dashboards.getById(dashboardId);
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
+  const canEdit = context.models.dashboards.canEdit(dashboard);
+  const versions = await context.models.dashboardVersions.getAllForDashboard(
+    dashboard.id,
+  );
+  return versions
+    .filter((v) => v.status === "published" || canEdit)
+    .sort((a, b) => b.version - a.version)
+    .map((v) => omit(v, "undo"));
+}
+
+// Copies an earlier version into the draft; nothing is live until that draft is published.
+export async function restoreDashboardVersion(
+  context: ReqContext,
+  dashboardId: string,
+  version: number,
+): Promise<DashboardVersionInterface> {
+  const source = (await getDashboardVersions(context, dashboardId)).find(
+    (v) => v.version === version && v.status === "published",
+  );
+  if (!source) throw new NotFoundError("Cannot find that version");
+  return saveDashboardDraftContent(context, dashboardId, source.content);
+}
+
+// Puts one block, or one dashboard setting, back to what is published.
+export async function revertDashboardDraftChange(
+  context: ReqContext,
+  dashboardId: string,
+  target: { blockId?: string; setting?: DashboardVersionSetting },
+): Promise<DashboardVersionInterface> {
+  const dashboard = await getEditableDashboard(context, dashboardId);
+  const draft = await context.models.dashboardVersions.getDraft(dashboard.id);
+  if (!draft) throw new BadRequestError("There is no draft to revert");
+  const published = contentOf(dashboard);
+
+  if (target.setting) {
+    return saveDashboardDraftContent(context, dashboardId, {
+      [target.setting]: published[target.setting],
+    });
+  }
+  const at = draft.content.blocks.findIndex((b) => b.id === target.blockId);
+  const blocks = draft.content.blocks.filter((b) => b.id !== target.blockId);
+  const original = published.blocks.find((b) => b.id === target.blockId);
+  if (original) {
+    blocks.splice(
+      at === -1 ? published.blocks.indexOf(original) : at,
+      0,
+      original,
+    );
+  }
+  return saveDashboardDraftContent(context, dashboardId, { blocks });
 }
 
 // A version note drafted from the difference between the draft and what is published.

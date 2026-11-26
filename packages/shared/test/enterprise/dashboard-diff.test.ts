@@ -60,7 +60,11 @@ describe("diffDashboardContent", () => {
     expect(
       diffDashboardContent(content([]), content([], { title: "New" })),
     ).toEqual([
-      { type: "settings", summary: 'Renamed the dashboard to "New"' },
+      {
+        type: "settings",
+        setting: "title",
+        summary: 'Renamed the dashboard to "New"',
+      },
     ]);
   });
 });
