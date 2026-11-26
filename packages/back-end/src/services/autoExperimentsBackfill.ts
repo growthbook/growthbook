@@ -12,16 +12,19 @@ type Owner = {
   excludeFromPayload?: boolean;
   releasedVariationId?: string;
   dateUpdated?: Date;
+  nextScheduledStatusUpdate?: { type?: string } | null;
 };
 
 // A draft saved more recently than this may be about to launch.
-const RECENT_DRAFT_MS = 14 * 24 * 60 * 60 * 1000;
+const RECENT_DRAFT_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Running, stopped with a temporary rollout that keeps a variation live, or a
-// recent draft. An older draft is out: starting it asks to enable the feature,
-// and many were added once and never launched. A contextual bandit has no
-// temporary rollout. `edited` is when the change itself was last saved, which
-// doesn't move its owner's date.
+// Running, stopped with a temporary rollout that keeps a variation live, a
+// draft armed to start on a schedule, or a recent draft. An older draft is
+// out: starting it asks to enable the feature, and many were added once and
+// never launched. A scheduled one is in whatever its age, since nobody is
+// there to enable the feature when it starts. A contextual bandit has no
+// temporary rollout or schedule. `edited` is when the change itself was last
+// saved, which doesn't move its owner's date.
 const isInUse = (
   owner: Owner | undefined,
   edited: Date | undefined,
@@ -34,7 +37,8 @@ const isInUse = (
       !owner.excludeFromPayload &&
       !!owner.releasedVariationId) ||
     (owner.status === "draft" &&
-      [owner.dateUpdated, edited].some((date) => !!date && date >= since)));
+      (owner.nextScheduledStatusUpdate?.type === "start" ||
+        [owner.dateUpdated, edited].some((date) => !!date && date >= since))));
 
 // The experiments or contextual bandits behind `ids`, by id. A deleted one is
 // absent.
@@ -56,6 +60,7 @@ async function getOwners(
           excludeFromPayload: 1,
           releasedVariationId: 1,
           dateUpdated: 1,
+          "nextScheduledStatusUpdate.type": 1,
         },
       },
     )

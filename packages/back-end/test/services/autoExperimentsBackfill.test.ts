@@ -20,9 +20,9 @@ beforeEach(async () => {
 type Doc = Record<string, unknown>;
 
 const DAY = 24 * 60 * 60 * 1000;
-// Either side of the two weeks a draft keeps counting for.
-const RECENT = new Date(Date.now() - 13 * DAY);
-const OLD = new Date(Date.now() - 15 * DAY);
+// Either side of the 30 days a draft keeps counting for.
+const RECENT = new Date(Date.now() - 29 * DAY);
+const OLD = new Date(Date.now() - 31 * DAY);
 
 // One organization that holds every kind of change, each owned by `owner` and
 // last saved at `edited`.
@@ -121,6 +121,14 @@ describe("backfillAutoExperimentSettings", () => {
       { status: "stopped", releasedVariationId: "v1" },
     ],
     ["a recent draft", { status: "draft", dateUpdated: RECENT }],
+    [
+      "an old draft scheduled to start",
+      {
+        status: "draft",
+        dateUpdated: OLD,
+        nextScheduledStatusUpdate: { type: "start", date: new Date() },
+      },
+    ],
   ])("counts an experiment that is %s", async (_, experiment) => {
     expect(await backfill({ experiment })).toEqual({
       settings: ALL,
