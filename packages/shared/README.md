@@ -32,7 +32,7 @@ import { MY_CONSTANT } from "shared/constants";
 If none of the existing Entry Points meet your needs, you can generate a new one by running the following command:
 
 ```sh
-yarn plop shared-entrypoint # or `yarn plop` and choosing 'shared-entrypoint'
+pnpm plop shared-entrypoint # or `pnpm plop` and choosing 'shared-entrypoint'
 ```
 
 Alternatively, you can manually create a new one with the following steps.
