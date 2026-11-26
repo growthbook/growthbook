@@ -302,7 +302,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 9
+      "count": 8
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -391,7 +391,7 @@
   },
   "packages/front-end/components/Experiment/Templates/TemplateForm.tsx": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
@@ -603,7 +603,7 @@
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-syntax": {
-      "count": 9
+      "count": 8
     }
   },
   "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {

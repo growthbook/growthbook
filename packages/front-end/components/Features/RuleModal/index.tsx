@@ -959,9 +959,21 @@ export default function RuleModal({
     scheduleType === "ramp"
       ? getMonitoringValidationError(rampSectionState)
       : null;
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
   const canSubmit = useMemo(() => {
-    return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
-  }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
+    return (
+      !isCyclic &&
+      !prerequisiteTargetingSdkIssues &&
+      !monitoringError &&
+      !hypothesisUploading
+    );
+  }, [
+    isCyclic,
+    prerequisiteTargetingSdkIssues,
+    monitoringError,
+    hypothesisUploading,
+  ]);
 
   const contestedKeys: string[] = conflict
     ? conflict.merge && !conflict.merge.wholeEntity && conflict.current
@@ -2671,6 +2683,7 @@ export default function RuleModal({
                 <ExperimentRefNewFields
                   step={i}
                   source="rule"
+                  onHypothesisUploadingChange={setHypothesisUploading}
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}

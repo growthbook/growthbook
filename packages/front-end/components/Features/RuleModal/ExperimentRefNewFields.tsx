@@ -73,6 +73,7 @@ import RuleProjectScopeField, {
   type ProjectScopeProps,
 } from "@/components/Features/RuleModal/ProjectScopeField";
 import Text from "@/ui/Text";
+import AIHypothesisField from "@/components/Experiment/AIHypothesisField";
 import {
   formatAttributeOptionLabel,
   toAttributeOption,
@@ -121,6 +122,7 @@ export default function ExperimentRefNewFields({
   onRuleCyclicChange,
   assignmentQueryCopySource,
   keepAssignmentSelection = false,
+  onHypothesisUploadingChange,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -172,6 +174,8 @@ export default function ExperimentRefNewFields({
    * it listed even if its query no longer declares the identifier.
    */
   keepAssignmentSelection?: boolean;
+  /** Step 0's hypothesis: the caller holds saving while an image uploads. */
+  onHypothesisUploadingChange?: (uploading: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -361,13 +365,13 @@ export default function ExperimentRefNewFields({
             helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 
-          <Field
-            size="legacy"
-            label="Hypothesis"
-            textarea
-            minRows={1}
-            {...form.register("hypothesis")}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          <AIHypothesisField
+            value={form.watch("hypothesis") ?? ""}
+            onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
+            trackingSource="feature-rule-modal"
+            onUploadingChange={(uploading) =>
+              onHypothesisUploadingChange?.(uploading)
+            }
           />
 
           <Field

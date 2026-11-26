@@ -28,6 +28,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import Callout from "@/ui/Callout";
+import AIHypothesisField from "@/components/Experiment/AIHypothesisField";
 
 type Props = {
   initialValue?: Partial<ExperimentTemplateInterface>;
@@ -66,7 +67,9 @@ const TemplateForm: FC<Props> = ({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
-  const canSubmit = !prerequisiteTargetingSdkIssues;
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
+  const canSubmit = !prerequisiteTargetingSdkIssues && !hypothesisUploading;
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
   const permissionsUtils = usePermissionsUtil();
@@ -327,13 +330,12 @@ const TemplateForm: FC<Props> = ({
 
             <h4 className="my-3">Experiment Details</h4>
 
-            <Field
-              size="legacy"
+            <AIHypothesisField
               label="Experiment Hypothesis"
-              textarea
-              minRows={1}
-              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-              {...form.register("hypothesis")}
+              value={form.watch("hypothesis") ?? ""}
+              onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
+              trackingSource="experiment-template-form"
+              onUploadingChange={setHypothesisUploading}
             />
 
             <Field
