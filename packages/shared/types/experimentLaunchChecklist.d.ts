@@ -16,6 +16,8 @@ export interface ChecklistTask {
     | "prerequisiteTargeting"
     | "customField"
     | "schedule";
+  // While incomplete, the start is blocked and can't be bypassed.
+  blockStart?: boolean;
 }
 
 export interface ExperimentLaunchChecklistInterface {

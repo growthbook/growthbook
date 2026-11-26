@@ -36,6 +36,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
         ],
       },
       url: String,
+      blockStart: Boolean,
     },
   ],
 });
