@@ -6,6 +6,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { ReqContext } from "back-end/types/request";
 import { NotFoundError } from "back-end/src/util/errors";
+import { assertAutoExperimentFeatureEnabled } from "back-end/src/services/autoExperiments";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
@@ -129,6 +130,18 @@ export const findOrCreateGeneratedHypothesis = async (
     };
   })();
 
+  const payload = sdk_payload?.experiments?.[0];
+  const isVisualChange = !!(
+    payload?.urlPatterns &&
+    payload?.targetUrl &&
+    payload?.variations?.[0]?.domMutations
+  );
+  // Also checked when the changeset is written; here so a refusal doesn't
+  // leave an experiment behind.
+  if (isVisualChange) {
+    assertAutoExperimentFeatureEnabled(context, "visualEditor");
+  }
+
   const createdExperiment = await createExperiment({
     data: experimentToCreate,
     context,
@@ -141,12 +154,7 @@ export const findOrCreateGeneratedHypothesis = async (
   });
 
   // create feature flag or visual change
-  const payload = sdk_payload?.experiments?.[0];
-  if (
-    payload?.urlPatterns &&
-    payload?.targetUrl &&
-    payload?.variations?.[0]?.domMutations
-  ) {
+  if (isVisualChange) {
     // visual change
     await createVisualChangeset({
       owner: new ExperimentChangesetOwner(context, createdExperiment),
