@@ -2244,6 +2244,172 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
   });
 });
 
+describe("checkIfRevisionNeedsReview — metadata exemption does not cover bundled changes", () => {
+  const allEnvs = ["dev", "production"];
+  // Metadata edits are exempt; production is the gated environment.
+  const settings = makeSettings(
+    makeReviewSetting({
+      featureRequireMetadataReview: false,
+      environments: ["production"],
+    }),
+  );
+  const prodRule = {
+    id: "r1",
+    type: "force" as const,
+    value: "true",
+    enabled: true,
+    condition: "",
+  };
+  const base = makeRevision({
+    version: 3,
+    metadata: { description: "old", tags: ["a"] },
+    rules: { production: [prodRule], dev: [] },
+    environmentsEnabled: { production: true, dev: true },
+  });
+  const needsReview = (revision: FeatureRevisionInterface) =>
+    checkIfRevisionNeedsReview({
+      feature: baseFeature,
+      baseRevision: base,
+      revision,
+      orgEnvironments: toEnvs(allEnvs),
+      settings,
+    });
+
+  it("description-only edit stays exempt", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: base.rules,
+          environmentsEnabled: base.environmentsEnabled,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("rule edit in a gated env bundled with a description edit still requires review", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: { production: [{ ...prodRule, value: "false" }], dev: [] },
+          environmentsEnabled: base.environmentsEnabled,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("rule deletion in a gated env bundled with a description edit still requires review", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: { production: [], dev: [] },
+          environmentsEnabled: base.environmentsEnabled,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("kill-switch flip in a gated env bundled with a tag edit still requires review", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "old", tags: ["a", "b"] },
+          rules: base.rules,
+          environmentsEnabled: { production: false, dev: true },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("ramp action on a gated-env rule bundled with a description edit still requires review", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: base.rules,
+          environmentsEnabled: base.environmentsEnabled,
+          rampActions: [
+            {
+              mode: "create",
+              ruleId: "r1",
+              steps: [
+                {
+                  interval: 86400,
+                  actions: [
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: "r1",
+                      patch: { ruleId: "r1", environments: ["production"] },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("ramp action on an all-environments rule bundled with a description edit still requires review", () => {
+    const everywhereRule = { ...prodRule, id: "r3" };
+    const withRule = makeRevision({
+      version: 3,
+      metadata: { description: "old", tags: ["a"] },
+      rules: [{ ...everywhereRule, allEnvironments: true }],
+      environmentsEnabled: base.environmentsEnabled,
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: withRule,
+        revision: makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: withRule.rules,
+          environmentsEnabled: base.environmentsEnabled,
+          rampActions: [
+            {
+              mode: "create",
+              ruleId: "r3",
+              steps: [
+                {
+                  interval: 86400,
+                  actions: [
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: "r3",
+                      patch: { ruleId: "r3" },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        orgEnvironments: toEnvs(allEnvs),
+        settings,
+      }),
+    ).toBe(true);
+  });
+
+  it("rule edit in a non-gated env bundled with a description edit stays exempt", () => {
+    expect(
+      needsReview(
+        makeRevision({
+          metadata: { description: "new", tags: ["a"] },
+          rules: {
+            production: [prodRule],
+            dev: [{ ...prodRule, id: "r2" }],
+          },
+          environmentsEnabled: base.environmentsEnabled,
+        }),
+      ),
+    ).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // getReviewSetting
 // ---------------------------------------------------------------------------
