@@ -1138,6 +1138,20 @@ Instead of writing any of this by hand, you can [generate both types and the reg
 
 On older SDK versions, or to type a single call without registering, pass your types as generics: `useGrowthBook<AppFeatures>()` and `useFeatureIsOn<AppFeatures>("dark_mode")`.
 
+The generic arguments intentionally stay optional: if your project does not use typed features, `useFeatureIsOn("my-feature")` keeps working with no generic argument and no changes to existing code.
+
+If your project does use typed features and you want to enforce that everywhere, wrap the hooks once in your own module — the only file that imports the SDK directly — and restrict SDK imports elsewhere, for example with a custom ESLint rule or a plugin like [eslint-plugin-restrict-imports](https://www.npmjs.com/package/eslint-plugin-restrict-imports):
+
+```ts
+// ./src/utils/growthbook.ts
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+
+export const useTypedGrowthBook = () => useGrowthBook<AppFeatures>();
+
+export const useTypedFeatureIsOn = (k: keyof AppFeatures) =>
+  useFeatureIsOn<AppFeatures>(k);
+```
+
 ## Examples
 
 - [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
