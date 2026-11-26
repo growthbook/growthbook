@@ -1,9 +1,5 @@
 # Changelog
 
-## **Unreleased**
-
-- Fix streaming (SSE) being enabled by default: `init()`/`initSync()` (including `GrowthBookClient.init()`) and `refreshFeatures()` no longer subscribe to the event stream unless you opt in with `streaming: true` (or the deprecated `backgroundSync` option). `refreshFeatures()` and `prefetchPayload()` accept `streaming: true` to opt in for an individual refresh. The deprecated `loadFeatures()` keeps its historic auto-subscribe behavior. Features still load over HTTP as before.
-
 ## **2.2.0** - Nov 18, 2026
 
 - Add `defaultHashVersion` option, the hash version for percentage rollouts and experiments that are missing a `hashVersion`. Defaults to `1` for backwards compatibility. Recommend setting to `2` for new installations.
