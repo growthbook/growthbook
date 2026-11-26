@@ -80,6 +80,8 @@ You can use the filters to determine if a user qualifies as retained (using a ro
 
 You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
 
+New Retention Metrics [exclude in-progress conversions](#exclude-in-progress-conversions) by default. If the retention window is a closed period (e.g. 7-14 days after exposure), this setting excludes units who haven't had a chance to complete the full window. If the retention window is an open period (e.g. > 7 days after exposure), this setting excludes units until their time since exposure reaches the start of the retention window.
+
 ### Daily Participation Metrics
 
 Daily Participation Metrics measure the average percentage of days after experiment exposure that a user is active (i.e., meets the metric criteria). This is analogous to Daily Active Users (DAU) in an experiment context, where you want to measure engagement frequency over time.
@@ -283,6 +285,24 @@ Why might you choose one window over another?
 (2) Lookback windows help you focus on the long run effects of an experiment. Much of experimentation is about building a better product; by focusing on impact of an experiment after it has been live for a week or two, you may get a better picture of the long run impact of launching the experiment.
 
 Larger companies who measure long run logged in behavior want to ensure their experiments have lasting effects and often rely on lookback windows to make shipping decisions. However, lookback windows may not be right if you are testing a feature on logged-out or anonymous users and are measuring simple purchase conversions or something similar. In these cases, you might end up with many logged-out users who, in the long run, simply have no metric data associated with them.
+
+### Exclude In-Progress Conversions
+
+A user who was exposed recently may not have had time to convert yet. For example, a user exposed two days ago cannot have been retained at 7 days, but by default they still count as not retained, which pulls the metric down while the experiment is running.
+
+Turn on **Exclude in-progress conversions** on a Fact Metric to only analyze users who were exposed long enough ago to have had the full time to convert. The setting appears next to the metric window whenever the metric bounds that time:
+
+| Metric                                                 | Time a user needs since first exposure                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Any metric with a conversion window                    | Metric delay + conversion window                                                             |
+| Retention Metric with no conversion window             | Retention window                                                                             |
+| Funnel Metric where every step has a conversion window | Metric delay + the sum of the step windows, capped by the metric's conversion window, if any |
+
+If the experiment has an activation metric with a conversion window, its delay and window are added on top.
+
+It is on by default for new Retention Metrics and off for all other metrics. Only the metric with the setting is affected; other metrics in the same experiment still use every user, so this metric can show fewer users than the rest of the experiment.
+
+This is the per-metric version of the experiment's [In-Progress Conversions](/app/experiment-configuration) setting. When an experiment already excludes in-progress conversions, that applies to every metric and this setting changes nothing. The metric setting is not applied to Quantile Metrics, to metrics with no window or a lookback window, in Bandits, in experiments that use a custom lookback window, or to metrics that are rolled up from sub-units in cluster experiments. In experiments that ignore conversion windows, only retention windows and funnel step windows still count.
 
 ## Advanced Settings
 

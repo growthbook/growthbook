@@ -54,9 +54,11 @@ import {
   onFactTableChange,
   onShapeChange,
   shapeForValueType,
+  skipPartialDataOk,
   UnrepresentableReason,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import SkipPartialDataCheckbox from "@/components/FactTables/MetricEditor/SkipPartialDataCheckbox";
 
 const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
   "retention-lookback-window":
@@ -261,6 +263,7 @@ export default function MetricEditor({
         compoundSettings,
         cappingSettings: form.watch("cappingSettings"),
         windowSettings: form.watch("windowSettings"),
+        skipPartialData: !!form.watch("skipPartialData"),
       },
       newFormType,
       factTable,
@@ -293,6 +296,7 @@ export default function MetricEditor({
         cappingSettings: result.cappingSettings,
       }),
       ...(result.windowSettings && { windowSettings: result.windowSettings }),
+      skipPartialData: result.skipPartialData,
     });
   }
 
@@ -361,6 +365,22 @@ export default function MetricEditor({
   const isCompound = formType === "compound";
   // Types that pick their own fact tables instead of one primary table.
   const isRatioOrFunnel = formType === "ratio" || isFunnel || isCompound;
+  const skipPartialDataCheckbox = skipPartialDataOk({
+    metricType,
+    windowSettings,
+    funnelSettings,
+  }) &&
+    (canEdit || !!form.watch("skipPartialData")) && (
+      <SkipPartialDataCheckbox
+        value={!!form.watch("skipPartialData")}
+        setValue={(v) => form.setValue("skipPartialData", v)}
+        retention={metricType === "retention"}
+        readOnly={!canEdit}
+      />
+    );
+  // It sits in the conversion window's box when the editor shows one.
+  const skipPartialDataInWindowBox =
+    canEdit && windowOk(formType) && windowSettings.type === "conversion";
   const primaryFactTableSelect = (
     <Select
       label="Fact table"
@@ -679,7 +699,9 @@ export default function MetricEditor({
                   type={metricType}
                   autoFocus={false}
                   className=""
-                />
+                >
+                  {skipPartialDataInWindowBox && skipPartialDataCheckbox}
+                </MetricWindowSettingsForm>
               ) : (
                 <DataList
                   data={[
@@ -692,6 +714,8 @@ export default function MetricEditor({
                   ]}
                 />
               ))}
+
+            {!skipPartialDataInWindowBox && skipPartialDataCheckbox}
           </Flex>
         </Frame>
         {!isFunnel &&

@@ -1,8 +1,10 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
 import type { QueryInterface } from "shared/types/query";
@@ -12,9 +14,11 @@ import {
   analyzeExperimentClusterHealth,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
   parseStatsEngineResult,
   selectAnalysisQueryData,
 } from "back-end/src/services/stats";
+import { factMetricFactory } from "../factories/FactMetric.factory";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -109,6 +113,9 @@ describe("parseStatsEngineResult", () => {
         ],
       },
     ];
+    // One query's rows can back a second result (metrics that only analyze
+    // units with complete data); the metric isn't in it, so isn't recounted.
+    queryResults.push({ metrics: ["other"], rows: queryResults[0].rows });
     const [overall, byDimension] = parseStatsEngineResult({
       analysisSettings: [
         analysisSettings,
@@ -740,5 +747,145 @@ describe("selectAnalysisQueryData", () => {
       "statistics_multi_group_0__group_1",
     ]);
     expect(result.get("statistics_group_0")).toBe(parentGroup);
+  });
+});
+
+describe("getMetricsAndQueryDataForStatsEngine", () => {
+  const buildSettings = (
+    metricSettings: ExperimentSnapshotSettings["metricSettings"] = [],
+  ) =>
+    ({
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricSettings,
+      regressionAdjustmentEnabled: false,
+      skipPartialData: false,
+      attributionModel: "firstExposure",
+      variations,
+    }) as unknown as ExperimentSnapshotSettings;
+  // A metric that excludes in-progress conversions when `windowDays` is set
+  const buildMetric = (id: string, windowDays: number | null) =>
+    factMetricFactory.build({
+      id,
+      skipPartialData: windowDays !== null,
+      windowSettings: {
+        type: windowDays === null ? "" : "conversion",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: windowDays ?? 1,
+        windowUnit: "days",
+      },
+    });
+  const analyze = (
+    metrics: FactMetricInterface[],
+    rows: Record<string, unknown>[],
+    settings = buildSettings(),
+  ) =>
+    getMetricsAndQueryDataForStatsEngine(
+      new Map([
+        ["group_0", { result: rows, query: "SELECT 1" } as QueryInterface],
+      ]),
+      new Map(metrics.map((m) => [m.id, m])),
+      settings,
+    );
+
+  it("hands metrics with their own unit count to gbstats as separate results", () => {
+    const metrics = [
+      buildMetric("all_units", null),
+      buildMetric("one_day", 1),
+      buildMetric("two_days", 2),
+      buildMetric("one_day_again", 1),
+    ];
+    const rows = [
+      {
+        variation: "control",
+        users: 10,
+        count: 10,
+        users_cw1440m: 6,
+        users_cw2880m: 3,
+        m0_id: "all_units",
+        m0_main_sum: 1,
+        m1_id: "one_day",
+        m1_main_sum: 2,
+        m2_id: "two_days",
+        m2_main_sum: 3,
+        m3_id: "one_day_again",
+        m3_main_sum: 4,
+      },
+    ];
+
+    const { queryResults, metricSettings } = analyze(metrics, rows);
+
+    expect(Object.keys(metricSettings).sort()).toEqual(
+      metrics.map((m) => m.id).sort(),
+    );
+    expect(
+      queryResults.map((r) => [r.metrics, r.rows[0].users, r.rows[0].count]),
+    ).toEqual([
+      [["all_units", null, null, null], 10, 10],
+      [[null, "one_day", null, "one_day_again"], 6, 6],
+      [[null, null, "two_days", null], 3, 3],
+    ]);
+  });
+
+  it("reads a metric's unit count as the snapshot recorded it, not as the metric is now", () => {
+    const recorded = (
+      id: string,
+      unitEligibilityHours: number | null,
+    ): MetricForSnapshot => ({
+      id,
+      computedSettings: {
+        windowSettings: buildMetric(id, 1).windowSettings,
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentAvailable: false,
+        regressionAdjustmentDays: 0,
+        regressionAdjustmentReason: "",
+        properPrior: false,
+        properPriorMean: 0,
+        properPriorStdDev: 1,
+        ...(unitEligibilityHours !== null && { unitEligibilityHours }),
+      },
+    });
+    const { queryResults } = analyze(
+      // Since the queries ran, the first metric was switched off and the
+      // second switched on with a longer window
+      [buildMetric("was_on", null), buildMetric("was_off", 2)],
+      [
+        {
+          variation: "control",
+          users: 10,
+          count: 10,
+          users_cw1440m: 6,
+          m0_id: "was_on",
+          m0_main_sum: 1,
+          m1_id: "was_off",
+          m1_main_sum: 2,
+        },
+      ],
+      buildSettings([recorded("was_on", 24), recorded("was_off", null)]),
+    );
+
+    expect(queryResults.map((r) => [r.metrics, r.rows[0].users])).toEqual([
+      [[null, "was_off"], 10],
+      [["was_on", null], 6],
+    ]);
+  });
+
+  it("refuses rows that lack the unit count a metric needs", () => {
+    expect(() =>
+      analyze(
+        [buildMetric("one_day", 1)],
+        [
+          {
+            variation: "control",
+            users: 10,
+            count: 10,
+            m0_id: "one_day",
+            m0_main_sum: 1,
+          },
+        ],
+      ),
+    ).toThrow(/was changed after these results were computed/);
   });
 });

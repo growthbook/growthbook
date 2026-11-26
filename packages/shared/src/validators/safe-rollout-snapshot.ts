@@ -143,6 +143,7 @@ const metricForSnapshotObject = z.object({
       properPriorStdDev: z.number(),
       windowSettings: windowSettingsValidator,
       targetMDE: z.number().optional(),
+      unitEligibilityHours: z.number().optional(),
     })
     .optional(),
 });

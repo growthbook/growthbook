@@ -34,6 +34,7 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getMetricUsersColumn } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import {
   QueryRunner,
   QueryMap,
@@ -199,11 +200,14 @@ export function readMetricData({
   rows,
   metricPrefix,
   denominator,
+  usersColumn,
 }: {
   metric: ExperimentMetricInterface;
   rows: Record<string, string | number | undefined>[];
   metricPrefix?: string;
   denominator?: ExperimentMetricInterface;
+  /** Set for a metric that only analyzed units with complete data. */
+  usersColumn?: string | null;
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
   const prefix = metricPrefix ?? "";
   const metricData: PopulationDataMetric = {
@@ -222,7 +226,10 @@ export function readMetricData({
         (sum, r) => (sum += (r?.[prefix + "main_sum_squares"] as number) ?? 0),
         0,
       ),
-      count: rows.reduce((sum, r) => (sum += (r?.["count"] as number) ?? 0), 0),
+      count: rows.reduce(
+        (sum, r) => (sum += (r?.[usersColumn ?? "count"] as number) ?? 0),
+        0,
+      ),
       ...(isRatioMetric(metric, denominator)
         ? {
             denominator_sum: rows.reduce(
@@ -273,6 +280,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataResult
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private snapshotSettings: ExperimentSnapshotSettings | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -282,6 +290,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
   async startQueries(params: PopulationDataQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
+    this.snapshotSettings = params.snapshotSettings;
     return startPopulationDataQueries(
       this.context,
       params,
@@ -316,6 +325,9 @@ export class PopulationDataQueryRunner extends QueryRunner<
               rows,
               metricPrefix: prefix,
               denominator,
+              usersColumn:
+                this.snapshotSettings &&
+                getMetricUsersColumn(metric, this.snapshotSettings, null),
             });
             metrics.push(res.metric);
 

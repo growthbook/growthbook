@@ -118,6 +118,7 @@ export interface MetricForSnapshot {
     properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
     targetMDE?: number;
+    unitEligibilityHours?: number;
   };
 }
 

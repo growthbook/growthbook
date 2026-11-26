@@ -747,6 +747,71 @@ describe("snapshot planning", () => {
     expect(snapshotSettings).not.toHaveProperty("endDateIsCutoff");
   });
 
+  it("record how long a metric waits for units to convert, on it and its slices", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    Object.assign(metricMap.get("m_joinable") ?? {}, {
+      skipPartialData: true,
+      windowSettings: {
+        type: "conversion",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 2,
+        windowUnit: "days",
+      },
+    });
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+    const recordedHours = (settings: ExperimentSnapshotSettings) =>
+      settings.metricSettings.map(
+        (m) => m.computedSettings?.unitEligibilityHours,
+      );
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment: makeExperiment(experimentAnalysisSettings),
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+    });
+    expect(snapshotSettings.metricSettings.length).toBeGreaterThan(1);
+    expect(new Set(recordedHours(snapshotSettings))).toEqual(new Set([48]));
+
+    const reportSettings = getReportSnapshotSettings({
+      report: {
+        experimentAnalysisSettings,
+        experimentMetadata: {
+          phases: [{ variationWeights: [0.5, 0.5] }],
+          variations: [{ key: "0" }, { key: "1" }],
+        },
+      } as unknown as ExperimentSnapshotReportInterface,
+      analysisSettings: makeAnalysisSettings(),
+      phaseIndex: 0,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      datasource,
+    });
+    expect(recordedHours(reportSettings)).toEqual(
+      recordedHours(snapshotSettings),
+    );
+  });
+
   it("report settings drop unjoinable metrics and their slices", () => {
     const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
       makeJoinabilityFixture();

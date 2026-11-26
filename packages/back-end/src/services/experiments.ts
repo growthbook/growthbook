@@ -307,6 +307,7 @@ import {
 import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import type { ResolvedUpdateScope } from "back-end/src/services/experimentResults/plan/updateScope";
 import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { recordUnitEligibility } from "back-end/src/integrations/sql/dates/unit-eligibility";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1065,7 +1066,7 @@ export function getSnapshotSettings({
         }
       : undefined;
 
-  return {
+  const snapshotSettings: ExperimentSnapshotSettings = {
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     lookbackOverride: lookbackOverride,
@@ -1102,6 +1103,8 @@ export function getSnapshotSettings({
     ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
     plannedAt: currentDate,
   };
+  recordUnitEligibility(snapshotSettings, metricMap);
+  return snapshotSettings;
 }
 
 async function parseComboConstituent(
