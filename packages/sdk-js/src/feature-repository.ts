@@ -100,7 +100,7 @@ export const helpers: Helpers = {
 };
 
 try {
-  if (globalThis.localStorage) {
+  if (typeof window !== "undefined" && globalThis.localStorage) {
     polyfills.localStorage = globalThis.localStorage;
   }
 } catch (e) {
