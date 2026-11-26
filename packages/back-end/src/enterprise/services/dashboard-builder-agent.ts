@@ -27,7 +27,7 @@ const builderContext = (dashboardId: string, mode: BuilderParams["mode"]) =>
   mode === "build"
     ? `
 <dashboard_builder>
-You are working inside GrowthBook's dashboard builder on the unpublished dashboard ${dashboardId}. The user sees it next to this chat and watches each block appear as you add it.
+You are working inside GrowthBook's dashboard builder on dashboard ${dashboardId}. Your changes go to its draft, which the user sees next to this chat as you make them; viewers see nothing until the draft is published.
 
 Load the analytics skill and follow its dashboard workflows. This dashboard already exists, so skip the step that creates one: build by adding blocks to its draft, and change it by editing that draft.
 Before the first block of a build, call planDashboard once with the title and every block you intend to add.

@@ -3,7 +3,6 @@ import pick from "lodash/pick";
 import {
   KeyboardEvent,
   MouseEvent,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -22,12 +21,8 @@ import {
   DashboardInterface,
   DashboardVersionInterface,
 } from "shared/enterprise";
-import type { AIChatMention } from "shared/ai-chat";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAISettings } from "@/hooks/useOrgSettings";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Badge from "@/ui/Badge";
@@ -35,17 +30,15 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import { useAIChat } from "@/enterprise/hooks/useAIChat";
-import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
-import { LOCALSTORAGE_EXPLORER_DATASOURCE_KEY } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DashboardEditor from "./DashboardEditor";
 import DashboardModal from "./DashboardModal";
+import { DashboardCommentsProvider } from "./DashboardComments";
 import DashboardDraftChanges from "./DashboardDraftChanges";
 import DashboardSnapshotProvider, {
   DashboardSnapshotContext,
 } from "./DashboardSnapshotProvider";
-import DashboardBuilderRail, { BuilderMode } from "./DashboardBuilderRail";
-import { takeDashboardBuilderHandoff } from "./dashboardBuilderHandoff";
+import DashboardBuilderRail from "./DashboardBuilderRail";
+import { useDashboardBuilderChat } from "./useDashboardBuilderChat";
 import { addingBlockTitle } from "./dashboardBuilderSteps";
 import styles from "./DashboardBuilder.module.scss";
 
@@ -134,27 +127,7 @@ export default function DashboardBuilderView({
   mutate: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
-  const { defaultAIModel } = useAISettings();
-  const { getDatasourceById } = useDefinitions();
-  const handoffRef = useRef(takeDashboardBuilderHandoff(dashboard.id));
-  const [mode, setMode] = useState<BuilderMode>(
-    handoffRef.current?.mode ?? "build",
-  );
   const [railOpen, setRailOpen] = useState(true);
-  const [explorerDatasourceId] = useLocalStorage<string>(
-    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
-    "",
-  );
-  // Kept per dashboard so a reload keeps building from the same Data Source.
-  const [datasourceId, setDatasourceId] = useLocalStorage<string>(
-    `dashboard-builder-datasource:${dashboard.id}`,
-    handoffRef.current?.datasourceId || explorerDatasourceId,
-  );
-  useEffect(() => {
-    const picked = handoffRef.current?.datasourceId;
-    if (picked) setDatasourceId(picked);
-  }, [setDatasourceId]);
-  const datasourceName = getDatasourceById(datasourceId)?.name ?? "";
   const [publishOpen, setPublishOpen] = useState(false);
   const [note, setNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -169,81 +142,8 @@ export default function DashboardBuilderView({
   const draft = draftData?.draft ?? null;
   const content = draft?.content ?? dashboard;
 
-  const pendingMentionsRef = useRef<AIChatMention[]>([]);
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
-  const buildRequestBody = useCallback(
-    (message: string, conversationId: string) => {
-      const mentions = pendingMentionsRef.current;
-      pendingMentionsRef.current = [];
-      return {
-        message,
-        conversationId,
-        dashboardId: dashboard.id,
-        datasourceId,
-        mode: modeRef.current,
-        model: defaultAIModel,
-        ...(mentions.length ? { mentions } : {}),
-      };
-    },
-    [dashboard.id, datasourceId, defaultAIModel],
-  );
-
-  const {
-    messages,
-    activeTurnItems,
-    displayedTextMap,
-    sendMessage,
-    cancelGeneration,
-    loading,
-    isLocalStream,
-    error,
-    input,
-    setInput,
-    conversationId,
-  } = useAIChat({
-    endpoint: "/dashboards/chat",
-    buildRequestBody,
-    conversationStorageKey: `dashboard-builder-chat:${dashboard.id}`,
-    getConversationEndpoint: (cid) => `/dashboards/chat/${cid}`,
-    getCancelEndpoint: (cid) => `/dashboards/chat/${cid}/cancel`,
-    onSSEEvent: (event) => {
-      // Any finished call may have changed the draft; refetching is cheap.
-      if (event.type === "tool-call-end") void mutateDraft();
-    },
-  });
-
-  const { scrollContainerRef, messagesEndRef, handleScroll, resumeAutoScroll } =
-    useAutoScroll({
-      messages,
-      activeTurnItems,
-      displayedTextMap,
-      conversationId,
-    });
-
-  const send = useCallback(
-    (text: string, mentions: AIChatMention[] = []) => {
-      if (!text.trim()) return;
-      pendingMentionsRef.current = mentions;
-      resumeAutoScroll();
-      sendMessage(text, { mentions });
-    },
-    [resumeAutoScroll, sendMessage],
-  );
-
-  useEffect(() => {
-    const handoff = handoffRef.current;
-    if (!handoff) return;
-    handoffRef.current = null;
-    send(handoff.text, handoff.mentions);
-  }, [send]);
-
-  // A build that finished while this tab was polling still needs its last blocks.
-  const wasLoading = useRef(false);
-  useEffect(() => {
-    if (wasLoading.current && !loading) void mutateDraft();
-    wasLoading.current = loading;
-  }, [loading, mutateDraft]);
+  const { mode, datasourceName, send, loading, activeTurnItems, rail } =
+    useDashboardBuilderChat(dashboard.id, () => void mutateDraft());
 
   const buildingBlocks = activeTurnItems.flatMap((item) => {
     if (item.kind !== "tool-status" || item.status !== "running") return [];
@@ -457,44 +357,56 @@ export default function DashboardBuilderView({
         ) : null}
 
         {blockCount > 0 ? (
-          <DashboardSnapshotProvider
-            dashboard={{ ...dashboard, ...content }}
-            mutateDefinitions={mutateDraft}
+          <DashboardCommentsProvider
+            dashboardId={dashboard.id}
+            version={draft?.version ?? 1}
+            onSendToAI={(text) => {
+              setRailOpen(true);
+              send(text);
+            }}
           >
-            <RefreshBlockData stamp={String(draft?.dateUpdated ?? "")} />
-            <DashboardEditor
-              hideHeader
-              isTabActive
-              id={dashboard.id}
-              initialEditLevel={dashboard.editLevel}
-              ownerId={dashboard.userId}
-              initialShareLevel={dashboard.shareLevel}
-              dashboardOwnerId={dashboard.userId}
-              isGeneralDashboard={true}
-              isEditing={false}
-              title={content.title}
-              blocks={content.blocks}
-              globalControls={content.globalControls}
-              enableAutoUpdates={dashboard.enableAutoUpdates}
-              setBlock={undefined}
-              projects={dashboard.projects ?? []}
-              mutate={() => void mutateDraft()}
-              updateSchedule={dashboard.updateSchedule || undefined}
-              nextUpdate={dashboard.nextUpdate}
-              dashboardLastUpdated={dashboard.lastUpdated}
-              dashboardComparison={content.comparison}
-              onGlobalControlsChange={(globalControls) =>
-                editDraft({ op: "set-settings", settings: { globalControls } })
-              }
-              onDashboardComparisonChange={(comparison) =>
-                editDraft({
-                  op: "set-settings",
-                  // An absent comparison would be read as "leave it alone".
-                  settings: { comparison: comparison ?? { enabled: false } },
-                })
-              }
-            />
-          </DashboardSnapshotProvider>
+            <DashboardSnapshotProvider
+              dashboard={{ ...dashboard, ...content }}
+              mutateDefinitions={mutateDraft}
+            >
+              <RefreshBlockData stamp={String(draft?.dateUpdated ?? "")} />
+              <DashboardEditor
+                hideHeader
+                isTabActive
+                id={dashboard.id}
+                initialEditLevel={dashboard.editLevel}
+                ownerId={dashboard.userId}
+                initialShareLevel={dashboard.shareLevel}
+                dashboardOwnerId={dashboard.userId}
+                isGeneralDashboard={true}
+                isEditing={false}
+                title={content.title}
+                blocks={content.blocks}
+                globalControls={content.globalControls}
+                enableAutoUpdates={dashboard.enableAutoUpdates}
+                setBlock={undefined}
+                projects={dashboard.projects ?? []}
+                mutate={() => void mutateDraft()}
+                updateSchedule={dashboard.updateSchedule || undefined}
+                nextUpdate={dashboard.nextUpdate}
+                dashboardLastUpdated={dashboard.lastUpdated}
+                dashboardComparison={content.comparison}
+                onGlobalControlsChange={(globalControls) =>
+                  editDraft({
+                    op: "set-settings",
+                    settings: { globalControls },
+                  })
+                }
+                onDashboardComparisonChange={(comparison) =>
+                  editDraft({
+                    op: "set-settings",
+                    // An absent comparison would be read as "leave it alone".
+                    settings: { comparison: comparison ?? { enabled: false } },
+                  })
+                }
+              />
+            </DashboardSnapshotProvider>
+          </DashboardCommentsProvider>
         ) : buildingBlocks.length === 0 ? (
           <Flex
             direction="column"
@@ -538,24 +450,9 @@ export default function DashboardBuilderView({
 
       {railOpen ? (
         <DashboardBuilderRail
+          {...rail}
           dashboardTitle={content.title}
-          datasourceName={datasourceName}
-          messages={messages}
-          activeTurnItems={activeTurnItems}
-          displayedTextMap={displayedTextMap}
-          loading={loading}
-          isLocalStream={isLocalStream}
-          error={error}
-          mode={mode}
-          setMode={setMode}
-          input={input}
-          setInput={setInput}
-          onSend={send}
-          onCancel={cancelGeneration}
           onClose={() => setRailOpen(false)}
-          scrollContainerRef={scrollContainerRef}
-          messagesEndRef={messagesEndRef}
-          onScroll={handleScroll}
         />
       ) : null}
     </Flex>

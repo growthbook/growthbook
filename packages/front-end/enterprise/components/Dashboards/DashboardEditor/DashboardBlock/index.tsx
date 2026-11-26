@@ -30,6 +30,7 @@ import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { DashboardBlockComments } from "@/enterprise/components/Dashboards/DashboardComments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -635,6 +636,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             <div style={{ flexGrow: 1, marginRight: 30 }} />
           </>
         )}
+        {"id" in block && block.id ? (
+          <DashboardBlockComments
+            blockId={block.id}
+            blockTitle={block.title || getDefaultValueForTitle(block.type)}
+          />
+        ) : null}
 
         {isEditing ? (
           <div>

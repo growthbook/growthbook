@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiClockCounterClockwise } from "react-icons/pi";
+import { BsStars } from "react-icons/bs";
 import { date } from "shared/dates";
 import { useRouter } from "next/router";
 import {
@@ -28,6 +29,11 @@ import Modal from "@/ui/Modal/Patterns/ModalStandard";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import { DashboardCommentsProvider } from "@/enterprise/components/Dashboards/DashboardComments";
+import DashboardAssistantRail, {
+  ASSISTANT_RAIL_WIDTH,
+} from "@/enterprise/components/Dashboards/DashboardAssistantRail";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import DashboardBuilderView from "@/enterprise/components/Dashboards/DashboardBuilderView";
 
 function SingleDashboardPage() {
@@ -70,6 +76,9 @@ function SingleDashboardPage() {
     null,
   );
   const [note, setNote] = useState("");
+  const { aiEnabled } = useAISettings();
+  const [railOpen, setRailOpen] = useState(false);
+  const [aiMessage, setAiMessage] = useState<{ text: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   // An earlier version shown read-only.
   const [preview, setPreview] = useState<DashboardVersionInterface | null>(
@@ -244,6 +253,9 @@ function SingleDashboardPage() {
   }
 
   const viewingDraft = !!draft && (showDraft || isEditing);
+  const canUseAssistant =
+    canEdit && aiEnabled && hasCommercialFeature("ai-suggestions");
+  const assistantOpen = railOpen && canUseAssistant && !preview && !isEditing;
   const changes = draft ? diffDashboardContent(dashboard, draft.content) : [];
   const draftCall = async (path: string, method: string, body?: unknown) => {
     await apiCall(`/dashboards/${dashboard.id}/draft${path}`, {
@@ -266,7 +278,22 @@ function SingleDashboardPage() {
   };
 
   return (
-    <div className="container-fluid pagecontents">
+    <div
+      className="container-fluid pagecontents"
+      style={assistantOpen ? { paddingRight: ASSISTANT_RAIL_WIDTH } : undefined}
+    >
+      {assistantOpen ? (
+        <DashboardAssistantRail
+          dashboardId={dashboard.id}
+          dashboardTitle={(shown ?? dashboard).title}
+          message={aiMessage}
+          onDraftChange={() => {
+            void mutateDraft();
+            setShowDraft(true);
+          }}
+          onClose={() => setRailOpen(false)}
+        />
+      ) : null}
       <PageHead
         breadcrumb={[
           {
@@ -417,22 +444,38 @@ function SingleDashboardPage() {
           ) : null}
         </Flex>
       ) : null}
-      {dashboard.publishedVersion && !isEditing && !preview ? (
+      {(dashboard.publishedVersion || canUseAssistant) &&
+      !isEditing &&
+      !preview ? (
         <Flex align="center" justify="end" gap="2" mb="2">
-          <Badge
-            color="gray"
-            variant="soft"
-            radius="full"
-            label={`v${dashboard.publishedVersion}`}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<PiClockCounterClockwise />}
-            onClick={() => setHistoryOpen(true)}
-          >
-            History
-          </Button>
+          {dashboard.publishedVersion ? (
+            <>
+              <Badge
+                color="gray"
+                variant="soft"
+                radius="full"
+                label={`v${dashboard.publishedVersion}`}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<PiClockCounterClockwise />}
+                onClick={() => setHistoryOpen(true)}
+              >
+                History
+              </Button>
+            </>
+          ) : null}
+          {canUseAssistant && !railOpen ? (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<BsStars />}
+              onClick={() => setRailOpen(true)}
+            >
+              AI Assistant
+            </Button>
+          ) : null}
         </Flex>
       ) : null}
       {draft && !preview ? (
@@ -508,90 +551,110 @@ function SingleDashboardPage() {
           commercialFeature="product-analytics-dashboards"
         />
       )}
-      <DashboardSnapshotProvider
-        dashboard={shown ?? dashboard}
-        mutateDefinitions={mutate}
-        version={preview?.version}
+      <DashboardCommentsProvider
+        dashboardId={dashboard.id}
+        version={
+          preview?.version ??
+          (viewingDraft && draft
+            ? draft.version
+            : (dashboard.publishedVersion ?? 1))
+        }
+        onSendToAI={
+          canUseAssistant && !preview
+            ? (text) => {
+                setRailOpen(true);
+                setAiMessage({ text });
+              }
+            : undefined
+        }
       >
-        {isEditing && dashboard ? (
-          <DashboardWorkspace
-            experiment={null}
-            dashboard={shown ?? dashboard}
-            submitDashboard={({ method, dashboardId, data }) =>
-              submitDashboard({ method, dashboardId, data })
-            }
-            mutate={mutate}
-            close={() => {
-              setIsEditing(false);
-              setInitialEditBlockIndex(null);
-            }}
-            isTabActive={true}
-            initialEditBlockIndex={initialEditBlockIndex}
-            onConsumeInitialEditBlockIndex={() =>
-              setInitialEditBlockIndex(null)
-            }
-          />
-        ) : (
-          <DashboardEditor
-            isTabActive
-            id={dashboard.id}
-            initialEditLevel={dashboard.editLevel}
-            ownerId={dashboard.userId}
-            initialShareLevel={dashboard.shareLevel}
-            dashboardOwnerId={dashboard.userId}
-            isGeneralDashboard={true}
-            isEditing={false}
-            title={(shown ?? dashboard).title}
-            blocks={blocks}
-            globalControls={globalControls}
-            enableAutoUpdates={dashboard.enableAutoUpdates}
-            setBlock={canEdit && !preview ? memoizedSetBlock : undefined}
-            projects={dashboard.projects ? dashboard.projects : []}
-            mutate={mutate}
-            updateSchedule={dashboard.updateSchedule || undefined}
-            nextUpdate={dashboard.nextUpdate}
-            dashboardLastUpdated={dashboard.lastUpdated}
-            setIsEditing={preview ? undefined : setIsEditing}
-            enterEditModeForBlock={preview ? undefined : enterEditModeForBlock}
-            onGlobalControlsChange={
-              preview
-                ? undefined
-                : async (globalControls, controlBlocks) => {
-                    setGlobalControls(globalControls);
-                    if (controlBlocks) {
-                      setBlocks(controlBlocks);
+        <DashboardSnapshotProvider
+          dashboard={shown ?? dashboard}
+          mutateDefinitions={mutate}
+          version={preview?.version}
+        >
+          {isEditing && dashboard ? (
+            <DashboardWorkspace
+              experiment={null}
+              dashboard={shown ?? dashboard}
+              submitDashboard={({ method, dashboardId, data }) =>
+                submitDashboard({ method, dashboardId, data })
+              }
+              mutate={mutate}
+              close={() => {
+                setIsEditing(false);
+                setInitialEditBlockIndex(null);
+              }}
+              isTabActive={true}
+              initialEditBlockIndex={initialEditBlockIndex}
+              onConsumeInitialEditBlockIndex={() =>
+                setInitialEditBlockIndex(null)
+              }
+            />
+          ) : (
+            <DashboardEditor
+              isTabActive
+              id={dashboard.id}
+              initialEditLevel={dashboard.editLevel}
+              ownerId={dashboard.userId}
+              initialShareLevel={dashboard.shareLevel}
+              dashboardOwnerId={dashboard.userId}
+              isGeneralDashboard={true}
+              isEditing={false}
+              title={(shown ?? dashboard).title}
+              blocks={blocks}
+              globalControls={globalControls}
+              enableAutoUpdates={dashboard.enableAutoUpdates}
+              setBlock={canEdit && !preview ? memoizedSetBlock : undefined}
+              projects={dashboard.projects ? dashboard.projects : []}
+              mutate={mutate}
+              updateSchedule={dashboard.updateSchedule || undefined}
+              nextUpdate={dashboard.nextUpdate}
+              dashboardLastUpdated={dashboard.lastUpdated}
+              setIsEditing={preview ? undefined : setIsEditing}
+              enterEditModeForBlock={
+                preview ? undefined : enterEditModeForBlock
+              }
+              onGlobalControlsChange={
+                preview
+                  ? undefined
+                  : async (globalControls, controlBlocks) => {
+                      setGlobalControls(globalControls);
+                      if (controlBlocks) {
+                        setBlocks(controlBlocks);
+                      }
+                      await submitDashboard({
+                        method: "PUT",
+                        dashboardId: dashboard.id,
+                        data: {
+                          globalControls,
+                          ...(controlBlocks ? { blocks: controlBlocks } : {}),
+                        },
+                      });
                     }
-                    await submitDashboard({
-                      method: "PUT",
-                      dashboardId: dashboard.id,
-                      data: {
-                        globalControls,
-                        ...(controlBlocks ? { blocks: controlBlocks } : {}),
-                      },
-                    });
-                  }
-            }
-            dashboardComparison={dashboardComparison}
-            onDashboardComparisonChange={
-              preview
-                ? undefined
-                : async (comparison) => {
-                    // Turning compare off has to persist `{ enabled: false }` rather
-                    // than `undefined`: the PUT body drops undefined keys, which the
-                    // model reads as "leave this field alone". `resolveBlockComparison`
-                    // treats a disabled comparison and an absent one identically.
-                    const next = comparison ?? { enabled: false };
-                    setDashboardComparison(next);
-                    await submitDashboard({
-                      method: "PUT",
-                      dashboardId: dashboard.id,
-                      data: { comparison: next },
-                    });
-                  }
-            }
-          />
-        )}
-      </DashboardSnapshotProvider>
+              }
+              dashboardComparison={dashboardComparison}
+              onDashboardComparisonChange={
+                preview
+                  ? undefined
+                  : async (comparison) => {
+                      // Turning compare off has to persist `{ enabled: false }` rather
+                      // than `undefined`: the PUT body drops undefined keys, which the
+                      // model reads as "leave this field alone". `resolveBlockComparison`
+                      // treats a disabled comparison and an absent one identically.
+                      const next = comparison ?? { enabled: false };
+                      setDashboardComparison(next);
+                      await submitDashboard({
+                        method: "PUT",
+                        dashboardId: dashboard.id,
+                        data: { comparison: next },
+                      });
+                    }
+              }
+            />
+          )}
+        </DashboardSnapshotProvider>
+      </DashboardCommentsProvider>
     </div>
   );
 }

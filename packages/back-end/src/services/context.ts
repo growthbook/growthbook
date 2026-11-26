@@ -43,6 +43,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { DashboardVersionModel } from "back-end/src/enterprise/models/DashboardVersionModel";
+import { DashboardCommentModel } from "back-end/src/enterprise/models/DashboardCommentModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -162,6 +163,7 @@ export type ModelName =
   | "holdout"
   | "dashboards"
   | "dashboardVersions"
+  | "dashboardComments"
   | "customHooks"
   | "incrementalRefresh"
   | "dags"
@@ -233,6 +235,7 @@ export const modelClasses = {
   holdout: HoldoutModel,
   dashboards: DashboardModel,
   dashboardVersions: DashboardVersionModel,
+  dashboardComments: DashboardCommentModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
   dags: DagModel,
@@ -437,6 +440,7 @@ export class ReqContextClass {
       holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
       dashboardVersions: new DashboardVersionModel(this),
+      dashboardComments: new DashboardCommentModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
       dags: new DagModel(this),

@@ -49,6 +49,32 @@ export type DashboardVersionInterface = z.infer<
   typeof dashboardVersionInterface
 >;
 
+// A discussion on one block. Resolving it is not versioned.
+export const dashboardCommentThreadInterface = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    dashboardId: z.string(),
+    blockId: z.string(),
+    version: z.number().int().min(1), // The version it was started on
+    resolved: z.boolean().optional(),
+    comments: z.array(
+      z
+        .object({
+          userId: z.string(),
+          content: z.string(),
+          date: z.date(),
+        })
+        .strict(),
+    ),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+  })
+  .strict();
+export type DashboardCommentThreadInterface = z.infer<
+  typeof dashboardCommentThreadInterface
+>;
+
 const removeBlockOp = z.strictObject({
   op: z.literal("remove-block"),
   blockId: z.string(),

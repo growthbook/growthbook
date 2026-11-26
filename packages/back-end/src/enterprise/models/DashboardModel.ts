@@ -506,6 +506,7 @@ export class DashboardModel extends BaseClass {
 
   protected async afterDelete(doc: DashboardDocument) {
     await this.context.models.dashboardVersions.deleteAllForDashboard(doc.id);
+    await this.context.models.dashboardComments.deleteAllForDashboard(doc.id);
   }
 
   protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
