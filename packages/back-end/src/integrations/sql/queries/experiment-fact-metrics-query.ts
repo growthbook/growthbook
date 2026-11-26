@@ -916,6 +916,7 @@ export function getExperimentFactMetricsQuery(
           experimentId: settings.experimentId,
           addFiltersToWhere: true,
           phase: settings.phase,
+          project: settings.project,
           customFields: settings.customFields,
           // The units query outputs the cluster id as a string (it shares a
           // column with the multiple-cluster sentinel), so cluster-level

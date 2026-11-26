@@ -76,6 +76,7 @@ export function getExperimentExposuresQuery(
       endDate: params.endDate,
       experimentId: params.experimentTrackingKey,
       phase: params.phase,
+      project: params.project,
       customFields: params.customFields,
     },
     dialect,

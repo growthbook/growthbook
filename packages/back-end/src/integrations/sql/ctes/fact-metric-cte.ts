@@ -9,7 +9,7 @@ import {
   parseSliceMetricId,
 } from "shared/experiments";
 import { buildMinimalOrCondition } from "shared/sql";
-import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
+import type { PhaseSQLVar, ProjectSQLVar, SqlDialect } from "shared/types/sql";
 import type {
   FactMetricInterface,
   FactTableInterface,
@@ -40,6 +40,7 @@ export function getFactMetricCTE(
     exclusiveStartDateFilter,
     exclusiveEndDateFilter,
     phase,
+    project,
     customFields,
   }: {
     metricsWithIndices: { metric: FactMetricInterface; index: number }[];
@@ -53,6 +54,7 @@ export function getFactMetricCTE(
     experimentId?: string;
     addFiltersToWhere?: boolean;
     phase?: PhaseSQLVar;
+    project?: ProjectSQLVar;
     customFields?: Record<string, unknown>;
     exclusiveStartDateFilter?: boolean;
     exclusiveEndDateFilter?: boolean;
@@ -309,6 +311,7 @@ export function getFactMetricCTE(
       experimentId,
       templateVariables: getFactTableTemplateVariables(factTable),
       phase,
+      project,
       customFields,
     },
     dialect,

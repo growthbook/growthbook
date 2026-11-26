@@ -7,7 +7,7 @@ import {
   isFactMetric,
   parseSliceMetricId,
 } from "shared/experiments";
-import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
+import type { PhaseSQLVar, ProjectSQLVar, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
@@ -26,6 +26,7 @@ export function getMetricCTE(
     factTableMap,
     useDenominator,
     phase,
+    project,
     customFields,
   }: {
     metric: ExperimentMetricInterface;
@@ -37,6 +38,7 @@ export function getMetricCTE(
     factTableMap: FactTableMap;
     useDenominator?: boolean;
     phase?: PhaseSQLVar;
+    project?: ProjectSQLVar;
     customFields?: Record<string, unknown>;
   },
 ): string {
@@ -170,6 +172,7 @@ export function getMetricCTE(
       endDate: endDate || undefined,
       experimentId,
       phase,
+      project,
       customFields,
       templateVariables: getMetricTemplateVariables(
         metric,
