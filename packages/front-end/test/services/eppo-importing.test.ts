@@ -933,8 +933,21 @@ describe("transformMetric", () => {
     expect(() => sum("__count__")).toThrow(
       'Column "__count__" isn\'t in the "Purchases" Fact Table',
     );
-    expect(() => sum(null)).toThrow("needs a value column");
-    expect(() => sum("")).toThrow("needs a value column");
+    // Eppo's API sends the constant 1 for an "Each Record" fact
+    expect(sum("1").numerator).toMatchObject({ column: "$$count" });
+    expect(sum(" 1 ").numerator).toMatchObject({ column: "$$count" });
+    expect(() =>
+      transformMetric(
+        mkMetric({
+          numerator_aggregation: agg("countDistinct", { column: "1" }),
+        }),
+        ctx,
+      ),
+    ).toThrow("counts each record");
+    expect(() => sum("2")).toThrow('"2" is a constant');
+    // A null or empty column is the same each-record fact
+    expect(sum(null).numerator).toMatchObject({ column: "$$count" });
+    expect(sum("").numerator).toMatchObject({ column: "$$count" });
     expect(() =>
       transformMetric(
         mkMetric({
