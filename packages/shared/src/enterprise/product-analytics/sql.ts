@@ -125,35 +125,34 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
 //   `populationCount` rather than returned as a value
 type SeriesRole = "value" | "denominator" | "populationCount";
 
-/**
- * What kind of series this is, with only the settings that kind uses. A
- * metric's series have one variant per StandardFactMetric type (every type but
- * funnel and compound, which the explorer rejects); getMetricSeriesType's
- * exhaustive switch keeps them in step. A ratio's value and denominator series
- * share it. Simple values and Populations have their own kinds.
- */
-type SeriesType =
-  | { type: "mean"; capping: MetricCappingSettings | null }
-  | { type: "ratio"; capping: MetricCappingSettings | null }
-  | { type: "proportion" }
-  // Retention, daily participation and quantile series are capped although
-  // isCappableFactMetric says those types aren't cappable. Kept to match
-  // existing behavior.
-  | { type: "retention"; capping: MetricCappingSettings | null }
-  | { type: "dailyParticipation"; capping: MetricCappingSettings | null }
-  | {
-      type: "quantile";
-      capping: MetricCappingSettings | null;
-      /** "event" takes the quantile over rows, skipping per-unit aggregation. */
-      level: "unit" | "event";
-      quantile: number;
-    }
-  // A fact table, data source or SQL value
-  | { type: "simpleValue" }
-  // A Population value, or a metric dataset's Population member count
-  | { type: "population" };
+// How a series turns its measure into a number. Decided by what the series
+// comes from (see getMetricSeriesSettings for metrics); a ratio's value and
+// denominator series share them.
+type SeriesSettings = {
+  /** Caps each row's value before it's aggregated; null when not capped. */
+  capping: MetricCappingSettings | null;
+  /** How the per-unit (or per-row) values become the series' number. */
+  rollup:
+    | {
+        kind: "total";
+        /** Also report how many units have a value, for "Show as". */
+        countsUnits: boolean;
+      }
+    | {
+        kind: "quantile";
+        /** "event" takes the quantile over rows, skipping per-unit aggregation. */
+        level: "unit" | "event";
+        quantile: number;
+      };
+};
 
-type Series = { measure: Measure } & SeriesType &
+// Simple values and Populations: not capped, and a total with a per-unit count
+const UNCAPPED_TOTAL: SeriesSettings = {
+  capping: null,
+  rollup: { kind: "total", countsUnits: true },
+};
+
+type Series = { measure: Measure } & SeriesSettings &
   (
     | {
         role: "value";
@@ -239,17 +238,21 @@ function getSeriesUnits(series: Series[]): string[] {
   return Array.from(new Set(series.flatMap((s) => (s.unit ? [s.unit] : []))));
 }
 
-// A metric's series type, with the settings its type uses. Proportion and
-// daily participation metrics are defined per unit; requiring their measure
-// kind here lets the measure's own plan decide per-unit aggregation.
-function getMetricSeriesType(
+// A metric's series settings, by its type. This is the one place that turns
+// metric types into SQL behavior, so a new metric type won't compile until it's
+// handled. Proportion and daily participation metrics are defined per unit;
+// requiring their measure kind here lets the measure's own plan decide per-unit
+// aggregation.
+function getMetricSeriesSettings(
   metric: Pick<
     StandardFactMetricInterface,
     "id" | "metricType" | "cappingSettings" | "quantileSettings"
   >,
   numerator: Measure,
-): SeriesType {
+): SeriesSettings {
   const { metricType, cappingSettings, quantileSettings } = metric;
+  // Applied to every type but proportion, as before, although
+  // isCappableFactMetric only allows capping mean and ratio metrics
   const capping =
     cappingSettings && getCappingTailState(cappingSettings).anyCap
       ? cappingSettings
@@ -261,20 +264,20 @@ function getMetricSeriesType(
           `Proportion Fact Metric ${metric.id} must measure unique users`,
         );
       }
-      return { type: "proportion" };
+      return UNCAPPED_TOTAL;
     case "mean":
-      return { type: "mean", capping };
-    case "ratio":
-      return { type: "ratio", capping };
     case "retention":
-      return { type: "retention", capping };
+      return { capping, rollup: { kind: "total", countsUnits: true } };
+    case "ratio":
+      // A ratio reports its own denominator, not a per-unit count
+      return { capping, rollup: { kind: "total", countsUnits: false } };
     case "dailyParticipation":
       if (numerator.kind !== "distinctDays") {
         throw new Error(
           `Daily participation Fact Metric ${metric.id} must measure distinct dates`,
         );
       }
-      return { type: "dailyParticipation", capping };
+      return { capping, rollup: { kind: "total", countsUnits: true } };
     case "quantile":
       if (!quantileSettings) {
         throw new Error(
@@ -282,10 +285,12 @@ function getMetricSeriesType(
         );
       }
       return {
-        type: "quantile",
         capping,
-        level: quantileSettings.type,
-        quantile: quantileSettings.quantile,
+        rollup: {
+          kind: "quantile",
+          level: quantileSettings.type,
+          quantile: quantileSettings.quantile,
+        },
       };
   }
   return assertNever(metricType);
@@ -315,7 +320,7 @@ function getSimpleValueSeries(value: SimpleValue, index: number): Series {
     index,
     unit: value.unit || undefined,
     measure,
-    type: "simpleValue",
+    ...UNCAPPED_TOTAL,
   };
 }
 
@@ -345,7 +350,7 @@ function createPopulationCountSeries(
     role: "populationCount",
     unit: population.unit,
     measure: getPopulationMeasure(population),
-    type: "population",
+    ...UNCAPPED_TOTAL,
   };
 }
 
@@ -377,7 +382,7 @@ function getPopulationFactTableGroups(
       index,
       unit: value.unit,
       measure: getPopulationMeasure(value),
-      type: "population",
+      ...UNCAPPED_TOTAL,
     });
   });
   return Object.values(groups);
@@ -505,7 +510,7 @@ function getFactTableGroups({
             });
           const { numerator, denominator } = originalMetric;
           const numeratorMeasure = withValueRowFilters(numerator);
-          const seriesType = getMetricSeriesType(
+          const seriesSettings = getMetricSeriesSettings(
             originalMetric,
             numeratorMeasure,
           );
@@ -528,7 +533,7 @@ function getFactTableGroups({
             index: valueIndex,
             unit: value.unit || undefined,
             measure: numeratorMeasure,
-            ...seriesType,
+            ...seriesSettings,
           });
 
           if (originalMetric.metricType === "ratio" && denominator) {
@@ -553,7 +558,7 @@ function getFactTableGroups({
               index: valueIndex,
               unit: value.denominatorUnit || undefined,
               measure: withValueRowFilters(denominator),
-              ...seriesType,
+              ...seriesSettings,
             });
           }
           valueIndex++;
@@ -1190,8 +1195,8 @@ function getSeriesSql(
   const { measure, unit, role } = series;
   const alias = getSeriesAlias(series);
   const plan = getMeasurePlan(measure);
-  const capping = "capping" in series ? series.capping : null;
-  const quantile = series.type === "quantile" ? series : null;
+  const { capping, rollup } = series;
+  const quantile = rollup.kind === "quantile" ? rollup : null;
 
   const skipUnitAggregation = quantile?.level === "event";
   const { requiresUnitAggregation } = plan;
@@ -1222,10 +1227,13 @@ function getSeriesSql(
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable
   // cost, narrow the guard to metric datasets where per-unit is meaningful.
-  // Ratios and quantiles have no per-unit total to show
-  const countsUnits = series.type !== "ratio" && series.type !== "quantile";
   const rollupCountExpr =
-    selectedUnit && role === "value" && countsUnits ? `COUNT(${alias})` : null;
+    selectedUnit &&
+    role === "value" &&
+    rollup.kind === "total" &&
+    rollup.countsUnits
+      ? `COUNT(${alias})`
+      : null;
 
   // Count-like aggregates can turn another series' users into zero contributors.
   // SUM/MAX already preserve NULL for absent activity and need no extra guard.
@@ -1375,7 +1383,7 @@ function generatePercentileCapsCTE(
 ): CTE | null {
   const selects: string[] = [];
   factTableGroup.series.forEach((s) => {
-    const capping = "capping" in s ? s.capping : null;
+    const { capping } = s;
     if (!capping) return;
 
     const seriesSql = getSeriesSql(s, factTableGroup, helpers);
