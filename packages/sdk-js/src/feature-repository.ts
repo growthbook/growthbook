@@ -153,7 +153,12 @@ export async function refreshFeatures({
   allowStale?: boolean;
   backgroundSync?: boolean;
 }): Promise<FetchResponse> {
-  if (!backgroundSync) {
+  // Legacy opt-out: an explicit `false` disables background sync for every
+  // instance in this process (same as configureCache({ backgroundSync: false })).
+  // Undefined means the caller did not opt in: leave the global switch (which
+  // legacy paths and explicit opt-ins rely on) untouched; this refresh alone
+  // starts no subscription - see startAutoRefresh.
+  if (backgroundSync === false) {
     cacheSettings.backgroundSync = false;
   }
 
@@ -162,6 +167,7 @@ export async function refreshFeatures({
     allowStale,
     timeout,
     skipCache,
+    backgroundSync,
   });
 }
 
@@ -239,16 +245,19 @@ async function updatePersistentCache() {
 }
 
 // SWR wrapper for fetching features. May indirectly or directly start SSE streaming.
+// `backgroundSync` is this refresh's opt-in to (re)starting a stream; see startAutoRefresh.
 async function fetchFeaturesWithCache({
   instance,
   allowStale,
   timeout,
   skipCache,
+  backgroundSync,
 }: {
   instance: GrowthBook | GrowthBookClient;
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
+  backgroundSync?: boolean;
 }): Promise<FetchResponse> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -271,15 +280,18 @@ async function fetchFeaturesWithCache({
 
     // Reload features in the background if stale
     if (existing.staleAt < now) {
-      fetchFeatures(instance);
+      fetchFeatures(instance, backgroundSync);
     }
     // Otherwise, if we don't need to refresh now, start a background sync
     else {
-      startAutoRefresh(instance);
+      startAutoRefresh(instance, false, backgroundSync);
     }
     return { data: existing.data, success: true, source: "cache" };
   } else {
-    const res = await promiseTimeout(fetchFeatures(instance), timeout);
+    const res = await promiseTimeout(
+      fetchFeatures(instance, backgroundSync),
+      timeout,
+    );
     return (
       res || {
         data: null,
@@ -417,9 +429,11 @@ async function refreshInstance(
   await instance.setPayload(data || instance.getPayload());
 }
 
-// Fetch the features payload from helper function or from in-mem injected payload
+// Fetch the features payload from the helper function or from in-mem injected payload.
+// `backgroundSync` is this fetch's opt-in to (re)starting a stream; see startAutoRefresh.
 async function fetchFeatures(
   instance: GrowthBook | GrowthBookClient,
+  backgroundSync?: boolean,
 ): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -460,7 +474,7 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, cacheKey, data);
-        startAutoRefresh(instance);
+        startAutoRefresh(instance, false, backgroundSync);
         activeFetches.delete(cacheKey);
         return { data, success: true, source: "network" as const };
       })
@@ -485,10 +499,18 @@ async function fetchFeatures(
   return promise;
 }
 
-// Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
+// Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch.
+// The stream only starts when the global master switch is on (cacheSettings.backgroundSync,
+// turned off by the legacy configureCache/explicit-backgroundSync:false opt-out) AND this
+// refresh opted in - `forceSSE` (an explicit `streaming: true` handshake), `backgroundSync`
+// (an explicit `streaming`/legacy `backgroundSync`/caller-resolved option), or the instance
+// already subscribed to background updates (streaming, pollingInterval, or the deprecated
+// loadFeatures autoRefresh options). Fetches for unsubscribed instances never open a
+// stream, so a subscription only exists when something asked for one.
 function startAutoRefresh(
   instance: GrowthBook | GrowthBookClient,
   forceSSE: boolean = false,
+  backgroundSync?: boolean,
 ): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -501,6 +523,9 @@ function startAutoRefresh(
 
   if (
     cacheSettings.backgroundSync &&
+    (forceSSE ||
+      backgroundSync ||
+      subscribedInstances.get(key)?.has(instance) === true) &&
     supportsSSE.has(key) &&
     polyfills.EventSource
   ) {

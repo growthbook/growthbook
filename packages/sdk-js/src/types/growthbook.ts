@@ -376,7 +376,12 @@ export type Options<AppAttributes extends Attributes = RegisteredAttributes> = {
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
-  /** @deprecated */
+  /**
+   * @deprecated Use `streaming` in `init()` instead.
+   * Legacy opt-in to background feature updates (SSE streaming). Background
+   * sync is not enabled by default: without explicitly setting this to `true`
+   * or passing `streaming: true` to `init()`, no subscription is created.
+   */
   backgroundSync?: boolean;
   /** @deprecated */
   subscribeToChanges?: boolean;
@@ -791,6 +796,7 @@ export type InitOptions<
   payload?: FeatureApiResponse<AppFeatures>;
   /** Used when the fetch fails or times out and there is no cached payload, e.g. a copy bundled at build time. */
   fallbackPayload?: FeatureApiResponse<AppFeatures>;
+  /** Opt in to a live subscription (SSE) so feature updates are applied in the background. Off by default. */
   streaming?: boolean;
   /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
   pollingInterval?: number;
@@ -801,6 +807,7 @@ export type InitSyncOptions<
   AppFeatures extends Record<string, any> = Record<string, any>,
 > = {
   payload: FeatureApiResponse<AppFeatures>;
+  /** Opt in to a live subscription (SSE) so feature updates are applied in the background. Off by default. */
   streaming?: boolean;
   /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
   pollingInterval?: number;
@@ -816,6 +823,12 @@ export type LoadFeaturesOptions = {
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+  /**
+   * Opt in to a background subscription (SSE) for this refresh. Off by default,
+   * same as `streaming` in `init()`. Passing `false` mirrors the deprecated
+   * global `backgroundSync: false` opt-out.
+   */
+  streaming?: boolean;
 };
 
 export type DestroyOptions = {

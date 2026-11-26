@@ -334,13 +334,27 @@ export class GrowthBook<
   /** @deprecated Use {@link init} */
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     options = options || {};
-    await this.init({
+    this._initialized = true;
+
+    const streaming =
+      (this._options.backgroundSync ?? true) &&
+      (options.autoRefresh || this._options.subscribeToChanges);
+
+    // Legacy behavior, kept as-is when init() made streaming opt-in: the
+    // deprecated loadFeatures() auto-subscribes to background updates, unlike
+    // init() which requires streaming: true. The resolved `streaming` above is
+    // undefined when none of the deprecated options were set, so thread an
+    // explicit caller-resolved refresh default to _refresh instead of falling
+    // through to the opt-in default used by init()/refreshFeatures().
+    const { data } = await this._refresh({
       skipCache: options.skipCache,
       timeout: options.timeout,
-      streaming:
-        (this._options.backgroundSync ?? true) &&
-        (options.autoRefresh || this._options.subscribeToChanges),
+      allowStale: true,
+      streaming,
+      backgroundSync: streaming !== false,
     });
+    startBackgroundSync(this, { streaming });
+    await this.setPayload(data || {});
   }
 
   public async refreshFeatures(
@@ -389,20 +403,29 @@ export class GrowthBook<
     skipCache,
     allowStale,
     streaming,
+    backgroundSync,
   }: RefreshFeaturesOptions & {
     allowStale?: boolean;
     streaming?: boolean;
+    // Caller-resolved default for legacy paths (loadFeatures) that must keep
+    // their historic implicit-on background sync. Never set by init() or
+    // refreshFeatures() - their opt-in decision flows through `streaming`.
+    backgroundSync?: boolean;
   }) {
     if (!this._options.clientKey) {
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
+    // Streaming/background sync is opt-in: without an explicit `streaming`
+    // option, an explicitly-resolved `backgroundSync` (legacy loadFeatures), or
+    // the legacy `backgroundSync` instance option, no subscription is created.
     return refreshFeatures({
       instance: this,
       timeout,
       skipCache: skipCache || this._options.disableCache,
       allowStale,
-      backgroundSync: streaming ?? this._options.backgroundSync ?? true,
+      backgroundSync:
+        streaming ?? backgroundSync ?? this._options.backgroundSync,
     });
   }
 
