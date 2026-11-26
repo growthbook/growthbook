@@ -7,7 +7,11 @@ import {
   MetricFunnelStep,
 } from "shared/types/fact-table";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import { bigQueryDialect, redshiftDialect } from "shared/dialects";
+import {
+  bigQueryDialect,
+  clickHouseDialect,
+  redshiftDialect,
+} from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
@@ -458,6 +462,49 @@ describe("funnel fact metric SQL", () => {
 
       expect(sql).toContain("__factTable2 as (");
       expect(sql).toContain("LEFT JOIN __userMetricAgg2 m2");
+    });
+
+    it("names source 0's columns rather than m.*, which ClickHouse loses past one join", () => {
+      const ratioOnSourceZero = factMetricFactory.build({
+        id: "fact__cross_ratio",
+        metricType: "ratio",
+        numerator: { factTableId: "events", column: "amount" },
+        denominator: { factTableId: "orders", column: "amount" },
+      });
+      const sql = flatten(
+        buildSql(
+          [
+            buildFunnelMetric({
+              steps: [
+                buildStep("view"),
+                buildStep("purchase", {
+                  factTableId: "orders",
+                  rowFilters: [],
+                }),
+                buildStep("refund", { factTableId: "refunds", rowFilters: [] }),
+              ],
+            }),
+            ratioOnSourceZero,
+          ],
+          clickHouseDialect,
+          "clickhouse",
+        ),
+      );
+      const base = sql.slice(
+        sql.indexOf("__unitMetricsBase AS ("),
+        sql.indexOf("__funnelResolve_1 AS ("),
+      );
+
+      expect(base).not.toContain("m.*");
+      expect(base).toContain(
+        "SELECT m.variation AS variation, m.user_id AS user_id, m.timestamp AS timestamp,",
+      );
+      expect(base).toContain(
+        "m.m0_step_0_resolved_ts AS m0_step_0_resolved_ts",
+      );
+      expect(base).toContain("m.m1_value AS m1_value");
+      expect(base).toContain("m1.m1_denominator AS m1_denominator");
+      expect(base).toContain("m2.m0_step_2_arr AS m0_step_2_arr");
     });
   });
 });
