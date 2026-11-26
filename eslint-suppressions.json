@@ -391,7 +391,7 @@
   },
   "packages/front-end/components/Experiment/Templates/TemplateForm.tsx": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
