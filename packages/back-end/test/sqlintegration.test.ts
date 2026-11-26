@@ -7,7 +7,10 @@ import {
   MetricCappingSettings,
   RowFilter,
 } from "shared/types/fact-table";
-import { ExposureQuery } from "shared/types/datasource";
+import {
+  ExposureQuery,
+  FeatureUsageQueryColumnMapping,
+} from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension, UserDimension } from "shared/types/integrations";
 import { SegmentInterface } from "shared/types/segment";
@@ -39,7 +42,10 @@ import {
   MAX_ROWS_CLUSTER_UNITS_QUERY,
   N_STAR_VALUES,
 } from "back-end/src/services/experimentQueries/constants";
-import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
+import {
+  getFeatureEvalDiagnosticsQuery,
+  shapeFeatureEvalDiagnosticsRows,
+} from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getExperimentExposuresQuery } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -1932,6 +1938,148 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
     expect(sql).toMatch(
       /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
     );
+  });
+});
+
+describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
+  function datasourceWith(columnMapping?: FeatureUsageQueryColumnMapping) {
+    // @ts-expect-error -- context not needed for test
+    return new BigQuery("", {
+      type: "bigquery",
+      params: "",
+      settings: {
+        queries: {
+          featureUsage: [
+            { id: "fu1", query: "SELECT * FROM t", columnMapping },
+          ],
+        },
+      },
+    }).datasource;
+  }
+
+  it("filters and orders on the mapped feature key and timestamp columns", () => {
+    const datasource = {
+      type: "bigquery",
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: "SELECT ts, feature FROM t",
+              columnMapping: {
+                timestampColumn: "ts",
+                featureKeyColumn: "feature",
+              },
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      bqIntegration.datasource,
+      { feature: "my-feature-key" },
+    );
+
+    expect(sql).toMatch(/WHERE\s+feature\s*=\s*'my-feature-key'/);
+    expect(sql).toMatch(/AND\s+ts\s*>=/);
+    expect(sql).toMatch(/ORDER BY\s+ts\s+DESC/);
+    expect(sql).not.toMatch(/\btimestamp\b >=/);
+  });
+
+  it("adds the standard names to rows from the mapped columns", () => {
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [{ ts: "2026-11-10 00:10:32", feature: "f", timestamp: "other" }],
+      {
+        id: "fu1",
+        query: "SELECT * FROM t",
+        columnMapping: { timestampColumn: "ts", featureKeyColumn: "feature" },
+      },
+    );
+
+    expect(rows).toEqual([
+      {
+        ts: "2026-11-10 00:10:32",
+        feature: "f",
+        timestamp: "2026-11-10 00:10:32",
+        feature_key: "f",
+      },
+    ]);
+  });
+
+  it("finds mapped columns whose case the warehouse changed", () => {
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [{ event_time: "2026-11-10 00:10:32", feature: "f" }],
+      {
+        id: "fu1",
+        query: "SELECT * FROM t",
+        columnMapping: {
+          timestampColumn: "EVENT_TIME",
+          featureKeyColumn: "FEATURE",
+        },
+      },
+    );
+
+    expect(rows[0]).toMatchObject({
+      timestamp: "2026-11-10 00:10:32",
+      feature_key: "f",
+    });
+  });
+
+  it("keeps the standard columns when nothing is renamed", () => {
+    const row = { timestamp: "2026-11-10 00:10:32", feature_key: "f" };
+    expect(shapeFeatureEvalDiagnosticsRows([row], undefined)).toEqual([row]);
+  });
+
+  it("adds identifiers that are mapped to a JSON field", () => {
+    const query = {
+      id: "fu1",
+      query: "SELECT * FROM t",
+      userIdTypes: ["user_id", "device_id", "account_id"],
+      columnMapping: {
+        userIdColumns: {
+          user_id: "attributes.customerId",
+          device_id: "ATTRIBUTES.deviceId",
+          account_id: "account",
+        },
+      },
+    };
+    const base = { timestamp: "2026-11-10 00:10:32", feature_key: "f" };
+    const rows = shapeFeatureEvalDiagnosticsRows(
+      [
+        // JSON returned as text, with a column that shares the identifier's name
+        {
+          ...base,
+          user_id: "raw",
+          attributes: '{"customerId":"c1","deviceId":"d1"}',
+        },
+        // JSON returned as an object
+        { ...base, attributes: { customerId: "c2" } },
+        // Not JSON
+        { ...base, attributes: "oops" },
+      ],
+      query,
+    );
+
+    expect(rows[0]).toMatchObject({ user_id: "c1", device_id: "d1" });
+    expect(rows[1]).toMatchObject({ user_id: "c2", device_id: null });
+    expect(rows[2]).toMatchObject({ user_id: null, device_id: null });
+    // A plain column mapping adds nothing
+    expect(rows[0]).not.toHaveProperty("account_id");
+  });
+
+  it("leaves the SQL selecting the query's own columns", () => {
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      datasourceWith({ timestampColumn: "ts", featureKeyColumn: "feature" }),
+      { feature: "my-feature-key" },
+    );
+
+    expect(sql).toMatch(/SELECT\s+\*\s+FROM\s+__featureEvalQuery/);
   });
 });
 

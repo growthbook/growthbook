@@ -38,6 +38,9 @@ import {
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   getExposureQueryVariationNameColumn,
+  getFeatureUsageFeatureKeyColumn,
+  getFeatureUsageRequiredColumns,
+  getFeatureUsageTimestampColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -619,18 +622,22 @@ export async function testFeatureUsageQueryValidity(
   query: FeatureUsageQuery,
   testDays?: number,
 ): Promise<string | undefined> {
-  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+  if (!integration.getTestQuery || !integration.runTestQuery) {
     return undefined;
   }
 
-  const requiredColumns = new Set(["timestamp", "feature_key"]);
+  const requiredColumns = new Set(getFeatureUsageRequiredColumns(query));
 
-  const sql = integration.getTestValidityQuery(
-    query.query,
+  // Filters on both columns the way Diagnostics does, so a name the warehouse
+  // can't read unquoted (a reserved word like "group") fails here on save.
+  // No rows are read.
+  const sql = integration.getTestQuery({
+    query: query.query,
     testDays,
-    undefined,
-    "timestamp",
-  );
+    limit: 0,
+    timestampColumn: getFeatureUsageTimestampColumn(query),
+    notNullColumn: getFeatureUsageFeatureKeyColumn(query),
+  });
   try {
     const results = await integration.runTestQuery(
       sql,

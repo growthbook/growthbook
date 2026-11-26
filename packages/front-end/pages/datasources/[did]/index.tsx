@@ -60,6 +60,10 @@ import Frame from "@/ui/Frame";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
+import {
+  FEATURE_USAGE_ANCHOR_ID,
+  IDENTIFIER_TYPES_ANCHOR_ID,
+} from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueryModal";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
@@ -114,6 +118,8 @@ const LEGACY_ANCHOR_TABS: Record<string, (typeof DATA_SOURCE_TABS)[number]> = {
   [EAQ_ANCHOR_ID]: "queries",
   [CBAQ_ANCHOR_ID]: "queries",
   [IEQ_ANCHOR_ID]: "queries",
+  [IDENTIFIER_TYPES_ANCHOR_ID]: "queries",
+  [FEATURE_USAGE_ANCHOR_ID]: "queries",
 };
 
 function quotePropertyName(name: string) {
@@ -821,7 +827,7 @@ const DataSourcePage: FC = () => {
             <>
               <TabsContent value="queries">
                 <Flex direction="column" gap="2" mt="3">
-                  <Frame mb="0">
+                  <Frame id={IDENTIFIER_TYPES_ANCHOR_ID} mb="0">
                     {isManagedWarehouse ? (
                       managedWarehouseAwaitingProvisioning ? (
                         <ManagedWarehouseNoEventsCallout />
@@ -875,7 +881,7 @@ const DataSourcePage: FC = () => {
                   )}
                   {!isManagedWarehouse && (
                     <>
-                      <Frame mb="0">
+                      <Frame id={FEATURE_USAGE_ANCHOR_ID} mb="0">
                         <FeatureEvaluationQueries
                           dataSource={d}
                           onSave={updateDataSourceSettings}

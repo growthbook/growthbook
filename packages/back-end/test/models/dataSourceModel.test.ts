@@ -584,6 +584,43 @@ describe("dataSourceModel", () => {
     });
   });
 
+  it("returns feature usage queries with their column mapping", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          featureUsage: [
+            {
+              id: "fuq_1",
+              query: "SELECT * FROM evaluations",
+              userIdTypes: ["user_id"],
+              columnMapping: {
+                featureKeyColumn: "flag",
+                userIdColumns: { user_id: "attributes.uid" },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.featureUsageQueries).toEqual([
+      {
+        id: "fuq_1",
+        description: "",
+        sql: "SELECT * FROM evaluations",
+        identifierTypes: ["user_id"],
+        columnMapping: {
+          featureKeyColumn: "flag",
+          userIdColumns: { user_id: "attributes.uid" },
+        },
+        managed: false,
+      },
+    ]);
+  });
+
   describe("updateDataSource", () => {
     it("should throw an error if data sources are managed by config.yml", async () => {
       mockedUsingFileConfig.mockReturnValue(true);
