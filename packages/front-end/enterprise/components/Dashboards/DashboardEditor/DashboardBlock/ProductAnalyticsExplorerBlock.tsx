@@ -119,7 +119,7 @@ export function ProductAnalyticsExplorerVisualization({
   // bypassing POST /product-analytics/run — where the live Explorer builds its
   // comparison payload via computeExplorationComparisonPayload (densified rows +
   // trends). Recreate that payload here with the same shared helper so the
-  // dashboard matches the Explorer: empty previous periods densify to zeros
+  // dashboard matches the Explorer: empty previous periods get a row per bucket
   // instead of triggering the "no data, nothing to compare" message, and
   // big-number / table trends are computed identically.
   const submittedConfig = useMemo(
@@ -168,6 +168,8 @@ export function ProductAnalyticsExplorerVisualization({
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
       getComparisonAlignmentStrategy(comparisonMode),
+      // Buckets that haven't started yet aren't filled.
+      new Date(),
     );
   }, [
     compareEnabled,

@@ -10,6 +10,7 @@ import {
   buildExplorerChartTooltipFormatter,
   buildAlignedComparisonOverlayForExplorer,
   getPopulationSeriesKeys,
+  getJoinGapsSeriesKeys,
   fillPopulationSeriesGaps,
   buildExplorerChartComparisonSeriesList,
   sortDateXValues,
@@ -528,12 +529,14 @@ describe("% of Population fractions", () => {
       {
         showAs: "percent_of_population" as const,
         isRatio: false,
+        isQuantile: false,
         seriesName: "Signups",
         valueAxis: "secondary" as const,
       },
       {
         showAs: "total" as const,
         isRatio: false,
+        isQuantile: false,
         seriesName: "Logins",
         valueAxis: "primary" as const,
       },
@@ -725,12 +728,14 @@ describe("second % of Population value axis", () => {
       {
         showAs: "total" as const,
         isRatio: false,
+        isQuantile: false,
         seriesName: "Signups",
         valueAxis: "primary" as const,
       },
       {
         showAs: "percent_of_population" as const,
         isRatio: false,
+        isQuantile: false,
         seriesName: "Purchases",
         valueAxis: "secondary" as const,
       },
@@ -866,6 +871,74 @@ describe("sortDateXValues", () => {
   });
 });
 
+describe("getJoinGapsSeriesKeys", () => {
+  it("joins ratio, per-unit and percentile lines across empty buckets, nothing else", () => {
+    const value = (
+      showAs: "total" | "per_unit" | "percent_of_population",
+      isRatio: boolean,
+      isQuantile = false,
+    ) => ({
+      showAs,
+      isRatio,
+      isQuantile,
+      seriesName: "",
+      valueAxis: "primary" as const,
+    });
+    const renderOpts = {
+      values: [
+        value("total", false),
+        value("per_unit", false),
+        value("total", true),
+        value("percent_of_population", false),
+        value("total", false, true),
+      ],
+      sharedShowAs: null,
+      modesAreMixed: true,
+      primaryAxisShowAs: "total" as const,
+      sharedUnit: "user_id",
+    };
+    const seriesMeta = Object.fromEntries(
+      ["count", "perUser", "ratio", "population", "p90"].map(
+        (key, valueIndex) => [
+          key,
+          {
+            metricId: key,
+            name: key,
+            valueIndex,
+            valueAxis: "primary" as const,
+          },
+        ],
+      ),
+    );
+    const joinGapsSeriesKeys = getJoinGapsSeriesKeys(seriesMeta, renderOpts);
+    expect(joinGapsSeriesKeys).toEqual(new Set(["perUser", "ratio", "p90"]));
+
+    const series = buildExplorerChartComparisonSeriesList({
+      chartType: "line",
+      sourceDataMap: {},
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: Object.keys(seriesMeta),
+      sourceSortedXValues: ["2026-09-01"],
+      numMetrics: 5,
+      numDimensions: 1,
+      isStacked: false,
+      compareOverlayActive: false,
+      comparisonPeriodLabels: null,
+      seriesColor: () => "#000",
+      comparisonSeriesColor: () => "#000",
+      animate: false,
+      joinGapsSeriesKeys,
+    }) as { name: string; connectNulls?: boolean }[];
+    expect(series.map((s) => [s.name, s.connectNulls ?? false])).toEqual([
+      ["count", false],
+      ["perUser", true],
+      ["ratio", true],
+      ["population", false],
+      ["p90", true],
+    ]);
+  });
+});
+
 describe("fillPopulationSeriesGaps", () => {
   it("leaves current % of Population points past its window as gaps", () => {
     const renderOpts = {
@@ -873,12 +946,14 @@ describe("fillPopulationSeriesGaps", () => {
         {
           showAs: "percent_of_population" as const,
           isRatio: false,
+          isQuantile: false,
           seriesName: "Signups",
           valueAxis: "secondary" as const,
         },
         {
           showAs: "total" as const,
           isRatio: false,
+          isQuantile: false,
           seriesName: "Logins",
           valueAxis: "primary" as const,
         },

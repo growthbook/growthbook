@@ -747,6 +747,8 @@ export function ExplorerProvider({
                     getComparisonAlignmentStrategy(
                       modeForRequest ?? "previousPeriod",
                     ),
+                    // Buckets that haven't started yet aren't filled.
+                    new Date(),
                   )
                 : null;
             finalize(

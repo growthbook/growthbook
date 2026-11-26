@@ -19,6 +19,8 @@ import {
   createComparisonAlignmentResolver,
   densifyComparisonExplorationTimeseries,
   densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
+  getExplorationRenderOpts,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
   enumerateDateBucketsBetween,
@@ -1476,6 +1478,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
     },
     showAs: "total",
   };
+  // m1 is a mean metric shown as a total, so an empty bucket is 0.
+  const totals = getExplorationRenderOpts(baseConfig, getFactMetricById);
 
   const prevFrame: ExplorationDateRange = {
     predefined: "customDateRange",
@@ -1520,13 +1524,178 @@ describe("densifyComparisonExplorationTimeseries", () => {
         populationCount: 10,
       },
     ]);
-    const filled = densifyPopulationTimeseriesRows(sparse, withPopulation);
+    const filled = densifyPopulationTimeseriesRows(
+      sparse,
+      withPopulation,
+      totals,
+      null,
+    );
     expect(filled).toHaveLength(7);
     // Filled days have no member count, so "% of Population" reads no data.
     expect(filled.filter((r) => r.populationCount === undefined)).toHaveLength(
       6,
     );
-    expect(densifyPopulationTimeseriesRows(sparse, baseConfig)).toHaveLength(1);
+    expect(
+      densifyPopulationTimeseriesRows(sparse, baseConfig, totals, null),
+    ).toHaveLength(1);
+  });
+
+  describe("densifyTimeseriesRows", () => {
+    const row = (date: string, numerator: number) => ({
+      dimensions: [date],
+      values: [{ metricId: "m1", numerator, denominator: null }],
+    });
+
+    it("fills the whole date range around data in the middle", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-03", 5), row("2024-01-04", 7)]),
+        baseConfig,
+        totals,
+        null,
+      );
+      expect(out.map((r) => r.values?.[0]?.numerator)).toEqual([
+        0, 0, 5, 7, 0, 0, 0,
+      ]);
+      // Rows the warehouse returned keep their own date strings.
+      expect(out[2].dimensions[0]).toBe("2024-01-03");
+      expect(out[0].dimensions[0]).toBe("2024-01-01T00:00:00.000Z");
+    });
+
+    it("fills without a Population applied", () => {
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-07", 1)]),
+          baseConfig,
+          totals,
+          null,
+        ),
+      ).toHaveLength(7);
+    });
+
+    it("stops at the current bucket when the range ends in the future", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-02", 1)]),
+        baseConfig,
+        totals,
+        new Date(Date.UTC(2024, 0, 4, 12)),
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-02",
+        "2024-01-03T00:00:00.000Z",
+        "2024-01-04T00:00:00.000Z",
+      ]);
+    });
+
+    it("keeps rows after the cutoff without filling around them", () => {
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-02", 1), row("2024-01-06", 5)]),
+        baseConfig,
+        totals,
+        new Date(Date.UTC(2024, 0, 4, 12)),
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-02",
+        "2024-01-03T00:00:00.000Z",
+        "2024-01-04T00:00:00.000Z",
+        "2024-01-06",
+      ]);
+    });
+
+    it("fills the whole range when there's no cutoff", () => {
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-02", 1)]),
+          baseConfig,
+          totals,
+          null,
+        ),
+      ).toHaveLength(7);
+    });
+
+    it("gives an average's empty buckets no value, and a count's 0", () => {
+      const ratio = getExplorationRenderOpts(baseConfig, () => ratioMetric);
+      const sparse = shellExploration([row("2024-01-02", 4)]);
+      expect(
+        densifyTimeseriesRows(sparse, baseConfig, ratio, null).map(
+          (r) => r.values?.[0]?.numerator,
+        ),
+      ).toEqual([null, 4, null, null, null, null, null]);
+      expect(
+        densifyTimeseriesRows(sparse, baseConfig, totals, null).map(
+          (r) => r.values?.[0]?.numerator,
+        ),
+      ).toEqual([0, 4, 0, 0, 0, 0, 0]);
+    });
+
+    it("gives a percentile's empty buckets no value", () => {
+      const quantileMetric = {
+        ...meanMetric,
+        name: "P90",
+        metricType: "quantile",
+        quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      } as unknown as FactMetricInterface;
+      const quantile = getExplorationRenderOpts(
+        baseConfig,
+        () => quantileMetric,
+      );
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-02", 4)]),
+          baseConfig,
+          quantile,
+          null,
+        ).map((r) => r.values?.[0]?.numerator),
+      ).toEqual([null, 4, null, null, null, null, null]);
+    });
+
+    it("fills Monday weeks around the warehouse's own", () => {
+      const weekly: ExplorationConfig = {
+        ...baseConfig,
+        dimensions: [
+          { dimensionType: "date", column: "d", dateGranularity: "week" },
+        ],
+        dateRange: {
+          predefined: "customDateRange",
+          startDate: "2024-01-01",
+          endDate: "2024-01-31",
+        },
+      };
+      // 2024-01-15 is a Monday; every dialect's SQL starts weeks on Monday.
+      const out = densifyTimeseriesRows(
+        shellExploration([row("2024-01-15", 3)]),
+        weekly,
+        totals,
+        null,
+      );
+      expect(out.map((r) => r.dimensions[0])).toEqual([
+        "2024-01-01T00:00:00.000Z",
+        "2024-01-08T00:00:00.000Z",
+        "2024-01-15",
+        "2024-01-22T00:00:00.000Z",
+        "2024-01-29T00:00:00.000Z",
+      ]);
+    });
+
+    it("leaves results with more than one breakdown alone", () => {
+      const threeDims: ExplorationConfig = {
+        ...baseConfig,
+        dimensions: [
+          { dimensionType: "date", column: "d", dateGranularity: "day" },
+          { dimensionType: "dynamic", column: "a", maxValues: 5 },
+          { dimensionType: "dynamic", column: "b", maxValues: 5 },
+        ],
+      };
+      expect(
+        densifyTimeseriesRows(
+          shellExploration([row("2024-01-02", 1)]),
+          threeDims,
+          totals,
+          null,
+        ),
+      ).toHaveLength(1);
+    });
   });
 
   it("fills an empty comparison with one zero row per day", () => {
@@ -1534,6 +1703,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
       comparison: shellExploration([]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
+      renderOpts: totals,
+      until: null,
     });
     expect(out?.result.rows).toHaveLength(7);
     expect(out?.result.rows.every((r) => r.values[0]?.numerator === 0)).toBe(
@@ -1551,6 +1722,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
+      renderOpts: totals,
+      until: null,
     });
     expect(out?.result.rows).toHaveLength(7);
     const jan3 = out?.result.rows.find(
@@ -1579,6 +1752,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
       ]),
       submittedConfig: baseConfig,
       previousTimeFrame: prevFrame,
+      renderOpts: totals,
+      until: null,
     });
     const jan3 = out?.result.rows.find(
       (r) =>
@@ -1620,6 +1795,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
       comparison: shellExploration([]),
       submittedConfig: weekConfig,
       previousTimeFrame: weekPrev,
+      renderOpts: totals,
+      until: null,
     });
     expect(out?.result.rows).toHaveLength(2);
   });
@@ -1653,6 +1830,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
             values: [{ metricId: "m1", numerator: 9, denominator: null }],
           },
         ],
+        renderOpts: totals,
+        until: null,
       });
       // 3 days × 2 breakdown values
       expect(out?.result.rows).toHaveLength(6);
@@ -1684,6 +1863,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
             values: [{ metricId: "m1", numerator: 9, denominator: null }],
           },
         ],
+        renderOpts: totals,
+        until: null,
       });
       expect(out?.result.rows).toHaveLength(6);
       const chromeJan2 = out?.result.rows.find(
@@ -1705,6 +1886,40 @@ describe("densifyComparisonExplorationTimeseries", () => {
       expect(zeros).toHaveLength(5);
     });
 
+    it("spells a bucket's date the same way for every breakdown", () => {
+      const out = densifyComparisonExplorationTimeseries({
+        comparison: shellExploration([
+          {
+            dimensions: ["2023-01-02", "Chrome"],
+            values: [{ metricId: "m1", numerator: 42, denominator: null }],
+          },
+        ]),
+        submittedConfig: groupedConfig,
+        previousTimeFrame: shortPrev,
+        primaryRows: [
+          {
+            dimensions: ["2024-01-01", "Chrome"],
+            values: [{ metricId: "m1", numerator: 5, denominator: null }],
+          },
+          {
+            dimensions: ["2024-01-01", "Safari"],
+            values: [{ metricId: "m1", numerator: 9, denominator: null }],
+          },
+        ],
+        renderOpts: totals,
+        until: null,
+      });
+      // The chart keys points by the raw string, so a filled Safari row on the
+      // 2nd must match Chrome's warehouse row.
+      const jan2 = out?.result.rows.filter((r) =>
+        String(r.dimensions[0]).startsWith("2023-01-02"),
+      );
+      expect(jan2?.map((r) => r.dimensions)).toEqual([
+        ["2023-01-02", "Chrome"],
+        ["2023-01-02", "Safari"],
+      ]);
+    });
+
     it("includes comparison-only breakdown values not present in the primary", () => {
       const out = densifyComparisonExplorationTimeseries({
         comparison: shellExploration([
@@ -1721,6 +1936,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
             values: [{ metricId: "m1", numerator: 5, denominator: null }],
           },
         ],
+        renderOpts: totals,
+        until: null,
       });
       // 3 days × 2 breakdown values (Chrome from primary, Firefox from comparison)
       expect(out?.result.rows).toHaveLength(6);
@@ -1733,6 +1950,8 @@ describe("densifyComparisonExplorationTimeseries", () => {
         comparison: shellExploration([]),
         submittedConfig: groupedConfig,
         previousTimeFrame: shortPrev,
+        renderOpts: totals,
+        until: null,
       });
       expect(out?.result.rows).toHaveLength(0);
     });
@@ -1838,6 +2057,8 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.previousPeriod.startDate).toBe("2023-01-01");
@@ -1865,6 +2086,8 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.bigNumberTrends[0]!.pctChangePercent).toBe(50);
@@ -1896,11 +2119,56 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.tableTrendsByRow).toHaveLength(2);
     expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(100);
     expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBeNull();
+  });
+
+  it("ranks table trends against every current bucket without a Population", () => {
+    const base = metricConfig("m1", { showAs: "total" });
+    const config: ExplorationConfig = {
+      ...base,
+      dateRange: {
+        predefined: "customDateRange",
+        startDate: "2024-01-01",
+        endDate: "2024-01-03",
+      },
+    };
+    // Only Jan 2 has data, so it's the 2nd bucket and pairs with Dec 30.
+    const primary = explorationOneRow(20, null, "2024-01-02", config);
+    const comparison: ProductAnalyticsExploration = {
+      ...explorationOneRow(0, null, "2023-12-29", config),
+      result: {
+        rows: [
+          ["2023-12-29", 10],
+          ["2023-12-30", 40],
+          ["2023-12-31", 80],
+        ].map(([d, n]) => ({
+          dimensions: [String(d)],
+          values: [{ metricId: "m1", numerator: Number(n), denominator: null }],
+        })),
+      },
+    };
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      {
+        predefined: "customDateRange",
+        startDate: "2023-12-29",
+        endDate: "2023-12-31",
+      },
+      getFactMetricById,
+      "chronological",
+      null,
+    );
+
+    expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(-50);
   });
 
   it("returns empty table trends when ratio metric", () => {
@@ -1917,10 +2185,39 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getRatioMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.bigNumberTrends[0]).not.toBeNull();
     expect(out.tableTrendsByRow).toEqual([]);
+  });
+
+  it("fills a ratio's previous period, with no value in its empty buckets", () => {
+    const getRatioMetricById = (id: string) =>
+      id === "m1" ? ratioMetric : null;
+
+    const out = computeExplorationComparisonPayload(
+      explorationOneRow(1, 2, "2024-01-01"),
+      explorationOneRow(1, 4, "2023-01-01"),
+      metricConfig("m1"),
+      prevFrame,
+      getRatioMetricById,
+      "calendarYearOverYear",
+      null,
+    );
+
+    const rows = out.exploration?.result?.rows ?? [];
+    expect(rows).toHaveLength(7);
+    expect(rows.map((r) => r.values?.[0]?.numerator)).toEqual([
+      1,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("densifies empty comparison to full daily zero series for the previous window", () => {
@@ -1937,6 +2234,8 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.exploration?.result.rows).toHaveLength(7);
@@ -1959,6 +2258,8 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     expect(out.bigNumberTrends[0]).toBeNull();
@@ -2005,6 +2306,8 @@ describe("computeExplorationComparisonPayload", () => {
       config,
       prevFrame,
       getFactMetricById,
+      "calendarYearOverYear",
+      null,
     );
 
     // sortedRows is ordered by current totals desc: [USA, Canada].

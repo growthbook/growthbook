@@ -11,7 +11,7 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
-  densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
@@ -762,9 +762,11 @@ export default function useExplorationTableData(
         // Rank against every bucket, as the chart does, so a missing day
         // doesn't shift the pairing.
         exploration && submittedExploreState
-          ? densifyPopulationTimeseriesRows(
+          ? densifyTimeseriesRows(
               exploration,
               submittedExploreState,
+              renderOpts,
+              new Date(),
             ).map((r) => String(r.dimensions[0] ?? ""))
           : undefined,
       );

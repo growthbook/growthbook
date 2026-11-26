@@ -13,6 +13,7 @@ import { parseWarehouseDate } from "shared/dates";
 import {
   calculateProductAnalyticsDateRange,
   densifyPopulationTimeseriesRows,
+  densifyTimeseriesRows,
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
@@ -42,6 +43,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   getPopulationSeriesKeys,
+  getJoinGapsSeriesKeys,
   fillPopulationSeriesGaps,
   sortDateXValues,
   assignSecondaryValueAxis,
@@ -294,10 +296,30 @@ export default function ExplorerChart({
       submittedExploreState.dataset?.type === "journey"
     )
       return null;
-    const rows = densifyPopulationTimeseriesRows(
-      exploration,
-      submittedExploreState,
-    );
+    // Line/area charts get a row for every bucket in the date range, up to
+    // now, so the axis covers the whole range: counts and sums drop to 0 and
+    // averages join across (see getJoinGapsSeriesKeys). Bars sort by value,
+    // so filled bars would only pile up at the end; they're filled only for a
+    // Population, as before.
+    const fillsDates =
+      submittedExploreState.chartType === "line" ||
+      submittedExploreState.chartType === "area";
+    const now = new Date();
+    const rows = fillsDates
+      ? densifyTimeseriesRows(
+          exploration,
+          submittedExploreState,
+          renderOpts,
+          now,
+        )
+      : densifyPopulationTimeseriesRows(
+          exploration,
+          submittedExploreState,
+          renderOpts,
+          now,
+        );
+    // Already filled the same way by computeExplorationComparisonPayload.
+    const comparisonRows = comparisonExploration?.result?.rows ?? [];
 
     // Resolve date granularity for tooltip formatting
     const dateDimension = submittedExploreState.dimensions?.find(
@@ -364,9 +386,7 @@ export default function ExplorerChart({
     // comparison's rank-aligned values fill in.
     if (firstDimensionIsDate && !isBarType && resolvedGranularity) {
       const comparisonBucketCount = new Set(
-        (comparisonExploration?.result?.rows ?? []).map((r) =>
-          String(r.dimensions[0] ?? ""),
-        ),
+        comparisonRows.map((r) => String(r.dimensions[0] ?? "")),
       ).size;
       const shortfall = comparisonBucketCount - sortedXValues.length;
       const lastBucket = sortedXValues[sortedXValues.length - 1];
@@ -386,6 +406,7 @@ export default function ExplorerChart({
       renderOpts,
     );
     fillPopulationSeriesGaps(dataMap, populationSeriesKeys, sortedXValues);
+    const joinGapsSeriesKeys = getJoinGapsSeriesKeys(seriesMeta, renderOpts);
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
@@ -417,10 +438,10 @@ export default function ExplorerChart({
       : null;
 
     const alignedComparisonOverlay =
-      compareOverlayActive && comparisonExploration?.result?.rows?.length
+      compareOverlayActive && comparisonRows.length
         ? buildAlignedComparisonOverlayForExplorer({
             sortedXValues,
-            comparisonRows: comparisonExploration.result.rows,
+            comparisonRows,
             submittedExploreState,
             renderOpts,
             sortedSeriesKeys,
@@ -552,6 +573,7 @@ export default function ExplorerChart({
           : undefined,
         currentBarWidth: compareBarWidths.current,
         previousBarWidth: compareBarWidths.previous,
+        joinGapsSeriesKeys,
       });
 
       if (compareOverlayActive && alignedComparisonDataForCurrent) {
@@ -577,6 +599,7 @@ export default function ExplorerChart({
               : undefined,
             currentBarWidth: compareBarWidths.current,
             previousBarWidth: compareBarWidths.previous,
+            joinGapsSeriesKeys,
           }),
         ];
       }
@@ -820,7 +843,7 @@ export default function ExplorerChart({
     };
   }, [
     exploration,
-    comparisonExploration?.result?.rows,
+    comparisonExploration,
     compareEnabled,
     submittedExploreState,
     submittedPreviousTimeFrame,

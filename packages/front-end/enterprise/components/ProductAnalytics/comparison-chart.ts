@@ -6,6 +6,7 @@ import {
   calculateProductAnalyticsDateRange,
   computeBigNumberTrend,
   createComparisonAlignmentResolver,
+  hasNoValueWhenEmpty,
 } from "shared/enterprise";
 import type { ComparisonAlignmentStrategy, ValueAxis } from "shared/enterprise";
 import type {
@@ -314,6 +315,21 @@ export function getPopulationSeriesKeys(
       (seriesKey) =>
         renderOpts.values[seriesMeta[seriesKey].valueIndex]?.showAs ===
         "percent_of_population",
+    ),
+  );
+}
+
+// Average (ratio and per-unit) and percentile series keys. A bucket with no
+// data has no value for these (see hasNoValueWhenEmpty), and their line is
+// joined across it rather than broken: an empty hour says nothing about the
+// rate, so joining the neighbours reads better than a gap or a drop to 0.
+export function getJoinGapsSeriesKeys(
+  seriesMeta: Record<string, { valueIndex: number }>,
+  renderOpts: RenderOpts,
+): Set<string> {
+  return new Set(
+    Object.keys(seriesMeta).filter((seriesKey) =>
+      hasNoValueWhenEmpty(renderOpts.values[seriesMeta[seriesKey].valueIndex]),
     ),
   );
 }
@@ -884,6 +900,8 @@ export function buildExplorerChartComparisonSeriesList(params: {
   currentBarWidth?: number | string;
   /** Previous bar width — px (= current + a fixed per-side frame) once measured. */
   previousBarWidth?: number | string;
+  /** Line/area series drawn across buckets with no value (getJoinGapsSeriesKeys). */
+  joinGapsSeriesKeys?: ReadonlySet<string>;
 }): unknown[] {
   const {
     chartType,
@@ -902,6 +920,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
     compareCategoryAxisKey,
     currentBarWidth,
     previousBarWidth,
+    joinGapsSeriesKeys,
   } = params;
   const isPrevious = params.previous ?? false;
 
@@ -918,6 +937,9 @@ export function buildExplorerChartComparisonSeriesList(params: {
           )
         : name;
       const color = isPrevious ? comparisonSeriesColor(idx) : seriesColor(idx);
+      const joinGaps = joinGapsSeriesKeys?.has(seriesKey)
+        ? { connectNulls: true }
+        : {};
 
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) =>
@@ -929,6 +951,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           valueAxis,
           data,
           color,
+          ...joinGaps,
           type: "line" as const,
           animation: animate,
           animationDuration: animate ? 300 : 0,
@@ -1027,6 +1050,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
             valueAxis,
             data,
             color,
+            ...joinGaps,
             type: "line" as const,
             animation: animate,
             animationDuration: animate ? 300 : 0,
@@ -1051,6 +1075,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           valueAxis,
           data,
           color,
+          ...joinGaps,
           type: "line" as const,
           animation: animate,
           animationDuration: animate ? 300 : 0,
