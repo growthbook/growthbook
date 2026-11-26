@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { AIChatMessage } from "shared/ai-chat";
 import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import type { ReqContext } from "back-end/types/request";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -830,7 +834,14 @@ export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   agentType: "general",
   injectDatasourceHint: true,
   buildSystemPrompt: async (ctx) =>
-    buildGeneralAgentSystemPrompt(ctx) + NEW_DASHBOARD_HANDOFF,
+    buildGeneralAgentSystemPrompt(ctx) +
+    (getBackendFeatureValue(
+      "new-dashboard-builder",
+      false,
+      getTrustedOrgAttributes(ctx.org),
+    )
+      ? NEW_DASHBOARD_HANDOFF
+      : ""),
   buildTools: (ctx, buffer, ...[, emit]) => ({
     ...buildCoreAgentTools(ctx, buffer, emit),
     askUser: aiTool({

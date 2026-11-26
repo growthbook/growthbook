@@ -1,3 +1,5 @@
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiClockCounterClockwise } from "react-icons/pi";
@@ -71,12 +73,15 @@ function SingleDashboardPage() {
     shouldRun: () => !!dashboard && !dashboard.isDraft && canEdit,
   });
   const draft = draftData?.draft ?? null;
+  const hasDraft = !!draft;
   const [showDraft, setShowDraft] = useState(false);
   const [draftModal, setDraftModal] = useState<"publish" | "discard" | null>(
     null,
   );
   const [note, setNote] = useState("");
   const { aiEnabled } = useAISettings();
+  // Off: saved dashboards save live as before, unless a draft already exists.
+  const builderOn = useFeatureIsOn<AppFeatures>("new-dashboard-builder");
   const [railOpen, setRailOpen] = useState(false);
   const [aiMessage, setAiMessage] = useState<{ text: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -133,7 +138,7 @@ function SingleDashboardPage() {
         comparison?: DashboardInterface["comparison"];
       };
     }) => {
-      if (method === "PUT" && dashboardId) {
+      if (method === "PUT" && dashboardId && (builderOn || hasDraft)) {
         // Content goes to the draft; who can see and edit it is not versioned.
         const content = {
           title: data.title,
@@ -203,7 +208,7 @@ function SingleDashboardPage() {
         throw new Error("Failed to save dashboard");
       }
     },
-    [apiCall, mutate, mutateDraft],
+    [apiCall, mutate, mutateDraft, builderOn, hasDraft],
   );
 
   const memoizedSetBlock = useCallback(
@@ -254,7 +259,7 @@ function SingleDashboardPage() {
 
   const viewingDraft = !!draft && (showDraft || isEditing);
   const canUseAssistant =
-    canEdit && aiEnabled && hasCommercialFeature("ai-suggestions");
+    builderOn && canEdit && aiEnabled && hasCommercialFeature("ai-suggestions");
   const assistantOpen = railOpen && canUseAssistant && !preview && !isEditing;
   const changes = draft ? diffDashboardContent(dashboard, draft.content) : [];
   const draftCall = async (path: string, method: string, body?: unknown) => {
@@ -444,7 +449,8 @@ function SingleDashboardPage() {
           ) : null}
         </Flex>
       ) : null}
-      {(dashboard.publishedVersion || canUseAssistant) &&
+      {builderOn &&
+      (dashboard.publishedVersion || canUseAssistant) &&
       !isEditing &&
       !preview ? (
         <Flex align="center" justify="end" gap="2" mb="2">
@@ -552,6 +558,7 @@ function SingleDashboardPage() {
         />
       )}
       <DashboardCommentsProvider
+        enabled={builderOn}
         dashboardId={dashboard.id}
         version={
           preview?.version ??

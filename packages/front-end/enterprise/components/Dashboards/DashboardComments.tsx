@@ -28,11 +28,14 @@ const DashboardCommentsContext = createContext<DashboardComments | null>(null);
 
 // Blocks only show comments under this; experiment dashboards have none.
 export function DashboardCommentsProvider({
+  enabled = true,
   dashboardId,
   version,
   onSendToAI,
   children,
 }: {
+  // Off: blocks show no comment or annotation buttons.
+  enabled?: boolean;
   dashboardId: string;
   // The version on screen: a comment is stamped with it, and later ones are hidden.
   version: number;
@@ -42,7 +45,7 @@ export function DashboardCommentsProvider({
   const { apiCall } = useAuth();
   const { data, mutate } = useApi<{
     threads: DashboardCommentThreadInterface[];
-  }>(`/dashboards/${dashboardId}/comments`);
+  }>(`/dashboards/${dashboardId}/comments`, { shouldRun: () => enabled });
   // Stable between renders: charts redraw when their annotations change identity.
   const threads = useMemo(
     () => (data?.threads ?? []).filter((t) => t.version <= version),
@@ -55,6 +58,7 @@ export function DashboardCommentsProvider({
     });
     await mutate();
   };
+  if (!enabled) return <>{children}</>;
   return (
     <DashboardCommentsContext.Provider
       value={{

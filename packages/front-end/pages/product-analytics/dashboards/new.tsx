@@ -1,3 +1,5 @@
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import {
@@ -184,9 +186,11 @@ export default function NewDashboardPage() {
   const router = useRouter();
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
+  const builderOn = useFeatureIsOn<AppFeatures>("new-dashboard-builder");
 
   if (!router.isReady) return null;
   const canUseBuilder =
+    builderOn &&
     hasCommercialFeature("product-analytics-dashboards") &&
     hasCommercialFeature("ai-suggestions") &&
     aiEnabled;
