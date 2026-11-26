@@ -382,7 +382,7 @@ export function getLaunchChecklistItems({
           : task.task,
       status: complete(isTaskComplete(experiment, task)),
       required: true,
-      hardBlock: false,
+      hardBlock: !!task.blockStart,
       manual,
       customTask: { index, url: task.url, propertyKey: task.propertyKey },
     });
