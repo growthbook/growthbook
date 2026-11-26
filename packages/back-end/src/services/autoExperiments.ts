@@ -59,7 +59,9 @@ export function assertAutoExperimentFeatureEnabled(
   throw new BadRequestError(
     AUTO_EXPERIMENTS_MODE === "disabled"
       ? `${NOT_ENABLED[feature]} on this GrowthBook instance.`
-      : `${NOT_ENABLED[feature]} for this organization. An admin can enable them in Settings.`,
+      : AUTO_EXPERIMENTS_MODE === "existing-only"
+        ? `${NOT_ENABLED[feature]} for this organization. To allow an admin to enable them in Settings, set the ALLOW_AUTO_EXPERIMENTS environment variable to true.`
+        : `${NOT_ENABLED[feature]} for this organization. An admin can enable them in Settings.`,
   );
 }
 
