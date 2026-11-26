@@ -338,6 +338,56 @@ describe("custom launch checklist tasks", () => {
       }),
     ).toEqual({ hypothesis: "complete", customField: "complete" });
   });
+
+  it("hard-blocks only a task set to block the start", async () => {
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        { task: "Get sign-off", completionType: "manual", blockStart: true },
+        { task: "Tell support", completionType: "manual" },
+      ],
+    });
+
+    const items = await getExperimentStartChecklistStatus(context, draft);
+    expect(items.find((item) => item.key === "Get sign-off")).toMatchObject({
+      hardBlock: true,
+    });
+    expect(
+      items.find((item) => item.key === "Tell support"),
+    ).not.toHaveProperty("hardBlock");
+  });
+
+  it("never lets a skipped checklist past a task set to block the start", async () => {
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          task: "Add a description",
+          completionType: "auto",
+          propertyKey: "description",
+          blockStart: true,
+        },
+      ],
+    });
+
+    await expect(
+      startExperiment({
+        context,
+        experimentId: "exp_1",
+        skipChecklist: true,
+        bypassLockdown: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({
+            key: "Add a description",
+            hardBlock: true,
+          }),
+        ],
+      },
+    });
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
 });
 
 describe("assertScheduledStartNotHardBlocked", () => {
