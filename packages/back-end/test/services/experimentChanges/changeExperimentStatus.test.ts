@@ -21,6 +21,7 @@ import {
   isTerminalPublishError,
 } from "back-end/src/util/errors";
 import {
+  assertBlockingChecklistTasksComplete,
   assertScheduledStartNotHardBlocked,
   assertStartNotBlocked,
   getExperimentStartChecklistStatus,
@@ -434,6 +435,54 @@ describe("custom launch checklist tasks", () => {
     expect(await customStatuses(draft)).toEqual({
       "Fill in ticket": "incomplete",
     });
+  });
+});
+
+describe("assertBlockingChecklistTasksComplete", () => {
+  const checklistWith = (blockStart: boolean) =>
+    (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          task: "Add a description",
+          completionType: "auto",
+          propertyKey: "description",
+          blockStart,
+        },
+      ],
+    });
+
+  it("refuses while a blocking task is incomplete", async () => {
+    checklistWith(true);
+
+    await expect(
+      assertBlockingChecklistTasksComplete(context, draft),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      message: "Experiment cannot be started: Add a description",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({
+            key: "Add a description",
+            hardBlock: true,
+          }),
+        ],
+      },
+    });
+  });
+
+  it("lets a task through once done, or when it doesn't block", async () => {
+    checklistWith(true);
+    await expect(
+      assertBlockingChecklistTasksComplete(context, {
+        ...draft,
+        description: "Bigger buttons",
+      }),
+    ).resolves.toBeUndefined();
+
+    checklistWith(false);
+    await expect(
+      assertBlockingChecklistTasksComplete(context, draft),
+    ).resolves.toBeUndefined();
   });
 });
 

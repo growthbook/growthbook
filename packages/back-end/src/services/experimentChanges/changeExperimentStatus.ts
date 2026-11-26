@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   getAllVariations,
+  getCustomTaskItems,
   getLaunchChecklistItems,
   type LaunchChecklistItem,
   sdkConnectionServesProject,
@@ -275,6 +276,30 @@ async function getChecklistCustomFields(
     return [];
   }
   return (await context.models.customFields.getCustomFields())?.fields ?? [];
+}
+
+// A flag publish starts its draft experiments without the start gates, but
+// the tasks an admin made blocking still have to be done first.
+export async function assertBlockingChecklistTasksComplete(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const checklist = await getChecklistForExperiment(context, experiment);
+  const open = getCustomTaskItems({
+    experiment,
+    checklist,
+    customFields: await getChecklistCustomFields(context, checklist),
+  })
+    .filter((item) => item.hardBlock && item.status === "incomplete")
+    .map(toStartChecklistItemStatus);
+  if (!open.length) return;
+  throw new ChecklistIncompleteError(
+    open.length === 1
+      ? `Experiment cannot be started: ${open[0].reason}`
+      : "Experiment cannot be started: some items must be resolved and cannot be bypassed",
+    open,
+    startChecklistGates(experiment.id, open, new Map()),
+  );
 }
 
 async function loadAndValidateExperimentForStatusChange(

@@ -296,6 +296,7 @@ import {
 } from "back-end/src/services/experiments";
 import {
   approveScheduledExperimentStart,
+  assertBlockingChecklistTasksComplete,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
@@ -2224,6 +2225,9 @@ export async function postFeaturePublish(
       })
     ) {
       context.permissions.throwPermissionError();
+    }
+    for (const experiment of experiments) {
+      await assertBlockingChecklistTasksComplete(context, experiment);
     }
 
     const now = new Date();
