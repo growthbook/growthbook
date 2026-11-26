@@ -37,11 +37,14 @@ export default function NewExperimentChecklistItem({
   setExperimentLaunchChecklist,
   newTaskInput,
   setNewTaskInput,
+  projectId,
 }: {
   experimentLaunchChecklist: ChecklistTask[];
   setExperimentLaunchChecklist: (checklist: ChecklistTask[]) => void;
   newTaskInput: ChecklistTask;
   setNewTaskInput: (task: ChecklistTask | undefined) => void;
+  // Set for a Project's checklist.
+  projectId?: string;
 }) {
   const { customFields } = useDefinitions();
   const autoChecklistOptions: AutoChecklistOption[] = [
@@ -87,14 +90,22 @@ export default function NewExperimentChecklistItem({
     setNewTaskInput(undefined);
   }
 
-  const customChecklistOptions: AutoChecklistOption[] = customFields.map(
-    (field) => ({
+  // Only fields an experiment here can hold a value for.
+  const customChecklistOptions: AutoChecklistOption[] = customFields
+    .filter(
+      (field) =>
+        field.active !== false &&
+        field.sections?.includes("experiment") &&
+        (!projectId ||
+          !field.projects?.length ||
+          field.projects.includes(projectId)),
+    )
+    .map((field) => ({
       value: `Add a value for "${field.name}"`,
       label: `Add a value for "${field.name}"`,
       customFieldId: field.id,
       propertyKey: "customField",
-    }),
-  );
+    }));
 
   const combinedChecklistOptions = [
     ...autoChecklistOptions,
