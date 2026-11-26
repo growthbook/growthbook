@@ -23,6 +23,7 @@ export function buildUnitsQuerySettingsFromSnapshot(
     attributionModel: settings.attributionModel,
     queryFilter: settings.queryFilter,
     phase: settings.phase,
+    project: settings.project,
     customFields: settings.customFields,
     variations: settings.variations,
     banditSettings: settings.banditSettings,

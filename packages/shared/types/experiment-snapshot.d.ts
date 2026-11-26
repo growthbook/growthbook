@@ -20,7 +20,7 @@ import { DimensionInterface } from "./dimension";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 import { MetricInterface, MetricStats } from "./metric";
 import { Queries } from "./query";
-import { PhaseSQLVar } from "./sql";
+import { PhaseSQLVar, ProjectSQLVar } from "./sql";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -221,6 +221,7 @@ export interface ExperimentSnapshotSettings {
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;
+  project?: ProjectSQLVar;
   customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   coverage?: number;

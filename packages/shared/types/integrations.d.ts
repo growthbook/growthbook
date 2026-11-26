@@ -31,7 +31,11 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
-import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
+import {
+  PhaseSQLVar,
+  ProjectSQLVar,
+  TemplateVariables,
+} from "shared/types/sql";
 
 export interface PipelineIntegration {
   getExperimentUnitsTableQueryFromCte(
@@ -372,6 +376,7 @@ export interface ExperimentUnitsQuerySettings {
   attributionModel: AttributionModel;
   queryFilter: string;
   phase?: PhaseSQLVar;
+  project?: ProjectSQLVar;
   customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   banditSettings?: SnapshotBanditSettings;
@@ -1004,6 +1009,7 @@ export type ExperimentExposuresQueryParams = {
   /** Cluster experiments only. */
   subUnitIdentifierType?: string | null;
   phase?: PhaseSQLVar;
+  project?: ProjectSQLVar;
   customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
   rowFilters?: RowFilter[];
