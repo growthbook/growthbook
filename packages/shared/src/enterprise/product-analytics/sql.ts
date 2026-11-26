@@ -34,30 +34,41 @@ import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
   ProductAnalyticsStaticDimension,
-  FactTableDataset,
   ExplorationConfig,
-  DataSourceDataset,
-  SqlDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
   ResolvedExplorationPopulation,
   dateGranularity,
+  FactTableValue,
+  DataSourceValue,
+  SqlValue,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
   getColumnExpression,
   getFactTableIdColumnExpression,
-  getAggregateFilters,
   getFactTableTimestampColumn,
   isFactCompoundMetric,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
+import { parseAggregateFilter } from "../../aggregate-filters";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
+
+/*
+ * Vocabulary used in this file:
+ * - Metric: a saved fact metric (FactMetricInterface), and ids that point to one.
+ * - Simple value: a fact table, data source or SQL dataset value (a row count,
+ *   a column sum, or a count of unique units) with no saved metric behind it.
+ * - Series: one output column of an exploration: a value, a ratio's
+ *   denominator, or the Population count. A series comes from a metric, a
+ *   simple value, or a Population.
+ * - Measure: what a series computes from the rows (see parseMeasure).
+ */
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -90,20 +101,6 @@ function getTimestampColumnExpression(
   return quoteColumnIdentifier(factTable.timestampColumn, helpers);
 }
 
-// Funnel fact metrics are excluded: product-analytics explorations describe
-// their own funnels through the funnel dataset, and a funnel fact metric has no
-// numerator column to roll up.
-type MinimalMetric = Pick<
-  StandardFactMetricInterface,
-  | "id"
-  | "name"
-  | "metricType"
-  | "numerator"
-  | "denominator"
-  | "cappingSettings"
-  | "windowSettings"
-  | "quantileSettings"
->;
 interface MinimalDatasourceInterface {
   type?: string;
   settings?: DataSourceSettings | null;
@@ -127,26 +124,56 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
 // - populationCount: the Population's member count, reported as each row's
 //   `populationCount` rather than returned as a value
 type SeriesRole = "value" | "denominator" | "populationCount";
-type Series =
-  | {
-      role: "value" | "denominator";
-      metric: MinimalMetric;
-      unit?: string;
-      // The metric's position in the result
-      index: number;
-    }
-  | {
-      role: "populationCount";
-      metric: MinimalMetric;
-      unit: string;
-    };
+
+// How a series turns its measure into a number. Decided by what the series
+// comes from (see getMetricSeriesSettings for metrics); a ratio's value and
+// denominator series share them.
+type SeriesSettings = {
+  /** Caps each row's value before it's aggregated; null when not capped. */
+  capping: MetricCappingSettings | null;
+  /** How the per-unit (or per-row) values become the series' number. */
+  rollup:
+    | {
+        kind: "total";
+        /** Also report how many units have a value, for "Show as". */
+        countsUnits: boolean;
+      }
+    | {
+        kind: "quantile";
+        /** "event" takes the quantile over rows, skipping per-unit aggregation. */
+        level: "unit" | "event";
+        quantile: number;
+      };
+};
+
+// Simple values and Populations: not capped, and a total with a per-unit count
+const UNCAPPED_TOTAL: SeriesSettings = {
+  capping: null,
+  rollup: { kind: "total", countsUnits: true },
+};
+
+type Series = { measure: Measure } & SeriesSettings &
+  (
+    | {
+        role: "value";
+        /**
+         * Becomes each result value's `metricId`: the metric's id, or a
+         * made-up id for a simple value or a Population.
+         */
+        id: string;
+        unit?: string;
+        // The series' position in the result
+        index: number;
+      }
+    | { role: "denominator"; unit?: string; index: number }
+    | { role: "populationCount"; unit: string }
+  );
 interface FactTableGroup {
   index: number;
   factTable: MinimalFactTable;
-  metrics: Series[];
-  units: string[];
+  series: Series[];
 }
-interface MetricData {
+interface SeriesSql {
   role: SeriesRole;
   unit: string | null;
   alias: string;
@@ -177,10 +204,10 @@ function assertNever(value: never): never {
 }
 
 // The Population count series has a fixed alias, so its columns are found by
-// name rather than by position among the metrics.
+// name rather than by position among the series.
 const POPULATION_COUNT_ALIAS = "population_count";
 
-function getMetricAliases(index: number) {
+function getSeriesAliases(index: number) {
   return {
     base: `m${index}`,
     numerator: `m${index}_numerator`,
@@ -191,9 +218,9 @@ function getMetricAliases(index: number) {
 function getSeriesAlias(series: Series): string {
   switch (series.role) {
     case "value":
-      return getMetricAliases(series.index).base;
+      return getSeriesAliases(series.index).base;
     case "denominator":
-      return getMetricAliases(series.index).denominator;
+      return getSeriesAliases(series.index).denominator;
     case "populationCount":
       return POPULATION_COUNT_ALIAS;
   }
@@ -205,64 +232,113 @@ function getValueColumn(alias: string): string {
   return alias.endsWith("_denominator") ? alias : `${alias}_numerator`;
 }
 
-// Helpers to convert to internal types
-function getMetricsAndUnitsFromValues(
-  values:
-    | FactTableDataset["values"]
-    | DataSourceDataset["values"]
-    | SqlDataset["values"],
-): { metrics: Series[]; units: string[] } {
-  const units = new Set<string>();
-
-  const metrics: Series[] = [];
-  let index = 0;
-  for (const value of values) {
-    const metric = createSimpleMetric(
-      value.valueType,
-      value.valueColumn,
-      value.rowFilters,
-      value.name,
-    );
-    metrics.push({
-      metric,
-      index: index++,
-      unit: value.unit || undefined,
-      role: "value",
-    });
-
-    if (value.unit) {
-      units.add(value.unit);
-    }
-  }
-
-  return { metrics, units: Array.from(units) };
+// The distinct units a group's series aggregate by, in order of first use.
+// Each becomes unit0, unit1, ... in the group's SQL.
+function getSeriesUnits(series: Series[]): string[] {
+  return Array.from(new Set(series.flatMap((s) => (s.unit ? [s.unit] : []))));
 }
-// A population as a distinct-units count with an optional aggregate filter.
-// Used for population previews and for a metric dataset's population.
-function createPopulationMetric(
-  population: Omit<ResolvedExplorationPopulation, "unit">,
-  id: string,
-  name: string,
-): MinimalMetric {
-  const metric = createSimpleMetric(
-    "unit_count",
-    null,
-    population.rowFilters,
-    name,
-  );
-  return {
-    ...metric,
-    id,
-    numerator: {
-      ...metric.numerator,
-      factTableId: population.source.factTableId,
-      ...(population.aggregateFilter && population.aggregateFilterColumn
+
+// A metric's series settings, by its type. This is the one place that turns
+// metric types into SQL behavior, so a new metric type won't compile until it's
+// handled. Proportion and daily participation metrics are defined per unit;
+// requiring their measure kind here lets the measure's own plan decide per-unit
+// aggregation.
+function getMetricSeriesSettings(
+  metric: Pick<
+    StandardFactMetricInterface,
+    "id" | "metricType" | "cappingSettings" | "quantileSettings"
+  >,
+  numerator: Measure,
+): SeriesSettings {
+  const { metricType, cappingSettings, quantileSettings } = metric;
+  // Applied to every type but proportion, as before, although
+  // isCappableFactMetric only allows capping mean and ratio metrics
+  const capping =
+    cappingSettings && getCappingTailState(cappingSettings).anyCap
+      ? cappingSettings
+      : null;
+  switch (metricType) {
+    case "proportion":
+      if (numerator.kind !== "distinctUnits") {
+        throw new Error(
+          `Proportion Fact Metric ${metric.id} must measure unique users`,
+        );
+      }
+      return UNCAPPED_TOTAL;
+    case "mean":
+    case "retention":
+      return { capping, rollup: { kind: "total", countsUnits: true } };
+    case "ratio":
+      // A ratio reports its own denominator, not a per-unit count
+      return { capping, rollup: { kind: "total", countsUnits: false } };
+    case "dailyParticipation":
+      if (numerator.kind !== "distinctDays") {
+        throw new Error(
+          `Daily participation Fact Metric ${metric.id} must measure distinct dates`,
+        );
+      }
+      return { capping, rollup: { kind: "total", countsUnits: true } };
+    case "quantile":
+      if (!quantileSettings) {
+        throw new Error(
+          `Quantile Fact Metric ${metric.id} has no quantile settings`,
+        );
+      }
+      return {
+        capping,
+        rollup: {
+          kind: "quantile",
+          level: quantileSettings.type,
+          quantile: quantileSettings.quantile,
+        },
+      };
+  }
+  return assertNever(metricType);
+}
+
+// A fact table, data source or SQL dataset value: a row count, a column sum,
+// or a count of unique units, with no saved metric behind it.
+type SimpleValue = FactTableValue | DataSourceValue | SqlValue;
+
+function getSimpleValueSeries(value: SimpleValue, index: number): Series {
+  const { valueType, valueColumn, rowFilters } = value;
+  const measure: Measure =
+    valueType === "unit_count"
+      ? { kind: "distinctUnits", rowFilters, aggregateFilter: null }
+      : valueType === "sum" && valueColumn
         ? {
-            aggregateFilter: population.aggregateFilter,
-            aggregateFilterColumn: population.aggregateFilterColumn,
+            kind: "column",
+            rowFilters,
+            column: valueColumn,
+            aggregation: "sum",
           }
-        : {}),
-    },
+        : // A count, or a sum with no column, counts rows
+          { kind: "rowCount", rowFilters };
+  return {
+    role: "value",
+    id: `simple_${value.name}_${Date.now()}`,
+    index,
+    unit: value.unit || undefined,
+    measure,
+    ...UNCAPPED_TOTAL,
+  };
+}
+
+// A Population counts its distinct members: units with matching rows that pass
+// its aggregate filter, if it has one.
+function getPopulationMeasure(
+  population: Pick<
+    ResolvedExplorationPopulation,
+    "rowFilters" | "aggregateFilter" | "aggregateFilterColumn"
+  >,
+): Measure {
+  return {
+    kind: "distinctUnits",
+    rowFilters: population.rowFilters,
+    aggregateFilter: toAggregateFilter(
+      population.aggregateFilter,
+      population.aggregateFilterColumn,
+    ),
   };
 }
 
@@ -271,9 +347,10 @@ function createPopulationCountSeries(
   population: ResolvedExplorationPopulation,
 ): Series {
   return {
-    metric: createPopulationMetric(population, "population", "Population"),
-    unit: population.unit,
     role: "populationCount",
+    unit: population.unit,
+    measure: getPopulationMeasure(population),
+    ...UNCAPPED_TOTAL,
   };
 }
 
@@ -296,17 +373,17 @@ function getPopulationFactTableGroups(
     groups[factTable.id] ??= {
       index: Object.keys(groups).length,
       factTable: toMinimalFactTable(factTable),
-      metrics: [],
-      units: [],
+      series: [],
     };
     const group = groups[factTable.id];
-    group.metrics.push({
+    group.series.push({
+      role: "value",
+      id: `population_${index}`,
       index,
       unit: value.unit,
-      metric: createPopulationMetric(value, `population_${index}`, value.name),
-      role: "value",
+      measure: getPopulationMeasure(value),
+      ...UNCAPPED_TOTAL,
     });
-    if (!group.units.includes(value.unit)) group.units.push(value.unit);
   });
   return Object.values(groups);
 }
@@ -353,7 +430,7 @@ function getFactTableGroups({
             config.dataset.columnTypes,
             datasourceSettings,
           ),
-          ...getMetricsAndUnitsFromValues(config.dataset.values),
+          series: config.dataset.values.map(getSimpleValueSeries),
         },
       ];
     }
@@ -370,7 +447,7 @@ function getFactTableGroups({
             config.dataset.columnTypes,
             datasourceSettings,
           ),
-          ...getMetricsAndUnitsFromValues(config.dataset.values),
+          series: config.dataset.values.map(getSimpleValueSeries),
         },
       ];
     case "fact_table":
@@ -386,7 +463,7 @@ function getFactTableGroups({
           {
             index: 0,
             factTable: toMinimalFactTable(factTable),
-            ...getMetricsAndUnitsFromValues(config.dataset.values),
+            series: config.dataset.values.map(getSimpleValueSeries),
           },
         ];
       })();
@@ -405,7 +482,7 @@ function getFactTableGroups({
         if (config.dataset.population && !population) {
           throw new Error("The exploration's Population was not resolved");
         }
-        let metricIndex = 0;
+        let valueIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);
           if (!originalMetric) {
@@ -422,101 +499,82 @@ function getFactTableGroups({
             );
           }
 
-          const metric: MinimalMetric = {
-            id: originalMetric.id,
-            name: originalMetric.name,
-            metricType: originalMetric.metricType,
-            cappingSettings: originalMetric.cappingSettings,
-            windowSettings: originalMetric.windowSettings,
-            quantileSettings: originalMetric.quantileSettings,
-            numerator: {
-              ...originalMetric.numerator,
+          // The exploration value's row filters narrow both sides of the metric
+          const withValueRowFilters = (columnRef: ColumnRef): Measure =>
+            parseMeasure({
+              ...columnRef,
               rowFilters: [
-                ...(originalMetric.numerator.rowFilters || []),
+                ...(columnRef.rowFilters || []),
                 ...(value.rowFilters || []),
               ],
-            },
-            denominator: originalMetric.denominator
-              ? {
-                  ...originalMetric.denominator,
-                  rowFilters: [
-                    ...(originalMetric.denominator.rowFilters || []),
-                    ...(value.rowFilters || []),
-                  ],
-                }
-              : null,
-          };
+            });
+          const { numerator, denominator } = originalMetric;
+          const numeratorMeasure = withValueRowFilters(numerator);
+          const seriesSettings = getMetricSeriesSettings(
+            originalMetric,
+            numeratorMeasure,
+          );
 
-          const factTable = factTableMap.get(metric.numerator.factTableId);
+          const factTable = factTableMap.get(numerator.factTableId);
           if (!factTable) {
-            throw new Error(
-              `Fact table ${metric.numerator.factTableId} not found`,
-            );
+            throw new Error(`Fact table ${numerator.factTableId} not found`);
           }
           if (!groups[factTable.id]) {
             groups[factTable.id] = {
               index: Object.keys(groups).length,
               factTable: toMinimalFactTable(factTable),
-              metrics: [],
-              units: [],
+              series: [],
             };
           }
           const group = groups[factTable.id];
-          group.metrics.push({
-            index: metricIndex,
-            metric,
-            unit: value.unit || undefined,
+          group.series.push({
             role: "value",
+            id: originalMetric.id,
+            index: valueIndex,
+            unit: value.unit || undefined,
+            measure: numeratorMeasure,
+            ...seriesSettings,
           });
-          if (value.unit && !group.units.includes(value.unit)) {
-            group.units.push(value.unit);
-          }
 
-          if (metric.metricType === "ratio" && metric.denominator) {
+          if (originalMetric.metricType === "ratio" && denominator) {
             const denominatorFactTable = factTableMap.get(
-              metric.denominator.factTableId,
+              denominator.factTableId,
             );
             if (!denominatorFactTable) {
               throw new Error(
-                `Fact table ${metric.denominator.factTableId} not found`,
+                `Fact table ${denominator.factTableId} not found`,
               );
             }
             if (!groups[denominatorFactTable.id]) {
               groups[denominatorFactTable.id] = {
                 index: Object.keys(groups).length,
                 factTable: toMinimalFactTable(denominatorFactTable),
-                metrics: [],
-                units: [],
+                series: [],
               };
             }
             const denominatorGroup = groups[denominatorFactTable.id];
-            denominatorGroup.metrics.push({
-              index: metricIndex,
-              metric,
-              unit: value.denominatorUnit || undefined,
+            denominatorGroup.series.push({
               role: "denominator",
+              index: valueIndex,
+              unit: value.denominatorUnit || undefined,
+              measure: withValueRowFilters(denominator),
+              ...seriesSettings,
             });
-            if (
-              value.denominatorUnit &&
-              !denominatorGroup.units.includes(value.denominatorUnit)
-            ) {
-              denominatorGroup.units.push(value.denominatorUnit);
-            }
           }
-          metricIndex++;
+          valueIndex++;
         }
         if (population) {
           const group = groups[population.source.factTableId];
           if (
             !group ||
             Object.keys(groups).length > 1 ||
-            group.metrics.some((m) => m.unit !== population.unit)
+            group.series.some((m) => m.unit !== population.unit)
           ) {
             throw new Error(
               "Every metric must use the population's Fact Table and identifier type in order to be filtered by population membership.",
             );
           }
-          group.metrics.push(createPopulationCountSeries(population));
+          group.series.push(createPopulationCountSeries(population));
         }
         return Object.values(groups);
       })();
@@ -772,26 +830,12 @@ function getStaticDimensionFilters(
   });
 }
 
-function getCappingSettings(
-  metric: MinimalMetric,
-): MetricCappingSettings | null {
-  if (metric.metricType === "proportion") return null;
-
-  const cs = metric.cappingSettings;
-  if (!cs) return null;
-
-  if (getCappingTailState(cs).anyCap) {
-    return cs;
-  }
-
-  return null;
-}
-
 // Generate dimension expression
 export function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
-  factTableGroup: FactTableGroup,
+  // Only its fact table is read
+  factTableGroup: { factTable: MinimalFactTable },
   helpers: SqlDialect,
   dateRange: DateRange,
 ): string {
@@ -852,102 +896,278 @@ export function generateDimensionExpression(
   }
 }
 
-// Helper to create minimal FactMetricInterface for simple values
-function createSimpleMetric(
-  valueType: "count" | "sum" | "unit_count",
-  valueColumn: string | null,
-  rowFilters: RowFilter[],
-  name: string,
-): MinimalMetric {
-  // Determine metric type and column based on valueType
-  let metricType: "mean" | "proportion" = "mean";
-  let column: string = valueColumn || "$$count";
-  const aggregation: "sum" | "max" | "count distinct" = "sum";
+/**
+ * What a series measures: which rows count, what's read from each, and how
+ * they're combined per unit (a "measure" in the BI semantic-layer sense). A
+ * metric's numerator or denominator is parsed by parseMeasure, which with
+ * toAggregateFilter is the only code that reads the special column names
+ * ($$count, $$distinctUsers, $$distinctDates) and the aggregation. Simple
+ * values and Populations build their measure directly.
+ *
+ * Every kind is limited to rows matching its `rowFilters` (SQL WHERE); an
+ * empty list means every row.
+ */
+type Measure =
+  | { kind: "rowCount"; rowFilters: RowFilter[] }
+  | {
+      kind: "distinctUnits";
+      rowFilters: RowFilter[];
+      /**
+       * Which units count, by their total over the matching rows (SQL
+       * HAVING). Only distinct units support this today.
+       */
+      aggregateFilter: AggregateFilter | null;
+    }
+  | { kind: "distinctDays"; rowFilters: RowFilter[] }
+  | {
+      kind: "column";
+      rowFilters: RowFilter[];
+      column: string;
+      aggregation: "sum" | "max" | "count distinct";
+    }
+  | { kind: "hllSketch"; rowFilters: RowFilter[]; column: string }
+  | { kind: "kllSketch"; rowFilters: RowFilter[]; column: string };
 
-  if (valueType === "unit_count") {
-    metricType = "proportion";
-    column = "$$distinctUsers";
-  } else if (valueType === "count") {
-    column = "$$count";
-  } else if (valueColumn) {
-    column = valueColumn;
-  }
+/**
+ * Keeps units whose total over the matching rows passes `conditions`: one or
+ * more comma-separated comparisons, such as ">=3,<10".
+ */
+type AggregateFilter =
+  // Totals each unit's rows, e.g. at least 3 purchases
+  | { kind: "rowCount"; conditions: string }
+  // Totals a column over each unit's rows, e.g. revenue over 10
+  | { kind: "columnSum"; column: string; conditions: string };
 
-  const numerator: ColumnRef = {
-    factTableId: "factTable",
-    column,
-    aggregation,
-    rowFilters,
-  };
-
-  return {
-    id: `simple_${name}_${Date.now()}`,
-    name,
-    metricType,
-    numerator,
-    denominator: null,
-    cappingSettings: {
-      type: "",
-      value: 0,
-      ignoreZeros: false,
-    },
-    windowSettings: {
-      type: "",
-      delayUnit: "days",
-      delayValue: 0,
-      windowUnit: "days",
-      windowValue: 0,
-    },
-    quantileSettings: null,
-  };
+// From the stored aggregateFilter / aggregateFilterColumn pair (on a ColumnRef
+// or a Population step), where an aggregateFilterColumn of "$$count" counts rows.
+function toAggregateFilter(
+  conditions: string | undefined,
+  column: string | undefined,
+): AggregateFilter | null {
+  if (!conditions || !column) return null;
+  return column === "$$count"
+    ? { kind: "rowCount", conditions }
+    : { kind: "columnSum", column, conditions };
 }
 
+// `aggregation` means nothing for the special columns, so it's dropped here.
+// Validation already rejects distinct-count and sketch aggregations on them.
+function parseMeasure(columnRef: ColumnRef): Measure {
+  const rowFilters = columnRef.rowFilters ?? [];
+  switch (columnRef.column) {
+    case "$$count":
+      return { kind: "rowCount", rowFilters };
+    case "$$distinctDates":
+      return { kind: "distinctDays", rowFilters };
+    case "$$distinctUsers": {
+      const { aggregateFilter, aggregateFilterColumn } = columnRef;
+      return {
+        kind: "distinctUnits",
+        rowFilters,
+        aggregateFilter: toAggregateFilter(
+          aggregateFilter,
+          aggregateFilterColumn,
+        ),
+      };
+    }
+  }
+
+  const { column, aggregation } = columnRef;
+  switch (aggregation) {
+    case "hll merge":
+      return { kind: "hllSketch", rowFilters, column };
+    case "kll merge":
+      return { kind: "kllSketch", rowFilters, column };
+    case "max":
+    case "count distinct":
+      return { kind: "column", rowFilters, column, aggregation };
+    case "sum":
+    case undefined:
+      return { kind: "column", rowFilters, column, aggregation: "sum" };
+  }
+  return assertNever(aggregation);
+}
+
+type RollupContext = {
+  /** The quantile a quantile metric reports; null reports a sum. */
+  quantile: number | null;
+  /** Whether the rollup reads per-unit values rather than per-row values. */
+  fromUnitAggregation: boolean;
+};
+
+/** The SQL for one kind of measured value, at each stage of the query. */
+type MeasurePlan = {
+  /** What each matching row contributes, before capping and row filters. */
+  rowValue: (factTable: MinimalFactTable, dialect: SqlDialect) => string;
+  /** Combines a unit's row values into one value per unit. */
+  unitAggregation: (alias: string, dialect: SqlDialect) => string;
+  /** Combines the per-unit (or per-row) values into the reported number. */
+  rollupAggregation: (
+    alias: string,
+    dialect: SqlDialect,
+    ctx: RollupContext,
+  ) => string;
+  /** Must be aggregated per unit; can't fall back to a per-row rollup. */
+  requiresUnitAggregation: boolean;
+  /**
+   * Counts rather than sums, so next to other series a unit with no matching
+   * rows would count as zero instead of being left out.
+   */
+  needsPresenceGuard: boolean;
+};
+
+function sumOrQuantile(
+  alias: string,
+  dialect: SqlDialect,
+  { quantile }: RollupContext,
+): string {
+  return quantile === null
+    ? `SUM(${alias})`
+    : dialect.percentileApprox(alias, quantile);
+}
+
+// Expands virtual (computed) columns into their SQL expression and resolves
+// JSON columns. A plain column returns its own name.
+function columnValue(
+  column: string,
+  factTable: MinimalFactTable,
+  dialect: SqlDialect,
+): string {
+  return getColumnExpression(
+    column,
+    factTable,
+    dialect.jsonExtract,
+    "",
+    dialect.identifierQuote,
+  );
+}
+
+function getMeasurePlan(measure: Measure): MeasurePlan {
+  switch (measure.kind) {
+    case "rowCount":
+      return {
+        rowValue: () => "1",
+        unitAggregation: (alias) => `SUM(${alias})`,
+        rollupAggregation: sumOrQuantile,
+        requiresUnitAggregation: false,
+        needsPresenceGuard: false,
+      };
+
+    case "distinctUnits": {
+      const { aggregateFilter } = measure;
+      return {
+        // With an aggregate filter, each row adds to the total the unit is
+        // checked against
+        rowValue: (factTable, dialect) =>
+          aggregateFilter?.kind === "columnSum"
+            ? columnValue(aggregateFilter.column, factTable, dialect)
+            : "1",
+        // 1 for a unit that counts and NULL, never 0, for one that doesn't:
+        // rollups keep a Population's members with IS NOT NULL.
+        unitAggregation: (alias) => {
+          const conditions = aggregateFilter
+            ? parseAggregateFilter(aggregateFilter.conditions).conditions
+            : [];
+          if (!conditions.length) return `MAX(${alias})`;
+          const tests = conditions.map(
+            ({ operator, value }) => `SUM(${alias}) ${operator} ${value}`,
+          );
+          return `CASE WHEN (${tests.join(" AND ")}) THEN 1 ELSE NULL END`;
+        },
+        rollupAggregation: sumOrQuantile,
+        requiresUnitAggregation: true,
+        needsPresenceGuard: false,
+      };
+    }
+
+    case "distinctDays":
+      return {
+        rowValue: (factTable, dialect) => {
+          const timestampColumn = getTimestampColumnExpression(
+            factTable,
+            dialect,
+          );
+          if (!timestampColumn) {
+            throw new Error("Distinct date values require a timestamp column");
+          }
+          return dialect.dateTrunc(timestampColumn, "day");
+        },
+        unitAggregation: (alias) => `COUNT(DISTINCT ${alias})`,
+        rollupAggregation: sumOrQuantile,
+        requiresUnitAggregation: true,
+        needsPresenceGuard: true,
+      };
+
+    case "column": {
+      const { column, aggregation } = measure;
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        unitAggregation: (alias) => {
+          switch (aggregation) {
+            case "sum":
+              return `SUM(${alias})`;
+            case "max":
+              return `MAX(${alias})`;
+            case "count distinct":
+              return `COUNT(DISTINCT ${alias})`;
+          }
+          return assertNever(aggregation);
+        },
+        rollupAggregation: sumOrQuantile,
+        requiresUnitAggregation: aggregation !== "sum",
+        needsPresenceGuard: aggregation === "count distinct",
+      };
+    }
+
+    case "hllSketch": {
+      const { column } = measure;
+      const cardinality = (alias: string, dialect: SqlDialect) =>
+        dialect.hllCardinality(dialect.hllReaggregate(alias));
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        unitAggregation: cardinality,
+        // Per-unit values are already counts; per-row values are still sketches
+        rollupAggregation: (alias, dialect, { fromUnitAggregation }) =>
+          fromUnitAggregation ? `SUM(${alias})` : cardinality(alias, dialect),
+        requiresUnitAggregation: false,
+        needsPresenceGuard: true,
+      };
+    }
+
+    case "kllSketch": {
+      const { column } = measure;
+      return {
+        rowValue: (factTable, dialect) =>
+          columnValue(column, factTable, dialect),
+        unitAggregation: (alias, dialect) =>
+          dialect.quantileSketchMergePartial(alias),
+        rollupAggregation: (alias, dialect, { quantile }) =>
+          quantile === null
+            ? `SUM(${alias})`
+            : dialect.quantileSketchExtractPoint(
+                dialect.quantileSketchMergePartial(alias),
+                quantile,
+              ),
+        requiresUnitAggregation: false,
+        needsPresenceGuard: false,
+      };
+    }
+  }
+  return assertNever(measure);
+}
+
+// What each row contributes to the measure: its value, capped, and NULL for
+// rows outside the measure's row filters.
 function getEventValueExpr(
-  columnRef: ColumnRef,
+  measure: Measure,
   factTable: MinimalFactTable,
   helpers: SqlDialect,
   alias: string,
   cap: MetricCappingSettings | null,
 ): string {
-  let rawValue: string;
-  if (columnRef.column === "$$distinctUsers") {
-    if (
-      columnRef.aggregateFilter &&
-      columnRef.aggregateFilterColumn &&
-      columnRef.aggregateFilterColumn !== "$$count"
-    ) {
-      // Same expansion as an ordinary value column below, so a virtual column
-      // inlines its expression instead of emitting a name the warehouse cannot
-      // resolve. A plain column returns its own name, as before.
-      rawValue = getColumnExpression(
-        columnRef.aggregateFilterColumn,
-        factTable,
-        helpers.jsonExtract,
-        "",
-        helpers.identifierQuote,
-      );
-    } else {
-      rawValue = "1";
-    }
-  } else if (columnRef.column === "$$count") {
-    rawValue = "1";
-  } else if (columnRef.column === "$$distinctDates") {
-    const timestampColumn = getTimestampColumnExpression(factTable, helpers);
-    if (!timestampColumn) {
-      throw new Error("Distinct date values require a timestamp column");
-    }
-    rawValue = helpers.dateTrunc(timestampColumn, "day");
-  } else {
-    // Expand virtual (computed) columns into their SQL expression, and resolve
-    // JSON columns. A plain column just returns its own name here.
-    rawValue = getColumnExpression(
-      columnRef.column,
-      factTable,
-      helpers.jsonExtract,
-      "",
-      helpers.identifierQuote,
-    );
-  }
+  let rawValue = getMeasurePlan(measure).rowValue(factTable, helpers);
 
   if (cap) {
     if (cap.type === "percentile") {
@@ -957,11 +1177,7 @@ function getEventValueExpr(
     }
   }
 
-  const filters = generateRowFilterSQL(
-    columnRef.rowFilters || [],
-    factTable,
-    helpers,
-  );
+  const filters = generateRowFilterSQL(measure.rowFilters, factTable, helpers);
   if (!filters.length) {
     return rawValue;
   }
@@ -969,111 +1185,21 @@ function getEventValueExpr(
   return `CASE WHEN (${filters.join(" AND ")}) THEN ${rawValue} ELSE NULL END`;
 }
 
-function getUnitAggregationExpr(
-  columnRef: ColumnRef,
-  alias: string,
-  helpers: SqlDialect,
-): string {
-  if (columnRef.column === "$$distinctDates") {
-    return `COUNT(DISTINCT ${alias})`;
-  }
-  if (columnRef.column === "$$distinctUsers") {
-    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      const filters = getAggregateFilters({
-        columnRef: columnRef,
-        column: `SUM(${alias})`,
-        ignoreInvalid: true,
-      });
-      if (filters.length > 0) {
-        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
-      }
-    }
-    return `MAX(${alias})`;
-  }
-  if (columnRef.column === "$$count") {
-    return `SUM(${alias})`;
-  }
-
-  const aggregation = columnRef.aggregation;
-  switch (aggregation) {
-    case "sum":
-      return `SUM(${alias})`;
-    case "max":
-      return `MAX(${alias})`;
-    case "count distinct":
-      return `COUNT(DISTINCT ${alias})`;
-    case "hll merge":
-      return helpers.hllCardinality(helpers.hllReaggregate(alias));
-    case "kll merge":
-      return helpers.quantileSketchMergePartial(alias);
-    case undefined:
-      return `SUM(${alias})`;
-  }
-
-  return assertNever(aggregation);
-}
-
-function getRollupAggregationExpr(
-  metric: MinimalMetric,
-  columnRef: ColumnRef,
-  alias: string,
-  helpers: SqlDialect,
-  fromUnitAggregation: boolean,
-): string {
-  if (columnRef.aggregation === "hll merge") {
-    return fromUnitAggregation
-      ? `SUM(${alias})`
-      : helpers.hllCardinality(helpers.hllReaggregate(alias));
-  }
-
-  // Quantiles
-  if (metric.metricType === "quantile" && metric.quantileSettings) {
-    if (columnRef.aggregation === "kll merge") {
-      return helpers.quantileSketchExtractPoint(
-        helpers.quantileSketchMergePartial(alias),
-        metric.quantileSettings.quantile,
-      );
-    }
-    return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
-  } else {
-    return `SUM(${alias})`;
-  }
-}
-
-function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
-  // Skip count for ratio metrics
-  if (metric.metricType === "ratio") return "";
-  return `COUNT(${alias})`;
-}
-
-// Generate metric value expression from metric with metadata
-function getMetricData(
+// The SQL fragments for one series, at each stage of the query
+function getSeriesSql(
   series: Series,
   factTableGroup: FactTableGroup,
   helpers: SqlDialect,
-): MetricData {
+): SeriesSql {
   const { factTable } = factTableGroup;
-  const { metric, unit, role } = series;
-  const columnRef =
-    role === "denominator" ? metric.denominator : metric.numerator;
-
-  if (!columnRef) {
-    throw new Error(`Column ref not found for metric ${metric.id}`);
-  }
-
+  const { measure, unit, role } = series;
   const alias = getSeriesAlias(series);
+  const plan = getMeasurePlan(measure);
+  const { capping, rollup } = series;
+  const quantile = rollup.kind === "quantile" ? rollup : null;
 
-  const skipUnitAggregation =
-    metric.metricType === "quantile" &&
-    metric.quantileSettings?.type === "event";
-
-  const requiresUnitAggregation =
-    columnRef.aggregation === "max" ||
-    columnRef.aggregation === "count distinct" ||
-    metric.metricType === "dailyParticipation" ||
-    metric.metricType === "proportion" ||
-    columnRef.column === "$$distinctUsers" ||
-    columnRef.column === "$$distinctDates";
+  const skipUnitAggregation = quantile?.level === "event";
+  const { requiresUnitAggregation } = plan;
 
   let selectedUnit = skipUnitAggregation ? null : unit || null;
 
@@ -1101,28 +1227,25 @@ function getMetricData(
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable
   // cost, narrow the guard to metric datasets where per-unit is meaningful.
-  let rollupCountExpr: string | null = null;
-  if (
+  const rollupCountExpr =
     selectedUnit &&
     role === "value" &&
-    metric.metricType !== "ratio" &&
-    metric.metricType !== "quantile"
-  ) {
-    rollupCountExpr = getRollupCountExpr(metric, alias);
-  }
+    rollup.kind === "total" &&
+    rollup.countsUnits
+      ? `COUNT(${alias})`
+      : null;
 
   // Count-like aggregates can turn another series' users into zero contributors.
   // SUM/MAX already preserve NULL for absent activity and need no extra guard.
   // A lone series filters the scan to its own rows, so it needs no guard either.
   const requiresMetricPresence =
     selectedUnit !== null &&
-    factTableGroup.metrics.length > 1 &&
-    (columnRef.aggregation === "count distinct" ||
-      columnRef.aggregation === "hll merge" ||
-      columnRef.column === "$$distinctDates");
+    factTableGroup.series.length > 1 &&
+    plan.needsPresenceGuard;
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
-        { ...columnRef, column: "$$count" },
+        // 1 for each of the measure's own rows
+        { kind: "rowCount", rowFilters: measure.rowFilters },
         factTable,
         helpers,
         alias,
@@ -1130,9 +1253,8 @@ function getMetricData(
       )
     : null;
 
-  const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
-    columnRef,
+    measure,
     factTable,
     helpers,
     alias,
@@ -1144,28 +1266,23 @@ function getMetricData(
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
-      cappingSettings && cappingSettings.type === "percentile"
-        ? rawPercentileValueExpr
-        : null,
+      capping?.type === "percentile" ? rawPercentileValueExpr : null,
     percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
-      columnRef,
+      measure,
       factTable,
       helpers,
       alias,
-      cappingSettings,
+      capping,
     ),
     presenceExpr,
     unitAggregationExpr: selectedUnit
-      ? getUnitAggregationExpr(columnRef, alias, helpers)
+      ? plan.unitAggregation(alias, helpers)
       : null,
-    rollupAggregationExpr: getRollupAggregationExpr(
-      metric,
-      columnRef,
-      alias,
-      helpers,
-      !!selectedUnit,
-    ),
+    rollupAggregationExpr: plan.rollupAggregation(alias, helpers, {
+      quantile: quantile?.quantile ?? null,
+      fromUnitAggregation: !!selectedUnit,
+    }),
     rollupCountExpr,
   };
 }
@@ -1224,7 +1341,8 @@ function createStubFactTable(
 
 // Generate dynamic dimension CTE
 export function generateDynamicDimensionCTE(
-  factTableGroup: FactTableGroup,
+  // Only its fact table is read
+  factTableGroup: { factTable: MinimalFactTable },
   dimension: ProductAnalyticsDynamicDimension,
   dimensionIndex: number,
   sourceCTE: CTE,
@@ -1264,19 +1382,19 @@ function generatePercentileCapsCTE(
   helpers: SqlDialect,
 ): CTE | null {
   const selects: string[] = [];
-  factTableGroup.metrics.forEach((m) => {
-    const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings) return;
+  factTableGroup.series.forEach((s) => {
+    const { capping } = s;
+    if (!capping) return;
 
-    const metricData = getMetricData(m, factTableGroup, helpers);
-    const tails = getCappingTailState(cappingSettings);
+    const seriesSql = getSeriesSql(s, factTableGroup, helpers);
+    const tails = getCappingTailState(capping);
 
     if (tails.upperPercentileCapped) {
       selects.push(
         `${helpers.percentileApprox(
-          metricData.percentileCapValueExpr || "NULL",
-          cappingSettings.value!,
-        )} AS ${metricData.alias}_cap`,
+          seriesSql.percentileCapValueExpr || "NULL",
+          capping.value!,
+        )} AS ${seriesSql.alias}_cap`,
       );
     }
   });
@@ -1302,22 +1420,10 @@ function generateFactTableCTE(
 
   const baseSql = factTable.sql;
 
-  // Get a de-duped list of all filters across all metrics
-  const allMetricFilters: string[][] = [];
-  factTableGroup.metrics.forEach((m) => {
-    const columnRef =
-      m.role === "denominator" ? m.metric.denominator : m.metric.numerator;
-
-    if (!columnRef) return;
-
-    const filterParts = generateRowFilterSQL(
-      columnRef.rowFilters || [],
-      factTable,
-      helpers,
-    );
-
-    allMetricFilters.push(filterParts);
-  });
+  // Each series' row filters, so the scan can skip rows no series reads
+  const allSeriesFilters: string[][] = factTableGroup.series.map((s) =>
+    generateRowFilterSQL(s.measure.rowFilters, factTable, helpers),
+  );
 
   const whereClauses: string[] = [];
 
@@ -1328,9 +1434,9 @@ function generateFactTableCTE(
     );
   }
 
-  const metricsFilter = buildMinimalOrCondition(allMetricFilters);
-  if (metricsFilter) {
-    whereClauses.push(metricsFilter);
+  const seriesFilter = buildMinimalOrCondition(allSeriesFilters);
+  if (seriesFilter) {
+    whereClauses.push(seriesFilter);
   }
 
   whereClauses.push(...staticDimensionFilters);
@@ -1367,7 +1473,7 @@ function generateFactTableRowsCTE(
   });
 
   // Select all units
-  factTableGroup.units.forEach((unit, i) => {
+  getSeriesUnits(factTableGroup.series).forEach((unit, i) => {
     const unitColumn = getFactTableIdColumnExpression(
       factTableGroup.factTable,
       unit,
@@ -1377,11 +1483,11 @@ function generateFactTableRowsCTE(
   });
 
   // Select all metric event values
-  factTableGroup.metrics.forEach((m) => {
-    const metricData = getMetricData(m, factTableGroup, helpers);
-    selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
-    if (metricData.presenceExpr !== null) {
-      selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
+  factTableGroup.series.forEach((m) => {
+    const seriesSql = getSeriesSql(m, factTableGroup, helpers);
+    selectCols.push(`${seriesSql.eventValueExpr} AS ${seriesSql.alias}`);
+    if (seriesSql.presenceExpr !== null) {
+      selectCols.push(`${seriesSql.presenceExpr} AS ${seriesSql.alias}_rows`);
     }
   });
 
@@ -1401,7 +1507,7 @@ function generateUnitAggregationCTE(
   sourceCTE: CTE,
   dimensions: DimensionData[],
   unitIndex: number,
-  includedMetrics: MetricData[],
+  includedSeries: SeriesSql[],
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -1415,15 +1521,15 @@ function generateUnitAggregationCTE(
     groupBys.push(`${d.alias}`);
   });
 
-  // Add metrics
-  includedMetrics.forEach((metricData) => {
-    const expr = metricData.unitAggregationExpr || "NULL";
+  // Add series
+  includedSeries.forEach((seriesSql) => {
+    const expr = seriesSql.unitAggregationExpr || "NULL";
     // Preserve actual zeros, but exclude users with no rows matching this metric.
     const guardedExpr =
-      metricData.presenceExpr !== null
-        ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
+      seriesSql.presenceExpr !== null
+        ? `CASE WHEN COUNT(${seriesSql.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
         : expr;
-    selects.push(`${guardedExpr} AS ${metricData.alias}`);
+    selects.push(`${guardedExpr} AS ${seriesSql.alias}`);
   });
 
   return {
@@ -1442,8 +1548,8 @@ function generateUnitAggregationRollupCTE(
   sourceCTE: CTE,
   dimensions: DimensionData[],
   unitIndex: number,
-  includedMetrics: MetricData[],
-  allMetrics: string[],
+  includedSeries: SeriesSql[],
+  allSeries: string[],
   aliasesWithDenominator: Set<string>,
   dialect: SqlDialect,
 ): CTE {
@@ -1456,18 +1562,18 @@ function generateUnitAggregationRollupCTE(
     groupBys.push(`${d.alias}`);
   });
 
-  // Add metrics
-  allMetrics.forEach((alias) => {
-    const metricData = includedMetrics.find((m) => m.alias === alias);
+  // Add series
+  allSeries.forEach((alias) => {
+    const seriesSql = includedSeries.find((m) => m.alias === alias);
     const valueAlias = getValueColumn(alias);
 
-    if (metricData && metricData.rollupAggregationExpr) {
+    if (seriesSql && seriesSql.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
+        `${dialect.castToFloat(seriesSql.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
+          `${dialect.castToFloat(seriesSql.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
@@ -1479,7 +1585,7 @@ function generateUnitAggregationRollupCTE(
   });
 
   // With a Population, only its members count toward each metric
-  const where = includedMetrics.some((m) => m.role === "populationCount")
+  const where = includedSeries.some((m) => m.role === "populationCount")
     ? `WHERE ${POPULATION_COUNT_ALIAS} IS NOT NULL`
     : "";
 
@@ -1499,8 +1605,8 @@ function generateEventRollupCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
   dimensions: DimensionData[],
-  includedMetrics: MetricData[],
-  allMetrics: string[],
+  includedSeries: SeriesSql[],
+  allSeries: string[],
   aliasesWithDenominator: Set<string>,
   dialect: SqlDialect,
 ): CTE {
@@ -1513,17 +1619,17 @@ function generateEventRollupCTE(
     groupBys.push(`${d.alias}`);
   });
 
-  // Add metrics
-  allMetrics.forEach((alias) => {
-    const metricData = includedMetrics.find((m) => m.alias === alias);
+  // Add series
+  allSeries.forEach((alias) => {
+    const seriesSql = includedSeries.find((m) => m.alias === alias);
     const valueAlias = getValueColumn(alias);
-    if (metricData && metricData.rollupAggregationExpr) {
+    if (seriesSql && seriesSql.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
+        `${dialect.castToFloat(seriesSql.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
+          `${dialect.castToFloat(seriesSql.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
@@ -1555,7 +1661,7 @@ function generateCombinedRollupCTE(rollupCTEs: CTE[]): CTE {
 function generateFinalSelect(
   combinedRollupCTE: CTE,
   dimensions: DimensionData[],
-  allMetrics: MetricData[],
+  allSeries: SeriesSql[],
   needsReaggregation: boolean,
 ): string {
   const selects: string[] = [];
@@ -1566,7 +1672,7 @@ function generateFinalSelect(
       groupBys.push(`${d.alias}`);
     }
   });
-  allMetrics.forEach((m) => {
+  allSeries.forEach((m) => {
     const valueAlias = getValueColumn(m.alias);
     selects.push(
       needsReaggregation
@@ -1722,8 +1828,7 @@ export function buildFunnelSql(
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
     factTable: toMinimalFactTable(initialFactTable),
-    metrics: [],
-    units: [],
+    series: [],
   };
   const dimensionExpr = dimension
     ? generateDimensionExpression(
@@ -2113,23 +2218,26 @@ export function generateProductAnalyticsSQL(
     dialect,
   });
 
-  // Get all metric aliases
-  const allMetrics: MetricData[] = [];
+  // Get all series aliases
+  const allSeries: SeriesSql[] = [];
+  // Becomes each result value's `metricId`. For simple values and Populations
+  // these are made-up ids, not metrics; the name is kept because it's part of
+  // the result shape the API and front end read.
   const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
-    f.metrics.forEach((m) => {
-      const data = getMetricData(m, f, dialect);
-      allMetrics.push(data);
+    f.series.forEach((m) => {
+      const data = getSeriesSql(m, f, dialect);
+      allSeries.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
       if (m.role === "value") {
-        orderedMetricIds[m.index] = m.metric.id;
+        orderedMetricIds[m.index] = m.id;
       }
     });
   });
 
-  const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
+  const allSeriesAliases: string[] = allSeries.map((m) => m.alias);
   const aliasesWithDenominator: Set<string> = new Set(
-    allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
+    allSeries.filter((m) => m.rollupCountExpr).map((m) => m.alias),
   );
 
   // Only `.alias` is used from this for the final SELECT (below); each
@@ -2230,24 +2338,24 @@ export function generateProductAnalyticsSQL(
     );
     ctes.push(factTableRowsCTE);
 
-    // Split metrics into unit/event groups
-    const unitMetrics: Record<string, MetricData[]> = {};
-    const eventMetrics: MetricData[] = [];
-    factTableGroup.metrics.forEach((m) => {
-      const metricData = getMetricData(m, factTableGroup, dialect);
-      if (metricData.unit) {
-        if (!unitMetrics[metricData.unit]) {
-          unitMetrics[metricData.unit] = [];
+    // Split series into unit/event groups
+    const unitSeries: Record<string, SeriesSql[]> = {};
+    const eventSeries: SeriesSql[] = [];
+    factTableGroup.series.forEach((m) => {
+      const seriesSql = getSeriesSql(m, factTableGroup, dialect);
+      if (seriesSql.unit) {
+        if (!unitSeries[seriesSql.unit]) {
+          unitSeries[seriesSql.unit] = [];
         }
-        unitMetrics[metricData.unit].push(metricData);
+        unitSeries[seriesSql.unit].push(seriesSql);
       } else {
-        eventMetrics.push(metricData);
+        eventSeries.push(seriesSql);
       }
     });
 
     // Add the unit aggregation CTEs
-    Object.entries(unitMetrics).forEach(([unit, metrics]) => {
-      const unitIndex = factTableGroup.units.indexOf(unit);
+    Object.entries(unitSeries).forEach(([unit, seriesSqls]) => {
+      const unitIndex = getSeriesUnits(factTableGroup.series).indexOf(unit);
       if (unitIndex === -1) {
         throw new Error(`Unit ${unit} not found in fact table group`);
       }
@@ -2256,7 +2364,7 @@ export function generateProductAnalyticsSQL(
         factTableRowsCTE,
         groupDimensions,
         unitIndex,
-        metrics,
+        seriesSqls,
       );
       ctes.push(unitAggregationCTE);
 
@@ -2266,8 +2374,8 @@ export function generateProductAnalyticsSQL(
         unitAggregationCTE,
         groupDimensions,
         unitIndex,
-        metrics,
-        allMetricsAliases,
+        seriesSqls,
+        allSeriesAliases,
         aliasesWithDenominator,
         dialect,
       );
@@ -2276,13 +2384,13 @@ export function generateProductAnalyticsSQL(
     });
 
     // Event rollup
-    if (eventMetrics.length) {
+    if (eventSeries.length) {
       const eventRollupCTE = generateEventRollupCTE(
         factTableGroup,
         factTableRowsCTE,
         groupDimensions,
-        eventMetrics,
-        allMetricsAliases,
+        eventSeries,
+        allSeriesAliases,
         aliasesWithDenominator,
         dialect,
       );
@@ -2307,7 +2415,7 @@ export function generateProductAnalyticsSQL(
     `
   WITH 
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
-  ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics, needsReaggregation)}
+  ${generateFinalSelect(finalSelectSource, allDimensions, allSeries, needsReaggregation)}
   `,
     dialect.formatDialect,
   );
@@ -2409,7 +2517,7 @@ export function transformProductAnalyticsRowsToResult(
       resultRow.dimensions.push(parseStringValue(row[alias]));
     });
     orderedMetricIds.forEach((metricId, index) => {
-      const aliases = getMetricAliases(index);
+      const aliases = getSeriesAliases(index);
       resultRow.values?.push({
         metricId,
         numerator: parseNumberValue(row[aliases.numerator]),

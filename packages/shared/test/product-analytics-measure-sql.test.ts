@@ -690,3 +690,34 @@ describe("orderedMetricIds", () => {
     ).toEqual(["population_0", "population_1"]);
   });
 });
+
+describe("metrics whose type and measure don't match", () => {
+  it.each([
+    [
+      "a proportion that doesn't measure unique users",
+      metric("bad_proportion", {
+        metricType: "proportion",
+        numerator: ref({ column: "$$count" }),
+      }),
+      "Proportion Fact Metric bad_proportion must measure unique users",
+    ],
+    [
+      "a daily participation metric that doesn't measure distinct dates",
+      metric("bad_participation", {
+        metricType: "dailyParticipation",
+        numerator: ref({ column: "$$distinctUsers" }),
+      }),
+      "Daily participation Fact Metric bad_participation must measure distinct dates",
+    ],
+    [
+      "a quantile metric with no quantile settings",
+      metric("bad_quantile", {
+        metricType: "quantile",
+        quantileSettings: null,
+      }),
+      "Quantile Fact Metric bad_quantile has no quantile settings",
+    ],
+  ])("rejects %s", (_, m, message) => {
+    expect(() => metricSQL([m])).toThrow(message);
+  });
+});
