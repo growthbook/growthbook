@@ -1864,40 +1864,41 @@ export async function putOrganization(
       );
     }
 
-    await updateOrganization(org.id, updates);
-
-    if (
+    // Only the SDK Connections whose payload can change: most serve no
+    // visual editor or URL redirect experiments either way.
+    // Read with full access: the admin may not be able to see every Project,
+    // and a connection they can't see must stop serving too.
+    const autoExperimentConnections =
       updates.settings &&
       !isEqual(updates.settings.autoExperiments, org.settings?.autoExperiments)
-    ) {
-      const before = { settings: org.settings };
+        ? (
+            await findServingSDKConnections(
+              getContextForAgendaJobByOrgObject(org),
+            )
+          ).filter(
+            (c) =>
+              !isEqual(
+                getAutoExperimentAccess(org, c),
+                getAutoExperimentAccess({ settings: updates.settings }, c),
+              ),
+          )
+        : [];
+
+    await updateOrganization(org.id, updates);
+
+    if (autoExperimentConnections.length) {
       // The rebuild reads the opt-ins off the context's organization.
       org.settings = updates.settings;
-      // Only the SDK Connections whose payload can change: most serve no
-      // visual editor or URL redirect experiments either way.
-      // Read with full access: the admin may not be able to see every Project,
-      // and a connection they can't see must stop serving too.
-      const sdkConnections = (
-        await findServingSDKConnections(getContextForAgendaJobByOrgObject(org))
-      ).filter(
-        (c) =>
-          !isEqual(
-            getAutoExperimentAccess(before, c),
-            getAutoExperimentAccess(org, c),
-          ),
-      );
-      if (sdkConnections.length) {
-        queueSDKPayloadRefresh({
-          context,
-          payloadKeys: [],
-          sdkConnections,
-          auditContext: {
-            event: "updated",
-            model: "organization",
-            id: org.id,
-          },
-        });
-      }
+      queueSDKPayloadRefresh({
+        context,
+        payloadKeys: [],
+        sdkConnections: autoExperimentConnections,
+        auditContext: {
+          event: "updated",
+          model: "organization",
+          id: org.id,
+        },
+      });
     }
 
     await req.audit({
