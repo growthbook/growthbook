@@ -90,6 +90,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import AIHypothesisField from "@/components/Experiment/AIHypothesisField";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export type FormVariation = {
@@ -202,7 +203,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue?.banditConversionWindowUnit != null;
       return !hasOverride;
     });
-  const canSubmit = !prerequisiteTargetingSdkIssues;
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
+  const canSubmit = !prerequisiteTargetingSdkIssues && !hypothesisUploading;
   const minWordsForSimilarityCheck = 4;
 
   const settings = useOrgSettings();
@@ -1045,22 +1047,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </Box>
             )}
             {!isBandit && (
-              <Field
-                size="legacy"
-                label="Hypothesis"
-                textarea
-                minRows={2}
-                placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-                {...form.register("hypothesis", {
-                  onChange: () => {
-                    queueCheckForSimilar(); // Debounced call
-                  },
-                  onBlur: () => {
-                    // cancel any pending debounced calls
-                    queueCheckForSimilar.cancel();
-                    checkForSimilar(); // Immediate call on blur
-                  },
-                })}
+              <AIHypothesisField
+                value={form.watch("hypothesis") ?? ""}
+                onChange={(hypothesis) => {
+                  form.setValue("hypothesis", hypothesis);
+                  queueCheckForSimilar(); // Debounced call
+                }}
+                onBlur={() => {
+                  // cancel any pending debounced calls
+                  queueCheckForSimilar.cancel();
+                  checkForSimilar(); // Immediate call on blur
+                }}
+                trackingSource="new-experiment-form"
+                onUploadingChange={setHypothesisUploading}
               />
             )}
             {includeDescription && (

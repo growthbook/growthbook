@@ -302,7 +302,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 9
+      "count": 8
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
