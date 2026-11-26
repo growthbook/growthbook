@@ -445,6 +445,51 @@ describe("bigquery integration", () => {
     });
   });
 
+  describe("boolean row filters with real dialects", () => {
+    const factTable = factTableFactory.build({
+      columns: [
+        {
+          column: "is_active",
+          datatype: "boolean",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          description: "",
+          numberFormat: "",
+          name: "Is Active",
+          deleted: false,
+        },
+      ],
+    });
+
+    const booleanSQL = (
+      dialect: SqlDialect,
+      operator: "is_true" | "is_false",
+    ) =>
+      getRowFilterSQL({
+        factTable,
+        rowFilter: { column: "is_active", operator },
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
+        stringMatch: dialect.stringMatch,
+      });
+
+    it("uses equality for Presto, which can't parse IS TRUE", () => {
+      expect(booleanSQL(prestoDialect, "is_true")).toEqual(
+        "(is_active = true)",
+      );
+      expect(booleanSQL(prestoDialect, "is_false")).toEqual(
+        "(is_active = false)",
+      );
+    });
+
+    it("keeps IS TRUE for Postgres", () => {
+      expect(booleanSQL(postgresDialect, "is_true")).toEqual(
+        "(is_active IS TRUE)",
+      );
+    });
+  });
+
   function trimLeadingWhitespace(str: string) {
     return str
       .split("\n")
