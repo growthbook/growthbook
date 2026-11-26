@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { ExperimentExposureRecord } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
-import type { PhaseSQLVar } from "shared/types/sql";
+import type { PhaseSQLVar, ProjectSQLVar } from "shared/types/sql";
 import { columnNamesMatch } from "back-end/src/util/sql";
 
 // 100 rows x 40 columns x 1000 chars caps a page at roughly 4MB of JSON.
@@ -26,6 +26,7 @@ export interface ExposuresCacheKeyParams {
   multipleExposuresWindow?: { startDate: Date; endDate: Date };
   limit: number;
   phase?: PhaseSQLVar;
+  project?: ProjectSQLVar;
   customFields?: Record<string, unknown>;
 }
 
@@ -62,6 +63,8 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
               params.multipleExposuresWindow.endDate.toISOString(),
             ]
           : []),
+        // Only when set, so existing cache keys stay unchanged
+        ...(params.project ? [params.project] : []),
       ]),
     )
     .digest("hex");

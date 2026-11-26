@@ -194,6 +194,7 @@ import {
   getPresetDecisionCriteriaForOrg,
   getHealthSettings,
 } from "shared/enterprise";
+import type { ProjectSQLVar } from "shared/types/sql";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -754,6 +755,19 @@ export function createMetricEligibilityResolver(params: {
   };
 }
 
+// What SQL templates read as `project`, for an experiment's Project.
+export async function getProjectSQLVar(
+  context: ReqContext | ApiReqContext,
+  projectId: string | undefined,
+): Promise<ProjectSQLVar | undefined> {
+  if (!projectId) return undefined;
+  const project = await context.models.projects.getById(projectId);
+  return {
+    id: projectId,
+    ...(project?.publicId ? { publicId: project.publicId } : {}),
+  };
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -772,6 +786,7 @@ export function getSnapshotSettings({
   useStickyBucketing,
   eligiblePrecomputedUnitDimensionIds = [],
   cutoff,
+  project,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -791,6 +806,8 @@ export function getSnapshotSettings({
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
   cutoff?: Date | null;
+  // From getProjectSQLVar: SQL templates read it as `project`
+  project?: ProjectSQLVar;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -1081,6 +1098,7 @@ export function getSnapshotSettings({
     phase: {
       index: phaseIndex + "",
     },
+    ...(project ? { project } : {}),
     customFields: experiment.customFields,
     goalMetrics,
     secondaryMetrics,
@@ -2067,6 +2085,7 @@ export async function planSnapshot({
   const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
+    project: await getProjectSQLVar(context, experiment.project),
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     orgDisabledPrecomputedDimensions:
       organization.settings?.disablePrecomputedDimensions ?? true,

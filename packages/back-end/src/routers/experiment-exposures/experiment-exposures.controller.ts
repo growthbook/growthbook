@@ -21,6 +21,7 @@ import {
 } from "shared/util";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { getProjectSQLVar } from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -221,6 +222,7 @@ export async function postExposures(
     dimensions,
     subUnitIdentifierType,
     phase: { index: String(phaseIndex) },
+    project: await getProjectSQLVar(context, experiment.project),
     customFields: experiment.customFields,
     rowFilters,
     multipleExposuresWindow,
@@ -272,6 +274,7 @@ export async function postExposures(
     multipleExposuresWindow,
     limit: BUFFER_SIZE,
     phase: queryParams.phase,
+    project: queryParams.project,
     customFields: queryParams.customFields,
   });
   const cacheTTLMins = parseOptionalInt(datasource.settings?.queryCacheTTLMins);
