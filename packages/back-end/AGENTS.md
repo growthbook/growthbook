@@ -5,6 +5,7 @@ Apply the repository instructions in the root `AGENTS.md` first.
 Before changing back-end code, read the relevant detailed guide:
 
 - API routers, handlers, authentication, and OpenAPI patterns: `../../.agents/guides/backend/api-patterns.md`
+- Sharing REST endpoint definitions with the front-end: `../../.agents/guides/backend/how-to-migrate-endpoints-to-shared.md`
 - New data models and `MakeModelClass()` usage: `../../.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `../../.agents/guides/backend/legacy-model-migration-patterns.md`
 - Permissions and commercial-feature gates: `../../.agents/guides/permissions.md`

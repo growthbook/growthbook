@@ -306,7 +306,7 @@ await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
 });
 ```
 
-Deleting an endpoint from `shared/api-endpoints` breaks every caller at compile time, so search by the endpoint name (its operationId) to find the definition, the back-end handler, and each front-end caller. In the other direction, `pnpm generate-openapi` (and the CI OpenAPI check) fails when the back-end doesn't mount an endpoint from `shared/api-endpoints` exactly once. BaseModel resources build their endpoints from the model's spec; see "Calling the endpoints from the front-end" in `.agents/guides/backend/api-patterns.md`.
+Deleting an endpoint from `shared/api-endpoints` breaks every caller at compile time, so search by the endpoint name (its operationId) to find the definition, the back-end handler, and each front-end caller. In the other direction, `pnpm generate-openapi` (and the CI OpenAPI check) fails when the back-end doesn't mount an endpoint from `shared/api-endpoints` or `shared/validators` exactly once. ESLint (`local/no-rest-api-path`) flags REST API path literals in front-end code. See [How to migrate REST endpoints to shared](../backend/how-to-migrate-endpoints-to-shared.md) to choose between reusing an existing shared endpoint, migrating a legacy handler, and exporting BaseModel endpoints.
 
 ## Organization Context
 
