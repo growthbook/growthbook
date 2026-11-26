@@ -89011,6 +89011,11 @@ components:
           type: array
           items:
             type: string
+        managedBy:
+          type: string
+          enum:
+            - ''
+            - api
       required:
         - id
         - dateCreated

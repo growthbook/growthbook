@@ -4,6 +4,11 @@ import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
+  isManagedWarehouseOutOfMemoryQueryError,
+  isManagedWarehousePendingQueryError,
+  MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
+} from "shared/util";
+import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
@@ -37,6 +42,7 @@ import ContextualBanditAttributeTable from "@/components/ContextualBandit/Contex
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -146,6 +152,9 @@ function SectionHeading({
     </Box>
   );
 }
+
+const MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE =
+  "The Managed Warehouse ran out of memory running the bandit update. Reduce the number of contextual attributes or variations, then update again.";
 
 export default function ContextualBanditResultsTable({
   cb,
@@ -409,7 +418,11 @@ export default function ContextualBanditResultsTable({
         showAutoUpdateWidget={true}
         failedString={
           queryLatest && !queryLatest.queries.length && queryLatest.error
-            ? `Snapshot update failed: ${queryLatest.error}`
+            ? isManagedWarehousePendingQueryError(queryLatest.error)
+              ? MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE
+              : isManagedWarehouseOutOfMemoryQueryError(queryLatest.error)
+                ? MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE
+                : `Snapshot update failed: ${queryLatest.error}`
             : undefined
         }
         queries={
@@ -478,6 +491,16 @@ export default function ContextualBanditResultsTable({
       {refreshError ? (
         <Callout status="error" mb="3">
           {refreshError}
+        </Callout>
+      ) : null}
+
+      {isManagedWarehousePendingQueryError(queryLatest?.error) ? (
+        <Box mb="3">
+          <ManagedWarehouseNoEventsCallout />
+        </Box>
+      ) : isManagedWarehouseOutOfMemoryQueryError(queryLatest?.error) ? (
+        <Callout status="error" mb="3">
+          {MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE}
         </Callout>
       ) : null}
 

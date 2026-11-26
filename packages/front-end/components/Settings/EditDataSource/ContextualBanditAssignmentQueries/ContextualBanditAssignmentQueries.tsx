@@ -1,7 +1,11 @@
 import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
 import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ApiContextualBanditQueryInterface } from "shared/validators";
+import {
+  ApiContextualBanditQueryInterface,
+  isManagedWarehouseContextualBanditQuery,
+} from "shared/validators";
+import { managedWarehouseGeneratesContextualBanditQueries } from "shared/util";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -14,6 +18,8 @@ import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import { useRestApiCall } from "@/services/restApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { ManagedWarehouseQueryBadge } from "@/components/Settings/EditDataSource/ManagedWarehouseQueryBadge";
+import Link from "@/ui/Link";
 
 type ContextualBanditAssignmentQueriesProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -36,6 +42,9 @@ export const ContextualBanditAssignmentQueries: FC<
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
+
+  const managedWarehouse =
+    managedWarehouseGeneratesContextualBanditQueries(dataSource);
 
   const { contextualBanditQueries, mutate, loading } =
     useContextualBanditQueries(dataSource.id);
@@ -105,27 +114,41 @@ export const ContextualBanditAssignmentQueries: FC<
           </Flex>
         </Box>
 
-        <Box>
-          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
-            Add
-          </Button>
-        </Box>
+        {!managedWarehouse && (
+          <Box>
+            <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+              Add
+            </Button>
+          </Box>
+        )}
       </Flex>
       <p>
         Queries that return contextual bandit assignment events. Returns a
         record of which contextual bandit variation was assigned to each user.
+        {managedWarehouse
+          ? " These are generated from your organization's attributes: one query per identifier, exposing every string attribute as a targeting attribute."
+          : ""}
       </p>
 
       {!loading && contextualBanditQueries.length === 0 ? (
         <Callout status="info">
-          No contextual bandit assignment queries. A contextual bandit requires
-          one of these queries to analyze results.
+          {managedWarehouse ? (
+            <>
+              No contextual bandit assignment queries yet. Add a string
+              attribute that is not an identifier under{" "}
+              <Link href="/attributes">Settings → Attributes</Link> and these
+              queries will be generated.
+            </>
+          ) : (
+            "No contextual bandit assignment queries. A contextual bandit requires one of these queries to analyze results."
+          )}
         </Callout>
       ) : null}
 
       {contextualBanditQueries.map((query) => {
         const isOpen = openIds[query.id] ?? true;
         const targetingColumns = query.targetingAttributeColumns ?? [];
+        const isManaged = isManagedWarehouseContextualBanditQuery(query);
 
         return (
           <Card mt="3" key={query.id}>
@@ -133,6 +156,9 @@ export const ContextualBanditAssignmentQueries: FC<
               <Box width="100%">
                 <Heading as="h4" size="sm" mb="0">
                   {query.name}
+                  {isManaged && (
+                    <ManagedWarehouseQueryBadge type="assignment query" />
+                  )}
                 </Heading>
                 {query.description && (
                   <p className="text-muted mb-0 mt-1">{query.description}</p>
@@ -163,7 +189,7 @@ export const ContextualBanditAssignmentQueries: FC<
               </Box>
 
               <Flex align="center">
-                {canEdit && (
+                {canEdit && !isManaged && (
                   <DropdownMenu
                     trigger={
                       <IconButton
