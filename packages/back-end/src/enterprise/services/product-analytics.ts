@@ -53,6 +53,56 @@ import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 // event tables.
 const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 
+// Loaded and checked before any cache lookup: a Population that was deleted,
+// can't be read, or no longer fits the request must not serve cached results,
+// and the cache is keyed on its definition so edits to it invalidate them.
+export async function loadSavedPopulation(
+  context: ReqContext | ApiReqContext,
+  config: ExplorationConfig,
+): Promise<PopulationInterface | null> {
+  const dataset = config.dataset;
+  if (dataset?.type !== "metric" || !dataset.population) return null;
+  // Returns null when the Population doesn't exist or can't be read.
+  const savedPopulation = await context.models.populations.getById(
+    dataset.population.populationId,
+  );
+  if (!savedPopulation) {
+    throw new NotFoundError(
+      `Population ${dataset.population.populationId} not found.`,
+    );
+  }
+  const resolvedPopulation = resolveSavedPopulation({
+    population: dataset.population,
+    savedPopulation,
+    datasource: config.datasource,
+  });
+  if (!resolvedPopulation.ok) {
+    throw new BadRequestError(resolvedPopulation.violations.join(" "));
+  }
+  return savedPopulation;
+}
+
+// The latest successful result for a config, or null. Only reads: the model
+// returns results only to users who can read the Data Source.
+export async function findCachedProductAnalyticsExploration(
+  context: ReqContext | ApiReqContext,
+  config: ExplorationConfig,
+  savedPopulation: PopulationInterface | null,
+): Promise<ProductAnalyticsExploration | null> {
+  const existing =
+    await context.models.analyticsExplorations.findLatestByConfig(config, {
+      savedPopulation,
+      // Every journey request needs one unused frontier level to project a
+      // display payload. Prefix cache hits are reused; a miss runs SQL with
+      // the full lookahead still in the dataset.
+      minUnusedLookahead:
+        config.dataset?.type === "journey"
+          ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
+          : undefined,
+    });
+  return existing ? withRequestedDisplayConfig(existing, config) : null;
+}
+
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
@@ -98,46 +148,15 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
-  // Loaded and checked before the cache lookup: a Population that was deleted,
-  // can't be read, or no longer fits the request must not serve cached
-  // results, and the cache is keyed on its definition so edits to it
-  // invalidate them. The metric checks run with the metric load below.
-  let savedPopulation: PopulationInterface | null = null;
-  if (dataset.type === "metric" && dataset.population) {
-    // Returns null when the Population doesn't exist or can't be read.
-    savedPopulation = await context.models.populations.getById(
-      dataset.population.populationId,
-    );
-    if (!savedPopulation) {
-      throw new NotFoundError(
-        `Population ${dataset.population.populationId} not found.`,
-      );
-    }
-    const resolvedPopulation = resolveSavedPopulation({
-      population: dataset.population,
-      savedPopulation,
-      datasource: datasource.id,
-    });
-    if (!resolvedPopulation.ok) {
-      throw new BadRequestError(resolvedPopulation.violations.join(" "));
-    }
-  }
+  const savedPopulation = await loadSavedPopulation(context, config);
 
   if (options.cache !== "never") {
-    const existing =
-      await context.models.analyticsExplorations.findLatestByConfig(config, {
-        savedPopulation,
-        // Every journey request needs one unused frontier level to project a
-        // display payload. Prefix cache hits are reused; a miss runs SQL with
-        // the full lookahead still in the dataset.
-        minUnusedLookahead:
-          config.dataset.type === "journey"
-            ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
-            : undefined,
-      });
-    if (existing) {
-      return withRequestedDisplayConfig(existing, config);
-    }
+    const existing = await findCachedProductAnalyticsExploration(
+      context,
+      config,
+      savedPopulation,
+    );
+    if (existing) return existing;
   }
 
   if (options.cache === "required") {

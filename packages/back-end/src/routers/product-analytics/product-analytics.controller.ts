@@ -22,8 +22,13 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import {
+  findCachedProductAnalyticsExploration,
+  loadSavedPopulation,
+  runProductAnalyticsExploration,
+} from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
+import { ReqContext } from "back-end/types/request";
 import {
   getConversationStatus,
   listConversations,
@@ -72,6 +77,15 @@ export const deleteChat = async (
   return res.status(200).json({ status: 200 });
 };
 
+// An exploration's table shows the SQL of its first query
+async function getExplorationQuery(
+  context: ReqContext,
+  exploration: ProductAnalyticsExploration | null,
+): Promise<QueryInterface | null> {
+  const queryId = exploration?.queries?.[0]?.query;
+  return queryId ? await getQueryById(context, queryId) : null;
+}
+
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
     ProductAnalyticsRunRequestBody,
@@ -92,20 +106,13 @@ export const postProductAnalyticsRun = async (
   const cacheOpts = { cache: req.query.cache, allowDraftMetrics: true };
   const { config, previousTimeFrame, comparisonMode } = req.body;
 
-  async function resolveQuery(
-    exploration: ProductAnalyticsExploration | null,
-  ): Promise<QueryInterface | null> {
-    const queryId = exploration?.queries?.[0]?.query;
-    return queryId ? await getQueryById(context, queryId) : null;
-  }
-
   if (!previousTimeFrame) {
     const exploration = await runProductAnalyticsExploration(
       context,
       config,
       cacheOpts,
     );
-    const query = await resolveQuery(exploration);
+    const query = await getExplorationQuery(context, exploration);
     return res.status(200).json({
       status: 200,
       exploration,
@@ -155,8 +162,11 @@ export const postProductAnalyticsRun = async (
   const comparisonExploration =
     comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
 
-  const query = await resolveQuery(exploration);
-  const comparisonQuery = await resolveQuery(comparisonExploration);
+  const query = await getExplorationQuery(context, exploration);
+  const comparisonQuery = await getExplorationQuery(
+    context,
+    comparisonExploration,
+  );
 
   const metricIds =
     config.dataset.type === "metric"
@@ -303,6 +313,28 @@ export const postChatFeedback = async (
   return res.status(200).json({ status: 200, feedback: updatedFeedback });
 };
 
+// Reads a cached result without running anything, so viewers who can't run
+// queries still see results someone else ran.
+export const postProductAnalyticsCached = async (
+  req: AuthRequest<{ config: ExplorationConfig }>,
+  res: Response<{
+    status: 200;
+    exploration: ProductAnalyticsExploration | null;
+    query: QueryInterface | null;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const { config } = req.body;
+  const savedPopulation = await loadSavedPopulation(context, config);
+  const exploration = await findCachedProductAnalyticsExploration(
+    context,
+    config,
+    savedPopulation,
+  );
+  const query = await getExplorationQuery(context, exploration);
+  return res.status(200).json({ status: 200, exploration, query });
+};
+
 export const getExplorationById = async (
   req: AuthRequest<never, { id: string }, never>,
   res: Response<{
@@ -319,8 +351,7 @@ export const getExplorationById = async (
     throw new NotFoundError("Exploration not found");
   }
 
-  const queryId = exploration?.queries?.[0]?.query;
-  const query = queryId ? await getQueryById(context, queryId) : null;
+  const query = await getExplorationQuery(context, exploration);
 
   return res.status(200).json({
     status: 200,

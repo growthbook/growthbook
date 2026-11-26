@@ -14,7 +14,11 @@ import {
   DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiDotsSixVertical,
+  PiDotsThreeVertical,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
@@ -27,7 +31,6 @@ import {
   ExperimentMetricDefinition,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -105,6 +108,10 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
+  // Set where no dashboard header runs the blocks, so a block runs itself
+  selfUpdate?: boolean;
+  // A spot in the block's title row for the block's own action
+  headerActionSlot?: HTMLElement | null;
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
@@ -132,6 +139,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
+  selfUpdate?: boolean;
 }
 
 const BLOCK_COMPONENTS: {
@@ -182,6 +190,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   canEdit,
   setIsEditing,
   enterEditModeForBlock,
+  selfUpdate = false,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
@@ -208,6 +217,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
+  const [headerActionSlot, setHeaderActionSlot] =
+    useState<HTMLDivElement | null>(null);
   const shouldShowGlobalControlOptOutBadge =
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
@@ -518,6 +529,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   : ({} as ExperimentSnapshotAnalysis)
               }
               mutate={mutate}
+              selfUpdate={selfUpdate}
+              headerActionSlot={headerActionSlot}
               // objectProps should be validated above to actually contain all the keys and not be Partial
               {...(objectProps as unknown as ObjectProps<T>)}
             />
@@ -636,6 +649,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
+        {selfUpdate && <Flex ref={setHeaderActionSlot} align="center" />}
         {isEditing ? (
           <div>
             {!editingBlock && (
@@ -651,7 +665,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                     size="1"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <BsThreeDotsVertical />
+                    <PiDotsThreeVertical />
                   </IconButton>
                 }
               >
@@ -723,7 +737,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   size="1"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <BsThreeDotsVertical />
+                  <PiDotsThreeVertical />
                 </IconButton>
               }
             >

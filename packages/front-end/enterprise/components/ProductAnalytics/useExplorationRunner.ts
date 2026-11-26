@@ -10,7 +10,7 @@ export type ExplorationPoll = {
   error: string | null;
 };
 
-const isRunning = (p: ExplorationPoll | null) =>
+export const isRunning = (p: ExplorationPoll | null) =>
   !!p && !p.error && p.data?.status === "running" && !!p.data.id;
 
 // The one run-and-poll lifecycle for explorations. Each begin() replaces the
