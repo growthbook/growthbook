@@ -38,11 +38,14 @@ type Serving = AutoExperimentUsage[AutoExperimentFeature];
 function DisableAutoExperimentDialog({
   feature,
   serving,
+  oneWay,
   onConfirm,
   close,
 }: {
   feature: AutoExperimentFeature;
   serving: Serving;
+  // The instance won't let it be turned back on.
+  oneWay: boolean;
   onConfirm: () => void;
   close: () => void;
 }) {
@@ -55,7 +58,9 @@ function DisableAutoExperimentDialog({
       title={copy.disableTitle}
       content={
         <>
-          {`${serving.total} live experiment${serving.total === 1 ? "" : "s"} will stop serving ${copy.blocked} when you save.`}
+          {serving.total
+            ? `${serving.total} live experiment${serving.total === 1 ? "" : "s"} will stop serving ${copy.blocked} when you save.`
+            : null}
           {/* Spans: the dialog renders its content inside a paragraph. */}
           {listed.length ? (
             <Box as="span" display="block" mt="3">
@@ -80,6 +85,12 @@ function DisableAutoExperimentDialog({
                   and {more} more
                 </Box>
               ) : null}
+            </Box>
+          ) : null}
+          {oneWay ? (
+            <Box as="span" display="block" mt={serving.total ? "3" : "0"}>
+              Once saved, this can&apos;t be enabled again unless the
+              ALLOW_AUTO_EXPERIMENTS environment variable is set to true.
             </Box>
           ) : null}
         </>
@@ -128,20 +139,20 @@ export default function AutoExperimentSettings() {
   };
 
   // Says what the setting is serving before it goes off. Only a courtesy:
-  // turning one off has to work even when that can't be read.
+  // turning one off has to work even when that can't be read. Always asks
+  // when the instance won't let it be turned back on.
   const disable = async (feature: AutoExperimentFeature) => {
+    let serving: Serving = { total: 0, items: [] };
     try {
       const { usage } = await apiCall<{ usage: AutoExperimentUsage }>(
         "/organization/auto-experiments/usage",
       );
-      if (usage[feature].total) {
-        setDisabling({ feature, serving: usage[feature] });
-        return;
-      }
+      serving = usage[feature];
     } catch (e) {
       console.error(e);
     }
-    set(feature, false);
+    if (serving.total || mode !== "allowed") setDisabling({ feature, serving });
+    else set(feature, false);
   };
 
   const toggle = (
@@ -193,6 +204,7 @@ export default function AutoExperimentSettings() {
         <DisableAutoExperimentDialog
           feature={disabling.feature}
           serving={disabling.serving}
+          oneWay={mode !== "allowed"}
           onConfirm={() => set(disabling.feature, false)}
           close={() => setDisabling(null)}
         />
