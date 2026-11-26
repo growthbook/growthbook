@@ -2,7 +2,7 @@ import React from "react";
 import { Box } from "@radix-ui/themes";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue } from "@/services/features";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatesCols";
 import PrerequisiteTable from "@/components/Features/PrerequisiteTable";
 import Text from "@/ui/Text";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";

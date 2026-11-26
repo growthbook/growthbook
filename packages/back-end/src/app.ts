@@ -18,6 +18,7 @@ import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
+import { scrubRevisionResponses } from "back-end/src/routers/revision/scrubRevisionResponses";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -155,6 +156,7 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
+import { experimentQaOverrideRouter } from "./routers/experiment-qa-overrides/experiment-qa-overrides.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -603,6 +605,7 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+app.use(scrubRevisionResponses);
 
 // OAuth consent helpers (authenticated)
 if (OAUTH_AS_ENABLED) {
@@ -908,6 +911,9 @@ app.use("/templates", templateRouter);
 // Decision Criteria
 app.use("/decision-criteria", decisionCriteriaRouter);
 
+// Experiment QA Overrides
+app.use("/qa-overrides", experimentQaOverrideRouter);
+
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
 
@@ -1125,9 +1131,9 @@ app.post(
   "/datasource/:id/event-forwarder/restart",
   datasourcesController.postRestartEventForwarder,
 );
-app.post(
-  "/datasource/:id/event-forwarder/migrate",
-  datasourcesController.postMigrateEventForwarder,
+app.put(
+  "/datasource/:id/event-forwarder/environments",
+  datasourcesController.putEventForwarderEnvironments,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.post(

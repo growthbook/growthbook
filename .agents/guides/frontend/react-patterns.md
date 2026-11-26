@@ -105,6 +105,7 @@ Three rules:
 
 - Support a **subset**, never a renaming. Adding a step to a component is a one-word change. Changing what a step _means_ is an edit to `RADIX_SIZE` and moves every component at once.
 - Don't add a step to `TshirtSize` to serve one component.
+- One deliberate exception: `SegmentedControl`'s `normal`, between `sm` and `md`, is `sm`'s type with breathing room for a control that stands on its own. Its comment says why.
 - When a Radix primitive lacks the step you mapped to, `radixSize`'s return type makes the passthrough fail to compile. That is the guard working. Narrow the subset or handle that one step locally with a comment saying why. Never cast.
 
 `Heading` and `Modal` keep their own maps, both documented in the files. The design-system page has a Size cohesion section showing every step and every gap.

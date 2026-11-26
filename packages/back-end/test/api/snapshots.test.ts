@@ -3,6 +3,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  findLatestSuccessfulSnapshotEndDate,
   findSnapshotById,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -11,7 +12,11 @@ import {
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
 } from "back-end/src/services/experiments";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  MetricsAlreadyUpToDateError,
+  NewMetricsUpdateUnavailableError,
+} from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -28,6 +33,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findLatestSuccessfulSnapshotEndDate: jest.fn(),
   findSnapshotById: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
@@ -39,7 +45,12 @@ jest.mock("back-end/src/services/experiments", () => ({
 }));
 
 describe("snapshots API", () => {
-  const { app, setReqContext } = setupApp();
+  const { app, setReqContext, auditMock } = setupApp();
+
+  beforeEach(() => {
+    // Recent Overall Results, so a request without a scope tries new metrics.
+    findLatestSuccessfulSnapshotEndDate.mockResolvedValue(new Date());
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -79,8 +90,51 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
+  });
+
+  it("returns why a failed snapshot failed", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const failed = snapshotFactory.build({
+      organization: org.id,
+      status: "error",
+      error: "Query timed out",
+    });
+    const succeeded = snapshotFactory.build({
+      organization: org.id,
+      status: "success",
+      error: "a stale message from an earlier attempt",
+    });
+    findSnapshotById.mockReturnValueOnce(failed).mockReturnValueOnce(succeeded);
+    getExperimentById
+      .mockReturnValueOnce({ id: failed.experiment })
+      .mockReturnValueOnce({ id: succeeded.experiment });
+
+    const get = () =>
+      request(app)
+        .get("/api/v1/snapshots/snp_1")
+        .set("Authorization", "Bearer foo");
+
+    const failedResponse = await get();
+    expect(failedResponse.status).toBe(200);
+    expect(failedResponse.body.snapshot).toEqual({
+      id: failed.id,
+      experiment: failed.experiment,
+      status: "error",
+      error: "Query timed out",
+      updateScope: "all_metrics",
+    });
+
+    const succeededResponse = await get();
+    expect(succeededResponse.body.snapshot).not.toHaveProperty("error");
   });
 
   it("checks permission on experiment when getting a snapshot", async () => {
@@ -103,7 +157,7 @@ describe("snapshots API", () => {
       .set("Authorization", "Bearer foo");
     console.log(response.body);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({
       message: "Snapshot not found or no permission to access",
     });
@@ -130,10 +184,12 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce(datasource);
-    createExperimentSnapshot.mockResolvedValueOnce({
-      snapshot,
-      queryRunner: {},
-    });
+    createExperimentSnapshot
+      .mockRejectedValueOnce(new MetricsAlreadyUpToDateError("snp_base"))
+      .mockResolvedValueOnce({
+        snapshot,
+        queryRunner: {},
+      });
 
     const response = await request(app)
       .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
@@ -145,9 +201,10 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
-    expect(createExperimentSnapshot).toHaveBeenCalledWith({
+    expect(createExperimentSnapshot).toHaveBeenLastCalledWith({
       context: expect.objectContaining({ org }),
       experiment,
       datasource,
@@ -198,6 +255,7 @@ describe("snapshots API", () => {
         id: snapshot.id,
         experiment: snapshot.experiment,
         status: snapshot.status,
+        updateScope: "all_metrics",
       },
     });
     expect(createExperimentSnapshot).toHaveBeenCalledWith({
@@ -667,6 +725,7 @@ describe("snapshots API", () => {
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
     createExperimentSnapshot
+      .mockRejectedValueOnce(new MetricsAlreadyUpToDateError("snp_base"))
       .mockRejectedValueOnce(
         new ExperimentIncrementalPipelineRequiresFullRefreshError(
           staleConfigMessage,
@@ -679,7 +738,7 @@ describe("snapshots API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
+    expect(createExperimentSnapshot).toHaveBeenCalledTimes(3);
     expect(createExperimentSnapshot).toHaveBeenLastCalledWith(
       expect.objectContaining({ useCache: false }),
     );
@@ -709,7 +768,7 @@ describe("snapshots API", () => {
     ],
   ])(
     "returns 409 requires_full_refresh when %s",
-    async (_, dimensionFullRefreshMessage) => {
+    async (situation, dimensionFullRefreshMessage) => {
       setReqContext({
         org,
         permissions: {
@@ -765,7 +824,7 @@ describe("snapshots API", () => {
     ["scheduled", "schedule" as const],
   ])(
     "returns 409 dimension_already_up_to_date for a %s dimension request already computed from the latest Overall Results",
-    async (_, triggeredBy) => {
+    async (kind, triggeredBy) => {
       setReqContext({
         org,
         permissions: {
@@ -995,5 +1054,171 @@ describe("snapshots API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: "permission error" });
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
+  });
+
+  describe("updateScope", () => {
+    const refreshEndDate = new Date("2026-11-16T09:02:00.000Z");
+    const setup = (orgSettings: object = {}) => {
+      setReqContext({
+        org: { ...org, settings: orgSettings },
+        permissions: {
+          canCreateExperimentSnapshot: () => true,
+          canReadSingleProjectResource: () => true,
+        },
+      });
+      const base = snapshotFactory.build({ organization: org.id });
+      const snapshot = snapshotFactory.build({
+        organization: org.id,
+        status: "running",
+        type: "standard",
+        settings: { ...base.settings, endDate: refreshEndDate },
+        updateScope: {
+          kind: "new_metrics" as const,
+          parentSnapshotId: "snp_base",
+          queriedMetricIds: ["fact__new"],
+          base: {
+            dateCreated: refreshEndDate,
+            runStarted: null,
+            cutoffDate: null,
+          },
+        },
+      });
+      const experiment = {
+        id: snapshot.experiment,
+        datasource: "ds_123",
+        phases: [{}, {}],
+      };
+      const datasource = { id: "ds_123" };
+      getExperimentById.mockReturnValue(experiment);
+      getDataSourceById.mockReturnValue(datasource);
+      return { snapshot, experiment, datasource };
+    };
+    const post = (experimentId: string, body: object) =>
+      request(app)
+        .post(`/api/v1/experiments/${experimentId}/snapshot`)
+        .set("Authorization", "Bearer foo")
+        .send(body);
+
+    it('computes only the new metrics for "new_metrics" and says so', async () => {
+      const { snapshot, experiment, datasource } = setup();
+      createExperimentSnapshot.mockResolvedValueOnce({
+        snapshot,
+        queryRunner: {},
+      });
+
+      const response = await post(experiment.id, {
+        updateScope: "new_metrics",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        snapshot: {
+          id: snapshot.id,
+          experiment: snapshot.experiment,
+          status: "running",
+          updateScope: "new_metrics",
+        },
+      });
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+      expect(createExperimentSnapshot).toHaveBeenCalledWith({
+        context: expect.objectContaining({ org: { ...org, settings: {} } }),
+        experiment,
+        datasource,
+        phase: 1,
+        dimension: undefined,
+        useCache: true,
+        updateScope: { kind: "new_metrics", window: null, onRefusal: "fail" },
+      });
+      expect(auditMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          details: expect.stringContaining('"updateScope":"new_metrics"'),
+        }),
+      );
+    });
+
+    // Planning refuses this way when a copied metric was edited since the
+    // latest Overall Results, on either pipeline.
+    const copiedMetricEdited = () =>
+      new NewMetricsUpdateUnavailableError("settings_changed");
+
+    it('returns 409 settings_changed for "new_metrics" when a copied metric was edited', async () => {
+      const { experiment } = setup();
+      createExperimentSnapshot.mockRejectedValueOnce(copiedMetricEdited());
+
+      const response = await post(experiment.id, {
+        updateScope: "new_metrics",
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        code: "new_metrics_update_unavailable",
+        details: { reason: "settings_changed" },
+      });
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs a normal update for "auto" when a copied metric was edited', async () => {
+      const { snapshot, experiment, datasource } = setup();
+      createExperimentSnapshot
+        .mockRejectedValueOnce(copiedMetricEdited())
+        .mockResolvedValueOnce({
+          snapshot: { ...snapshot, updateScope: undefined },
+          queryRunner: {},
+        });
+
+      const response = await post(experiment.id, { updateScope: "auto" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.snapshot.updateScope).toBe("all_metrics");
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
+      expect(createExperimentSnapshot).toHaveBeenLastCalledWith({
+        context: expect.objectContaining({ org: expect.anything() }),
+        experiment,
+        datasource,
+        triggeredBy: undefined,
+        phase: 1,
+        dimension: undefined,
+        useCache: true,
+      });
+    });
+
+    it("runs a normal update without planning new metrics when the window from the organization setting has passed", async () => {
+      const { snapshot, experiment, datasource } = setup({
+        newMetricsUpdateWindowHours: 2,
+      });
+      findLatestSuccessfulSnapshotEndDate.mockResolvedValueOnce(
+        new Date(Date.now() - 3 * 3_600_000),
+      );
+      createExperimentSnapshot.mockResolvedValueOnce({
+        snapshot: { ...snapshot, updateScope: undefined },
+        queryRunner: {},
+      });
+
+      const response = await post(experiment.id, {});
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        snapshot: {
+          id: snapshot.id,
+          experiment: snapshot.experiment,
+          status: "running",
+          updateScope: "all_metrics",
+        },
+      });
+      expect(findLatestSuccessfulSnapshotEndDate).toHaveBeenCalledWith(
+        expect.anything(),
+        { experiment: experiment.id, phase: 1 },
+      );
+      expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
+      expect(createExperimentSnapshot).toHaveBeenCalledWith({
+        context: expect.objectContaining({ org: expect.anything() }),
+        experiment,
+        datasource,
+        triggeredBy: undefined,
+        phase: 1,
+        dimension: undefined,
+        useCache: true,
+      });
+    });
   });
 });

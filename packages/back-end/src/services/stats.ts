@@ -1,10 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
-  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
-  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 
@@ -12,13 +9,17 @@ import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
+  enrichAnalysisResults,
+  getAnalysisAlpha,
   getFunnelStepMetrics,
+  getMetricStatsEngineInputs,
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
   isIsolatedDimension,
   isRatioMetric,
   isRegressionAdjusted,
+  isScalableClusterSubUnitMetric,
   isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
@@ -35,7 +36,6 @@ import {
 import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
-  BusinessMetricTypeForStatsEngine,
   DataForStatsEngine,
   ExperimentDataForStatsEngine,
   ExperimentMetricAnalysis,
@@ -111,13 +111,6 @@ export function getAnalysisSettingsForStatsEngine(
   const sequentialTestingTuningParameterNumber =
     Number(settings.sequentialTestingTuningParameter) ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-  const pValueThresholdNumber =
-    Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
-  const alpha =
-    settings.statsEngine === "bayesian"
-      ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
-      : pValueThresholdNumber;
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
@@ -126,19 +119,16 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    p_value_corrected: !!settings.pValueCorrection,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
     phase_length_days: phaseLengthDays,
-    alpha,
+    alpha: getAnalysisAlpha(settings),
     max_dimensions:
       parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
-    num_goal_metrics: settings.numGoalMetrics,
-    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled:
@@ -299,21 +289,6 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
-function getBusinessMetricTypeForStatsEngine(
-  metricId: string,
-  settings: ExperimentSnapshotSettings,
-): BusinessMetricTypeForStatsEngine[] {
-  return [
-    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
-    settings.secondaryMetrics.includes(metricId)
-      ? ("secondary" as const)
-      : null,
-    settings.guardrailMetrics.includes(metricId)
-      ? ("guardrail" as const)
-      : null,
-  ].filter((m) => m !== null);
-}
-
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -362,6 +337,16 @@ export function getMetricSettingsForStatsEngine(
     denominator = metric;
   }
 
+  const inputs = getMetricStatsEngineInputs(
+    metric.id,
+    {
+      properPrior: metric.priorSettings.proper,
+      properPriorMean: metric.priorSettings.mean,
+      properPriorStdDev: metric.priorSettings.stddev,
+      targetMDE: metric.targetMDE,
+    },
+    settings,
+  );
   return {
     id: metric.id,
     name: metric.name,
@@ -392,15 +377,13 @@ export function getMetricSettingsForStatsEngine(
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),
-    prior_proper: metric.priorSettings.proper,
-    prior_mean: metric.priorSettings.mean,
-    prior_stddev: metric.priorSettings.stddev,
-    target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
-    business_metric_type: getBusinessMetricTypeForStatsEngine(
-      metric.id,
-      settings,
-    ),
+    prior_proper: inputs.properPrior,
+    prior_mean: inputs.properPriorMean,
+    prior_stddev: inputs.properPriorStdDev,
+    target_mde: inputs.targetMDE,
+    business_metric_type: inputs.businessMetricTypes,
     compute_uncapped_metric: eligibleForUncappedMetric(metric),
+    scale_by_sub_unit_count: isScalableClusterSubUnitMetric(metric, settings),
   };
 }
 
@@ -582,7 +565,10 @@ export function parseStatsEngineResult({
   result: metricResults,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
+  snapshotSettings: Pick<
+    ExperimentSnapshotSettings,
+    "variations" | "goalMetrics"
+  >;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -746,6 +732,11 @@ export function parseStatsEngineResult({
         }
       });
     }
+    enrichAnalysisResults({
+      results: dimensions,
+      analysisSettings: analysisSettings[analysisIndex],
+      snapshotSettings,
+    });
     experimentReportResults.push({
       multipleExposures,
       unknownVariations: Array.from(new Set(unknownVariationsCopy)),

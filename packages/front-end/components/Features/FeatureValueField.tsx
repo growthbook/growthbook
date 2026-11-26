@@ -69,7 +69,7 @@ import InsertConstantButton, {
 } from "@/components/Constants/InsertConstantButton";
 import {
   addJsonConstantExtends,
-  buildStringRefInsertion,
+  insertRefAtCursor,
 } from "@/components/Constants/jsonConstantInsert";
 import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
 import { useEditorDiffLines } from "./ValueDiffContext";
@@ -96,6 +96,8 @@ export interface Props {
   codeInputDefaultHeight?: number;
   // Number fields fill their container rather than sitting at a fixed width.
   fullWidth?: boolean;
+  // A JSON editor opens focused with its text selected.
+  autoSelect?: boolean;
   // In a table cell: smaller constant tags.
   compact?: boolean;
   size?: ComponentProps<typeof Field>["size"];
@@ -141,6 +143,7 @@ export default function FeatureValueField({
   useDropdown = false,
   codeInputDefaultHeight,
   fullWidth = false,
+  autoSelect = false,
   compact = false,
   size,
   sparse,
@@ -229,17 +232,7 @@ export default function FeatureValueField({
         editor.focus();
         return true;
       }
-      const offset = editor.session.doc.positionToIndex(
-        editor.getCursorPosition(),
-      );
-      const insertion = buildStringRefInsertion(text, offset, constant.key);
-      if (!insertion) return false;
-      editor.session.insert(
-        editor.session.doc.indexToPosition(insertion.index, 0),
-        insertion.text,
-      );
-      editor.focus();
-      return true;
+      return insertRefAtCursor(editor, `{{ @const:${constant.key} }}`);
     } catch {
       // The Ace editor can be torn down (e.g. tab unmount) — fail gracefully.
       return false;
@@ -707,6 +700,7 @@ export default function FeatureValueField({
           onEditorLoad={(e) => (jsonEditorRef.current = e)}
           highlightLines={codeEditorDiffLines}
           matchValueDisplay
+          autoSelect={autoSelect}
         />
       </Box>
     );

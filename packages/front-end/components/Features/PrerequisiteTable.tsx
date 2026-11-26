@@ -69,7 +69,7 @@ export default function PrerequisiteTable({
     <ScrollArea
       direction="horizontal"
       gutter
-      wheelScrollsSideways
+      wheelScrollsSideways="area"
       // The pinned columns shadow what scrolls under them; the far end fades.
       edgeCue="fade"
       skipEdges={["left"]}

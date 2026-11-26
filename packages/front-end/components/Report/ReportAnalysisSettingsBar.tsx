@@ -1,6 +1,9 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
@@ -8,8 +11,11 @@ import {
 import { ago, date, datetime } from "shared/dates";
 import React, { RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
-import { Box, Text } from "@radix-ui/themes";
-import { getUnitDisplayName } from "@/services/experiments";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import {
+  getResultsSubUnitTotal,
+  getUnitDisplayName,
+} from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -18,6 +24,7 @@ import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
+import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -80,6 +87,20 @@ export default function ReportAnalysisSettingsBar({
     return totalUsers;
   }, [analysis?.results]);
 
+  const clusterSubUnitIdentifier = snapshot?.settings.isClusterExperiment
+    ? snapshot.settings.clusterSubUnitIdentifier
+    : undefined;
+  // Each subunit falls in one breakdown slice, so summing slices is exact.
+  const totalSubUnits = useMemo(
+    () =>
+      clusterSubUnitIdentifier
+        ? getResultsSubUnitTotal(
+            (analysis?.results ?? []).flatMap((r) => r.variations),
+          )
+        : null,
+    [analysis?.results, clusterSubUnitIdentifier],
+  );
+
   const unitDisplayName = getUnitDisplayName(userIdType);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
@@ -131,14 +152,12 @@ export default function ReportAnalysisSettingsBar({
                   }
                 />
               )}
-              {snapshot.runStarted && (
-                <div className="text-right mt-3">
-                  <Metadata
-                    label="Run date"
-                    value={datetime(snapshot.runStarted)}
-                  />
-                </div>
-              )}
+              <div className="text-right mt-3">
+                <Metadata
+                  label="Run date"
+                  value={datetime(getSnapshotDataAsOfDate(snapshot))}
+                />
+              </div>
             </div>
           }
         />
@@ -199,19 +218,48 @@ export default function ReportAnalysisSettingsBar({
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
-            <Metadata
-              label={unitDisplayName}
-              value={numberFormatter.format(totalUnits ?? 0)}
-            />
+            {/* A refreshing report points at a snapshot with no results yet. */}
+            {hasData ? (
+              <Flex align="center" gap="4">
+                {/* A cluster's subunits can fall into several breakdown slices,
+                    and report snapshots have no overall result to count from. */}
+                {clusterSubUnitIdentifier && snapshot.dimension ? (
+                  <Metadata
+                    label={unitDisplayName}
+                    value={
+                      <Tooltip content="Cluster counts aren't available when results are broken down by a dimension.">
+                        <span tabIndex={0} style={{ cursor: "help" }}>
+                          —
+                        </span>
+                      </Tooltip>
+                    }
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                ) : (
+                  <Metadata
+                    label={unitDisplayName}
+                    value={numberFormatter.format(totalUnits ?? 0)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+                {clusterSubUnitIdentifier && totalSubUnits !== null ? (
+                  <Metadata
+                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                    value={numberFormatter.format(totalSubUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                ) : null}
+              </Flex>
+            ) : null}
           </div>
           <div className="col-auto px-0">
-            {hasData && snapshot.runStarted ? (
+            {hasData ? (
               <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
                 <Text
                   weight="medium"
                   style={{ color: "var(--color-text-mid)" }}
                 >
-                  Updated {ago(snapshot.runStarted ?? "")}
+                  Updated {ago(getSnapshotDataAsOfDate(snapshot))}
                 </Text>
               </Box>
             ) : null}

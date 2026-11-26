@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { CSSProperties, useRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize } from "@/ui/sizes";
@@ -16,6 +16,8 @@ export default function TruncatedText({
   size = "inherit",
   weight = "regular",
   color,
+  className,
+  style,
 }: {
   text: string;
   /** Inline, up to this width; without it, as wide as its container. */
@@ -23,6 +25,9 @@ export default function TruncatedText({
   size?: TextSizes;
   weight?: TextWeights;
   color?: TextColors;
+  className?: string;
+  /** Merged over the truncation styles. */
+  style?: CSSProperties;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref, true, text);
@@ -35,12 +40,14 @@ export default function TruncatedText({
         size={size === "inherit" ? undefined : radixSize(size)}
         weight={radixWeightMap[weight]}
         tabIndex={truncated ? 0 : undefined}
+        className={className}
         style={{
           display: maxWidth === undefined ? "block" : "inline-block",
           maxWidth,
           minWidth: 0,
           verticalAlign: "bottom",
           color: color && `var(--color-${color})`,
+          ...style,
         }}
       >
         {text}

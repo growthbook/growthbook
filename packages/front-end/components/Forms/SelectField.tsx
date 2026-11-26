@@ -86,6 +86,9 @@ export type SelectFieldProps = Omit<
   // Rendered before the dropdown caret; mirrors MultiSelectField's copy button.
   extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
+  // Portals the menu to the theme root, out of any scroll box or stacking
+  // context. Not in a modal: the menu would open beneath it.
+  portalMenu?: boolean;
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
@@ -312,6 +315,7 @@ const SelectField: FC<SelectFieldProps> = ({
   containerStyles = {},
   extraIndicator,
   withRadixThemedPortal = false,
+  portalMenu = false,
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
@@ -322,6 +326,13 @@ const SelectField: FC<SelectFieldProps> = ({
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
+  const menuPortalTarget =
+    portalMenu && typeof document !== "undefined"
+      ? document.querySelector<HTMLElement>(".radix-themes")
+      : null;
+  const portalClassNames = portalMenu
+    ? { menu: () => "gb-select__menu--field-width" }
+    : undefined;
   let selected = map.get(value);
 
   if (!selected && value && createable) {
@@ -466,6 +477,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
+                  menuPortalTarget={menuPortalTarget}
+                  classNames={portalClassNames}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",
@@ -543,6 +556,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
+                  menuPortalTarget={menuPortalTarget}
+                  classNames={portalClassNames}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",

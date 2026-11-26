@@ -21,7 +21,9 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
-import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
+import ExposureLogsCard, {
+  useCanRunExposureLogs,
+} from "@/components/HealthTab/ExposureLogsCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,6 +33,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
+import { SCROLL_MARGIN_UNDER_TABS } from "@/components/Layout/constants";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -97,6 +100,9 @@ export default function HealthTab({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
   const orgStickyBucketing = !!useStickyBucketing;
+
+  const canRunExposureLogs = useCanRunExposureLogs(experiment);
+  const [multipleExposuresRequest, setMultipleExposuresRequest] = useState(0);
 
   const showMultipleExposures =
     !isBandit ||
@@ -337,6 +343,11 @@ export default function HealthTab({
           isBandit={isBandit}
           isHoldout={isHoldout}
           showMultipleExposures={showMultipleExposures}
+          onViewMultipleExposures={
+            canRunExposureLogs
+              ? () => setMultipleExposuresRequest((n) => n + 1)
+              : undefined
+          }
           decisionFrameworkEnabled={decisionFrameworkEnabled}
         />
       ) : null}
@@ -351,6 +362,7 @@ export default function HealthTab({
         experiment={experiment}
         isTabActive={isTabActive}
         phase={phase}
+        multipleExposuresRequest={multipleExposuresRequest}
       />
     </>
   );
@@ -403,11 +415,11 @@ function ClusterIssueCards({
             error={clusterSubUnitMapping.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
                 mapped to one{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -424,7 +436,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Mapping Warning</strong>.{" "}
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
@@ -460,10 +471,10 @@ function ClusterIssueCards({
             error={clusterAssignment.error}
             onNotify={onNotify}
             healthyMessage={
-              <b>
+              <>
                 Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
                 a single variation.
-              </b>
+              </>
             }
             belowThresholdMessage={(threshold, share) => (
               <>
@@ -479,7 +490,6 @@ function ClusterIssueCards({
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Assignment Warning</strong>.{" "}
                 {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
                 {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
@@ -512,6 +522,7 @@ function HealthSnapshotCards({
   isBandit,
   isHoldout,
   showMultipleExposures,
+  onViewMultipleExposures,
   decisionFrameworkEnabled,
 }: {
   experiment: ExperimentInterfaceStringDates;
@@ -527,6 +538,7 @@ function HealthSnapshotCards({
   isBandit: boolean;
   isHoldout: boolean;
   showMultipleExposures: boolean;
+  onViewMultipleExposures?: () => void;
   decisionFrameworkEnabled?: boolean;
 }) {
   const totalUsers =
@@ -586,7 +598,10 @@ function HealthSnapshotCards({
         }
         disableDimensionSRM={isClusterExperiment}
       />
-      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+      <div
+        id="balanceCheck"
+        style={{ scrollMarginTop: SCROLL_MARGIN_UNDER_TABS }}
+      >
         {isBandit ? (
           <BanditSRMCard
             experiment={experiment}
@@ -618,7 +633,12 @@ function HealthSnapshotCards({
         )}
       </div>
       {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (
-        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="covariateBalanceCheck"
+          style={{
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+          }}
+        >
           <CovariateImbalanceCard
             experiment={experiment}
             variations={variations}
@@ -628,7 +648,12 @@ function HealthSnapshotCards({
         </div>
       )}
       {showMultipleExposures && (
-        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="multipleExposures"
+          style={{
+            scrollMarginTop: SCROLL_MARGIN_UNDER_TABS,
+          }}
+        >
           <MultipleExposuresCard
             totalUsers={multipleExposuresTotalUnits}
             onNotify={handleHealthNotification}
@@ -636,6 +661,7 @@ function HealthSnapshotCards({
             snapshotId={snapshot.id}
             isClusterExperiment={isClusterExperiment}
             error={multipleExposuresError}
+            onViewExposures={onViewMultipleExposures}
           />
         </div>
       )}

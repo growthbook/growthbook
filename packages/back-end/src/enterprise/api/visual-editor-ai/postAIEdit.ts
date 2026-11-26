@@ -138,7 +138,7 @@ const bodySchema = z
             z.object({
               toolCallId: z.string().min(1).max(200),
               toolName: z.string().min(1).max(100),
-              result: z.unknown(),
+              result: z.unknown().optional(),
             }),
           )
           .max(10),
@@ -346,6 +346,7 @@ Other rules:
 - Use global CSS for sweeping changes (e.g. "make all buttons green", styling every element matching a class/attribute), for ::pseudo-element edits, and for any CSS \`@keyframes\` animation.
 - "Animated" effects are CSS, not images: an animated gradient, shimmering/pulsing/rotating background, "psychedelic rainbow", etc. is a global-CSS \`@keyframes\` + \`animation\` rule (often a \`linear-gradient\` with oversized \`background-size\` animating its \`background-position\`). Do NOT reach for \`generateImage\` for these — it only produces a STATIC image. Reserve \`generateImage\` for requests that genuinely want a photographic/illustrated picture.
 - Never produce destructive JS. Only emit JS when the request cannot be done declaratively.
+- Mutation values and CSS must never carry JavaScript: no \`<script>\` tags, no \`on*\` event-handler attributes (onclick, onerror, …), and no \`javascript:\` URLs — a change containing any of them is rejected when saved. Put behavior in the \`js\` field instead.
 
 Selector durability — critical for variations that survive future deploys:
 - Many sites (Next.js, CSS Modules, styled-components, Emotion, stitches) emit class names that include build-time hashes — e.g. \`styles_slice-homepage__hnn7Q\`, \`css-1abc234\`, \`sc-bdAaNb\`. These hashes ROTATE on every deploy. A mutation anchored to \`.styles_title__hnn7Q\` works today and silently breaks on the next ship.

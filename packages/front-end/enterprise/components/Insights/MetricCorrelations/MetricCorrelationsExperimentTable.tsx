@@ -8,6 +8,7 @@ import {
   getLatestPhaseVariations,
   getMetricResultStatus,
   isSuspiciousUplift,
+  restoreOpenAdjustedCI,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
@@ -136,7 +137,10 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         statsEngine = snapshot.settings.statsEngine;
         differenceType = snapshot.settings.differenceType;
         variationResults = snapshot.results?.[0]?.variations.map((v) => {
-          return metrics.map((m) => v.metrics?.[m.id]);
+          return metrics.map((m) => {
+            const stats = v.metrics?.[m.id];
+            return stats && restoreOpenAdjustedCI(stats);
+          });
         });
       }
     }
@@ -348,7 +352,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                   rowResults={{
                     enoughData: true,
                     directionalStatus: mr.directionalStatus ?? "losing",
-                    hasScaledImpact: true,
+                    scaledImpactEligible: true,
                     significant: mr.significant,
                     resultsStatus:
                       (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",

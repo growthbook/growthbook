@@ -1,6 +1,7 @@
 import { format, quoteColumnIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
+import { MULTIPLE_EXPOSURES_ROW_FILTER_ID } from "shared/constants";
 import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
@@ -47,6 +48,13 @@ function exposureColumnsAsFactTable(
       dateUpdated: new Date(0),
     })),
   };
+}
+
+export function isMultipleExposuresRowFilter(filter: RowFilter): boolean {
+  return (
+    filter.operator === "saved_filter" &&
+    filter.values?.[0] === MULTIPLE_EXPOSURES_ROW_FILTER_ID
+  );
 }
 
 function isStringRowFilterOperator(
@@ -121,12 +129,27 @@ export function getExperimentExposuresQuery(
       ...params.dimensions,
     ]),
   );
-  const orderColumns = Array.from(new Set(filterableColumns.map(toPhysical)));
+  const physicalFilterColumns = Array.from(
+    new Set(filterableColumns.map(toPhysical)),
+  );
+  // The check flags the unit the experiment counts: the sub-unit when clustered
+  const unitColumn = toPhysical(
+    params.subUnitIdentifierType || exposureQuery.identifierType,
+  );
+  // Unit first, so each unit's conflicting rows stay together
+  const multipleExposuresOnly = (params.rowFilters ?? []).some(
+    isMultipleExposuresRowFilter,
+  );
+  const orderColumns = multipleExposuresOnly
+    ? [unitColumn, ...physicalFilterColumns.filter((c) => c !== unitColumn)]
+    : physicalFilterColumns;
   [...orderColumns, experimentIdColumn].forEach((c) =>
     assertSafeIdentifier(c, "Column"),
   );
 
-  const rowFilters = params.rowFilters ?? [];
+  const rowFilters = (params.rowFilters ?? []).filter(
+    (f) => !isMultipleExposuresRowFilter(f),
+  );
   rowFilters.forEach((f) => {
     if (!isStringRowFilterOperator(f.operator)) {
       throw new Error(
@@ -146,7 +169,7 @@ export function getExperimentExposuresQuery(
           column: toPhysical(f.column ?? ""),
           values: f.values?.map((v) => v.toLowerCase()),
         })),
-        factTable: exposureColumnsAsFactTable(orderColumns, dialect),
+        factTable: exposureColumnsAsFactTable(physicalFilterColumns, dialect),
         dialect,
       })
     : "";
@@ -155,9 +178,30 @@ export function getExperimentExposuresQuery(
       AND ${rowFilterWhere}`
     : "";
 
-  const whereAndOrderBy = `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
-      AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(params.startDate)}
-      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
+  const experimentAndWindowWhere = (window: {
+    startDate: Date;
+    endDate: Date;
+  }) =>
+    `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(window.startDate)}
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(window.endDate)}`;
+
+  // Other row filters are left out of the subquery: a unit is flagged on
+  // everything it saw in the window, as in the units query, not only on the
+  // rows shown.
+  const quotedUnitColumn = quoteColumnIdentifier(unitColumn, dialect);
+  const multipleExposuresWhere = multipleExposuresOnly
+    ? `
+      AND ${quotedUnitColumn} IN (
+        SELECT ${quotedUnitColumn}
+        FROM __exposureQuery
+        ${experimentAndWindowWhere(params.multipleExposuresWindow ?? params)}
+        GROUP BY ${quotedUnitColumn}
+        HAVING COUNT(DISTINCT ${quoteColumnIdentifier(physicalColumns.variation_id, dialect)}) > 1
+      )`
+    : "";
+
+  const whereAndOrderBy = `${experimentAndWindowWhere(params)}${multipleExposuresWhere}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}`;
 
   // SELECT * rather than an explicit column list: every column the exposure

@@ -1232,6 +1232,33 @@ export function isSubUnitClusterMetric(
   );
 }
 
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+  "proportion",
+  "compound",
+  "retention",
+  "mean",
+  "ratio",
+] as const;
+
+const SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES =
+  CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES.filter((type) => type !== "ratio");
+
+export function isScalableClusterSubUnitMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    isSubUnitClusterMetric(m, settings) &&
+    isFactMetric(m) &&
+    (SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES as readonly string[]).includes(
+      m.metricType,
+    )
+  );
+}
+
 export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
 // Aggregations that collapse to a single scalar per sub-unit, so the rollup can
@@ -1298,14 +1325,6 @@ export function quantileMetricType(
   }
   return "";
 }
-
-const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
-  "proportion",
-  "compound",
-  "retention",
-  "mean",
-  "ratio",
-] as const;
 
 // Picker labels for the types that reach the unsupported-type message.
 const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
@@ -1742,6 +1761,20 @@ export function parseFunnelStepMetricId(
     baseMetricId,
     stepIndex,
   };
+}
+
+/**
+ * The id whose stored definition governs a metric. Funnel steps and slices are
+ * derived from a parent and have no document of their own.
+ */
+export function getDefinitionMetricId(metricId: string): string {
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  // Strip step info first (if present), then strip slice info.
+  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
+  const afterStep = stepInfo.isFunnelStepMetric
+    ? stepInfo.baseMetricId
+    : metricId;
+  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**
@@ -3148,6 +3181,21 @@ export function adjustPValuesHolmBonferroni(
   return newIndexedPValues;
 }
 
+export function adjustPValues(
+  indexedPValues: IndexedPValue[],
+  correction: NonNullable<PValueCorrection>,
+): IndexedPValue[] {
+  switch (correction) {
+    case "benjamini-hochberg":
+      return adjustPValuesBenjaminiHochberg(indexedPValues);
+    case "holm-bonferroni":
+      return adjustPValuesHolmBonferroni(indexedPValues);
+    default:
+      correction satisfies never;
+      return indexedPValues;
+  }
+}
+
 export function setAdjustedPValuesOnResults(
   results: ExperimentReportResultDimension[],
   nonGuardrailMetrics: string[],
@@ -3176,11 +3224,7 @@ export function setAdjustedPValuesOnResults(
     return;
   }
 
-  if (adjustment === "benjamini-hochberg") {
-    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
-  } else if (adjustment === "holm-bonferroni") {
-    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
-  }
+  indexedPValues = adjustPValues(indexedPValues, adjustment);
 
   // modify results in place
   indexedPValues.forEach((ip) => {
@@ -3205,6 +3249,26 @@ export function adjustedCI(
   return [lift - width, lift + width];
 }
 
+// Modifies the metric in place.
+export function setAdjustedCI(
+  metric: Pick<
+    SnapshotMetric,
+    "pValueAdjusted" | "uplift" | "ci" | "ciAdjusted"
+  >,
+  pValueThreshold: number,
+): void {
+  const { pValueAdjusted, uplift, ci } = metric;
+  if (
+    pValueAdjusted === undefined ||
+    uplift === undefined ||
+    ci === undefined
+  ) {
+    return;
+  }
+  metric.ciAdjusted =
+    getAdjustedCI(pValueAdjusted, uplift.mean, pValueThreshold, ci) ?? ci;
+}
+
 export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number,
@@ -3212,28 +3276,7 @@ export function setAdjustedCIs(
   results.forEach((r) => {
     r.variations.forEach((v) => {
       for (const key in v.metrics) {
-        const pValueAdjusted = v.metrics[key].pValueAdjusted;
-        const uplift = v.metrics[key].uplift;
-        const ci = v.metrics[key].ci;
-        if (
-          pValueAdjusted === undefined ||
-          uplift === undefined ||
-          ci === undefined
-        ) {
-          continue;
-        }
-
-        const adjCI = getAdjustedCI(
-          pValueAdjusted,
-          uplift.mean,
-          pValueThreshold,
-          ci,
-        );
-        if (adjCI) {
-          v.metrics[key].ciAdjusted = adjCI;
-        } else {
-          v.metrics[key].ciAdjusted = ci;
-        }
+        setAdjustedCI(v.metrics[key], pValueThreshold);
       }
     });
   });

@@ -1,0 +1,12 @@
+// Fills its grid cell; Button wraps the label in a span that must shrink
+// for the ellipsis to show
+.metricButton {
+  width: 100%;
+
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

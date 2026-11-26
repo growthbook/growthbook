@@ -36,6 +36,7 @@ import {
   ChangesConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { assertNoInjectedJs } from "back-end/src/util/visualChanges";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import {
   asJson,
@@ -88,9 +89,9 @@ const loadedVisualChanges = z.array(
   z
     .object({
       id: z.string(),
-      css: z.unknown(),
-      js: z.unknown(),
-      domMutations: z.unknown(),
+      css: z.unknown().optional(),
+      js: z.unknown().optional(),
+      domMutations: z.unknown().optional(),
     })
     .passthrough(),
 );
@@ -182,10 +183,11 @@ export async function planLinkedChanges(
     "project" in changes ? [changes.project || undefined] : [],
   );
 
-  const variationIds = getLatestPhaseVariations({
+  const variations = getLatestPhaseVariations({
     ...experiment,
     ...changes,
-  }).map((v) => v.id);
+  });
+  const variationIds = variations.map((v) => v.id);
   const plan: LinkedChangesPlan = {
     removeRedirects: [],
     editRedirects: [],
@@ -264,6 +266,15 @@ export async function planLinkedChanges(
     const current = visualById.get(edit.id);
     if (!current) continue;
     const staged = edit.changes.visualChanges ?? [];
+    // The merged array the write validates, so a failure is caught here rather
+    // than after the experiment write has landed.
+    if (edit.changes.visualChanges) {
+      const stagedById = new Map(staged.map((c) => [c.id, c]));
+      assertNoInjectedJs(
+        current.visualChanges.map((c) => ({ ...c, ...stagedById.get(c.id) })),
+        { stored: current.visualChanges, variations },
+      );
+    }
     assertListedOnce(
       staged.map((c) => c.id),
       "visual change",

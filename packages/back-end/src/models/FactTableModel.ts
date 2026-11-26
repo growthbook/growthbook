@@ -5,7 +5,10 @@ import {
   getMetricAutoSliceFactTableIds,
 } from "shared/experiments";
 import { sqlReferencesColumn } from "shared/sql";
-import { explorationConfigReferencesColumn } from "shared/enterprise";
+import {
+  explorationConfigReferencesColumn,
+  populationReferencesColumn,
+} from "shared/enterprise";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
 import {
@@ -33,6 +36,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { NotFoundError } from "back-end/src/util/errors";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
@@ -45,6 +49,14 @@ import {
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import {
+  buildTopValuesWrite,
+  keepStoredTopValues,
+  storedTopValuesFilter,
+  toStoredColumn,
+  withDerivedTopValues,
+  type TopValuesUpdate,
+} from "back-end/src/util/topValues";
 import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
@@ -88,8 +100,13 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
       conditionalInlineFilters: {},
-      topValues: [String],
+      // Read-only: columns saved before topValueCounts existed. Never written.
+      topValues: { type: [String], default: undefined },
       topValuesDate: Date,
+      topValueCounts: {
+        type: [{ _id: false, value: String, count: Number }],
+        default: undefined,
+      },
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
       lockedAutoSlices: [String],
@@ -144,7 +161,38 @@ const FactTableModel = mongoose.model<FactTableInterface>(
 
 function toInterface(doc: FactTableDocument): FactTableInterface {
   const ret = doc.toJSON<FactTableDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return {
+    ...omit(ret, ["__v", "_id"]),
+    columns: (ret.columns || []).map(withDerivedTopValues),
+  };
+}
+
+// Every whole-array column write goes through here. Each column keeps the
+// stored element's top values (updateColumnsTopValues is their one writer),
+// and the write matches only while those are unchanged, so a top-values write
+// that lands between the read and the $set makes it re-read, not get undone.
+// Without columns it's a plain $set of the other fields.
+async function persistColumns<T extends { column: string }>(
+  factTable: Pick<FactTableInterface, "id" | "organization">,
+  columns: T[] | undefined,
+  $set: Record<string, unknown> = {},
+): Promise<T[] | undefined> {
+  const filter = { id: factTable.id, organization: factTable.organization };
+  if (!columns) {
+    await FactTableModel.updateOne(filter, { $set });
+    return undefined;
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await FactTableModel.findOne(filter, { columns: 1 });
+    const stored = doc ? toInterface(doc).columns || [] : [];
+    const next = keepStoredTopValues(stored, columns);
+    const { matchedCount } = await FactTableModel.updateOne(
+      { ...filter, ...storedTopValuesFilter(stored) },
+      { $set: { ...$set, columns: next.map(toStoredColumn) } },
+    );
+    if (matchedCount || !doc) return next;
+  }
+  throw new Error("The fact table's columns changed while saving. Try again.");
 }
 
 export function buildColumnInterface(
@@ -365,7 +413,10 @@ export async function createFactTable(
   // the same time the background job is scheduling the aggregated table update
   await deferAggregatedFactTableToNextSlot(context, factTableProps);
 
-  const doc = await FactTableModel.create(factTableProps);
+  const doc = await FactTableModel.create({
+    ...factTableProps,
+    columns: factTableProps.columns.map(toStoredColumn),
+  });
 
   const factTable = toInterface(doc);
 
@@ -404,24 +455,25 @@ export async function updateFactTable(
   // Bail on a no-op save before writing anything — the front-end resubmits the
   // whole form on every save, and some API clients re-PUT the same definition
   // on a schedule. Not writing means there is nothing to invalidate, so the
-  // write and the definitions-version bump stay in lockstep.
+  // write and the definitions-version bump stay in lockstep. Top values aren't
+  // part of a save, so the comparison uses the loaded ones.
+  if (changes.columns) {
+    changes = {
+      ...changes,
+      columns: keepStoredTopValues(factTable.columns || [], changes.columns),
+    };
+  }
+
   const changed = Object.entries(changes).some(
     ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
   );
   if (!changed) return;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        ...changes,
-        dateUpdated: new Date(),
-      },
-    },
-  );
+  const { columns, ...rest } = changes;
+  await persistColumns(factTable, columns, {
+    ...rest,
+    dateUpdated: new Date(),
+  });
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 
@@ -452,8 +504,57 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "userIdTypes",
 ] as const;
 
-// This is called from a background cronjob to re-sync all of the columns
-// It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
+// The one way to persist top values. Re-reads the fact table, since a slow
+// warehouse query may have run since the caller loaded it, then writes only
+// each still-existing column's top values (and Auto Slice levels when an
+// update says how they follow), so concurrent column edits survive.
+export async function updateColumnsTopValues({
+  context,
+  factTable,
+  updates,
+}: {
+  context: ReqContext | ApiReqContext;
+  factTable: Pick<FactTableInterface, "id" | "organization">;
+  updates: TopValuesUpdate[];
+}) {
+  if (!updates.length) return;
+  const filter = { id: factTable.id, organization: factTable.organization };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await FactTableModel.findOne(filter);
+    if (!doc) return;
+    const current = toInterface(doc);
+
+    const write = buildTopValuesWrite(
+      current,
+      updates,
+      context.org.settings?.maxMetricSliceLevels,
+    );
+    if (!write) return;
+
+    // A slice save between the read and the write fails the match, so the
+    // levels are rebuilt from the saved settings
+    const { matchedCount } = await FactTableModel.updateOne(
+      { ...filter, ...write.filter },
+      {
+        $set: write.$set,
+        ...(Object.keys(write.$unset).length ? { $unset: write.$unset } : {}),
+      },
+      { arrayFilters: write.arrayFilters },
+    );
+    if (!matchedCount) continue;
+    // A cron refreshes every fact table; a refresh that found the same values
+    // keeps the definitions ETag
+    if (write.changed) {
+      await touchDefinitionsVersion(
+        current.organization,
+        definitionsScope(current.projects),
+      );
+    }
+    return;
+  }
+  throw new Error("The fact table's columns changed while saving. Try again.");
+}
+
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
   changes: Partial<
@@ -461,23 +562,18 @@ export async function updateFactTableColumns(
   >,
   context: ReqContext | ApiReqContext,
 ) {
-  const safeChanges = Object.fromEntries(
+  const { columns, ...rest } = Object.fromEntries(
     Object.entries(changes).filter(([key]) =>
       ALLOWED_COLUMN_UPDATE_FIELDS.includes(
         key as (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number],
       ),
     ),
-  );
+  ) as typeof changes;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: safeChanges,
-    },
-  );
+  const written = await persistColumns(factTable, columns, rest);
+  const safeChanges: typeof changes = written
+    ? { ...rest, columns: written }
+    : rest;
 
   // Only bump the definitions version if something actually changed — this runs
   // from a background cron on every fact table, so an unconditional touch would
@@ -528,18 +624,11 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     return;
   }
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        ...changes,
-        dateUpdated: new Date(),
-      },
-    },
-  );
+  const { columns, ...rest } = changes;
+  await persistColumns(factTable, columns, {
+    ...rest,
+    dateUpdated: new Date(),
+  });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -668,10 +757,11 @@ export async function updateColumn({
   context?: ReqContext | ApiReqContext;
   factTable: FactTableInterface;
   column: string;
+  // Top values go through updateColumnsTopValues
   changes: UpdateColumnProps;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
-  if (columnIndex < 0) throw new Error("Could not find that column");
+  if (columnIndex < 0) throw new NotFoundError("Could not find that column");
 
   if (
     changes.alwaysInlineFilter &&
@@ -688,24 +778,14 @@ export async function updateColumn({
       changes.jsonFields !== undefined
         ? normalizeJSONFieldsInput(changes.jsonFields)
         : originalColumn.jsonFields,
-    ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   });
 
   factTable.columns[columnIndex] = updatedColumn;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns: factTable.columns,
-      },
-    },
-  );
+  await persistColumns(factTable, factTable.columns, {
+    dateUpdated: new Date(),
+  });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -747,18 +827,7 @@ export async function createColumn(
 
   const columns = [...factTable.columns, column];
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns,
-      },
-    },
-  );
+  await persistColumns(factTable, columns, { dateUpdated: new Date() });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -886,7 +955,7 @@ export async function deleteColumn(
 ): Promise<void> {
   const col = factTable.columns.find((c) => c.column === columnName);
   if (!col) {
-    throw new Error("Could not find that column");
+    throw new NotFoundError("Could not find that column");
   }
   // Only virtual columns can be hard-deleted. SQL-detected columns are managed
   // by the column refresh (soft delete) and must not be removed here.
@@ -913,9 +982,16 @@ export async function deleteColumn(
   );
   // Org-wide for the same reason as explorations/dashboards below: a metric in a
   // project the caller cannot read must still block the delete.
-  const [allFactMetrics, visibleFactMetrics] = await Promise.all([
+  const [
+    allFactMetrics,
+    visibleFactMetrics,
+    allPopulations,
+    visiblePopulations,
+  ] = await Promise.all([
     context.models.factMetrics.dangerousGetAllForDependencyScan(),
     context.models.factMetrics.getAll(),
+    context.models.populations.dangerousGetAllForDependencyScan(),
+    context.models.populations.getAll(),
   ]);
   const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
   const allDependentMetrics = allFactMetrics.filter((metric) =>
@@ -933,6 +1009,24 @@ export async function deleteColumn(
   );
   const hiddenMetricCount =
     allDependentMetrics.length - dependentMetrics.length;
+
+  // Explorations reference saved Populations by id, so a column a Population
+  // reads would otherwise break every exploration and dashboard using it.
+  const visiblePopulationIds = new Set(visiblePopulations.map((p) => p.id));
+  const allDependentPopulations = allPopulations.filter((population) =>
+    populationReferencesColumn(
+      population,
+      factTable,
+      columnName,
+      identifierQuote,
+      factTable.filters,
+    ),
+  );
+  const dependentPopulations = allDependentPopulations.filter((p) =>
+    visiblePopulationIds.has(p.id),
+  );
+  const hiddenPopulationCount =
+    allDependentPopulations.length - dependentPopulations.length;
 
   // Explorations and dashboard blocks persist column references (valueColumn,
   // dimensions, row filters) that resolve through the same query-time
@@ -958,12 +1052,13 @@ export async function deleteColumn(
     ),
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+    ...dependentPopulations.map((p) => `\n - Population: ${p.name || p.id}`),
     ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
     ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   // Counted, not named, so the error never reveals resources the caller cannot
   // read — while still blocking the delete.
-  const totalHidden = hiddenCount + hiddenMetricCount;
+  const totalHidden = hiddenCount + hiddenMetricCount + hiddenPopulationCount;
   if (totalHidden > 0) {
     lines.push(
       `\n - ${totalHidden} other resource(s) you do not have access to`,
@@ -977,18 +1072,7 @@ export async function deleteColumn(
 
   const columns = factTable.columns.filter((c) => c.column !== columnName);
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns,
-      },
-    },
-  );
+  await persistColumns(factTable, columns, { dateUpdated: new Date() });
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
@@ -1044,7 +1128,6 @@ export function mergeUpsertColumns(
       sql: originalColumn.isVirtual
         ? (incomingColumn.sql ?? originalColumn.sql)
         : undefined,
-      ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
       dateUpdated: new Date(),
     });
 
@@ -1073,18 +1156,7 @@ export async function upsertColumns({
 
   factTable.columns = nextColumns;
 
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns: nextColumns,
-      },
-    },
-  );
+  await persistColumns(factTable, nextColumns, { dateUpdated: new Date() });
 
   await touchDefinitionsVersion(
     factTable.organization,
@@ -1162,7 +1234,8 @@ export async function updateFactFilter(
   const filters = [...factTable.filters];
 
   const filterIndex = filters.findIndex((f) => f.id === filterId);
-  if (filterIndex < 0) throw new Error("Could not find filter with that id");
+  if (filterIndex < 0)
+    throw new NotFoundError("Could not find filter with that id");
 
   const existingFilter = filters[filterIndex];
 
@@ -1303,7 +1376,7 @@ export async function deleteFactFilter(
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);
 
   if (newFilters.length === factTable.filters.length) {
-    throw new Error("Could not find filter with that id");
+    throw new NotFoundError("Could not find filter with that id");
   }
 
   await FactTableModel.updateOne(
@@ -1391,7 +1464,7 @@ export function toFactTableFilterApiInterface(
   const filter = factTable.filters.find((f) => f.id === filterId);
 
   if (!filter) {
-    throw new Error("Cannot find filter with that id");
+    throw new NotFoundError("Cannot find filter with that id");
   }
 
   return {

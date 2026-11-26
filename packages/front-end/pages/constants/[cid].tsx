@@ -18,6 +18,9 @@ import {
   applyTopLevelPatchOps,
   getConstantRestoreChange,
   getConstantRevisionChange,
+  getLiveRevision,
+  getRevisionNumberById,
+  isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
 import {
   proposedArchivedValue,
@@ -25,9 +28,8 @@ import {
   constantPublishEnvironments,
   getReviewSetting,
 } from "shared/util";
-import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { isActiveDraftStatus } from "shared/validators";
+import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,31 +38,41 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
-import Owner from "@/components/Avatar/Owner";
-import Markdown from "@/components/Markdown/Markdown";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-// eslint-disable-next-line no-restricted-imports
-import Modal from "@/components/Modal";
-import Frame from "@/ui/Frame";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import ArchiveStateCallout from "@/components/Revision/ArchiveStateCallout";
 import Button from "@/ui/Button";
-import Metadata from "@/ui/Metadata";
+import Tooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
-  DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
-import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import RevisionStatusBar, {
+  hasRevisionStatus,
+} from "@/components/Revision/RevisionStatusBar";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import NewDraftButton from "@/components/Reviews/NewDraftButton";
+import { useRevisionStatusBarHeight } from "@/components/Reviews/RevisionStatusBarView";
+import { TabsTrigger } from "@/ui/Tabs";
+import SectionFrame from "@/components/SectionFrame";
+import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
+import {
+  DetailsPageActions,
+  DetailsPageMenu,
+  DetailsPageTabs,
+  DetailsPageTitleBar,
+  REVISION_SELECTOR_WIDTH_PX,
+  ReviewTabCount,
+} from "@/components/Layout/DetailsPageHeader";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -74,18 +86,12 @@ import { useConstantRevision } from "@/hooks/useConstantRevision";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantValueModal from "@/components/Constants/ConstantValueModal";
 import ConstantArchiveModal from "@/components/Constants/ConstantArchiveModal";
-import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
+import { constantReferenceSections } from "@/components/Constants/ConstantReferencesList";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import ConstantRevertModal from "@/components/Constants/ConstantRevertModal";
-import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
-import ReferencesLink from "@/components/References/ReferencesLink";
+import ConstantDetailsPanel from "@/components/Constants/ConstantDetailsPanel";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
-
-const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
-  string: "String",
-  json: "JSON",
-};
 
 // Renders a constant value with the same formatter as feature flag values
 // (JSON syntax highlighting, overflow-truncated with copy + fullscreen). Shows
@@ -127,18 +133,18 @@ export default function ConstantDetailPage(): React.ReactElement {
   const constantKey = typeof cid === "string" ? cid : "";
 
   const { apiCall } = useAuth();
-  const { projects, mutateDefinitions } = useDefinitions();
-  const { organization, hasCommercialFeature } = useUser();
+  const { mutateDefinitions } = useDefinitions();
+  const { organization, hasCommercialFeature, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
-  const [editInfoOpen, setEditInfoOpen] = useState(false);
+  const [editInfoOpen, setEditInfoOpen] = useState<
+    false | "info" | "description"
+  >(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
-  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
   const [tab, setTab] = useState<ConstantTab>("overview");
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
@@ -152,10 +158,8 @@ export default function ConstantDetailPage(): React.ReactElement {
   useEffect(() => {
     setEditInfoOpen(false);
     setEditValueOpen(false);
-    setEditDescriptionModal(false);
     setShowArchiveModal(false);
     setShowAuditModal(false);
-    setShowReferencesModal(false);
     setCompareOpen(false);
     setConfirmRevert(false);
     setRevisionToRevert(null);
@@ -180,6 +184,8 @@ export default function ConstantDetailPage(): React.ReactElement {
     handleDiscard,
     handleReopen,
     mutateRevisions,
+    selectionSettled,
+    revisionsError,
   } = useConstantRevision(constant?.id, mutate, constant);
 
   // ── Page-level tabs: Overview | Review & Publish, driven by the URL hash.
@@ -200,20 +206,23 @@ export default function ConstantDetailPage(): React.ReactElement {
       undefined,
       { shallow: true },
     );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // When viewing "live" (no explicit selection) fall back to the latest merged
-  // revision so the review tab renders its read-only Live view instead of the
-  // "select a revision" empty state, matching saved groups.
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
+  const details = useDetailsPanel({
+    openKey: `constant-details-panel-open__${constantKey}`,
+    widthKey: "constant-details-panel-width",
+    tab,
+    homeTab: "overview",
+  });
+  const tabsBottom = useTabsBottom();
+  const [setStatusBarEl, statusBarHeight] = useRevisionStatusBarHeight();
+
+  const liveRevision = useMemo(
+    () => getLiveRevision(allRevisions) ?? null,
+    [allRevisions],
+  );
+  const panelRevision = selectedRevision ?? liveRevision;
 
   // The environments the pending change actually touches. A base-value change
   // carries no footprint, but a per-environment override does — calling this
@@ -221,7 +230,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   // controls looked available to a caller restricted out of those environments.
   // Same computation the back end performs.
   const publishEnvironments = useMemo(() => {
-    const pending = selectedRevision ?? displayRevision;
+    const pending = panelRevision;
     if (!pending) return constantPublishEnvironments();
     // Diffed against the LIVE constant, like the adapter — diffing against the
     // snapshot reported no changed environments whenever the proposed values merely
@@ -255,24 +264,13 @@ export default function ConstantDetailPage(): React.ReactElement {
     return flipsArchived
       ? serveFootprint(environments, constant ?? {})
       : scoped;
-  }, [selectedRevision, displayRevision, constant, environments]);
+  }, [panelRevision, constant, environments]);
 
-  // Count of active drafts awaiting/in review — drives the count bubble on the
-  // "Review & Publish" tab, matching saved groups and the feature header.
-  const draftStatusCounts: Partial<Record<string, number>> = {};
-  allRevisions.forEach((r) => {
-    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
-      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
-    }
-  });
-  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
-    (sum, n) => sum + (n ?? 0),
-    0,
-  );
-
-  const { references } = useConstantReferences(constant?.id);
-  const totalReferences =
-    (references?.features.length ?? 0) + (references?.constants.length ?? 0);
+  const {
+    references,
+    loading: referencesLoading,
+    error: referencesError,
+  } = useConstantReferences(constant?.id);
 
   const settings = organization.settings || {};
   const revertsBypassApproval = !!settings.revertsBypassApproval;
@@ -297,11 +295,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       : (reviewRule?.featureRequireMetadataReview ?? true));
 
   const isDraft =
-    !!selectedRevision &&
-    (selectedRevision.status === "draft" ||
-      selectedRevision.status === "pending-review" ||
-      selectedRevision.status === "changes-requested" ||
-      selectedRevision.status === "approved");
+    !!selectedRevision && isActiveDraftStatus(selectedRevision.status);
 
   // Precise per-revision gate, mirroring the server-side constant adapter: a
   // value change always requires review (all environments), a per-env override
@@ -330,26 +324,18 @@ export default function ConstantDetailPage(): React.ReactElement {
     ) as ConstantInterface;
   }, [selectedRevision, constant]);
 
-  if (error) {
+  // A failed refresh keeps the revisions already shown.
+  const loadError = error ?? (selectionSettled ? undefined : revisionsError);
+  if (loadError) {
     return (
-      <div className="container-fluid pagecontents">
-        <Callout status="error">{error.message}</Callout>
-      </div>
+      <Callout status="error" mt="4">
+        An error occurred: {loadError.message}
+      </Callout>
     );
   }
-  if (!constant || !displayedConstant) {
+  if (!constant || !displayedConstant || !selectionSettled) {
     return <LoadingOverlay />;
   }
-
-  // Explicitly start an empty draft to work in (forceCreateRevision creates one
-  // regardless of approval settings). The user then edits value/info on it.
-  const handleNewDraft = async () => {
-    const res = await apiCall<{ revision?: Revision }>(
-      `/constants/${constant.id}?forceCreateRevision=1`,
-      { method: "PUT", body: JSON.stringify({}) },
-    );
-    if (res?.revision) await onRevisionCreated(res.revision);
-  };
 
   const canDraft = permissionsUtil.canRevisionAction(
     "constant",
@@ -386,6 +372,12 @@ export default function ConstantDetailPage(): React.ReactElement {
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
   const canEditNow = canDraft && (!selectedRevision || isDraft);
+  const editLockReason =
+    selectedRevision &&
+    isDraft &&
+    isRevisionEditLockedBySchedule(selectedRevision)
+      ? SCHEDULE_EDIT_LOCK_REASON
+      : null;
   // Archiving is delete-class server-side — it takes the Constant out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
@@ -427,10 +419,126 @@ export default function ConstantDetailPage(): React.ReactElement {
     ),
   };
 
-  const projectName = displayedConstant.project
-    ? (projects.find((proj) => proj.id === displayedConstant.project)?.name ??
-      displayedConstant.project)
-    : "";
+  const revisionNumbers = getRevisionNumberById(allRevisions);
+  const canPublishSelected = canPublishRevisionEntity(
+    permissionsUtil,
+    "constant",
+    selectedRevision,
+    constant,
+    publishEnvironments,
+  );
+
+  const showsStatusBar =
+    tab === "overview" &&
+    hasRevisionStatus(selectedRevision, liveRevision, allRevisions);
+  const stickyTop = tabsBottom + (showsStatusBar ? statusBarHeight : 0);
+
+  const newDraft = canDraft ? (
+    <NewDraftButton
+      entityNoun="Constant"
+      activeDraftCount={openRevisions.length}
+      nextVersion={Math.max(0, ...revisionNumbers.values()) + 1}
+      basedOn={
+        liveRevision ? (
+          <>
+            <Text as="span" size="inherit" weight="semibold" color="text-high">
+              <RevisionLabel
+                version={revisionNumbers.get(liveRevision.id) ?? 1}
+                title={liveRevision.title}
+                numbered={!!liveRevision.title}
+                minWidth={0}
+                numberSize="inherit"
+              />
+            </Text>{" "}
+            {getStatusBadge("live", approvalRequired)}
+          </>
+        ) : (
+          <>the live Constant</>
+        )
+      }
+      create={async ({ title, comment }) => {
+        // forceCreateRevision creates one regardless of approval settings.
+        const res = await apiCall<{ revision?: Revision }>(
+          `/constants/${constant.id}?forceCreateRevision=1`,
+          { method: "PUT", body: JSON.stringify({}) },
+        );
+        const revision = res?.revision;
+        if (!revision) return;
+        if (title) {
+          await apiCall(`/revision/${revision.id}/title`, {
+            method: "PATCH",
+            body: JSON.stringify({ title }),
+          });
+        }
+        if (comment) {
+          await apiCall(`/revision/${revision.id}/description`, {
+            method: "PATCH",
+            body: JSON.stringify({ description: comment }),
+          });
+        }
+        await onRevisionCreated(revision);
+      }}
+    />
+  ) : null;
+
+  const menu = (
+    <DetailsPageMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => {
+            setMenuOpen(false);
+            setShowAuditModal(true);
+          }}
+        >
+          Audit history
+        </DropdownMenuItem>
+        {allRevisions.length >= 2 && (
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              setCompareOpen(true);
+            }}
+          >
+            Compare revisions
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuGroup>
+      {(canArchiveNow || canDeleteNow) && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            {canArchiveNow && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowArchiveModal(true);
+                }}
+              >
+                {/* LIVE state: the endpoint flips against live, so the projected
+                    state labels the opposite action. */}
+                {constant.archived ? "Unarchive" : "Archive"}
+              </DropdownMenuItem>
+            )}
+            {canDeleteNow && (
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setConfirmDelete(true);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </>
+      )}
+    </DetailsPageMenu>
+  );
+
+  const environmentValues = Object.entries(
+    displayedConstant.environmentValues || {},
+  );
 
   return (
     <>
@@ -440,338 +548,280 @@ export default function ConstantDetailPage(): React.ReactElement {
           { display: displayedConstant.name },
         ]}
       />
-      <div className="container-fluid pagecontents">
-        <Flex align="start" justify="between" gap="2" mb="2">
-          <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-            <Heading size="2xl" as="h1" overflowWrap="anywhere" mb="0">
-              {displayedConstant.name}
-            </Heading>
-            {displayedConstant.archived && (
-              <Badge label="Archived" color="gray" />
-            )}
-          </Flex>
-          <Flex align="center" gap="4" pr="2">
-            <RevisionDropdown
-              entityId={constant.id}
-              allRevisions={allRevisions}
-              selectedRevisionId={selectedRevisionId}
-              onSelectRevision={selectRevision}
-              requiresApproval={approvalRequired}
-              context="header"
-            />
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
-              }
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
-              menuPlacement="end"
-            >
-              <DropdownMenuGroup>
-                {canEditNow && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setEditInfoOpen(true);
-                    }}
-                  >
-                    Edit information
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setShowAuditModal(true);
-                  }}
-                >
-                  Audit history
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              {(canEditNow || canArchiveNow || canDeleteNow) && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    {canArchiveNow && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setShowArchiveModal(true);
-                        }}
-                      >
-                        {/* LIVE state: the endpoint flips against live, so the projected
-                            state labels the opposite action. */}
-                        {constant.archived ? "Unarchive" : "Archive"}
-                      </DropdownMenuItem>
-                    )}
-                    {canDeleteNow && (
-                      <DropdownMenuItem
-                        color="red"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setConfirmDelete(true);
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuGroup>
-                </>
-              )}
-            </DropdownMenu>
-          </Flex>
-        </Flex>
 
-        <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
-          <Flex gap="4" align="center" wrap="wrap">
-            <Metadata label="Key" value={constant.key} />
-            <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
-            <Metadata label="Project" value={projectName || "All Projects"} />
-            <Box>
-              <Text weight="medium">Owner: </Text>
-              <Owner ownerId={displayedConstant.owner} gap="1" />
-            </Box>
-          </Flex>
-          <Flex direction="column" align="end" gap="2">
-            <ReferencesLink
-              total={totalReferences}
-              onShow={() => setShowReferencesModal(true)}
-              emptyTooltip="No Feature Flags or Constants currently reference this Constant."
-            />
-          </Flex>
-        </Flex>
+      <DetailsPageTitleBar
+        title={displayedConstant.name}
+        onRename={canEditNow ? () => setEditInfoOpen("info") : null}
+        renameBlockedReason={editLockReason}
+        badges={
+          constant.archived ? <Badge label="Archived" color="gray" /> : null
+        }
+        actions={
+          <DetailsPageActions
+            // A draft's way to review is on the status bar under the tabs.
+            newDraft={isDraft ? null : newDraft}
+            menu={menu}
+          />
+        }
+      >
+        <ArchiveStateCallout
+          noun="Constant"
+          liveArchived={!!constant.archived}
+          viewedArchived={!!displayedConstant.archived}
+        />
+      </DetailsPageTitleBar>
 
-        {displayedConstant.description && (
-          <Box mb="3">
-            <Markdown>{displayedConstant.description}</Markdown>
-          </Box>
-        )}
-
-        <Box mb="4">
-          <Tabs
-            value={tab}
-            onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
-          >
-            <TabsList size="lg">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="review">
-                Review &amp; Publish
-                {activeDraftCount > 0 && (
-                  <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                    <Badge
-                      label={String(activeDraftCount)}
-                      color="red"
-                      variant="solid"
-                      radius="full"
-                      ml="2"
-                      style={{ minWidth: 18, height: 18 }}
-                    />
-                  </Tooltip>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </Box>
-
-        {tab === "overview" && (
+      <DetailsPageTabs
+        value={tab}
+        onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
+        triggers={
           <>
-            <RevisionSummaryCard
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              entityNoun="Constant"
-              hasRevisions={allRevisions.length > 0}
-              canEditTitle={canDraft}
-              canEditDescription={canDraft}
-              fallbackOwnerId={constant.owner}
-              fallbackDateCreated={constant.dateCreated}
-              onSelectRevision={selectRevision}
-              onTitleCommit={async (revisionId, title) => {
-                await apiCall(`/revision/${revisionId}/title`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ title }),
-                });
-                await mutateRevisions();
-              }}
-              onNewDraft={canDraft ? handleNewDraft : undefined}
-              onReviewPublish={() => setTabAndScroll("review")}
-              onEditDescription={
-                canDraft ? () => setEditDescriptionModal(true) : undefined
-              }
-            />
-            <Frame mb="4" px="6" py="5">
-              <Flex justify="between" align="center" gap="3" mb="3">
-                <Heading size="md" as="h2" mb="0">
-                  Value
-                </Heading>
-                {canEditNow && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setEditValueOpen(true)}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </Flex>
-              <ConstantValueDisplay
-                value={displayedConstant.value}
-                type={displayedConstant.type}
-              />
-
-              {Object.keys(displayedConstant.environmentValues || {}).length >
-                0 && (
-                <>
-                  <Heading size="md" as="h2" mt="6" mb="3">
-                    Environment overrides
-                  </Heading>
-                  <Flex direction="column" gap="5">
-                    {Object.entries(
-                      displayedConstant.environmentValues || {},
-                    ).map(([env, value]) => (
-                      <Box key={env}>
-                        <Text as="div" size="lg" weight="semibold" mb="2">
-                          {env}
-                        </Text>
-                        <ConstantValueDisplay
-                          value={value}
-                          type={displayedConstant.type}
-                        />
-                      </Box>
-                    ))}
-                  </Flex>
-                </>
-              )}
-            </Frame>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="review">
+              Review &amp; Publish
+              <ReviewTabCount statuses={allRevisions.map((r) => r.status)} />
+            </TabsTrigger>
           </>
-        )}
-
-        {tab === "review" && (
-          <ReviewAndPublishTab<ConstantInterface>
-            revision={selectedRevision ?? displayRevision ?? null}
+        }
+        revisionPicker={
+          <RevisionDropdown
+            entityId={constant.id}
             allRevisions={allRevisions}
-            currentState={constant}
-            diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
-            entityName={constant.name}
-            entityNoun="Constant"
-            requiresApproval={selectedRevisionRequiresApproval}
-            reviewRules={reviewRule ? [reviewRule] : []}
-            canEditEntity={permissionsUtil.canRevisionAction(
-              "constant",
-              "draft",
-              constant,
-              NO_ENVIRONMENT_BINDING,
-            )}
-            canRevertEntity={canRevertEntity}
-            canLandRevertEntity={canRevertLandingEntity}
-            canDeleteEntity={permissionsUtil.canRevisionAction(
-              "constant",
-              "delete",
-              constant,
-              NO_ENVIRONMENT_BINDING,
-            )}
-            // Landing an archive takes the constant out of service in every
-            // environment, which is the footprint the publish endpoint demands.
-            canLandArchiveEntity={canLandArchiveToggle(
-              permissionsUtil,
-              "constant",
-              constant,
-              // Narrowed to the constant's projects, like the server's
-              // `archiveServeFootprint` — raw org envs over-demanded.
-              archiveFootprintForControl({ environments, entity: constant }),
-            )}
-            holdsLandingDestination={holdsRevisionDestination(
-              permissionsUtil,
-              "constant",
-              "publish",
-              selectedRevision ?? displayRevision ?? null,
-              constant,
-              publishEnvironments,
-            )}
-            canCommentOnEntity={canCommentOnRevisionEntity(
-              permissionsUtil,
-              "constant",
-              selectedRevision ?? displayRevision ?? null,
-              constant,
-            )}
-            canReviewEntity={canReviewRevisionEntity(
-              permissionsUtil,
-              "constant",
-              selectedRevision ?? displayRevision ?? null,
-              constant,
-              publishEnvironments,
-            )}
-            canManageDraftsEntity={permissionsUtil.canRevisionAction(
-              "constant",
-              "draft",
-              constant,
-            )}
-            canPublishEntity={canPublishRevisionEntity(
-              permissionsUtil,
-              "constant",
-              selectedRevision ?? displayRevision ?? null,
-              constant,
-              publishEnvironments,
-            )}
-            // The basis the CANCEL arm actually uses: the adapter's
-            // `canPublishRevision(snapshot)` = the entity's OWN scoped
-            // environments, with no destination term and no archive-flip
-            // widening. Passing the revision-derived footprint dropped the
-            // destination term but kept the widening, so an env-limited
-            // publisher on an archive-flipping revision still lost the Cancel
-            // button for a schedule the endpoint would let them withdraw.
-            canPublishEntityCoarse={permissionsUtil.canRevisionAction(
-              "constant",
-              "publish",
-              constant,
-              constantPublishEnvironments(),
-            )}
-            canBypassApproval={canBypassApproval}
-            selectRevision={selectRevision}
-            onPublish={handlePublish}
-            onDiscard={handleDiscard}
-            onReopen={handleReopen}
-            onRevert={(rev) => {
-              setRevisionToRevert(rev);
-              setConfirmRevert(true);
-            }}
-            onCompareRevisions={
-              allRevisions.length >= 2 ? () => setCompareOpen(true) : undefined
-            }
-            mutate={async () => {
-              await Promise.all([mutateRevisions(), mutate()]);
-            }}
+            selectedRevisionId={selectedRevisionId}
+            onSelectRevision={selectRevision}
+            requiresApproval={approvalRequired}
+            context="header"
+            width={REVISION_SELECTOR_WIDTH_PX}
           />
-        )}
-      </div>
+        }
+        detailsOpen={details.open}
+        setDetailsOpen={details.toggle}
+        statusBar={
+          showsStatusBar ? (
+            <div ref={setStatusBarEl}>
+              <RevisionStatusBar<ConstantInterface>
+                selectedRevision={selectedRevision}
+                liveRevision={liveRevision}
+                allRevisions={allRevisions}
+                liveSnapshot={constant}
+                diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+                entityNoun="Constant"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canDiscard={canDraft || selectedRevision?.authorId === userId}
+                onSelectRevision={selectRevision}
+                onReviewPublish={() => setTabAndScroll("review")}
+                onPublish={canPublishSelected ? handlePublish : null}
+                onDiscard={handleDiscard}
+              />
+            </div>
+          ) : null
+        }
+      />
 
-      {showReferencesModal && references && (
-        <Modal
-          header={`'${displayedConstant.name}' References`}
-          trackingEventModalType="show-constant-references"
-          close={() => setShowReferencesModal(false)}
-          open={showReferencesModal}
-          closeCta="Close"
-        >
-          <Text as="p" mb="3">
-            This Constant is referenced by the following Feature Flags and
-            Constants via <code>@const:{constant.key}</code>.
-          </Text>
-          <ConstantReferencesList
-            features={references.features}
-            constants={references.constants}
+      <DetailsPanelLayout
+        details={details}
+        stickyTop={stickyTop}
+        panel={
+          <ConstantDetailsPanel
+            constant={displayedConstant}
+            onEditInfo={
+              canEditNow ? (focus) => setEditInfoOpen(focus ?? "info") : null
+            }
+            editInfoBlockedReason={editLockReason}
+            references={{
+              rows: constantReferenceSections(references ?? {}),
+              loading: referencesLoading,
+              error: !!referencesError,
+            }}
+            revision={panelRevision}
+            allRevisions={allRevisions}
+            isLive={!selectedRevision}
+            requiresApproval={approvalRequired}
+            canEditRevision={canDraft}
+            onRenameRevision={async (title) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/title`, {
+                method: "PATCH",
+                body: JSON.stringify({ title }),
+              });
+              await mutateRevisions();
+            }}
+            onDescribeRevision={async (description) => {
+              if (!selectedRevision) return;
+              await apiCall(`/revision/${selectedRevision.id}/description`, {
+                method: "PATCH",
+                body: JSON.stringify({ description }),
+              });
+              await mutateRevisions();
+            }}
           />
-        </Modal>
-      )}
+        }
+      >
+        <div className="details-column">
+          <Box className="contents container-fluid pagecontents">
+            {tab === "overview" && (
+              <SectionFrame
+                title="Value"
+                actions={
+                  canEditNow ? (
+                    <Tooltip
+                      content={editLockReason}
+                      enabled={!!editLockReason}
+                    >
+                      <Button
+                        variant="ghost"
+                        disabled={!!editLockReason}
+                        onClick={() => setEditValueOpen(true)}
+                      >
+                        Edit
+                      </Button>
+                    </Tooltip>
+                  ) : null
+                }
+              >
+                <ConstantValueDisplay
+                  value={displayedConstant.value}
+                  type={displayedConstant.type}
+                />
+                {environmentValues.length > 0 && (
+                  <>
+                    <Text as="div" weight="semibold" mt="5" mb="3">
+                      Environment overrides
+                    </Text>
+                    <Flex direction="column" gap="4">
+                      {environmentValues.map(([env, value]) => (
+                        <Box key={env}>
+                          <Text
+                            as="div"
+                            size="sm"
+                            weight="medium"
+                            color="text-mid"
+                            mb="1"
+                          >
+                            {env}
+                          </Text>
+                          <ConstantValueDisplay
+                            value={value}
+                            type={displayedConstant.type}
+                          />
+                        </Box>
+                      ))}
+                    </Flex>
+                  </>
+                )}
+              </SectionFrame>
+            )}
+
+            {tab === "review" && (
+              <ReviewAndPublishTab<ConstantInterface>
+                revision={panelRevision}
+                allRevisions={allRevisions}
+                currentState={constant}
+                diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
+                entityName={constant.name}
+                entityNoun="Constant"
+                requiresApproval={selectedRevisionRequiresApproval}
+                reviewRules={reviewRule ? [reviewRule] : []}
+                canEditEntity={permissionsUtil.canRevisionAction(
+                  "constant",
+                  "draft",
+                  constant,
+                  NO_ENVIRONMENT_BINDING,
+                )}
+                canRevertEntity={canRevertEntity}
+                canLandRevertEntity={canRevertLandingEntity}
+                canDeleteEntity={permissionsUtil.canRevisionAction(
+                  "constant",
+                  "delete",
+                  constant,
+                  NO_ENVIRONMENT_BINDING,
+                )}
+                // Landing an archive takes the constant out of service in every
+                // environment, which is the footprint the publish endpoint demands.
+                canLandArchiveEntity={canLandArchiveToggle(
+                  permissionsUtil,
+                  "constant",
+                  constant,
+                  // Narrowed to the constant's projects, like the server's
+                  // `archiveServeFootprint` — raw org envs over-demanded.
+                  archiveFootprintForControl({
+                    environments,
+                    entity: constant,
+                  }),
+                )}
+                holdsLandingDestination={holdsRevisionDestination(
+                  permissionsUtil,
+                  "constant",
+                  "publish",
+                  panelRevision,
+                  constant,
+                  publishEnvironments,
+                )}
+                canCommentOnEntity={canCommentOnRevisionEntity(
+                  permissionsUtil,
+                  "constant",
+                  panelRevision,
+                  constant,
+                )}
+                canReviewEntity={canReviewRevisionEntity(
+                  permissionsUtil,
+                  "constant",
+                  panelRevision,
+                  constant,
+                  publishEnvironments,
+                )}
+                canManageDraftsEntity={permissionsUtil.canRevisionAction(
+                  "constant",
+                  "draft",
+                  constant,
+                )}
+                canPublishEntity={canPublishRevisionEntity(
+                  permissionsUtil,
+                  "constant",
+                  panelRevision,
+                  constant,
+                  publishEnvironments,
+                )}
+                // The basis the CANCEL arm actually uses: the adapter's
+                // `canPublishRevision(snapshot)` = the entity's OWN scoped
+                // environments, with no destination term and no archive-flip
+                // widening. Passing the revision-derived footprint dropped the
+                // destination term but kept the widening, so an env-limited
+                // publisher on an archive-flipping revision still lost the Cancel
+                // button for a schedule the endpoint would let them withdraw.
+                canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+                  "constant",
+                  "publish",
+                  constant,
+                  constantPublishEnvironments(),
+                )}
+                canBypassApproval={canBypassApproval}
+                selectRevision={selectRevision}
+                onPublish={handlePublish}
+                onDiscard={handleDiscard}
+                onReopen={handleReopen}
+                onRevert={(rev) => {
+                  setRevisionToRevert(rev);
+                  setConfirmRevert(true);
+                }}
+                onCompareRevisions={
+                  allRevisions.length >= 2
+                    ? () => setCompareOpen(true)
+                    : undefined
+                }
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
+                }}
+              />
+            )}
+          </Box>
+        </div>
+      </DetailsPanelLayout>
 
       {editInfoOpen && (
         <ConstantModal
           existing={displayedConstant}
+          focusDescription={editInfoOpen === "description"}
           revisionCtx={revisionCtx}
           onSaved={async (revision) => {
             await onRevisionCreated(revision);
@@ -920,25 +970,12 @@ export default function ConstantDetailPage(): React.ReactElement {
         />
       )}
 
-      {editDescriptionModal && displayRevision && (
-        <EditRevisionDescriptionModal
-          initialValue={displayRevision.comment || ""}
-          close={() => setEditDescriptionModal(false)}
-          onSubmit={async (description) => {
-            await apiCall(`/revision/${displayRevision.id}/description`, {
-              method: "PATCH",
-              body: JSON.stringify({ description }),
-            });
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
-        />
-      )}
-
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${constant.name}"?`}
           content="This permanently deletes the Constant. This cannot be undone."
           yesText="Delete"
+          color="red"
           onConfirm={async () => {
             await apiCall(`/constants/${constant.id}`, { method: "DELETE" });
             await mutateDefinitions();

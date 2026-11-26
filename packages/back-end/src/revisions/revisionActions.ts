@@ -4,6 +4,7 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
+  mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -38,8 +39,10 @@ import { getAdapter } from "back-end/src/revisions";
 import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
 import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
+  applyPatchToSnapshot,
   buildMergeDesiredState,
   isRevisionDiverged,
+  landedTarget,
 } from "back-end/src/revisions/util";
 import {
   holdsMoveDestination,
@@ -76,6 +79,7 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
+import { scrubConflictsForViewer } from "back-end/src/revisions/scrub";
 
 export type RevisionActionKind =
   | "draft"
@@ -103,24 +107,49 @@ export function reviewFootprintFor(
   );
 }
 
+// The snapshot, plus where the change moves the entity when the adapter says so.
+function reviewScopesFor(
+  revision: Pick<Revision, "target">,
+): Record<string, unknown>[] {
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  return (
+    getAdapter(revision.target.type).reviewScopes?.(
+      snapshot,
+      revision.target.proposedChanges,
+    ) ?? [snapshot]
+  );
+}
+
 /**
  * Authority for a verb that belongs to the REVISION rather than the live entity:
  * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
  * move on the live entity does not change the revision's project — so there is
- * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
- * the explicit scope via `canDoRevisionAction`.
+ * deliberately no scope argument to pass wrongly. Review also needs authority
+ * where the change itself moves the entity. Verbs that LAND on live keep the
+ * explicit scope via `canDoRevisionAction`.
  */
 export function canRevisionOwnedAction(
   context: Context,
   revision: Pick<Revision, "target">,
   action: Extract<RevisionActionKind, "draft" | "review">,
 ): boolean {
-  return canDoRevisionAction(
-    revision.target.type,
-    action,
-    context,
-    revision.target.snapshot as Record<string, unknown>,
-    action === "review" ? reviewFootprintFor(context, revision) : undefined,
+  if (action === "draft") {
+    return canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+    );
+  }
+  const environments = reviewFootprintFor(context, revision);
+  return reviewScopesFor(revision).every((scope) =>
+    canDoRevisionAction(
+      revision.target.type,
+      action,
+      context,
+      scope,
+      environments,
+    ),
   );
 }
 
@@ -181,11 +210,8 @@ export function canCommentOnRevision(
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
   return (
-    context.permissions.canAddComment(projects) ||
+    context.permissions.canAddComment(entityProjects(snapshot)) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
     canDoRevisionAction(type, "review", context, snapshot, null)
   );
@@ -505,6 +531,13 @@ export async function assertCanPublishRevision(
   );
 
   const pureRevert = await isPureRevertRevision(context, revision);
+  const archivedState = adapter.archivedState?.(
+    snapshot,
+    revision.target.proposedChanges,
+  ) ?? {
+    current: snapshot.archived as boolean | undefined,
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+  };
 
   await assertCanLandRevision({
     context,
@@ -527,15 +560,12 @@ export async function assertCanPublishRevision(
           : (adapter.canRevert ?? adapter.canUpdate);
       return canAct(context, snapshot);
     },
-    archives: isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
-      current: snapshot.archived as boolean | undefined,
-    }),
+    archives: isArchiveTransition(archivedState),
     isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
-        current: snapshot.archived as boolean | undefined,
+        current: archivedState.current,
       }),
   });
 
@@ -565,19 +595,11 @@ export async function approveRevision(
   entity: Record<string, unknown>,
   comment?: string,
 ): Promise<Revision> {
-  const adapter = getAdapter(revision.target.type);
-  const canReview = adapter.canReview ?? adapter.canUpdate;
   // On the revision's SNAPSHOT, like every other review check (the preflight,
   // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
   // project a later move on the live entity does not change. The ENVIRONMENTS,
   // though, come from the change — approving is scoped to what would land.
-  if (
-    !canReview(
-      context,
-      revision.target.snapshot as Record<string, unknown>,
-      reviewFootprintFor(context, revision),
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, revision, "review")) {
     context.permissions.throwPermissionError();
   }
 
@@ -661,28 +683,34 @@ export async function revisionApprovalsCoverChange(
   revision: Revision,
 ): Promise<{ hasCoveringApproval: boolean; uncoveredApprovers: string[] }> {
   const environments = reviewFootprintFor(context, revision);
-  const snapshot = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
-  };
-  // Authority over a multi-project entity is the intersection, not the first.
-  const projects = snapshot.projects?.length
-    ? snapshot.projects
-    : snapshot.project
-      ? [snapshot.project]
-      : [];
   const approvals = standingApprovals(revision);
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
-  return assessApprovalCoverage({
-    org: context.org,
-    teams: context.teams ?? [],
-    model: revision.target.type,
-    projects,
-    footprint: environments.length
-      ? { scope: "environments", environments }
-      : { scope: "unbound" },
-    approvers: approvalApprovers(approvals, (id) => roles.get(id) ?? null),
-  });
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
+  // An approver must cover every scope; within one, authority over a
+  // multi-project entity is the intersection, not the first.
+  const uncoveredApprovers = [
+    ...new Set(
+      reviewScopesFor(revision).flatMap(
+        (scope) =>
+          assessApprovalCoverage({
+            org: context.org,
+            teams: context.teams ?? [],
+            model: revision.target.type,
+            projects: entityProjects(scope),
+            footprint: environments.length
+              ? { scope: "environments", environments }
+              : { scope: "unbound" },
+            approvers,
+          }).uncoveredApprovers,
+      ),
+    ),
+  ];
+  return {
+    hasCoveringApproval: approvers.some(
+      (a) => !uncoveredApprovers.includes(a.id),
+    ),
+    uncoveredApprovers,
+  };
 }
 
 export async function publishRevision(
@@ -740,7 +768,13 @@ async function publishRevisionInner(
   // the schedule's bypass flag with the armer's fire-time role. Re-deriving from
   // role here force-published an admin's ordinary non-bypass schedule unapproved.
   const canBypass =
-    bypass || (!deferred && adapter.canBypassApproval(context, entity));
+    bypass ||
+    (!deferred &&
+      adapter.canBypassApproval(
+        context,
+        entity,
+        revision.target.proposedChanges,
+      ));
 
   // Coverage, not just status: an approval given when the change was narrower
   // does not sanction what it would land now.
@@ -784,7 +818,11 @@ async function publishRevisionInner(
   if (!conflictResult.success) {
     throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
-      conflictResult.conflicts,
+      await scrubConflictsForViewer(
+        context,
+        revision.target,
+        conflictResult.conflicts,
+      ),
     );
   }
 
@@ -956,6 +994,7 @@ async function publishRevisionInner(
       bypass: isBypass,
       // Same authorized-content pin as the no-op branch and bulk's claim.
       expected: { status: revision.status, dateUpdated: revision.dateUpdated },
+      landed: landedTarget(adapter, revision, entity),
     },
   );
 
@@ -1332,7 +1371,11 @@ export async function maybePublishScheduledRevision(
     const adapter = getAdapter(revision.target.type);
     const bypass =
       !!revision.scheduledPublishBypassApproval &&
-      adapter.canBypassApproval(enablerContext, entity);
+      adapter.canBypassApproval(
+        enablerContext,
+        entity,
+        revision.target.proposedChanges,
+      );
 
     return await publishRevision(enablerContext, revision, entity, {
       bypass,
@@ -1606,7 +1649,7 @@ export async function rebaseRevision({
     ) {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
-        conflicts,
+        await scrubConflictsForViewer(context, revision.target, conflicts),
       );
     }
   }
@@ -1632,8 +1675,20 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // Equal to the draft's base, it proposes nothing, so live wins, as when
+      // landing. Kept, it would undo what live published since.
+      if (isEqual(op.value ?? null, baseSnapshot[field] ?? null)) continue;
+      // A nested branch is re-based onto live, keeping only the draft's edits.
+      const nested = mergeNestedBranch(
+        field,
+        baseSnapshot[field],
+        entity[field],
+        op.value,
+        "proposed",
+      );
+      const value = nested ? nested.merged : op.value;
       // Live already caught up to what the draft was proposing: nothing to say.
-      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      if (!isEqual(value, entity[field])) newOps.push({ ...op, value });
       continue;
     }
 
@@ -1659,7 +1714,16 @@ export async function rebaseRevision({
       const custom = customValues?.[field];
       let resolvedValue: unknown;
       if (custom !== undefined) {
-        resolvedValue = custom;
+        // What the caller was never shown stays as the draft, else live, had it.
+        const { restoreScrubbed } = getAdapter(revision.target.type);
+        const from = (incoming: unknown, base: unknown) =>
+          restoreScrubbed
+            ? restoreScrubbed({ [field]: base }, { [field]: incoming })[field]
+            : incoming;
+        resolvedValue = from(
+          from(custom, conflict.proposedValue),
+          conflict.liveValue,
+        );
       } else if (
         Array.isArray(conflict.liveValue) &&
         Array.isArray(conflict.proposedValue)
@@ -1688,8 +1752,29 @@ export async function rebaseRevision({
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
-    // strategy === "discard" → drop the op, so the live value stands.
+    // strategy === "discard" → the live value stands. A nested branch keeps
+    // the draft's edits that don't collide with live.
+    if (strategy === "discard") {
+      const nested = mergeNestedBranch(
+        field,
+        conflict.baseValue,
+        conflict.liveValue,
+        conflict.proposedValue,
+        "live",
+      );
+      if (nested && !isEqual(nested.merged, entity[field])) {
+        newOps.push({ op: "replace", path: `/${field}`, value: nested.merged });
+      }
+    }
   }
+
+  const live = adapter.buildSnapshot(entity);
+  await adapter.validateRevisionWrite?.(context, {
+    live,
+    revision,
+    proposed: applyPatchToSnapshot(live, newOps),
+    before: applyPatchToSnapshot(baseSnapshot, revision.target.proposedChanges),
+  });
 
   const updated = await context.models.revisions.rebase(
     revision.id,
@@ -1697,6 +1782,7 @@ export async function rebaseRevision({
     newOps,
     context.actorId,
     advanceAuthorityOnRow(context),
+    revision,
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "rebased",

@@ -3,6 +3,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import type {
   InterleavingAnalysis,
   InterleavingVariationRole,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
@@ -355,6 +356,8 @@ export type ColumnTopValuesParams = {
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
+  // Missing when the warehouse can only rank values
+  count?: number;
 };
 
 export interface ExperimentUnitsQuerySettings {
@@ -690,6 +693,8 @@ export type MetricAnalysisParams = {
 export type ProductAnalyticsExplorationParams = {
   factTableMap: FactTableMap;
   factMetricMap: Map<string, FactMetricInterface>;
+  /** The saved Population behind a metric dataset's `population`, if any. */
+  population: ResolvedExplorationPopulation | null;
 };
 
 export type DimensionColumnData = {
@@ -1002,6 +1007,11 @@ export type ExperimentExposuresQueryParams = {
   customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
   rowFilters?: RowFilter[];
+  /**
+   * Where the multiple exposures filter counts a unit's variations, so it stays
+   * within one phase. Defaults to the requested window.
+   */
+  multipleExposuresWindow?: { startDate: Date; endDate: Date };
   limit: number;
 };
 

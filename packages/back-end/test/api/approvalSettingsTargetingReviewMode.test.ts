@@ -99,3 +99,66 @@ describe("PUT /settings/approvals targetingReviewMode", () => {
     expect(rules.some((r) => r.projects.includes(id))).toBe(false);
   });
 });
+
+describe("PUT /settings/approvals approvalFlows.sdkConnections", () => {
+  it("keeps the environment scope through a PUT then GET round trip", async () => {
+    const rules = [
+      {
+        required: true,
+        projects: [],
+        environments: ["production"],
+        requireMetadataReview: false,
+      },
+    ];
+    const put = await api.put("/api/v1/settings/approvals", {
+      approvalFlows: { savedGroups: [], sdkConnections: rules },
+    });
+    expect(put.status).toBe(200);
+    expect(put.body.approvalFlows.sdkConnections).toEqual(rules);
+
+    org.settings = {
+      ...org.settings,
+      approvalFlows: { savedGroups: [], sdkConnections: rules },
+    };
+    setReqContext(makePersonaContext(org, "admin", "u_admin"));
+    const got = await api.get("/api/v1/settings");
+    expect(got.status).toBe(200);
+    expect(got.body.settings.approvalFlows.sdkConnections).toEqual(rules);
+
+    // What GET returns must be accepted back unchanged.
+    const again = await api.put("/api/v1/settings/approvals", {
+      approvalFlows: got.body.settings.approvalFlows,
+    });
+    expect(again.status).toBe(200);
+    expect(again.body.approvalFlows.sdkConnections).toEqual(rules);
+  });
+
+  it("updates only the family the request sends", async () => {
+    const savedGroups = [{ required: true, projects: [] }];
+    const sdkConnections = [
+      { required: true, projects: [], environments: ["production"] },
+    ];
+    org.settings = { ...org.settings, approvalFlows: { savedGroups } };
+    setReqContext(makePersonaContext(org, "admin", "u_admin"));
+
+    const sdkOnly = await api.put("/api/v1/settings/approvals", {
+      approvalFlows: { sdkConnections },
+    });
+    expect(sdkOnly.status).toBe(200);
+    expect(sdkOnly.body.approvalFlows).toEqual({ savedGroups, sdkConnections });
+
+    org.settings = {
+      ...org.settings,
+      approvalFlows: { savedGroups, sdkConnections },
+    };
+    setReqContext(makePersonaContext(org, "admin", "u_admin"));
+    const savedGroupsOnly = await api.put("/api/v1/settings/approvals", {
+      approvalFlows: { savedGroups: [] },
+    });
+    expect(savedGroupsOnly.status).toBe(200);
+    expect(savedGroupsOnly.body.approvalFlows).toEqual({
+      savedGroups: [],
+      sdkConnections,
+    });
+  });
+});

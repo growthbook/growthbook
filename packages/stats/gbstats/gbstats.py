@@ -3,7 +3,7 @@ import dataclasses
 import re
 import traceback
 import copy
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pandas as pd
 
@@ -22,12 +22,7 @@ from gbstats.bayesian.bandits import (
     get_error_bandit_result,
 )
 
-from gbstats.power.midexperimentpower import (
-    MidExperimentPower,
-    MidExperimentPowerConfig,
-)
-
-from gbstats.models.tests import BaseConfig, sum_stats
+from gbstats.models.tests import sum_stats
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -84,7 +79,9 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
-from gbstats.models.tests import EffectMomentsResult
+from gbstats.models.tests import BaseABTest, EffectMomentsResult
+
+TestT = TypeVar("TestT", bound=BaseABTest)
 
 
 SUM_COLS = [
@@ -185,6 +182,7 @@ def get_dimension_column_name(dimension: str) -> str:
 @dataclass
 class InitialMetricDataStrata:
     total_units: int
+    total_sub_units: int
     data: Dict[str, Dict[str, Any]]
 
 
@@ -192,6 +190,7 @@ class InitialMetricDataStrata:
 class DimensionMetricData:
     dimension: str
     total_units: int
+    total_sub_units: int
     data: pd.DataFrame
 
 
@@ -231,6 +230,7 @@ def get_metric_dfs(
         if dim not in dimensions:
             dimensions[dim] = InitialMetricDataStrata(
                 total_units=0,
+                total_sub_units=0,
                 data={},
             )
         if strata not in dimensions[dim].data:
@@ -253,6 +253,7 @@ def get_metric_dfs(
         if key in var_id_map:
             i = var_id_map[key]
             dimensions[dim].total_units += getattr(row, "users", 0)
+            dimensions[dim].total_sub_units += getattr(row, "sub_count", 0)
             prefix = f"v{i}" if i > 0 else "baseline"
 
             # Sum here in case multiple rows per dimension
@@ -276,6 +277,7 @@ def get_metric_dfs(
         DimensionMetricData(
             dimension=dimension,
             total_units=dimension_data.total_units,
+            total_sub_units=dimension_data.total_sub_units,
             data=pd.DataFrame([s for s in dimension_data.data.values()]),
         )
         for dimension, dimension_data in dimensions.items()
@@ -307,6 +309,7 @@ def reduce_dimensionality(
             current.data["dimension"] = "(other)"
             dimension.data["dimension"] = "(other)"
             current.total_units += dimension.total_units
+            current.total_sub_units += dimension.total_sub_units
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 if combine_strata:
@@ -327,6 +330,7 @@ def get_configured_test(
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
     post_stratify: bool = False,
+    total_sub_units: int = 0,
 ) -> StatisticalTests:
 
     base_config = {
@@ -336,17 +340,16 @@ def get_configured_test(
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }
-    if analysis.use_covariate_as_response:
-        num_variations = len(analysis.var_names)
-        # if there are no goal metrics, just use 1 as the number of tests
-        num_tests = max(
-            1,
-            (num_variations - 1)
-            * (analysis.num_goal_metrics + analysis.num_guardrail_metrics),
-        )
-        alpha = analysis.alpha / num_tests
-    else:
-        alpha = analysis.alpha
+
+    # Sub-unit cluster scaled-impact inputs are set on the test instance after
+    # construction rather than on the (public) Config classes, so their
+    # constructor signatures stay backward-compatible.
+    def with_scaling_settings(test: TestT) -> TestT:
+        test.total_sub_units = total_sub_units
+        test.scale_by_sub_unit_count = metric.scale_by_sub_unit_count
+        return test
+
+    alpha = analysis.alpha
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             sequential_config = SequentialConfig(
@@ -356,15 +359,19 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return SequentialOneSidedTreatmentGreaterTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentGreaterTTest(
+                            stats, sequential_config
+                        )
                     )
                 else:
-                    return SequentialOneSidedTreatmentLesserTTest(
-                        stats, sequential_config
+                    return with_scaling_settings(
+                        SequentialOneSidedTreatmentLesserTTest(stats, sequential_config)
                     )
             else:
-                return SequentialTwoSidedTTest(stats, sequential_config)
+                return with_scaling_settings(
+                    SequentialTwoSidedTTest(stats, sequential_config)
+                )
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -372,11 +379,15 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentGreaterTTest(stats, config)
+                    )
                 else:
-                    return OneSidedTreatmentLesserTTest(stats, config)
+                    return with_scaling_settings(
+                        OneSidedTreatmentLesserTTest(stats, config)
+                    )
             else:
-                return TwoSidedTTest(stats, config)
+                return with_scaling_settings(TwoSidedTTest(stats, config))
     else:
         if analysis.use_covariate_as_response:
             prior = GaussianPrior(
@@ -390,15 +401,17 @@ def get_configured_test(
                 variance=pow(metric.prior_stddev, 2),
                 proper=metric.prior_proper,
             )
-        return EffectBayesianABTest(
-            stats,
-            EffectBayesianConfig(
-                **base_config,
-                inverse=metric.inverse,
-                prior_effect=prior,
-                prior_type="relative",
-                alpha=alpha,
-            ),
+        return with_scaling_settings(
+            EffectBayesianABTest(
+                stats,
+                EffectBayesianConfig(
+                    **base_config,
+                    inverse=metric.inverse,
+                    prior_effect=prior,
+                    prior_type="relative",
+                    alpha=alpha,
+                ),
+            )
         )
 
 
@@ -411,73 +424,28 @@ def decision_making_conditions(metric, analysis):
     )
 
 
-def run_mid_experiment_power(
-    total_users: int,
-    num_variations: int,
+# The per-test inputs to mid-experiment power. How much more sample a test
+# needs also depends on the experiment's other goal metrics, so the caller
+# works that out once every metric has been analyzed.
+def get_mid_experiment_power_inputs(
     effect_moments: EffectMomentsResult,
     res: Union[BayesianTestResult, FrequentistTestResult],
     metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
 ) -> PowerResponse:
-    config = BaseConfig(
-        difference_type=analysis.difference_type,
-        traffic_percentage=analysis.traffic_percentage,
-        phase_length_days=analysis.phase_length_days,
-        total_users=total_users,
-        alpha=analysis.alpha,
-    )
-
-    if isinstance(res, BayesianTestResult):
-        prior = GaussianPrior(
-            mean=metric.prior_mean,
-            variance=pow(metric.prior_stddev, 2),
-            proper=metric.prior_proper,
-        )
-        p_value_corrected = False
-    else:
-        prior = None
-        p_value_corrected = analysis.p_value_corrected
-
-    power_config = MidExperimentPowerConfig(
-        target_mde=metric.target_mde,
-        num_goal_metrics=analysis.num_goal_metrics,
-        num_variations=num_variations,
-        prior_effect=prior,
-        p_value_corrected=p_value_corrected,
-        sequential=analysis.sequential_testing_enabled,
-        sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-    )
-    mid_experiment_power = MidExperimentPower(
-        effect_moments=effect_moments,
-        test_result=res,
-        config=config,
-        power_config=power_config,
-    )
-    mid_experiment_power_result = mid_experiment_power.calculate_sample_size()
-
+    is_bayesian = isinstance(res, BayesianTestResult)
     return PowerResponse(
-        status=mid_experiment_power_result.update_message,
-        errorMessage=mid_experiment_power_result.error,
-        firstPeriodPairwiseSampleSize=mid_experiment_power.pairwise_sample_size,
+        status="unsuccessful" if res.errorMessage else "successful",
+        errorMessage=res.errorMessage,
+        firstPeriodPairwiseSampleSize=effect_moments.pairwise_sample_size,
         targetMDE=metric.target_mde,
-        sigmahat2Delta=mid_experiment_power.sigmahat_2_delta,
-        priorProper=(
-            mid_experiment_power.prior_effect.proper
-            if mid_experiment_power.prior_effect
-            else None
+        sigmahat2Delta=(
+            0 if res.errorMessage is not None else effect_moments.standard_error**2
         ),
-        priorLiftMean=(
-            mid_experiment_power.prior_effect.mean
-            if mid_experiment_power.prior_effect
-            else None
-        ),
-        priorLiftVariance=(
-            mid_experiment_power.prior_effect.variance
-            if mid_experiment_power.prior_effect
-            else None
-        ),
-        upperBoundAchieved=mid_experiment_power_result.upper_bound_achieved,
-        scalingFactor=mid_experiment_power_result.scaling_factor,
+        priorProper=metric.prior_proper if is_bayesian else None,
+        priorLiftMean=metric.prior_mean if is_bayesian else None,
+        priorLiftVariance=pow(metric.prior_stddev, 2) if is_bayesian else None,
+        upperBoundAchieved=False,
+        scalingFactor=None,
     )
 
 
@@ -637,6 +605,7 @@ def analyze_metric_df(
                 analysis=analysis,
                 metric=metric,
                 post_stratify=post_stratify,
+                total_sub_units=dimensionData.total_sub_units,
             )
             res = test.compute_result()
             realized_settings = test.realized_settings
@@ -644,13 +613,8 @@ def analyze_metric_df(
 
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
-                power_response = run_mid_experiment_power(
-                    dimensionData.total_units,
-                    num_variations,
-                    test.moments_result,
-                    res,
-                    metric,
-                    analysis,
+                power_response = get_mid_experiment_power_inputs(
+                    test.moments_result, res, metric
                 )
 
             metric_response = get_metric_response(

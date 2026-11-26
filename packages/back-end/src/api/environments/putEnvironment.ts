@@ -7,6 +7,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { cleanupUpdatedEnvironment } from "back-end/src/services/environments";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -43,6 +44,12 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     };
 
     await updateOrganization(org.id, updates);
+
+    await cleanupUpdatedEnvironment(
+      req.context,
+      environment,
+      updatedEnvironment,
+    );
 
     await req.audit({
       event: "environment.update",

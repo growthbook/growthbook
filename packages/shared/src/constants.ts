@@ -88,6 +88,7 @@ export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
+export const DIMENSION_NULL_LABEL_MAX_LENGTH = 100;
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 export const MAX_CLUSTER_SUBUNIT_DIMENSIONS = MAX_PRECOMPUTED_UNIT_DIMENSIONS;
@@ -125,6 +126,8 @@ export const USAGE_INTENTS = {
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
 export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+// Built-in saved filter on the exposure logs: units that saw several variations
+export const MULTIPLE_EXPOSURES_ROW_FILTER_ID = "multiple_exposures";
 export const DEFAULT_CLUSTER_ISSUE_THRESHOLD = 0.01;
 export const DEFAULT_MIN_CLUSTERS_PER_VARIATION = 20;
 export const DEFAULT_MAX_CLUSTER_SHARE = 0.2;
@@ -134,6 +137,10 @@ export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
+
+// How recent the end date of an experiment's results must be for an update
+// that didn't choose a scope to compute only its newly added metrics.
+export const DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS = 4;
 
 // Default statuses for saved learnings (insights). Orgs can customize the
 // list in General Settings → Experiment Settings. Status IDs are persisted
@@ -307,6 +314,7 @@ export const entityEvents = {
   ],
   featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
+  experimentQaOverride: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],

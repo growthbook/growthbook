@@ -17,6 +17,8 @@ import {
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
   orgRequiresAnyReview,
+  configChangeReachesDescendants,
+  configChangeReshapesFamily,
 } from "shared/util";
 import {
   configValidator,
@@ -39,6 +41,7 @@ import {
 import {
   assertConfigInvariantsValid,
   assertConfigValueValidForPublish,
+  configValidationLeaf,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import {
@@ -341,11 +344,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     }
 
     const touchesLineageOrSchema =
-      normalizedChanges.schema !== undefined ||
-      normalizedChanges.parent !== undefined ||
-      "extends" in normalizedChanges;
+      configChangeReshapesFamily(normalizedChanges);
 
-    if (touchesLineageOrSchema) {
+    if (configChangeReachesDescendants(normalizedChanges)) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
@@ -356,7 +357,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       // bulk commit, where the plan gate validates the combined end-state and
       // compensation undoes a throw; NEVER on a revert (isRevert), which has
       // no compensation to roll the root write back.
-      if (!context.bulkPublishApplying) {
+      if (touchesLineageOrSchema && !context.bulkPublishApplying) {
         await assertConfigDescendantsReconcilable(context, proposedRoot);
       }
       // Soft governance warning (removes/retypes fields descendants use) — a
@@ -523,13 +524,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ? await captureConfigSchemaBreakAcknowledgment(
             context,
             {
-              key: entity.key,
+              ...configValidationLeaf(proposedConfig),
               project: entity.project,
-              value: proposedConfig.value,
-              schema: proposedConfig.schema,
-              parent: proposedConfig.parent,
-              extends: proposedConfig.extends,
-              extensible: proposedConfig.extensible,
             },
             proposedArchived,
           )
@@ -639,27 +635,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    // Presence-aware for the clearable fields (schema/parent/extends), matching
-    // assertPublishable: `?? entity` would resurrect a cleared value.
     const schemaBreaks = await evaluateConfigOwnSchemaBreakConflicts(context, {
-      key: entity.key,
+      ...configValidationLeaf(entity, filteredChanges),
       project: entity.project,
-      value: (filteredChanges.value as string | undefined) ?? entity.value,
-      schema:
-        "schema" in filteredChanges
-          ? (filteredChanges.schema as ConfigInterface["schema"])
-          : entity.schema,
-      parent:
-        "parent" in filteredChanges
-          ? (filteredChanges.parent as string | undefined)
-          : entity.parent,
-      extends:
-        "extends" in filteredChanges
-          ? (filteredChanges.extends as string[] | undefined)
-          : entity.extends,
-      extensible:
-        (filteredChanges.extensible as boolean | undefined) ??
-        entity.extensible,
     });
     if (schemaBreaks.length) {
       if (override) {
@@ -688,11 +666,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // descendants still use — the gate form of
     // assertConfigSchemaChangeSafeForDescendants, evaluated on the same
     // normalized proposed root the apply would write.
-    if (
-      "schema" in filteredChanges ||
-      filteredChanges.parent !== undefined ||
-      "extends" in filteredChanges
-    ) {
+    if (configChangeReachesDescendants(filteredChanges)) {
       const { changes: normalizedChanges, conflicting } =
         await normalizeConfigChangesAgainstAncestors(
           entity,
@@ -720,7 +694,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         );
       }
       try {
-        await assertConfigDescendantsReconcilable(context, proposedRoot);
+        if (configChangeReshapesFamily(filteredChanges)) {
+          await assertConfigDescendantsReconcilable(context, proposedRoot);
+        }
       } catch (e) {
         // Only a 4xx-class reconcilability rejection is a real blocking gate;
         // an infra/5xx failure of the descendant scan must surface as itself,
@@ -902,29 +878,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         entity,
         revision,
         { armed: !!options?.deferred },
-        {
-          value: (filteredChanges.value as string | undefined) ?? entity.value,
-          // Presence-aware for the clearable fields: `?? entity` can't tell
-          // "unchanged" from "cleared" (schema clears to null, parent/extends to
-          // ""/[]), which would resurrect the pre-clear value and desync this
-          // fire from the arm-time capture (applyPatchToSnapshot) — bricking the
-          // deferred publish with a terminal guard error.
-          schema:
-            "schema" in filteredChanges
-              ? (filteredChanges.schema as ConfigInterface["schema"])
-              : entity.schema,
-          parent:
-            "parent" in filteredChanges
-              ? (filteredChanges.parent as string | undefined)
-              : entity.parent,
-          extends:
-            "extends" in filteredChanges
-              ? (filteredChanges.extends as string[] | undefined)
-              : entity.extends,
-          extensible:
-            (filteredChanges.extensible as boolean | undefined) ??
-            entity.extensible,
-        },
+        configValidationLeaf(entity, filteredChanges),
         // Model an archive/unarchive transition only when this revision flips
         // `archived` (mirrors the arm-time capture). assertConfigPublishGuards
         // then runs assertConfigArchiveSchemaBreakGuard against dependents, and —
@@ -954,17 +908,14 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       );
     }
 
-    const touchesLineageOrSchema =
-      normalizedChanges.schema !== undefined ||
-      normalizedChanges.parent !== undefined ||
-      "extends" in normalizedChanges;
-
-    if (touchesLineageOrSchema) {
+    if (configChangeReachesDescendants(normalizedChanges)) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      if (configChangeReshapesFamily(normalizedChanges)) {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      }
       // On a deferred merge a tripped descendant warning is terminal (parks the
       // revision + fires publishFailed) instead of silently skipped — the
       // request-less context's forced ignoreWarnings isn't user intent.
@@ -973,29 +924,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
-    const postValue =
-      (normalizedChanges.value as string | undefined) ?? entity.value;
+    const published = configValidationLeaf(entity, normalizedChanges);
     await assertConfigValueValidForPublish(
       context,
-      {
-        key: entity.key,
-        name: entity.name,
-        value: postValue,
-        // Honor an explicit schema clear (null): a schema-less revert publishes
-        // against no schema rather than the schema it's removing.
-        schema:
-          "schema" in normalizedChanges
-            ? (normalizedChanges.schema as ConfigInterface["schema"])
-            : entity.schema,
-        parent:
-          (normalizedChanges.parent as string | undefined) ?? entity.parent,
-        extends:
-          "extends" in normalizedChanges
-            ? (normalizedChanges.extends as string[] | undefined)
-            : entity.extends,
-        extensible: entity.extensible,
-      },
-      { value: postValue },
+      published,
+      { value: published.value },
       revision,
       {
         deferred: !!options?.deferred,

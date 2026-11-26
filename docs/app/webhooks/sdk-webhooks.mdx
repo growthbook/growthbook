@@ -12,11 +12,19 @@ GrowthBook has SDK-based webhooks that trigger a script on your server whenever 
 
 When logged into GrowthBook as an admin, navigate to **SDK Connections** and select an existing SDK Connection.
 
-Under the SDK Webhooks section you can add a webhook.
+Open the connection's **Webhooks** tab and click **Add webhook**.
 
 There are built-in webhook types for syncing to **Cloudflare KV**, **Fastly KV**, and **Vercel Edge Config**. For everything else, you can configure a generic **HTTP Endpoint** to be hit.
 
-Once an SDK webhook is created you will be able to view the status and fire a test event.
+Once an SDK webhook is created, the **Webhooks** tab shows when it last sent successfully, and its ⋮ menu has **Test** to fire a test event, **Edit**, and **Delete**.
+
+A custom header or the endpoint can reference a [webhook secret](/app/webhooks#webhook-secrets) as `{{ SECRET_KEY }}`, so the token itself is never stored on the webhook. GrowthBook warns you when a webhook you save or publish references a secret that doesn't exist, since it would fail to send.
+
+### Drafts and Approval
+
+A webhook belongs to its SDK Connection's revisions. Adding, changing, or removing one is recorded in the connection's history and can be reverted, together with any settings changed in the same revision.
+
+Adding, editing, or deleting a webhook can be saved to a draft, and it goes live when the draft is published. Until then, the live webhooks keep firing as they are, including one the draft deletes. When the connection [requires approval](/features/publishing-and-approval-flows#sdk-connection-approval-flows), webhook changes are made in a draft unless you can bypass approval. A webhook that a revert brings back is created again with a new signing key.
 
 ### VPCs and Firewalls
 
@@ -53,7 +61,7 @@ What we set in the `webhook-signature` header is the hashing algorithm identifie
 v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4=
 ```
 
-You can find the shared secret via **SDK Configuration → SDK Connections**, choosing the connection, and viewing your webhook's details.
+You can find the shared secret via **SDK Configuration → SDK Connections**, choosing the connection, and opening its **Webhooks** tab. The secret is in the **Shared secret** column.
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
@@ -119,7 +127,7 @@ Webhooks are retried up to 2 additional times with an exponential back-off betwe
 
 Each request waits up to 30 seconds for a response by default. You can set a different timeout (in seconds) per webhook. The maximum is 2 minutes on GrowthBook Cloud and configurable with `MAX_WEBHOOK_TIMEOUT_SECONDS` when self-hosting.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
+You can view the status of your webhooks on the connection's **Webhooks** tab under **SDK Connections**.
 
 ## Supported HTTP Methods
 

@@ -42,7 +42,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     id: "approvals",
     title: "Approvals",
     description:
-      "Require review before changes to flags, Configs, Constants, and Saved Groups go live.",
+      "Require review before changes to flags, Configs, Constants, Saved Groups, and SDK Connections go live.",
   },
   {
     id: "sdk",
@@ -119,6 +119,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "updateSchedule",
     "disableResultsUpdateForStoppedExperiments",
     "disableResultsUpdateForStoppedExperimentGraceHours",
+    "newMetricsUpdateWindowHours",
     "runHealthTrafficQuery",
     "srmThreshold",
     "multipleExposureMinPercent",

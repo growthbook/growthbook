@@ -66,10 +66,9 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       envsOf ? envsOf(context, snapshot) : NO_ENVIRONMENT_BINDING,
     );
   return {
-    canManageDrafts: (context, snapshot) =>
-      context.permissions.canRevisionAction(model, "draft", {
-        projects: projectsOf(snapshot),
-      }),
+    // Scoped like the rest: an env-scoped draft atom with no environments
+    // would pass for someone limited to other environments.
+    canManageDrafts: (context, snapshot) => scoped("draft", context, snapshot),
     // `environments` is the caller's change-aware footprint; falling back to
     // envsOf keeps callers that cannot compute one working.
     canReview: (context, snapshot, environments) =>
@@ -136,6 +135,12 @@ export interface EntityRevisionAdapter<
   /** Normalize an entity object for storage as a revision snapshot. */
   buildSnapshot(entity: TSnapshot): TSnapshot;
 
+  /**
+   * A built snapshot, less what is managed outside the entity. Asking whether
+   * live has moved since a draft was cut compares these.
+   */
+  behindLiveView?(snapshot: TSnapshot): TSnapshot;
+
   /** Whether the approval-flow revision workflow is required for this org/entity. */
   isRevisionRequired(context: Context): boolean;
 
@@ -165,6 +170,13 @@ export interface EntityRevisionAdapter<
     environments?: string[] | null,
   ): boolean;
 
+  /**
+   * Every scope a reviewer needs authority over: the snapshot, plus where the
+   * change moves the entity, for entities whose snapshot holds its own scope.
+   * Defaults to the snapshot alone.
+   */
+  reviewScopes?(snapshot: TSnapshot, proposedChanges: unknown): TSnapshot[];
+
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
 
@@ -189,6 +201,14 @@ export interface EntityRevisionAdapter<
     proposedChanges: unknown,
   ): PublishFootprint;
 
+  // The live and proposed `archived` values, for entities that don't keep it at
+  // the snapshot's top level (e.g. a composite snapshot). When absent, the
+  // top-level `archived` field and `/archived` patch op are read.
+  archivedState?(
+    snapshot: TSnapshot,
+    proposedChanges: unknown,
+  ): { current: boolean | undefined; proposed: boolean | undefined };
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */
@@ -208,8 +228,17 @@ export interface EntityRevisionAdapter<
     revision: Revision,
   ): ReviewRequirement;
 
-  /** Whether the current user can bypass the approval requirement. */
-  canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
+  /**
+   * Whether the current user can bypass the approval requirement. Pass the
+   * revision's `proposedChanges` whenever there is one: a change that moves the
+   * entity needs bypass where it lands too, and only the adapter can read a
+   * move out of its own snapshot shape.
+   */
+  canBypassApproval(
+    context: Context,
+    snapshot: TSnapshot,
+    proposedChanges?: unknown,
+  ): boolean;
 
   // Whether a write to an *approved* revision sends it back to pending-review.
   // `before` is the revision as approved and `after` is what the write makes
@@ -276,6 +305,45 @@ export interface EntityRevisionAdapter<
       onPersisted?: (result: ApplyChangesResult) => void;
     },
   ): Promise<ApplyChangesResult>;
+
+  // Values this viewer may not see are DELETED from what leaves the server, so
+  // a client can't mistake a placeholder for the real value. Stored revisions
+  // are never changed: publish, revert and rebase read them whole. A fragment
+  // holds top-level snapshot keys, so one hook covers snapshots, op values and
+  // conflicts.
+  scrubForViewer?(
+    context: Context,
+    target: { id: string },
+    fragment: Partial<TSnapshot>,
+    // Hide it from everyone: a write's response is shown on its confirmation.
+    hideAll?: boolean,
+  ): Promise<Partial<TSnapshot>>;
+
+  // The write-side counterpart: a value a client left out, having never
+  // received it, is carried over from `base`. Sending it empty still clears it.
+  restoreScrubbed?(
+    base: Partial<TSnapshot>,
+    incoming: Partial<TSnapshot>,
+  ): Partial<TSnapshot>;
+
+  // Runs whenever a revision's content is written: a save into a draft, a
+  // rebase, or a direct landing. Throwing refuses the write. `revision` is null
+  // when the write creates it. `proposed` is the entity as the revision leaves
+  // it; `before` is what it proposed until now, which is live for a new one.
+  validateRevisionWrite?(
+    context: Context,
+    write: {
+      live: TSnapshot;
+      revision: Revision | null;
+      // A direct landing: the revision is created already published.
+      direct?: boolean;
+      // What a write that creates the revision names it.
+      title?: string;
+      comment?: string;
+      proposed: TSnapshot;
+      before: TSnapshot;
+    },
+  ): Promise<void>;
 
   // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
   // the revision open and editable, instead of stranding it "merged" and relying on a

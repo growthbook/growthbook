@@ -1,4 +1,4 @@
-import { FC, Fragment, useState } from "react";
+import { FC, Fragment, useMemo, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
@@ -49,9 +49,16 @@ import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import {
+  DrilldownOptions,
+  useMetricDrilldownContext,
+} from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import StatsAdjustmentBadge, {
+  useLargeAdjustmentImpacts,
+} from "@/components/MetricDrilldown/StatsAdjustmentBadge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import TruncatedText from "@/ui/TruncatedText";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -64,6 +71,13 @@ export const includeVariation = (
     dimensionValuesFilter.includes(d.name)
   );
 };
+
+function getRowDimensionValue(row: ExperimentTableRow): string {
+  return row.dimensionValue ?? (typeof row.label === "string" ? row.label : "");
+}
+
+const getDimensionRowKey = (row: ExperimentTableRow) =>
+  `${row.metric.id}:${getRowDimensionValue(row)}`;
 
 const BreakDownResults: FC<{
   experimentId: string;
@@ -228,12 +242,9 @@ const BreakDownResults: FC<{
     sortDirection,
     customMetricOrder,
     analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
-    pValueThreshold: significanceThresholds.pValueThreshold,
     customMetricSlices,
   });
 
@@ -246,17 +257,34 @@ const BreakDownResults: FC<{
   const isHoldout = experimentType === "holdout";
 
   // Wrap drilldown to include dimension info
-  const handleRowClick = drilldownContext
-    ? (row: ExperimentTableRow) => {
-        const rawValue =
-          row.dimensionValue ??
-          (typeof row.label === "string" ? row.label : "");
+  const openDimensionDrilldown = drilldownContext
+    ? (
+        row: ExperimentTableRow,
+        options?: Omit<DrilldownOptions, "dimensionInfo">,
+      ) => {
+        const rawValue = getRowDimensionValue(row);
         const value = formatDimensionValueForDisplay(rawValue);
         drilldownContext.openDrilldown(row, {
+          ...options,
           dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
         });
       }
     : undefined;
+
+  const tableRows = useMemo(
+    () => tables.flatMap((table) => table.rows),
+    [tables],
+  );
+  const getStatsAdjustmentImpacts = useLargeAdjustmentImpacts({
+    rows: tableRows,
+    getKey: getDimensionRowKey,
+    baselineRow,
+    variationFilter,
+    statsEngine,
+    differenceType,
+    significanceThresholds,
+    ssrPolyfills,
+  });
 
   return (
     <div className="mb-3">
@@ -332,7 +360,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={visibleRows}
-              onRowClick={handleRowClick}
+              onRowClick={openDimensionDrilldown}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?
@@ -391,20 +419,19 @@ const BreakDownResults: FC<{
                 const childLabel = isFactFunnelMetric(table.metric)
                   ? "funnel steps"
                   : "metric slices";
+                const statsAdjustmentImpacts = row
+                  ? getStatsAdjustmentImpacts(row)
+                  : [];
                 const rowName =
                   typeof label === "string" && label
                     ? formatDimensionValueForDisplay(label)
                     : "unknown";
                 return (
-                  <div
+                  <Flex
+                    align="center"
+                    gap="1"
                     className="pl-3 font-weight-bold"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      color: "var(--color-text-mid)",
-                    }}
+                    style={{ color: "var(--color-text-mid)" }}
                   >
                     {hasSteps ? (
                       <span
@@ -445,10 +472,15 @@ const BreakDownResults: FC<{
                         </RadixTooltip>
                       </span>
                     ) : null}
-                    <span className={hasSteps ? "ml-2" : undefined}>
+                    <span
+                      className={hasSteps ? "ml-2" : undefined}
+                      style={{ minWidth: 0 }}
+                    >
                       {label ? (
                         label === NULL_DIMENSION_VALUE ? (
                           <em>{formatDimensionValueForDisplay(label)}</em>
+                        ) : typeof label === "string" ? (
+                          <TruncatedText text={label} weight="semibold" />
                         ) : (
                           label
                         )
@@ -456,7 +488,20 @@ const BreakDownResults: FC<{
                         <em>unknown</em>
                       )}
                     </span>
-                  </div>
+                    {row && statsAdjustmentImpacts.length ? (
+                      <StatsAdjustmentBadge
+                        impacts={statsAdjustmentImpacts}
+                        onClick={
+                          openDimensionDrilldown
+                            ? () =>
+                                openDimensionDrilldown(row, {
+                                  initialTab: "debug",
+                                })
+                            : undefined
+                        }
+                      />
+                    ) : null}
+                  </Flex>
                 );
               }}
               isTabActive={true}

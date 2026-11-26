@@ -1,7 +1,10 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
-import { EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE } from "shared/experiments";
+import {
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
+  getSnapshotDataAsOfDate,
+} from "shared/experiments";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -60,8 +63,7 @@ function DashboardStatusSummary({
   const lastUpdateTime =
     metricAnalysis?.runStarted ??
     dashboardLastUpdated ??
-    snapshot?.runStarted ??
-    undefined;
+    (snapshot ? getSnapshotDataAsOfDate(snapshot) : undefined);
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
@@ -91,7 +93,9 @@ function DashboardStatusSummary({
           </Tooltip>
         )}
       </Text>
-      <Text size="sm">
+      {/* One line, so it stays within the header row (a long title
+        truncates instead). */}
+      <Text size="sm" whiteSpace="nowrap">
         <span style={{ color: textColor }}>{content}</span>
       </Text>
       {tooltipBody && (

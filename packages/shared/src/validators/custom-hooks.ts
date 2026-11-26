@@ -8,6 +8,8 @@ export const hooks = [
   "validateConfig",
   "validateConfigRevision",
   "validateExperiment",
+  "validateSdkConnection",
+  "validateSdkConnectionRevision",
 ] as const;
 
 // Resource types a hook can be scoped to via entityType/entityId.
@@ -15,6 +17,7 @@ export const customHookEntityTypes = [
   "feature",
   "config",
   "experiment",
+  "sdkConnection",
 ] as const;
 
 export const customHookValidator = z
@@ -51,6 +54,15 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateConfig: "config",
   validateConfigRevision: "config",
   validateExperiment: "experiment",
+  validateSdkConnection: "sdkConnection",
+  validateSdkConnectionRevision: "sdkConnection",
+};
+
+export const customHookEntityNoun: Record<CustomHookEntityType, string> = {
+  feature: "Feature Flag",
+  config: "Config",
+  experiment: "experiment",
+  sdkConnection: "SDK Connection",
 };
 
 // External REST API. Validators carry the OpenAPI route metadata.
@@ -83,7 +95,7 @@ export const apiCustomHookValidator = namedSchema(
       entityId: z
         .string()
         .describe(
-          "The scoped resource: a feature id, or a config key. A config-scoped hook always runs for that config and every config that inherits from it (via parent/extends, transitively).",
+          "The scoped resource: a feature id, an experiment id, an SDK Connection id, or a config key. A config-scoped hook always runs for that config and every config that inherits from it (via parent/extends, transitively).",
         )
         .optional(),
       incrementalChangesOnly: z
@@ -136,7 +148,7 @@ const updateCustomHookApiBody = z
       .string()
       .nullable()
       .describe(
-        "The scoped resource: a feature id, or a config key. Pass null (with entityType: null) to clear the scope; omit to leave unchanged.",
+        "The scoped resource: a feature id, an experiment id, an SDK Connection id, or a config key. Pass null (with entityType: null) to clear the scope; omit to leave unchanged.",
       )
       .optional(),
     incrementalChangesOnly: z.boolean().optional(),
@@ -299,7 +311,7 @@ export const testCustomHookValidator = {
       functionArgs: z
         .record(z.string(), z.unknown())
         .describe(
-          "Arguments exposed to the function as named globals (e.g. `feature`, `config`, `revision`)",
+          "Arguments exposed to the function as named globals (e.g. `feature`, `config`, `revision`, `sdkConnection`, `sdkWebhooks`)",
         )
         .optional(),
       originalFunctionArgs: z
@@ -351,3 +363,14 @@ export const testCustomHookValidator = {
     },
   },
 };
+
+// What a revision hook is told about the revision itself. Named fields only: a
+// whole revision also carries the entity's snapshot, which can hold secrets.
+export const HOOK_REVISION_FIELDS = [
+  "version",
+  "status",
+  "title",
+  "comment",
+  "authorId",
+  "contributors",
+] as const;

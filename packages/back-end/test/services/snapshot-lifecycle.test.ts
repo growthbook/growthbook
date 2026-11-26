@@ -19,11 +19,12 @@ import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSna
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { interruptIncrementalReaders } from "back-end/src/services/snapshotCancellation";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { SnapshotInProgressError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -46,10 +47,14 @@ jest.mock("back-end/src/enterprise/services/dashboards", () => ({
   updateExperimentDashboards: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/snapshotCancellation", () => ({
+  interruptIncrementalReaders: jest.fn(),
+}));
+
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
   ExperimentResultsQueryRunner: jest
     .fn()
-    .mockImplementation((_context, snapshot) => ({
+    .mockImplementation((ctx, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
       setExperimentUpdateExecutionLogger: jest.fn(),
@@ -61,7 +66,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshQueryRunner: jest
       .fn()
-      .mockImplementation((_context, snapshot) => ({
+      .mockImplementation((ctx, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
@@ -74,7 +79,7 @@ jest.mock(
   () => ({
     ExperimentIncrementalRefreshExploratoryQueryRunner: jest
       .fn()
-      .mockImplementation((_context, snapshot) => ({
+      .mockImplementation((ctx, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
@@ -99,6 +104,11 @@ const getSourceIntegrationObjectMock =
 const updateExperimentDashboardsMock =
   updateExperimentDashboards as jest.MockedFunction<
     typeof updateExperimentDashboards
+  >;
+
+const interruptIncrementalReadersMock =
+  interruptIncrementalReaders as jest.MockedFunction<
+    typeof interruptIncrementalReaders
   >;
 
 const resultsQueryRunnerMock =
@@ -126,6 +136,7 @@ function makeContext(): ApiReqContext {
       },
       incrementalRefresh: {
         acquireLock: jest.fn().mockResolvedValue(true),
+        acquireReaderLock: jest.fn().mockResolvedValue(true),
         releaseLock: jest.fn().mockResolvedValue(undefined),
       },
     },
@@ -330,11 +341,11 @@ describe("snapshot lifecycle", () => {
   });
 
   it.each([
-    ["incremental-full", false, true],
-    ["incremental-update", true, false],
+    ["incremental-full", false, "full"],
+    ["incremental-update", true, "update"],
   ] as const)(
-    "uses the shared incremental runner for %s and derives fullRefresh from the kind",
-    async (runnerKind, plannedFullRefresh, expectedFullRefresh) => {
+    "uses the shared incremental runner for %s and derives the run mode from the kind",
+    async (runnerKind, plannedFullRefresh, expectedMode) => {
       const context = makeContext();
       const experiment = makeExperiment();
       const plan = makePlan({
@@ -360,7 +371,7 @@ describe("snapshot lifecycle", () => {
       expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
         expect.objectContaining({
           experimentId: experiment.id,
-          fullRefresh: expectedFullRefresh,
+          mode: { kind: expectedMode },
           snapshotType: "standard",
         }),
       );
@@ -375,6 +386,7 @@ describe("snapshot lifecycle", () => {
       snapshot: {
         ...makePlan().snapshot,
         type: "exploratory",
+        dimension: "country",
       },
     });
 
@@ -432,12 +444,8 @@ describe("snapshot lifecycle", () => {
   });
 
   describe("incremental refresh lock", () => {
-    it.each([
-      "incremental-full",
-      "incremental-update",
-      "incremental-exploratory",
-    ] as const)(
-      "acquires lock before starting a %s snapshot",
+    it.each(["incremental-full", "incremental-update"] as const)(
+      "acquires the lock as the writer and interrupts readers before starting a %s snapshot",
       async (runnerKind) => {
         const context = makeContext();
         const experiment = makeExperiment();
@@ -459,16 +467,55 @@ describe("snapshot lifecycle", () => {
           snapshotId: plan.snapshot.id,
           legacyExperimentSettingsHash: expect.any(String),
         });
+        expect(interruptIncrementalReadersMock).toHaveBeenCalledWith(
+          context,
+          experiment.id,
+          plan.snapshot.id,
+        );
+        expect(
+          interruptIncrementalReadersMock.mock.invocationCallOrder[0],
+        ).toBeLessThan(incrementalQueryRunnerMock.mock.invocationCallOrder[0]);
       },
     );
 
-    it("throws ConcurrentIncrementalRefreshError when lock cannot be acquired", async () => {
+    it("acquires the lock as a reader for an incremental-exploratory snapshot", async () => {
       const context = makeContext();
-      (
-        context.models.incrementalRefresh.acquireLock as jest.Mock
-      ).mockResolvedValue(false);
+      const experiment = makeExperiment();
+      const plan = makePlan({
+        runnerKind: "incremental-exploratory",
+        snapshot: { type: "exploratory", dimension: "country" },
+      });
+
+      await createSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(
+        context.models.incrementalRefresh.acquireReaderLock,
+      ).toHaveBeenCalledWith({
+        experimentId: experiment.id,
+        phase: plan.snapshot.phase,
+        snapshotId: plan.snapshot.id,
+        legacyExperimentSettingsHash: expect.any(String),
+        request: { type: "dimension", dimension: "country" },
+      });
+      expect(
+        context.models.incrementalRefresh.acquireLock,
+      ).not.toHaveBeenCalled();
+      expect(interruptIncrementalReadersMock).not.toHaveBeenCalled();
+    });
+
+    it("releases the writer lock and starts nothing when readers cannot be interrupted", async () => {
+      const context = makeContext();
       const experiment = makeExperiment();
       const plan = makePlan({ runnerKind: "incremental-update" });
+      interruptIncrementalReadersMock.mockRejectedValueOnce(
+        new Error("Mongo unavailable"),
+      );
 
       await expect(
         createSnapshotFromPlan({
@@ -478,11 +525,51 @@ describe("snapshot lifecycle", () => {
           metricMap: new Map<string, ExperimentMetricInterface>(),
           factTableMap: new Map() as FactTableMap,
         }),
-      ).rejects.toThrow(ConcurrentIncrementalRefreshError);
+      ).rejects.toThrow("Mongo unavailable");
 
+      expect(
+        context.models.incrementalRefresh.releaseLock,
+      ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
       expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
       expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     });
+
+    it.each([
+      { holder: "snp_running", details: { snapshotId: "snp_running" } },
+      { holder: "irdel_phase", details: {} },
+      { holder: null, details: {} },
+    ])(
+      "refuses a normal update while $holder holds the lock, naming only a snapshot",
+      async ({ holder, details }) => {
+        const context = makeContext();
+        Object.assign(context.models.incrementalRefresh, {
+          acquireLock: jest.fn().mockResolvedValue(false),
+          getByExperimentIdAndPhase: jest
+            .fn()
+            .mockResolvedValue({ currentExecutionSnapshotId: holder }),
+        });
+        const plan = makePlan({ runnerKind: "incremental-update" });
+
+        const promise = createSnapshotFromPlan({
+          plan,
+          context,
+          experiment: makeExperiment(),
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        });
+
+        await expect(promise).rejects.toBeInstanceOf(SnapshotInProgressError);
+        await expect(promise).rejects.toMatchObject({
+          status: 409,
+          code: "snapshot_in_progress",
+        });
+        await promise.catch((error: SnapshotInProgressError) =>
+          expect(error.details).toEqual(details),
+        );
+        expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
+        expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+      },
+    );
 
     it("releases lock when snapshot creation fails", async () => {
       const context = makeContext();
@@ -526,6 +613,72 @@ describe("snapshot lifecycle", () => {
         context.models.incrementalRefresh.acquireLock,
       ).not.toHaveBeenCalled();
       expect(resultsQueryRunnerMock).toHaveBeenCalled();
+    });
+
+    describe("for a new-metrics update", () => {
+      const cutoff = new Date("2025-02-01T00:00:00.000Z");
+      const refreshPlan = () =>
+        makePlan({
+          runnerKind: "incremental-update",
+          snapshot: {
+            settings: {
+              endDate: cutoff,
+              endDateIsCutoff: true,
+            } as ExperimentSnapshotSettings,
+            updateScope: {
+              kind: "new_metrics" as const,
+              parentSnapshotId: "snp_base",
+              queriedMetricIds: ["met_new"],
+              base: {
+                dateCreated: cutoff,
+                runStarted: null,
+                cutoffDate: cutoff,
+              },
+            },
+          },
+        });
+      const run = (
+        context: ApiReqContext,
+        experiment: ExperimentInterface = makeExperiment(),
+      ) =>
+        createSnapshotFromPlan({
+          plan: refreshPlan(),
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        });
+
+      it("queries only the new metrics up to the plan's cutoff, even after the phase ended", async () => {
+        const context = makeContext();
+        Object.assign(context.models.incrementalRefresh, {
+          getLockedBySnapshotId: jest.fn().mockResolvedValue({
+            unitsTableFullName: "t_units",
+            unitsMaxTimestamp: cutoff,
+            materializedBySnapshotId: "snp_base",
+            metricSources: [],
+          }),
+        });
+        const experiment = makeExperiment({
+          phases: [
+            {
+              dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+              dateEnded: new Date("2025-03-01T00:00:00.000Z"),
+              variationWeights: [0.5, 0.5],
+            },
+          ] as ExperimentInterface["phases"],
+        });
+
+        await run(context, experiment);
+
+        const queryRunner = incrementalQueryRunnerMock.mock.results[0].value;
+        expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
+          expect.objectContaining({
+            incrementalRefreshStartTime: cutoff,
+            mode: { kind: "update" },
+          }),
+        );
+      });
     });
 
     it("does not release lock on failure for non-incremental plans", async () => {

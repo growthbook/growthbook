@@ -11,7 +11,12 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { getAllVariations } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllVariations,
+  getNewMetricsUpdate,
+  setCorrectedPValues,
+} from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
@@ -45,15 +50,20 @@ import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
+  getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  assertValidReportClusterConfig,
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
-import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertCanEnableClusterExperiment,
+  getExperimentQueryMetadata,
+} from "back-end/src/services/experiments";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -69,9 +79,17 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
+  // A report snapshot has no lineage, so a new-metrics update's dates become
+  // the ones its copied results were computed at.
+  const newMetricsUpdate = getNewMetricsUpdate(snapshot);
+  if (newMetricsUpdate) {
+    snapshot.dateCreated = newMetricsUpdate.base.dateCreated;
+    snapshot.runStarted = newMetricsUpdate.base.runStarted;
+  }
   snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
+  delete snapshot.updateScope;
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};
@@ -248,12 +266,36 @@ export async function getReport(
   req: AuthRequest<null, { id: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const report = await getReportById(org.id, req.params.id);
+  const report = await getReportById(context.org.id, req.params.id);
 
   if (!report) {
     throw new Error("Unknown report id");
+  }
+
+  // Legacy reports store their results on the report, uncorrected.
+  if (report.type === "experiment" && report.results) {
+    const experiment = report.experimentId
+      ? await getExperimentById(context, report.experimentId)
+      : null;
+    const { pValueCorrection, pValueThreshold } =
+      await getSignificanceSettingsForProject(context, experiment?.project);
+    setCorrectedPValues({
+      results: report.results.dimensions,
+      analysisSettings: {
+        statsEngine: report.args.statsEngine || DEFAULT_STATS_ENGINE,
+        dimensions: report.args.dimension ? [report.args.dimension] : [],
+        pValueCorrection,
+        pValueThreshold,
+      },
+      snapshotSettings: {
+        goalMetrics: expandMetricGroups(
+          report.args.goalMetrics,
+          await context.models.metricGroups.getAll(),
+        ),
+      },
+    });
   }
 
   res.status(200).json({
@@ -336,7 +378,7 @@ export async function deleteReport(
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
-    throw new Error("Could not find report");
+    throw new NotFoundError("Could not find report");
   }
 
   // Only allow admins to delete other people's reports
@@ -599,6 +641,13 @@ export async function putReport(
       }
     }
 
+    if (
+      updates.experimentAnalysisSettings?.isClusterExperiment &&
+      !report.experimentAnalysisSettings.isClusterExperiment
+    ) {
+      assertCanEnableClusterExperiment(context);
+    }
+
     if (updates.experimentAnalysisSettings) {
       await applyReportAssignmentQuery(context, {
         previous: report.experimentAnalysisSettings,
@@ -607,6 +656,11 @@ export async function putReport(
         requestedIdentifierType:
           data.experimentAnalysisSettings?.exposureQueryIdentifierType,
       });
+      await assertValidReportClusterConfig(
+        context,
+        updates.experimentAnalysisSettings,
+        report.experimentAnalysisSettings,
+      );
     }
 
     updates.dateUpdated = new Date();

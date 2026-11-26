@@ -179,6 +179,7 @@ export type MetricSettingsForStatsEngineInit = {
   business_metric_type?: BusinessMetricType[] | null;
   target_mde?: number;
   compute_uncapped_metric?: boolean;
+  scale_by_sub_unit_count?: boolean;
 };
 
 export class MetricSettingsForStatsEngine {
@@ -197,6 +198,7 @@ export class MetricSettingsForStatsEngine {
   business_metric_type: BusinessMetricType[] | null;
   target_mde: number;
   compute_uncapped_metric: boolean;
+  scale_by_sub_unit_count: boolean;
 
   constructor(args: MetricSettingsForStatsEngineInit) {
     this.id = args.id;
@@ -214,6 +216,7 @@ export class MetricSettingsForStatsEngine {
     this.business_metric_type = args.business_metric_type ?? null;
     this.target_mde = args.target_mde ?? 0.01;
     this.compute_uncapped_metric = args.compute_uncapped_metric ?? false;
+    this.scale_by_sub_unit_count = args.scale_by_sub_unit_count ?? false;
   }
 }
 

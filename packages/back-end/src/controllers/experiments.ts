@@ -4,6 +4,7 @@ import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS } from "shared/constants";
 import {
   getSnapshotAnalysis,
   isDefined,
@@ -21,13 +22,13 @@ import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   experimentChangesBody,
   isUnsupportedClusterBanditCombination,
+  postExperimentSnapshotBody,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
-import { MetricStats } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -141,8 +142,12 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import { createScopedExperimentSnapshot } from "back-end/src/services/experimentResults/plan/updateScope";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
-import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
+import {
+  cancelExperimentSnapshot,
+  interruptIncrementalReaders,
+} from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -1005,7 +1010,7 @@ async function _getSuccessfulSnapshot({
   const experimentObj = await getExperimentById(context, experiment);
 
   if (!experimentObj) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (experimentObj.organization !== context.org.id) {
@@ -1105,7 +1110,7 @@ export async function getSnapshotSummary(
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
   if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
@@ -1794,7 +1799,7 @@ export async function postExperimentStatus(
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
@@ -2145,6 +2150,8 @@ export async function deleteExperimentPhase(
   }
 
   try {
+    await interruptIncrementalReaders(context, id, mutationToken);
+
     const updated = await updateExperiment({
       context,
       experiment,
@@ -2203,7 +2210,7 @@ export async function putExperimentPhase(
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (experiment.organization !== org.id) {
@@ -2532,21 +2539,16 @@ export async function cancelSnapshot(
 }
 
 export async function postSnapshot(
-  req: AuthRequest<
-    {
-      phase: number;
-      dimension?: string;
-      users?: number[];
-      metrics?: { [key: string]: MetricStats[] };
-    },
-    { id: string },
-    { force?: string }
-  >,
+  req: AuthRequest<unknown, { id: string }, { force?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, dimension } = req.body;
+  const parsed = postExperimentSnapshotBody.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsed));
+  }
+  const { phase, dimension, updateScope: requestedScope } = parsed.data;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -2601,15 +2603,42 @@ export async function postSnapshot(
   }
 
   const useCache = !force;
+  if (requestedScope === "new_metrics" && (dimension || force)) {
+    throw new BadRequestError(
+      "Updating newly added metrics can't be combined with a dimension or a forced rerun.",
+    );
+  }
 
-  const { snapshot } = await createExperimentSnapshot({
+  // A refused new-metrics update falls back to a normal one.
+  const { snapshot, updateScope } = await createScopedExperimentSnapshot({
+    scope:
+      requestedScope === "new_metrics"
+        ? {
+            kind: "new_metrics",
+            window: {
+              windowHours:
+                context.org.settings?.newMetricsUpdateWindowHours ??
+                DEFAULT_NEW_METRICS_UPDATE_WINDOW_HOURS,
+              now: new Date(),
+            },
+            onRefusal: "fallback",
+          }
+        : { kind: "all_metrics" },
     context,
     experiment,
     datasource,
-    dimension,
     phase: phaseIndex,
-    useCache,
-    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    updateAllMetrics: () =>
+      createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension,
+        phase: phaseIndex,
+        useCache,
+        type:
+          experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+      }),
   });
 
   await req.audit({
@@ -2623,11 +2652,13 @@ export async function postSnapshot(
       dimension,
       useCache,
       manual: false,
+      updateScope,
     }),
   });
   res.status(200).json({
     status: 200,
     snapshot,
+    updateScope,
   });
 }
 export async function postSnapshotAnalysis(
@@ -3167,7 +3198,7 @@ export async function postVisualChangeset(
   const experiment = await getExperimentById(context, req.params.id);
 
   if (!experiment) {
-    throw new Error("Could not find experiment");
+    throw new NotFoundError("Could not find experiment");
   }
 
   assertVisualChangesEditable(context, experiment);
@@ -3194,7 +3225,7 @@ export async function putVisualChangeset(
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const owner = await resolveChangesetOwner(context, visualChangeset);
@@ -3250,7 +3281,7 @@ export async function deleteVisualChangeset(
 
   const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
   if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
+    throw new NotFoundError("Visual Changeset not found");
   }
 
   const owner = await resolveChangesetOwner(context, visualChangeset);
@@ -3338,7 +3369,7 @@ export async function getExperimentTimeSeries(
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
-    throw new Error("Experiment not found");
+    throw new NotFoundError("Experiment not found");
   }
 
   if (isNaN(phaseIndex)) {

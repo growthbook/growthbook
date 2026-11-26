@@ -12,7 +12,8 @@ import {
   formatQueryExecutionErrorForApi,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
-  getExposureQueryIdentifierTypes,
+  getClusterSubUnitIdentifierTypes,
+  getClusterSubUnitMissingError,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   parseOptionalInt,
@@ -28,6 +29,7 @@ import {
   getRecentQuery,
 } from "back-end/src/models/QueryModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
+import { isMultipleExposuresRowFilter } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import {
   getSourceIntegrationObject,
   runExperimentExposuresQuery,
@@ -134,12 +136,18 @@ export async function postExposures(
     null;
   if (
     subUnitIdentifierType &&
-    !getExposureQueryIdentifierTypes(exposureQuery).includes(
-      subUnitIdentifierType,
-    )
+    !getClusterSubUnitIdentifierTypes(
+      exposureQuery,
+      datasource,
+      resolvedExposureQuery.identifierType,
+    ).includes(subUnitIdentifierType)
   ) {
     context.throwBadRequestError(
-      `Assignment query "${exposureQuery.name || exposureQuery.id}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+      getClusterSubUnitMissingError(
+        exposureQuery,
+        datasource,
+        subUnitIdentifierType,
+      ),
     );
     return;
   }
@@ -184,6 +192,26 @@ export async function postExposures(
     return;
   }
 
+  // The picker only offers whole days, so the requested window can reach into
+  // a neighbouring phase; clamp where units qualify to the selected phase.
+  const phase = experiment.phases[phaseIndex];
+  const multipleExposuresWindow = rowFilters.some(isMultipleExposuresRowFilter)
+    ? {
+        startDate: new Date(
+          Math.max(
+            startDate.getTime(),
+            getValidDate(phase.dateStarted, startDate).getTime(),
+          ),
+        ),
+        endDate: new Date(
+          Math.min(
+            endDate.getTime(),
+            getValidDate(phase.dateEnded, endDate).getTime(),
+          ),
+        ),
+      }
+    : undefined;
+
   const queryParams: ExperimentExposuresQueryParams = {
     experimentId: experiment.id,
     experimentTrackingKey: experiment.trackingKey,
@@ -195,6 +223,7 @@ export async function postExposures(
     phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
+    multipleExposuresWindow,
     limit: BUFFER_SIZE,
   };
 
@@ -240,6 +269,7 @@ export async function postExposures(
     dimensions,
     window,
     rowFilters,
+    multipleExposuresWindow,
     limit: BUFFER_SIZE,
     phase: queryParams.phase,
     customFields: queryParams.customFields,

@@ -13,6 +13,8 @@ import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/In
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EventIngestorRegionWarning from "@/components/SyntaxHighlighting/Snippets/EventIngestorRegionWarning";
+import { useEventIngestorRegion } from "@/services/dataRegions";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
@@ -52,15 +54,19 @@ const VerifyConnectionPage = ({
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [eventTracker, setEventTracker] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { refreshOrganization, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
-  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
+  const { ready: definitionsReady } = useDefinitions();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
+  const eventIngestorRegion = useEventIngestorRegion(
+    currentConnection?.environment,
+  );
 
   useEffect(() => {
     if (currentConnection) {
@@ -79,6 +85,9 @@ const VerifyConnectionPage = ({
           eventTracker,
           language: currentConnection?.languages || [],
         });
+        // The snippet follows the selection even if the write is refused.
+        setEventTracker(value);
+        setSaveError(null);
         if (canUpdate && currentConnection?.id) {
           await apiCall(`/sdk-connections/${currentConnection.id}`, {
             method: "PUT",
@@ -87,9 +96,10 @@ const VerifyConnectionPage = ({
             }),
           });
         }
-        setEventTracker(value);
       } catch (e) {
-        setEventTracker(value);
+        setSaveError(
+          e instanceof Error ? e.message : "Could not save the event tracker",
+        );
       }
     },
     [apiCall, canUpdate, currentConnection, eventTracker],
@@ -109,6 +119,7 @@ const VerifyConnectionPage = ({
       const languageLabel = languageMapping[language].label;
 
       try {
+        setSaveError(null);
         await apiCall(`/sdk-connections/${currentConnection.id}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -125,7 +136,12 @@ const VerifyConnectionPage = ({
         track("SDK Language Changed", { language });
         await mutate();
       } catch (e) {
-        // Ignore - keep showing the previous instructions
+        // Keep showing the previous instructions, but say why they didn't change.
+        setSaveError(
+          e instanceof Error
+            ? e.message
+            : "Could not update the SDK connection",
+        );
       }
     },
     [apiCall, canUpdate, currentConnection, hasCommercialFeature, mutate],
@@ -201,6 +217,11 @@ const VerifyConnectionPage = ({
               </div>
             )}
           </div>
+          {saveError && (
+            <Callout status="warning" mb="3">
+              {saveError}
+            </Callout>
+          )}
           <Flex align="center" gap="4">
             <Box width="260px">
               <SelectField
@@ -237,6 +258,10 @@ const VerifyConnectionPage = ({
             </h4>
             {installationOpen && (
               <div className="appbox bg-light p-3">
+                <EventIngestorRegionWarning
+                  environment={currentConnection?.environment}
+                  eventTracker={eventTracker}
+                />
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
                   eventTracker={eventTracker}

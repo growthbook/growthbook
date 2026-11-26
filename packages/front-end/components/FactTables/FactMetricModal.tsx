@@ -2068,26 +2068,24 @@ function StandardFactMetricModal({
 
               <MetricWindowSettingsForm form={form} type={type} />
 
-              {type !== "funnel" && (
-                <SelectField
-                  size="legacy"
-                  label="Metric Goal"
-                  value={form.watch("inverse") ? "1" : "0"}
-                  onChange={(v) => {
-                    form.setValue("inverse", v === "1");
-                  }}
-                  options={[
-                    {
-                      value: "0",
-                      label: `Increase the metric value`,
-                    },
-                    {
-                      value: "1",
-                      label: `Decrease the metric value`,
-                    },
-                  ]}
-                />
-              )}
+              <SelectField
+                size="legacy"
+                label="Metric Goal"
+                value={form.watch("inverse") ? "1" : "0"}
+                onChange={(v) => {
+                  form.setValue("inverse", v === "1");
+                }}
+                options={[
+                  {
+                    value: "0",
+                    label: `Increase the metric value`,
+                  },
+                  {
+                    value: "1",
+                    label: `Decrease the metric value`,
+                  },
+                ]}
+              />
 
               {hasMetricSlicesFeature &&
                 (() => {

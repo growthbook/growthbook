@@ -6,6 +6,7 @@ import {
 import { createLikeStringMatchFn } from "shared/sql";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
+import { columnOnlyRowFilterOperators } from "shared/validators";
 import {
   FactTableDefinition,
   FactTableInterface,
@@ -409,10 +410,12 @@ export function getRowFilterSelectValue(filter: RowFilter): string {
 export function getRowFilterSelectOptions({
   columnOptions,
   savedFilters,
+  savedFiltersLabel = "Saved Filters",
   selectedSavedFilterId,
 }: {
   columnOptions: SingleValue[];
   savedFilters: { id: string; name: string }[];
+  savedFiltersLabel?: string;
   selectedSavedFilterId?: string;
 }): GroupedValue[] {
   const savedFilterOptions: SingleValue[] = savedFilters.map((f) => ({
@@ -432,7 +435,7 @@ export function getRowFilterSelectOptions({
 
   return [
     ...(savedFilterOptions.length
-      ? [{ label: "Saved Filters", options: savedFilterOptions }]
+      ? [{ label: savedFiltersLabel, options: savedFilterOptions }]
       : []),
     { label: "Columns", options: columnOptions },
   ];
@@ -518,10 +521,13 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
   const hasValues = (filter.values ?? []).some((v) => v !== "");
 
   if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasValues;
+    // Only spaces would build an empty SQL expression or saved filter id.
+    return (filter.values ?? []).some((v) => v.trim() !== "");
   }
   if (
-    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+    (columnOnlyRowFilterOperators as readonly string[]).includes(
+      filter.operator,
+    )
   ) {
     return !!filter.column;
   }
@@ -536,6 +542,8 @@ export function isRowFilterComplete(filter: RowFilter): boolean {
 export interface FilterColumnSource {
   columns: SingleValue[];
   savedFilters: { id: string; name: string }[];
+  /** Heading for the saved filters in the picker, when nobody saved them. */
+  savedFiltersLabel?: string;
   getColumnInfo: (column: string | undefined) => {
     datatype: string;
     topValues: ColumnTopValue[];
@@ -626,12 +634,9 @@ export function columnTypesToColumnSource(
   };
 }
 
-/** Operators that carry no value of their own. */
-const VALUELESS_OPERATORS = [
-  "is_true",
-  "is_false",
-  "is_null",
-  "not_null",
+/** Operators that show no value box. A saved filter's id is picked from a list. */
+const VALUELESS_OPERATORS: string[] = [
+  ...columnOnlyRowFilterOperators,
   "saved_filter",
 ];
 

@@ -5,6 +5,7 @@ import { baseDialect } from "./base";
 
 export const mssqlDialect: SqlDialect = {
   ...baseDialect,
+  bracketIdentifiers: true,
   formatDialect: "tsql",
   selectStarLimit: (
     from: string,
@@ -21,7 +22,9 @@ export const mssqlDialect: SqlDialect = {
     if (granularity === "day") {
       return `cast(${col} as DATE)`;
     }
-    return `DATETRUNC(${granularity}, ${col})`;
+    // `week` starts on Sunday by default; `iso_week` starts on Monday, like
+    // the other dialects.
+    return `DATETRUNC(${granularity === "week" ? "iso_week" : granularity}, ${col})`;
   },
   dateDiffMs: (startCol: string, endCol: string) =>
     `DATEDIFF_BIG(millisecond, ${startCol}, ${endCol})`,

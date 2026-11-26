@@ -6,8 +6,45 @@
     transition: opacity 250ms ease;
   }
 
-  &:hover .copyButton {
+  &:hover .copyButton,
+  &:has(:focus-visible) .copyButton {
     opacity: 1;
     pointer-events: auto;
+  }
+}
+
+// Fields table: room left of each key for its row's status icons.
+.fieldsTable {
+  --key-gutter: 24px;
+}
+
+.fieldsTable tr > :first-child {
+  padding-left: var(--key-gutter);
+}
+
+.statusIcons {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  margin-right: 5px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 2px;
+}
+
+.menuColumnHidden :global(.rt-TableRow) > :last-child:not([colspan]) {
+  width: 0;
+  padding: 0;
+
+  > * {
+    display: none;
+  }
+
+  // Nothing is pinned, so nothing fades in under it. Important: the Table's
+  // fade rule is far more specific.
+  &::before {
+    display: none !important;
   }
 }

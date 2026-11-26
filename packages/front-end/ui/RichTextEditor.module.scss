@@ -52,6 +52,233 @@
   background-color: var(--color-panel-solid);
 }
 
+// Wide enough for the longest caption, so the popover doesn't resize.
+.tablePickerBody {
+  width: 120px;
+}
+
+.tablePicker {
+  display: grid;
+  grid-template-columns: repeat(4, 18px);
+  gap: 3px;
+}
+
+.tablePickerCell {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-1);
+  background-color: var(--color-panel-solid);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+.tablePickerCellOn {
+  border-color: var(--accent-8);
+  background-color: var(--accent-a4);
+}
+
+// An arrow with a small plus in the corner it leaves free.
+.insertIcon {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+
+  > svg:first-child {
+    width: 0.9em;
+    height: 0.9em;
+  }
+}
+
+.insertIconPlus {
+  position: absolute;
+  right: -0.2em;
+  bottom: -0.2em;
+  width: 0.55em;
+  height: 0.55em;
+}
+
+.alignItem:global(.rt-BaseMenuItem) {
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+}
+
+// The ring sets the current alignment apart from the menu's hover tint.
+.alignItemOn:global(.rt-BaseMenuItem) {
+  color: var(--accent-11);
+  box-shadow: inset 0 0 0 1px var(--accent-a8);
+}
+
+.tableControls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  // Faded-out controls keep their last place, which mustn't add scroll room.
+  overflow: clip;
+}
+
+// The button spans the gutter out to the table, so the pointer coming near is
+// a hover on it.
+.tableGrip {
+  position: absolute;
+  pointer-events: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    border-radius: var(--radius-1);
+    background-color: var(--gray-a6);
+  }
+
+  &:hover::before,
+  &[data-state="open"]::before {
+    background-color: var(--accent-a6);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+  }
+}
+
+// Opacity, color and size animate; position doesn't.
+.tableGrip,
+.tableAdd {
+  opacity: 0.5;
+  animation: tableControlIn 100ms ease;
+  transition:
+    opacity 100ms ease,
+    color 100ms ease;
+
+  &:hover,
+  &:focus-visible,
+  &[data-state="open"] {
+    opacity: 1;
+  }
+
+  &[data-hidden] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &::before,
+  svg {
+    transition:
+      background-color 100ms ease,
+      border-color 100ms ease,
+      transform 100ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &::before,
+    svg {
+      animation: none;
+      transition: none;
+    }
+  }
+}
+
+@keyframes tableControlIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.tableAdd {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--gray-10);
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    border-radius: 1px;
+    background-color: var(--gray-a4);
+  }
+
+  svg {
+    position: relative;
+    box-sizing: content-box;
+    padding: 2px;
+    border: 1px solid var(--gray-a6);
+    border-radius: 50%;
+    background-color: var(--color-panel-solid);
+  }
+
+  &:hover {
+    color: var(--accent-11);
+
+    &::before {
+      background-color: var(--accent-a6);
+    }
+
+    svg {
+      border-color: var(--accent-a7);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+  }
+}
+
+.tableAddRow::before {
+  inset: 50% 0 auto;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.tableAddColumn::before {
+  inset: 0 auto 0 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+// The 6px bar, scaled to a 2px line at its middle (as thick as the add lines)
+// until the pointer is near, so it thickens evenly and only its size animates.
+.rowGrip::before {
+  top: 0;
+  bottom: 0;
+  right: 2px;
+  width: 6px;
+  transform: scaleX(calc(1 / 3));
+}
+
+.columnGrip::before {
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 6px;
+  transform: scaleY(calc(1 / 3));
+}
+
+.rowGrip:hover::before,
+.rowGrip[data-state="open"]::before,
+.columnGrip:hover::before,
+.columnGrip[data-state="open"]::before {
+  transform: none;
+}
+
 // The text scrolls under the app's slim scrollbar. The area and its viewport
 // flex rather than take their parents' full height, so a control that grows
 // still stops at its cap.
@@ -229,6 +456,77 @@
   font-family: var(--code-font-family);
   font-size: 0.9em;
   white-space: pre-wrap;
+}
+
+// Wide tables scroll sideways inside the field instead of widening it.
+.tableWrapper {
+  max-width: 100%;
+  // Nor does a wide table widen a flex or grid parent the editor sits in.
+  contain: inline-size;
+  // Room below for the line that adds a row.
+  margin: 0 0 var(--space-4);
+  overflow-x: auto;
+}
+
+// Rounded like a GB table: each cell draws its right and bottom edges, the
+// outer cells the table's top and left, and the corner cells its corners.
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+
+  tr:first-of-type > * {
+    border-top-width: 1px;
+  }
+  tr > :first-child {
+    border-left-width: 1px;
+  }
+  tr:first-of-type > :first-child {
+    border-top-left-radius: var(--radius-2);
+  }
+  tr:first-of-type > :last-child {
+    border-top-right-radius: var(--radius-2);
+  }
+  tr:last-child > :first-child {
+    border-bottom-left-radius: var(--radius-2);
+  }
+  tr:last-child > :last-child {
+    border-bottom-right-radius: var(--radius-2);
+  }
+}
+
+.tableCell,
+.tableCellHeader {
+  min-width: 60px;
+  padding: var(--space-1) var(--space-2);
+  border: 0 solid var(--gray-6);
+  border-width: 0 1px 1px 0;
+  text-align: left;
+  vertical-align: top;
+  // Wraps between words as the saved table does, rather than squeezing every
+  // column to its minimum; only a long link breaks anywhere.
+  word-break: normal;
+  overflow-wrap: break-word;
+
+  a {
+    overflow-wrap: anywhere;
+  }
+
+  .paragraph {
+    margin: 0;
+  }
+}
+
+.tableCellHeader {
+  background-color: var(--gray-a2);
+  font-weight: var(--font-weight-bold);
+}
+
+.tableSelection *::selection {
+  background-color: transparent;
+}
+
+.tableCellSelected {
+  background-color: var(--accent-a3);
 }
 
 .imageWrapper {

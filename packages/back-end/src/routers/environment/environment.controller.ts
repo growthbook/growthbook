@@ -30,6 +30,7 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   assertEnvironmentDeletable,
   cleanupDeletedEnvironment,
+  cleanupUpdatedEnvironment,
 } from "back-end/src/services/environments";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
@@ -144,6 +145,13 @@ export const putEnvironments = async (
       },
     });
 
+    for (const updated of updatedEnvironments) {
+      const previous = existingEnvs.find((e) => e.id === updated.id);
+      if (previous) {
+        await cleanupUpdatedEnvironment(context, previous, updated);
+      }
+    }
+
     await req.audit({
       event: "environment.update",
       entity: {
@@ -176,8 +184,8 @@ export const putEnvironment = async (
   const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
 
   if (existingEnvIndex < 0) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: `Could not find environment: ${id}`,
     });
   }
@@ -206,6 +214,12 @@ export const putEnvironment = async (
         environments: updatedEnvs,
       },
     });
+
+    await cleanupUpdatedEnvironment(
+      context,
+      envsArr[existingEnvIndex],
+      updatedEnv,
+    );
 
     if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];
@@ -338,8 +352,8 @@ export const deleteEnvironment = async (
   const envToDelete = existingEnvs.find((existing) => existing.id === id);
 
   if (!envToDelete) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(404).json({
+      status: 404,
       message: `Unable to find environment: ${id}`,
     });
   }
@@ -357,7 +371,7 @@ export const deleteEnvironment = async (
         environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
-    await cleanupDeletedEnvironment(org.id, id);
+    await cleanupDeletedEnvironment(context, id);
 
     await req.audit({
       event: "environment.delete",
