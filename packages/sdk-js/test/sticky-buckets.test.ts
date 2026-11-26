@@ -8,6 +8,9 @@ import {
   LocalStorageStickyBucketService,
   BrowserCookieStickyBucketService,
   RedisStickyBucketService,
+  StickyBucketService,
+  StickyAssignmentsDocument,
+  Experiment,
 } from "../src";
 
 /* eslint-disable */
@@ -193,6 +196,53 @@ const sdkPayload: FeatureApiResponse = {
 };
 
 describe("sticky-buckets", () => {
+  it("does not consult the default 'id' document when an experiment hashes on another attribute without a fallback", () => {
+    // A sticky assignment document stored under the default "id" attribute,
+    // e.g. left over from an experiment that previously hashed on "id".
+    const docs: Record<string, StickyAssignmentsDocument> = {
+      "id||user-1": {
+        attributeName: "id",
+        attributeValue: "user-1",
+        assignments: { "sticky-leak__0": "1" },
+      },
+    };
+
+    class InMemoryStickyBucketService extends StickyBucketService {
+      async getAssignments(attributeName: string, attributeValue: string) {
+        return docs[this.getKey(attributeName, attributeValue)] || null;
+      }
+      async saveAssignments(doc: StickyAssignmentsDocument) {
+        docs[this.getKey(doc.attributeName, doc.attributeValue)] = doc;
+      }
+    }
+
+    const growthbook = new GrowthBook({
+      attributes: { id: "user-1", anonId: "anon-1" },
+      stickyBucketService: new InMemoryStickyBucketService(),
+      stickyBucketAssignmentDocs: docs,
+    });
+
+    // This experiment hashes on "anonId" and sets no fallbackAttribute, so the
+    // "id"-keyed document above must never influence its assignment. Weights
+    // [1, 0] make fresh bucketing deterministic: everyone lands in variation 0.
+    const experiment: Experiment<string> = {
+      key: "sticky-leak",
+      variations: ["control", "treatment"],
+      meta: [{ key: "0" }, { key: "1" }],
+      hashAttribute: "anonId",
+      coverage: 1,
+      weights: [1, 0],
+    };
+
+    const result = growthbook.run(experiment);
+
+    expect(result.variationId).toBe(0);
+    expect(result.value).toBe("control");
+    expect(result.stickyBucketUsed).toBe(false);
+
+    growthbook.destroy();
+  });
+
   it("reads, writes, and upgrades sticky buckets using localStorage driver", async () => {
     await clearCache();
     const [, cleanup] = mockApi(sdkPayload);
