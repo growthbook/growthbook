@@ -27,6 +27,7 @@ import {
   assertValidReleasedVariationId,
   createMetric,
   getExperimentMetricById,
+  getProjectSQLVar,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
@@ -2504,5 +2505,33 @@ describe("assertClusterExperimentMetricsSupported activation metric", () => {
     expect(() => run("ft_subunit")).toThrow(
       /Activation metrics aren't supported for cluster experiments/,
     );
+  });
+});
+
+describe("getProjectSQLVar", () => {
+  const contextWith = (project: { publicId?: string } | null) =>
+    ({
+      models: { projects: { getById: jest.fn(async () => project) } },
+    }) as unknown as Context;
+
+  it("is empty for an experiment without a Project", async () => {
+    const context = contextWith(null);
+    expect(await getProjectSQLVar(context, undefined)).toBeUndefined();
+    expect(await getProjectSQLVar(context, "")).toBeUndefined();
+  });
+
+  it("gives the Project's id and public id", async () => {
+    expect(
+      await getProjectSQLVar(
+        contextWith({ publicId: "checkout-team" }),
+        "prj_abc123",
+      ),
+    ).toEqual({ id: "prj_abc123", publicId: "checkout-team" });
+  });
+
+  it("keeps the id when the Project can't be read", async () => {
+    expect(await getProjectSQLVar(contextWith(null), "prj_gone")).toEqual({
+      id: "prj_gone",
+    });
   });
 });
