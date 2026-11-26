@@ -1053,7 +1053,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.3.0",
+    version: "0.4.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -1136,7 +1136,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.3.0",
+    version: "0.4.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -1219,7 +1219,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.3.0",
+    version: "0.4.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -1297,7 +1297,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.3.0",
+    version: "0.4.0",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -1375,7 +1375,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "5.1.0",
+    version: "5.1.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
