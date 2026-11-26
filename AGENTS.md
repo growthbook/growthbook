@@ -9,7 +9,7 @@ This file provides guidance to all coding agents working in this repository.
 pnpm install
 
 # Initial setup (builds shared deps + stats engine)
-pnpm setup
+pnpm run setup
 
 # Development (starts back-end, front-end, and shared in watch mode)
 pnpm dev              # Full dev with stats engine activated

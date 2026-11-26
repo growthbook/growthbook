@@ -435,7 +435,7 @@ That's it! Your API endpoint is live and ready and all the documentation will be
 We have a Plop script to automate many of the above steps for you.
 
 ```bash
-yarn plop
+pnpm plop
 ```
 
 Then, select `api-object` from the list and enter the name of your resource (`project` in this case).
@@ -450,7 +450,7 @@ To use the analysis parts of GrowthBook, you need to connect to a data source wi
 
 We have a sample data generator script you can use to seed a database with realistic website traffic:
 
-1. Run `yarn workspace back-end generate-dummy-data`. This will create CSV files in `/tmp/csv`
+1. Run `pnpm --filter back-end generate-dummy-data`. This will create CSV files in `/tmp/csv`
 2. Start your local server (e.g. Postgres, MySQL) or ensure your cloud service (e.g. Snowflake, BigQuery) is set up
 3. Connect to your database instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
 
@@ -504,7 +504,7 @@ Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 1. Under Analysis->Data Sources, add a new data source
 2. Select "Custom Event Source"
-3. Select your server type (e.g. Postgres, MySQL) and enter your connection info. If you are running with `yarn dev`, you can use `localhost` safely and ignore the warning in the UI about docker.
+3. Select your server type (e.g. Postgres, MySQL) and enter your connection info. If you are running with `pnpm dev`, you can use `localhost` safely and ignore the warning in the UI about docker.
 4. On the data source page, you can add two identifier types: `user_id` and `anonymous_id`
 5. Add an Identifier Join table:
 

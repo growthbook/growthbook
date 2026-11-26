@@ -181,7 +181,7 @@ Ensure you have run `pnpm run setup` first to install the poetry virtual environ
 - `pnpm --filter stats build` - Run the build process
 - `pnpm --filter stats notebook` - Spin up a Jupyter Notebook with `gbstats` and other dependencies in the kernel
 
-You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
+You can also just run `pnpm *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 
 ## Code Quality
 
@@ -192,7 +192,7 @@ There are a few repo-wide code quality tools:
 - `pnpm lint` - Typescript code linting
 - `pnpm pretty:check` - Prettier formatting check
 - `pnpm ci` - Everything above, in the order CI runs it
-- `pnpm --filter stats lint` - Python code linting (ensure you have run `pnpm setup` first to install the poetry virtual environment)
+- `pnpm --filter stats lint` - Python code linting (ensure you have run `pnpm run setup` first to install the poetry virtual environment)
 
 There is a pre-commit hook that lints and formats staged files automatically, so
 you shouldn't need to run those yourself. Linting and formatting are separate
@@ -210,9 +210,9 @@ gates. `pnpm lint` does not format, and CI checks each independently.
 
 ### `/bin/activate: No such file or directory`
 
-If you see this warning, it is likely because you ran `yarn setup` from within a Python virtual environment, and Poetry currently does not create a custom environment for the stats library from within another virtual environment (see: https://github.com/python-poetry/poetry/issues/4055).
+If you see this warning, it is likely because you ran `pnpm run setup` from within a Python virtual environment, and Poetry currently does not create a custom environment for the stats library from within another virtual environment (see: https://github.com/python-poetry/poetry/issues/4055).
 
-To resolve this, ensure you are not using a Python virtual environment and re-run `yarn setup` from the project root.
+To resolve this, ensure you are not using a Python virtual environment and re-run `pnpm run setup` from the project root.
 
 ## Getting Help
 
