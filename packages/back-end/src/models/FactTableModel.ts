@@ -73,6 +73,7 @@ const factTableSchema = new mongoose.Schema({
   organization: String,
   dateCreated: Date,
   dateUpdated: Date,
+  sqlUpdated: Date,
   name: String,
   description: String,
   owner: String,
@@ -239,6 +240,7 @@ export function createPropsToInterface(
     description: props.description,
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    sqlUpdated: new Date(),
     datasource: props.datasource,
     filters: [],
     owner: props.owner,
@@ -472,7 +474,7 @@ export async function updateFactTable(
   const { columns, ...rest } = changes;
   await persistColumns(factTable, columns, {
     ...rest,
-    dateUpdated: new Date(),
+    ...updateTimestamps(factTable, changes),
   });
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
@@ -605,6 +607,17 @@ export async function updateFactTableColumns(
   }
 }
 
+// Every write that can change sql spreads this into its $set, so a SQL edit
+// always moves sqlUpdated and the Rows Per Day staleness warning stays correct.
+function updateTimestamps(
+  factTable: Pick<FactTableInterface, "sql">,
+  changes: Pick<UpdateFactTableProps, "sql">,
+): Pick<FactTableInterface, "dateUpdated" | "sqlUpdated"> {
+  const now = new Date();
+  const sqlChanged = changes.sql !== undefined && changes.sql !== factTable.sql;
+  return { dateUpdated: now, ...(sqlChanged && { sqlUpdated: now }) };
+}
+
 // System-driven update of the managed-warehouse events fact table (managedBy "api").
 // Unlike updateFactTable, this is allowed from internal (non-API) requests because
 // GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
@@ -627,7 +640,7 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   const { columns, ...rest } = changes;
   await persistColumns(factTable, columns, {
     ...rest,
-    dateUpdated: new Date(),
+    ...updateTimestamps(factTable, changes),
   });
   await touchDefinitionsVersion(
     factTable.organization,

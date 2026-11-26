@@ -1,4 +1,8 @@
-import { mappedColumn, placeholderColumns } from "./templateMetric";
+import {
+  mappedColumn,
+  parseRowFiltersParam,
+  placeholderColumns,
+} from "./templateMetric";
 import type { IncompleteFactMetricSeed } from "./templateMetric";
 
 describe("placeholderColumns", () => {
@@ -34,5 +38,30 @@ describe("mappedColumn", () => {
 
   it("returns an empty string, not the placeholder, when still unmapped", () => {
     expect(mappedColumn("shared", { shared: "" })).toBe("");
+  });
+});
+
+describe("parseRowFiltersParam", () => {
+  it("returns the row filters from valid JSON", () => {
+    const raw = JSON.stringify([
+      { operator: "=", column: "event_name", values: ["purchase"] },
+    ]);
+    expect(parseRowFiltersParam(raw)).toEqual([
+      { operator: "=", column: "event_name", values: ["purchase"] },
+    ]);
+  });
+
+  it("returns null for malformed JSON", () => {
+    expect(parseRowFiltersParam("[{")).toBeNull();
+  });
+
+  it("returns null when the JSON isn't a list of row filters", () => {
+    expect(parseRowFiltersParam('{"operator":"="}')).toBeNull();
+    expect(parseRowFiltersParam('[{"operator":"not-an-op"}]')).toBeNull();
+  });
+
+  it("returns null when the param isn't a single string", () => {
+    expect(parseRowFiltersParam(undefined)).toBeNull();
+    expect(parseRowFiltersParam(["[]", "[]"])).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import {
   FactMetricInterface,
   FactTableInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
@@ -19,6 +20,8 @@ import Tooltip from "@/ui/Tooltip";
 
 type FactMetricCreationTarget = {
   factTable?: string;
+  // Starting row filters on factTable, e.g. the event the metric starts from.
+  rowFilters?: RowFilter[];
   duplicate?: FactMetricInterface;
   datasource?: string;
   project?: string;
@@ -96,6 +99,8 @@ export default function useFactMetricFlow(
       source: target.duplicate ? `${source}-duplicate` : source,
     });
     if (target.factTable) params.set("factTable", target.factTable);
+    if (target.factTable && target.rowFilters?.length)
+      params.set("rowFilters", JSON.stringify(target.rowFilters));
     if (target.duplicate) params.set("duplicate", target.duplicate.id);
     if (target.datasource) params.set("datasource", target.datasource);
     return {
@@ -258,6 +263,7 @@ export default function useFactMetricFlow(
     <FactMetricModal
       close={close}
       initialFactTable={modalTarget.factTable}
+      initialRowFilters={modalTarget.rowFilters}
       datasource={modalTarget.datasource}
       source={modalTarget.source}
     />

@@ -21,6 +21,7 @@ import {
   ColumnAggregation,
   FactTableColumnType,
   StandardFactMetricInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import {
   getAggregateFilters,
@@ -81,6 +82,7 @@ import { DocLink } from "@/components/DocLink";
 export interface Props {
   close?: () => void;
   initialFactTable?: string;
+  initialRowFilters?: RowFilter[];
   source: string;
   datasource?: string;
 }
@@ -1179,6 +1181,7 @@ export default function FactMetricModal(props: Props) {
 function StandardFactMetricModal({
   close,
   initialFactTable,
+  initialRowFilters,
   source,
   datasource,
 }: Props) {
@@ -1219,6 +1222,7 @@ function StandardFactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    initialRowFilters,
     initialDatasource: datasource,
   });
 

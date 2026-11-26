@@ -22,6 +22,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
 import {
   parseMetricTemplate,
+  parseRowFiltersParam,
   TemplateMetric,
 } from "@/components/FactTables/MetricEditor/templateMetric";
 
@@ -70,6 +71,12 @@ export default function NewFactMetricPage() {
       </Callout>
     );
   }
+
+  // ?rowFilters=<json> seeds the fact table's row filters (useFactMetricFlow
+  // sets it, e.g. "Add Fact Metric for this event").
+  const initialRowFilters = initialFactTable
+    ? (parseRowFiltersParam(router.query.rowFilters) ?? undefined)
+    : undefined;
 
   // ?addMetric=<json> (crafted externally - docs, support, onboarding,
   // nothing in this repo generates the link) pre-fills a metric from a
@@ -215,6 +222,7 @@ export default function NewFactMetricPage() {
             existing={null}
             duplicateFrom={duplicateFrom}
             initialFactTable={initialFactTable}
+            initialRowFilters={initialRowFilters}
             initialDatasource={
               typeof router.query.datasource === "string"
                 ? router.query.datasource

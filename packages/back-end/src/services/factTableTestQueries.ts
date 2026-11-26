@@ -3,6 +3,7 @@ import {
   expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
 } from "shared/experiments";
+import { DEFAULT_TEST_QUERY_DAYS } from "shared/constants";
 import {
   FactFilterTestResults,
   FactTableInterface,
@@ -56,10 +57,13 @@ export async function runFactTableTestQuery(
     query,
     limit,
     notNullColumn,
+    testDays,
   }: {
     query: string;
     limit?: number;
     notNullColumn?: string;
+    // Overrides the org's test query lookback for this query only.
+    testDays?: number;
   },
   preloaded?: ReturnType<typeof requireTestQueryIntegration>,
 ): Promise<FactFilterTestResults> {
@@ -72,7 +76,7 @@ export async function runFactTableTestQuery(
     templateVariables: {
       eventName: factTable.eventName,
     },
-    testDays: context.org.settings?.testQueryDays,
+    testDays: testDays ?? context.org.settings?.testQueryDays,
     timestampColumn,
     limit,
     notNullColumn,
@@ -132,20 +136,36 @@ export async function testRowFiltersQuery(
     dialect,
   });
 
-  const result = await runFactTableTestQuery(
-    context,
-    datasource,
-    factTable,
-    {
-      query: `SELECT * FROM ${wrapFactTableSql(factTable.sql)}${
-        where ? `\nWHERE ${where}` : ""
-      }`,
-      limit: SAMPLE_ROWS_LIMIT,
-    },
-    integration,
+  const query = `SELECT * FROM ${wrapFactTableSql(factTable.sql)}${
+    where ? `\nWHERE ${where}` : ""
+  }`;
+  const result = await runNarrowThenWiden(
+    context.org.settings?.testQueryDays ?? DEFAULT_TEST_QUERY_DAYS,
+    (testDays) =>
+      runFactTableTestQuery(
+        context,
+        datasource,
+        factTable,
+        { query, limit: SAMPLE_ROWS_LIMIT, testDays },
+        integration,
+      ),
   );
 
   return { ...result, where };
+}
+
+/**
+ * Sample rows try the last day first. `LIMIT` doesn't cut bytes billed on
+ * scan-priced warehouses (BigQuery, Athena), so a narrow window is cheaper.
+ * Only a run with no rows and no error retries over the org's full window.
+ */
+export async function runNarrowThenWiden(
+  orgWindow: number,
+  run: (testDays: number) => Promise<FactFilterTestResults>,
+): Promise<FactFilterTestResults> {
+  const narrow = await run(Math.min(1, orgWindow));
+  if (narrow.error || narrow.results?.length || orgWindow <= 1) return narrow;
+  return run(orgWindow);
 }
 
 export async function testVirtualColumnQuery(

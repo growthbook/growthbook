@@ -106,6 +106,7 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
+  initialRowFilters,
   initialDatasource,
   managedBy,
 }: {
@@ -115,6 +116,9 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableDefinition;
+  // Row filters to start from on initialFactTable (e.g. "Add Fact Metric for
+  // this event" on the fact table page). Blank prompts are added for the rest.
+  initialRowFilters?: RowFilter[];
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
@@ -131,7 +135,7 @@ export function getDefaultFactMetricProps({
       factTableId: initialFactTable?.id || "",
       column: "$$count",
       rowFilters: initialFactTable
-        ? getInitialInlineFilters(initialFactTable)
+        ? getInitialInlineFilters(initialFactTable, initialRowFilters)
         : [],
     },
     projects: existing?.projects || [],

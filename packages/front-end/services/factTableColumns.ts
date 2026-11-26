@@ -1,4 +1,9 @@
-import { ColumnInterface, TopValuesSnapshot } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableInterface,
+  TopValuesSnapshot,
+} from "shared/types/fact-table";
+import { ProductAnalyticsExploration } from "shared/validators";
 
 // The one read of a column's top values for both page views: counts from a
 // refresh this session, unless the stored ones are newer (a later column
@@ -73,4 +78,22 @@ export function getTopValuesNote({
   if (countsUnavailable)
     return `${base} This Data Source can only rank ${noun}s, so row counts aren't shown.`;
   return canRefresh ? `${base} Refresh to load row counts.` : base;
+}
+
+// Cached counts are stale when the SQL changed after their run read it. The
+// run reads the SQL when it starts, so compare to runStarted; dateUpdated
+// (when it finished) would hide an edit made mid-run. Dates may arrive as
+// JSON strings.
+export function isRowCountStale(
+  sqlUpdated: FactTableInterface["sqlUpdated"] | string,
+  exploration:
+    | Pick<ProductAnalyticsExploration, "runStarted" | "dateUpdated">
+    | null
+    | undefined,
+): boolean {
+  if (!exploration || !sqlUpdated) return false;
+  return (
+    new Date(sqlUpdated) >
+    new Date(exploration.runStarted ?? exploration.dateUpdated)
+  );
 }
