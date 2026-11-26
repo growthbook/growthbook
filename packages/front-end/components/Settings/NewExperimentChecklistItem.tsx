@@ -1,8 +1,10 @@
 import CreatableSelect from "react-select/creatable";
 import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import { Box } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
 
 type AutoChecklistOption = {
   value: string;
@@ -128,12 +130,14 @@ export default function NewExperimentChecklistItem({
               completionType: "auto",
               customFieldId: option?.customFieldId ?? "",
               propertyKey: option.propertyKey,
+              blockStart: newTaskInput.blockStart,
             });
           }}
           onCreateOption={(inputValue) => {
             setNewTaskInput({
               task: inputValue,
               completionType: "manual",
+              blockStart: newTaskInput.blockStart,
             });
           }}
           noOptionsMessage={() =>
@@ -163,6 +167,17 @@ export default function NewExperimentChecklistItem({
             }}
           />
         ) : null}
+        <Box mb="3">
+          <Checkbox
+            label="Block the start until this task is done"
+            description="It can't be bypassed when starting an experiment."
+            weight="regular"
+            value={!!newTaskInput.blockStart}
+            setValue={(blockStart) =>
+              setNewTaskInput({ ...newTaskInput, blockStart })
+            }
+          />
+        </Box>
         <div>
           <button
             disabled={!newTaskInput.task}

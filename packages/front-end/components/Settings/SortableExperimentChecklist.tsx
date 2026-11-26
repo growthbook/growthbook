@@ -15,7 +15,9 @@ import {
 import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { forwardRef, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import useSortableItem from "@/hooks/useSortableItem";
+import Checkbox from "@/ui/Checkbox";
 
 type SortableProps = {
   experimentLaunchChecklist: ChecklistTask[];
@@ -67,21 +69,36 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
             item.task
           )}
         </div>
-        <button
-          className="btn"
-          style={{
-            color: "red",
-            visibility: showDeleteBtn ? "visible" : "hidden",
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            const newChecklist = [...experimentLaunchChecklist];
-            newChecklist.splice(index, 1);
-            setExperimentLaunchChecklist(newChecklist);
-          }}
-        >
-          <FaTimes />
-        </button>
+        <Flex align="center" gap="2" flexShrink="0">
+          <Checkbox
+            label="Block start"
+            size="sm"
+            labelSize="sm"
+            weight="regular"
+            checkboxTooltip="Can't be bypassed when starting an experiment"
+            value={!!item.blockStart}
+            setValue={(blockStart) => {
+              const newChecklist = [...experimentLaunchChecklist];
+              newChecklist[index] = { ...item, blockStart };
+              setExperimentLaunchChecklist(newChecklist);
+            }}
+          />
+          <button
+            className="btn"
+            style={{
+              color: "red",
+              visibility: showDeleteBtn ? "visible" : "hidden",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              const newChecklist = [...experimentLaunchChecklist];
+              newChecklist.splice(index, 1);
+              setExperimentLaunchChecklist(newChecklist);
+            }}
+          >
+            <FaTimes />
+          </button>
+        </Flex>
       </div>
     );
   },
