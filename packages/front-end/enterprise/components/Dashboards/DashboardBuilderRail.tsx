@@ -21,6 +21,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import Badge from "@/ui/Badge";
 import SegmentedControl from "@/ui/SegmentedControl";
 import Text from "@/ui/Text";
+import { AIUsageIndicator } from "@/enterprise/components/AIChat/AIUsageWidget";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat";
 import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import {
@@ -28,7 +29,7 @@ import {
   builderSteps,
   BuilderStep,
   BuilderToolCall,
-  isBuilderWriteTool,
+  isBuilderWrite,
   toolCallsFromMessages,
 } from "./dashboardBuilderSteps";
 import styles from "./DashboardBuilder.module.scss";
@@ -89,7 +90,7 @@ function AiMessage({
 }) {
   const steps = builderSteps(calls);
   const changes = builderChanges(calls);
-  const editing = calls.some((c) => isBuilderWriteTool(c.toolName));
+  const editing = calls.some(isBuilderWrite);
   return (
     <Flex
       direction="column"
@@ -258,6 +259,10 @@ export default function DashboardBuilderRail({
   // Lifts the app's floating help button clear of the input.
   const footerRef = useBottomBarClearance<HTMLDivElement>();
   const turns = toTurns(messages);
+  const modeHint =
+    mode === "build"
+      ? "Edits stay in the draft until you publish."
+      : "Ask never changes the dashboard.";
   const activeCalls: BuilderToolCall[] = activeTurnItems.flatMap((item) =>
     item.kind === "tool-status"
       ? [
@@ -404,11 +409,12 @@ export default function DashboardBuilderRail({
               : "Ask about your data…"
           }
         />
-        <Text color="text-low" size="sm">
-          {mode === "build"
-            ? "Edit changes the draft. Viewers see nothing until you publish."
-            : "Ask answers questions and never changes the dashboard."}
-        </Text>
+        <Flex align="center" justify="between" gap="3">
+          <Text color="text-low" size="sm" truncate title={modeHint}>
+            {modeHint}
+          </Text>
+          <AIUsageIndicator busy={loading} />
+        </Flex>
       </Flex>
     </div>
   );

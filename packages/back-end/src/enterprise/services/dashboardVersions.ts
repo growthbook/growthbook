@@ -1,8 +1,13 @@
+import omit from "lodash/omit";
 import pick from "lodash/pick";
 import {
+  apiCreateDashboardBlockInterface,
+  ApiCreateDashboardBlockInterface,
+  ApiDashboardDraft,
   applyDashboardDraftOp,
   dashboardBlockHasIds,
   dashboardDraftChangeFromOp,
+  diffDashboardContent,
   DashboardDraftOp,
   DashboardDraftOpInput,
   DashboardInterface,
@@ -13,9 +18,15 @@ import {
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
 import {
+  fromBlockApiInterface,
   generateDashboardBlockIds,
   normalizeLayouts,
+  toBlockApiInterface,
 } from "back-end/src/enterprise/models/DashboardModel";
+import { runNewApiExplorationBlocks } from "back-end/src/enterprise/services/dashboards";
+import { simpleCompletion } from "back-end/src/enterprise/services/ai";
+import { currentRequestSource } from "back-end/src/services/growthbook";
+import { logger } from "back-end/src/util/logger";
 import {
   BadRequestError,
   ConflictError,
@@ -108,12 +119,40 @@ export async function getOrCreateDashboardDraft(
   }
 }
 
+// ponytail: whole-content snapshots; store per-change inverses if drafts get large.
+const UNDO_STEPS = 20;
+
+export async function undoDashboardDraft(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardVersionInterface> {
+  const draft = await getDashboardDraft(context, dashboardId);
+  const updated = draft
+    ? await context.models.dashboardVersions.updateWithCas(
+        draft.id,
+        ["dateUpdated"],
+        (current) => {
+          const undo = current.undo ?? [];
+          if (current.status !== "draft" || !undo.length) return null;
+          return {
+            content: undo[undo.length - 1],
+            undo: undo.slice(0, -1),
+            changes: current.changes.slice(0, -1),
+          };
+        },
+      )
+    : null;
+  if (!updated) throw new BadRequestError("There is nothing to undo");
+  return updated;
+}
+
 // ponytail: two edits to the same block are last-write-wins; add a per-block revision when editors collide.
 export async function editDashboardDraft(
   context: ReqContext,
   dashboardId: string,
   input: DashboardDraftOpInput,
-  options: { byAI?: boolean } = {},
+  // silent: part of a larger change, so no change record and no Undo step of its own.
+  options: { byAI?: boolean; silent?: boolean } = {},
 ): Promise<DashboardVersionInterface> {
   const draft = await getOrCreateDashboardDraft(context, dashboardId);
   const op: DashboardDraftOp =
@@ -126,7 +165,8 @@ export async function editDashboardDraft(
   const change = {
     ...dashboardDraftChangeFromOp(op),
     userId: context.userId,
-    byAI: options.byAI,
+    // The assistant's API calls are marked where they are dispatched.
+    byAI: options.byAI ?? (currentRequestSource() === "assistant" || undefined),
     date: new Date(),
   };
 
@@ -136,15 +176,31 @@ export async function editDashboardDraft(
     (current) => {
       if (current.status !== "draft") return null;
       const content = applyDashboardDraftOp(current.content, op);
+      // Turning a dashboard-wide control on makes the existing blocks follow it.
+      const blocks =
+        op.op === "set-settings"
+          ? (resolveGlobalControlsBlockEnrollment({
+              existingGlobalControls: current.content.globalControls,
+              nextGlobalControls: content.globalControls,
+              nextBlocks: content.blocks,
+            }) ?? content.blocks)
+          : content.blocks;
       return {
         content: {
           ...content,
           blocks: normalizeLayouts(
-            content.blocks,
+            blocks,
             content.grid?.cols ?? DASHBOARD_GRID_COLS,
           ),
         },
-        changes: [...current.changes, change],
+        ...(options.silent
+          ? {}
+          : {
+              changes: [...current.changes, change],
+              undo: [...(current.undo ?? []), current.content].slice(
+                -UNDO_STEPS,
+              ),
+            }),
       };
     },
   );
@@ -177,6 +233,7 @@ export async function publishDashboardDraft(
             status: "published",
             publishedBy: context.userId,
             datePublished: new Date(),
+            undo: [],
             ...(note ? { note } : {}),
           }
         : null,
@@ -204,10 +261,141 @@ export async function publishDashboardDraft(
   }
 }
 
+// A version note drafted from the difference between the draft and what is published.
+export async function summarizeDashboardDraft(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<string> {
+  const dashboard = await getEditableDashboard(context, dashboardId);
+  const draft = await context.models.dashboardVersions.getDraft(dashboard.id);
+  const changes = draft
+    ? diffDashboardContent(contentOf(dashboard), draft.content)
+    : [];
+  if (!draft || !changes.length) {
+    throw new BadRequestError("This draft has no changes to summarize");
+  }
+  return simpleCompletion({
+    context,
+    type: "product-analytics-chat",
+    isDefaultPrompt: true,
+    temperature: 0.2,
+    maxOutputTokens: 200,
+    lowEffort: true,
+    instructions:
+      "Write a note for a dashboard's version history: one or two sentences saying what changed, for someone deciding whether to open this version. Plain text, no markdown, no preamble.",
+    prompt: `Dashboard: ${draft.content.title}\nChanges:\n${changes
+      .map((c) => `- ${c.summary}`)
+      .join("\n")}`,
+  });
+}
+
 export async function discardDashboardDraft(
   context: ReqContext,
   dashboardId: string,
 ): Promise<void> {
   const draft = await getDashboardDraft(context, dashboardId);
   if (draft) await context.models.dashboardVersions.delete(draft);
+}
+
+// Runs the chart so a block only reaches the draft with data behind it.
+async function runDraftBlock(
+  context: ReqContext,
+  content: DashboardVersionContent,
+  apiBlock: ApiCreateDashboardBlockInterface,
+) {
+  const [ran] = await runNewApiExplorationBlocks(context, [apiBlock], content);
+  return generateDashboardBlockIds(context.org.id, fromBlockApiInterface(ran));
+}
+
+export async function addDashboardDraftBlock(
+  context: ReqContext,
+  dashboardId: string,
+  apiBlock: ApiCreateDashboardBlockInterface,
+) {
+  const { content } = await getOrCreateDashboardDraft(context, dashboardId);
+  const block = await runDraftBlock(context, content, apiBlock);
+  const draft = await editDashboardDraft(context, dashboardId, {
+    op: "add-block",
+    block,
+  });
+  return { draft, block };
+}
+
+export async function replaceDashboardDraftBlock(
+  context: ReqContext,
+  dashboardId: string,
+  blockId: string,
+  apiBlock: ApiCreateDashboardBlockInterface,
+  options: { silent?: boolean } = {},
+) {
+  const { content } = await getOrCreateDashboardDraft(context, dashboardId);
+  const existing = content.blocks.find((b) => b.id === blockId);
+  if (!existing) throw new NotFoundError("Block not found in the draft");
+  const ran = await runDraftBlock(context, content, {
+    ...apiBlock,
+    layout: apiBlock.layout ?? existing.layout,
+  });
+  const block = { ...ran, id: existing.id, uid: existing.uid };
+  const draft = await editDashboardDraft(
+    context,
+    dashboardId,
+    { op: "update-block", block },
+    options,
+  );
+  return { draft, block };
+}
+
+export async function updateDashboardDraftSettings(
+  context: ReqContext,
+  dashboardId: string,
+  settings: Partial<Omit<DashboardVersionContent, "blocks">>,
+): Promise<DashboardVersionInterface> {
+  let draft = await editDashboardDraft(context, dashboardId, {
+    op: "set-settings",
+    settings,
+  });
+  if (settings.globalControls === undefined) return draft;
+
+  // New dashboard-wide controls change what a chart shows, so each one is run again.
+  for (const block of draft.content.blocks) {
+    if (!("explorerAnalysisId" in block)) continue;
+    try {
+      const apiBlock = apiCreateDashboardBlockInterface.parse(
+        omit(toBlockApiInterface(block), [
+          "id",
+          "uid",
+          "organization",
+          "explorerAnalysisId",
+          "comparisonExplorerAnalysisId",
+        ]),
+      );
+      ({ draft } = await replaceDashboardDraftBlock(
+        context,
+        dashboardId,
+        block.id,
+        apiBlock,
+        { silent: true },
+      ));
+    } catch (err) {
+      // Best effort: the block keeps its previous result.
+      logger.warn(
+        { err, blockId: block.id },
+        "Failed to re-run a draft block after its dashboard controls changed",
+      );
+    }
+  }
+  return draft;
+}
+
+export function toApiDashboardDraft(
+  draft: DashboardVersionInterface,
+): ApiDashboardDraft {
+  return {
+    dashboardId: draft.dashboardId,
+    version: draft.version,
+    title: draft.content.title,
+    globalControls: draft.content.globalControls,
+    blocks: draft.content.blocks.map(toBlockApiInterface),
+    dateUpdated: draft.dateUpdated.toISOString(),
+  };
 }

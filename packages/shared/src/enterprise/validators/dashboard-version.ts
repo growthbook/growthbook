@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { namedSchema } from "../../validators/openapi-helpers";
 import { dashboardInterface } from "./dashboard";
 import {
+  apiCreateDashboardBlockInterface,
+  apiDashboardBlockInterface,
   createDashboardBlockInterface,
   dashboardBlockInterface,
 } from "./dashboard-block";
@@ -34,6 +37,7 @@ export const dashboardVersionInterface = z
     status: z.enum(["draft", "published"]),
     content: dashboardVersionContent,
     changes: z.array(dashboardVersionChange),
+    undo: z.array(dashboardVersionContent).optional(), // Earlier contents, newest last
     note: z.string().optional(),
     publishedBy: z.string().optional(),
     datePublished: z.date().optional(),
@@ -80,3 +84,69 @@ export const dashboardDraftOpInput = z.union([
   dashboardDraftOp,
 ]);
 export type DashboardDraftOpInput = z.infer<typeof dashboardDraftOpInput>;
+
+// ---- Public REST API shapes
+
+export const apiDashboardDraft = namedSchema(
+  "DashboardDraft",
+  z.object({
+    dashboardId: z.string(),
+    version: z
+      .number()
+      .int()
+      .describe("The version this draft becomes when it is published."),
+    title: z.string(),
+    globalControls: dashboardVersionContent.shape.globalControls,
+    blocks: z.array(apiDashboardBlockInterface),
+    dateUpdated: z.iso.datetime(),
+  }),
+);
+export type ApiDashboardDraft = z.infer<typeof apiDashboardDraft>;
+
+const draftParams = z.strictObject({ id: z.string() });
+const draftBlockParams = z.strictObject({
+  id: z.string(),
+  blockId: z.string(),
+});
+
+export const apiDashboardDraftReturn = z.object({ draft: apiDashboardDraft });
+export const apiDashboardDraftBlockReturn = z.object({
+  block: apiDashboardBlockInterface,
+  draft: apiDashboardDraft,
+});
+
+export const apiGetDashboardDraftValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: draftParams,
+};
+export const apiUpdateDashboardDraftValidator = {
+  bodySchema: z.strictObject({
+    title: z.string().optional(),
+    globalControls: dashboardVersionContent.shape.globalControls,
+  }),
+  querySchema: z.never(),
+  paramsSchema: draftParams,
+};
+export const apiAddDashboardDraftBlockValidator = {
+  bodySchema: apiCreateDashboardBlockInterface,
+  querySchema: z.never(),
+  paramsSchema: draftParams,
+};
+export const apiReplaceDashboardDraftBlockValidator = {
+  bodySchema: apiCreateDashboardBlockInterface,
+  querySchema: z.never(),
+  paramsSchema: draftBlockParams,
+};
+export const apiRemoveDashboardDraftBlockValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: draftBlockParams,
+};
+export const apiPublishDashboardDraftValidator = {
+  bodySchema: z.strictObject({
+    note: z.string().optional().describe("Shown in the version history."),
+  }),
+  querySchema: z.never(),
+  paramsSchema: draftParams,
+};

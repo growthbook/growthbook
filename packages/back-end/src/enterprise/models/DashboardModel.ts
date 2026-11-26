@@ -54,8 +54,14 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
+  addDashboardDraftBlockEndpoint,
   createDashboardV2Endpoint,
+  getDashboardDraftEndpoint,
   getDashboardsForExperimentEndpoint,
+  publishDashboardDraftEndpoint,
+  removeDashboardDraftBlockEndpoint,
+  replaceDashboardDraftBlockEndpoint,
+  updateDashboardDraftEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import {
@@ -71,6 +77,16 @@ import {
   resolveOwnerForCreate,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
+// Used only inside request handlers, so the import cycle with this file is safe.
+import {
+  addDashboardDraftBlock,
+  editDashboardDraft,
+  getOrCreateDashboardDraft,
+  publishDashboardDraft,
+  replaceDashboardDraftBlock,
+  toApiDashboardDraft,
+  updateDashboardDraftSettings,
+} from "back-end/src/enterprise/services/dashboardVersions";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -117,6 +133,86 @@ const BaseClass = MakeModelClass({
             req.body,
           ),
         }),
+      }),
+      defineCustomApiHandler({
+        ...getDashboardDraftEndpoint,
+        reqHandler: async (req) => ({
+          draft: toApiDashboardDraft(
+            await getOrCreateDashboardDraft(req.context, req.params.id),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...updateDashboardDraftEndpoint,
+        reqHandler: async (req) => {
+          const { title, globalControls } = req.body;
+          return {
+            draft: toApiDashboardDraft(
+              await updateDashboardDraftSettings(req.context, req.params.id, {
+                ...(title !== undefined ? { title } : {}),
+                ...(globalControls !== undefined ? { globalControls } : {}),
+              }),
+            ),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...addDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => {
+          const { draft, block } = await addDashboardDraftBlock(
+            req.context,
+            req.params.id,
+            req.body,
+          );
+          return {
+            block: toBlockApiInterface(block),
+            draft: toApiDashboardDraft(draft),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...replaceDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => {
+          const { draft, block } = await replaceDashboardDraftBlock(
+            req.context,
+            req.params.id,
+            req.params.blockId,
+            req.body,
+          );
+          return {
+            block: toBlockApiInterface(block),
+            draft: toApiDashboardDraft(draft),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...removeDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => ({
+          draft: toApiDashboardDraft(
+            await editDashboardDraft(req.context, req.params.id, {
+              op: "remove-block",
+              blockId: req.params.blockId,
+            }),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...publishDashboardDraftEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<{ dashboard: ApiDashboardInterface }> => {
+          const { dashboard } = await publishDashboardDraft(
+            req.context,
+            req.params.id,
+            req.body?.note,
+          );
+          return {
+            dashboard: await resolveOwnerEmail(
+              req.context.models.dashboards.toApiInterface(dashboard),
+              req.context,
+            ),
+          };
+        },
       }),
       defineCustomApiHandler({
         ...getDashboardsForExperimentEndpoint,
@@ -543,7 +639,8 @@ export class DashboardModel extends BaseClass {
       globalControls,
       comparison,
       blocks,
-    }: ApiCreateDashboardBody,
+      isDraft,
+    }: ApiCreateDashboardBody & { isDraft?: boolean },
     userId: string,
   ) {
     const base = {
@@ -551,6 +648,7 @@ export class DashboardModel extends BaseClass {
       isDefault: false,
       isDeleted: false,
       userId,
+      isDraft,
       editLevel,
       shareLevel,
       enableAutoUpdates,
@@ -1214,7 +1312,7 @@ export function migrateBlock(
   }
 }
 
-function toBlockApiInterface(
+export function toBlockApiInterface(
   block: DashboardBlockInterface,
 ): ApiDashboardBlockInterface {
   switch (block.type) {

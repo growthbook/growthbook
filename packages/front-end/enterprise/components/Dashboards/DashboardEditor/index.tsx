@@ -933,6 +933,7 @@ function DashboardGrid({
             return (
               <div
                 key={key}
+                data-block-id={key}
                 className={clsx("dashboard-grid-item", {
                   "is-grid-interaction-disabled":
                     isDefined(stagedBlockIndex) && i !== stagedBlockIndex,

@@ -268,8 +268,17 @@ export type ApiCreateDashboardBody = z.infer<typeof apiCreateDashboardBody>;
 
 export const apiCreateDashboardBodyV2 = z.preprocess(
   (raw) =>
-    withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, ...DISPLAY_ONLY_FIELDS]),
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS.filter((key) => key !== "isDraft"),
+      ...DISPLAY_ONLY_FIELDS,
+    ]),
   apiCreateDashboardFields.extend({
+    isDraft: z
+      .boolean()
+      .optional()
+      .describe(
+        "Create the dashboard unpublished: only its owner can see it until its draft is published with POST /v2/dashboards/{id}/draft/publish. Send `blocks: []` and add blocks to the draft one at a time.",
+      ),
     owner: dashboardOwnerInput
       .optional()
       .describe(

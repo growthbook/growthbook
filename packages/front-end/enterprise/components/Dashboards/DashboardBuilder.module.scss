@@ -205,6 +205,12 @@
   border-radius: var(--radius-4);
 }
 
+.highlight {
+  outline: 2px solid var(--violet-9);
+  outline-offset: 2px;
+  border-radius: var(--radius-3);
+}
+
 .shimmer {
   height: 160px;
   border-radius: var(--radius-3);

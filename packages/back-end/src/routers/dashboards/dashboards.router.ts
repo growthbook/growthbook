@@ -182,6 +182,16 @@ router.post(
   dashboardsController.editDashboardDraft,
 );
 router.post(
+  "/:id/draft/summary",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.summarizeDashboardDraft,
+);
+router.post(
+  "/:id/draft/undo",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.undoDashboardDraft,
+);
+router.post(
   "/:id/draft/publish",
   validateRequestMiddleware({
     body: publishDashboardDraftBody,

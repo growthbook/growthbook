@@ -484,7 +484,7 @@ export function runAsRequestSource<T>(source: RequestSource, fn: () => T): T {
 }
 
 // Unknown when nothing marked the work: a request path or job that never set it.
-function currentRequestSource(): RequestSource {
+export function currentRequestSource(): RequestSource {
   return requestSources.getStore() ?? "unknown";
 }
 

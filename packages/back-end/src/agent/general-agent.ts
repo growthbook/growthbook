@@ -354,9 +354,27 @@ function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
  * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
  */
-function requiresMutationConfirmation(input: DispatchInput): boolean {
+// Draft edits are private to the dashboard's editors, so they go through unconfirmed. Publishing is not one.
+const DASHBOARD_DRAFT_EDIT_RE =
+  /^\/api\/v2\/dashboards\/[^/]+\/draft(\/blocks(\/[^/]+)?)?\/?$/;
+
+/** A call that reads, or only runs a query: what a read-only agent may make. */
+export function isReadOnlyAgentCall(
+  input: Pick<DispatchInput, "method" | "path">,
+): boolean {
+  if (input.method === "GET") return true;
+  return (
+    !DASHBOARD_DRAFT_EDIT_RE.test(normalizePath(input.path)) &&
+    !requiresMutationConfirmation(input)
+  );
+}
+
+function requiresMutationConfirmation(
+  input: Pick<DispatchInput, "method" | "path">,
+): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
+  if (DASHBOARD_DRAFT_EDIT_RE.test(path)) return false;
   if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
@@ -792,11 +810,27 @@ export function buildCoreAgentTools(
   };
 }
 
+// Building happens in the dashboard builder, which reuses the prompt above without this.
+const NEW_DASHBOARD_HANDOFF = `
+
+<new_dashboards>
+Do not build a new Analytics dashboard yourself; this replaces the earlier
+instruction about creating one. When the user asks for a new dashboard, reply
+with one short sentence and this link, which opens the dashboard builder with
+their request filled in:
+[Open the dashboard builder](/product-analytics/dashboards/new?prompt=<request>)
+Replace <request> with a complete, URL-encoded description of the dashboard
+they asked for, including anything they clarified earlier. Do not load a
+skill, query data, or create anything first. Changing the dashboard the user
+is viewing is unaffected.
+</new_dashboards>`;
+
 export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   ...sharedAgentSettings,
   agentType: "general",
   injectDatasourceHint: true,
-  buildSystemPrompt: async (ctx) => buildGeneralAgentSystemPrompt(ctx),
+  buildSystemPrompt: async (ctx) =>
+    buildGeneralAgentSystemPrompt(ctx) + NEW_DASHBOARD_HANDOFF,
   buildTools: (ctx, buffer, ...[, emit]) => ({
     ...buildCoreAgentTools(ctx, buffer, emit),
     askUser: aiTool({

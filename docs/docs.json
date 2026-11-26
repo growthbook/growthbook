@@ -1123,6 +1123,12 @@
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
                   "api/Dashboards/operation/createDashboardV2",
+                  "api/Dashboards/operation/getDashboardDraft",
+                  "api/Dashboards/operation/updateDashboardDraft",
+                  "api/Dashboards/operation/addDashboardDraftBlock",
+                  "api/Dashboards/operation/replaceDashboardDraftBlock",
+                  "api/Dashboards/operation/removeDashboardDraftBlock",
+                  "api/Dashboards/operation/publishDashboardDraft",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
@@ -1335,6 +1341,7 @@
               "api/CustomField_model",
               "api/CustomHook_model",
               "api/Dashboard_model",
+              "api/DashboardDraft_model",
               "api/DataSource_model",
               "api/DatabricksConnection_model",
               "api/Dimension_model",
