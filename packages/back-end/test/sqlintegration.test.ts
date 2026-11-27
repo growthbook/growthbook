@@ -15,6 +15,7 @@ import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import {
+  athenaDialect,
   bigQueryDialect,
   mysqlDialect,
   clickHouseDialect,
@@ -479,6 +480,15 @@ describe("bigquery integration", () => {
         "(is_active = true)",
       );
       expect(booleanSQL(prestoDialect, "is_false")).toEqual(
+        "(is_active = false)",
+      );
+    });
+
+    it("uses equality for Athena, which runs on Trino", () => {
+      expect(booleanSQL(athenaDialect, "is_true")).toEqual(
+        "(is_active = true)",
+      );
+      expect(booleanSQL(athenaDialect, "is_false")).toEqual(
         "(is_active = false)",
       );
     });
