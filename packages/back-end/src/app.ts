@@ -1311,19 +1311,18 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get("/generated-hypothesis/:uuid", (async (
-  req: express.Request,
-  res: express.Response,
-  _next: express.NextFunction,
-) => {
-  const authReq = req as AuthRequest<null, { uuid: string }>;
-  const context = getContextFromReq(authReq);
-  const generatedHypothesis = await findOrCreateGeneratedHypothesis(
-    context,
-    authReq.params.uuid,
-  );
-  return res.json({ generatedHypothesis });
-}) as unknown as RequestHandler);
+app.get(
+  "/generated-hypothesis/:uuid",
+  asyncHandler(async (req, res) => {
+    const authReq = req as AuthRequest<null, { uuid: string }>;
+    const context = getContextFromReq(authReq);
+    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+      context,
+      authReq.params.uuid,
+    );
+    res.json({ generatedHypothesis });
+  }),
+);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
