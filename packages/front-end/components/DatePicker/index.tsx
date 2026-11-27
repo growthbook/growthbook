@@ -120,12 +120,12 @@ type Clock = {
   /** Caller value → the day the calendar shows (the calendar only renders local time). */
   toCalendar: (value: Date | string) => Date;
   /** Calendar day → value handed back to the caller. */
-  fromCalendar: (day: Date) => Date;
+  fromCalendar: (day: Date, previous?: Date | string) => Date;
   toText: (value: Date | string) => string;
   fromText: (text: string) => Date;
 };
 
-function localClock(precision: "datetime" | "date"): Clock {
+export function localClock(precision: "datetime" | "date"): Clock {
   // `new Date("yyyy-MM-dd")` is UTC midnight, so a date-only string shifts to local midnight; a Date is already local.
   const parse = (value: Date | string) =>
     precision === "datetime" || value instanceof Date
@@ -136,18 +136,32 @@ function localClock(precision: "datetime" | "date"): Clock {
   return {
     toDate: parse,
     toCalendar: parse,
-    fromCalendar: (day) => day,
+    fromCalendar: (day, previous) => {
+      const selected = new Date(
+        precision === "datetime" && previous ? parse(previous) : day,
+      );
+      selected.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
+      return selected;
+    },
     toText: (value) => format(parse(value), textFormat),
     fromText: parse,
   };
 }
 
-function utcClock(precision: "datetime" | "date"): Clock {
+export function utcClock(precision: "datetime" | "date"): Clock {
   const textLength = precision === "datetime" ? 16 : 10;
   return {
     toDate: (value) => getValidDate(value),
     toCalendar: (value) => utcAsLocal(getValidDate(value)),
-    fromCalendar: localAsUtc,
+    fromCalendar: (day, previous) => {
+      const selected = new Date(
+        precision === "datetime" && previous
+          ? getValidDate(previous)
+          : localAsUtc(day),
+      );
+      selected.setUTCFullYear(day.getFullYear(), day.getMonth(), day.getDate());
+      return selected;
+    },
     // Text never passes through a local Date, which can't hold a UTC time in the viewer's DST gap.
     toText: (value) => getValidDate(value).toISOString().slice(0, textLength),
     fromText: (text) =>
@@ -593,8 +607,10 @@ export default function DatePicker({
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
                     const from =
-                      daterange.from && clock.fromCalendar(daterange.from);
-                    const to = daterange.to && clock.fromCalendar(daterange.to);
+                      daterange.from &&
+                      clock.fromCalendar(daterange.from, date);
+                    const to =
+                      daterange.to && clock.fromCalendar(daterange.to, date2);
                     setDate(from);
                     setDate2?.(to);
                     setBufferedDate(from ? clock.toText(from) : "");
@@ -619,7 +635,7 @@ export default function DatePicker({
                   // caller never set (the range branch above already does this).
                   selected={date ? clock.toCalendar(date) : undefined}
                   onSelect={(day: Date) => {
-                    const selectedDate = clock.fromCalendar(day);
+                    const selectedDate = clock.fromCalendar(day, date);
                     setDate(selectedDate);
                     setBufferedDate(clock.toText(selectedDate));
                     // A day is the whole choice at date precision; datetime
