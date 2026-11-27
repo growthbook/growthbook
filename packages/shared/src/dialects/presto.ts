@@ -36,6 +36,9 @@ export const prestoDialect: SqlDialect = {
     return isNumeric ? prestoDialect.castToFloat(raw) : raw;
   },
   jsonArray: trinoJsonArray,
+  // PrestoDB and Trino before 482 can't parse `IS TRUE` / `IS FALSE`.
+  evalBoolean: (col: string, value: boolean) =>
+    `${col} = ${value ? "true" : "false"}`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(CAST(${col} AS HyperLogLog))`,
