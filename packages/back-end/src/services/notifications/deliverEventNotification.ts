@@ -54,7 +54,7 @@ export async function deliverEventNotification({
 
   const applySecrets =
     await context.models.webhookSecrets.getBackEndSecretsReplacer(
-      new URL(eventWebHook.url).origin,
+      eventWebHook.url,
     );
   const result = await sendEventWebhook({
     payload,

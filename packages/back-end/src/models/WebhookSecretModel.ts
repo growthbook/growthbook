@@ -4,7 +4,10 @@ import {
   WebhookSecretInterface,
   webhookSecretSchema,
 } from "shared/validators";
-import { secretsReplacer } from "back-end/src/util/secrets";
+import {
+  renderedWebhookOrigin,
+  secretsReplacer,
+} from "back-end/src/util/secrets";
 import { webhookSecretApiSpec } from "back-end/src/api/specs/webhook-secret.spec";
 import { MakeModelClass } from "./BaseModel";
 
@@ -95,26 +98,40 @@ export class WebhookSecretDataModel extends BaseClass {
     await this._deleteOne(existing);
   }
 
-  // The secrets a webhook sent to `origin` may use.
-  private async usableAt(origin: string) {
-    return (await this.getAll()).filter(
+  // The secrets a webhook may use, judged by the origin its URL renders to.
+  // `placeholders` stand in for referenced keys that don't exist, so they
+  // don't stop the URL from rendering.
+  private async usableAt(url: string, placeholders: string[] = []) {
+    const all = await this.getAll();
+    // Substitution has no side effects, and dropping a secret can only make
+    // the send fail, never change its URL, so one render settles the origin.
+    const origin = renderedWebhookOrigin(url, {
+      ...Object.fromEntries(placeholders.map((key) => [key, "x"])),
+      ...Object.fromEntries(all.map((secret) => [secret.key, secret.value])),
+    });
+    if (origin === null) return [];
+    return all.filter(
       (secret) =>
         !secret.allowedOrigins?.length ||
         secret.allowedOrigins.includes(origin),
     );
   }
 
-  public async getUsableKeys(origin: string): Promise<Set<string>> {
-    return new Set((await this.usableAt(origin)).map((secret) => secret.key));
+  public async getUsableKeys(
+    url: string,
+    referenced: string[],
+  ): Promise<Set<string>> {
+    return new Set(
+      (await this.usableAt(url, referenced)).map((secret) => secret.key),
+    );
   }
 
-  public async getBackEndSecretsReplacer(origin: string) {
+  // A referenced secret that isn't usable is absent here, so rendering throws
+  // inside the send and is recorded as a failed delivery.
+  public async getBackEndSecretsReplacer(url: string) {
     return secretsReplacer(
       Object.fromEntries(
-        (await this.usableAt(origin)).map((secret) => [
-          secret.key,
-          secret.value,
-        ]),
+        (await this.usableAt(url)).map((secret) => [secret.key, secret.value]),
       ),
     );
   }

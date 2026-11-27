@@ -446,7 +446,16 @@ export async function putMemberProjectRole(
 
   // Project-admins can update project roles for their project - so we check if they have the canUpdateProject permission
   // rather than the canManageTeam permission
-  if (!context.permissions.canUpdateProject(projectRole.project)) {
+  const existingRules = org.members.find((m) => m.id === id)?.projectRoles;
+  if (
+    !context.permissions.canUpdateProject(projectRole.project) ||
+    !context.permissions.canChangeProjectRoles(existingRules, [
+      ...(existingRules ?? []).filter(
+        (rule) => rule.project !== projectRole.project,
+      ),
+      projectRole,
+    ])
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -2650,6 +2659,22 @@ export async function putAdminResetUserPassword(
         "Cannot change password of users outside your organization.",
       );
     }
+  }
+
+  const user = await getUserById(userToUpdateId);
+  if (!user) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find user with that id",
+    });
+  }
+  // Setting a password takes over the account, super admin access included
+  if (!holdsAllSuperAdminPermissions(req.superAdmin, user.superAdmin)) {
+    return res.status(403).json({
+      status: 403,
+      message:
+        "You cannot change the password of a user with more super admin access than you",
+    });
   }
 
   await updatePassword(userToUpdateId, updatedPassword);

@@ -235,6 +235,52 @@ export const dataSourceTypes = Object.keys(DATA_SOURCE_PARAM_SENSITIVITY) as [
   ...DataSourceType[],
 ];
 
+// Params that decide where the stored secrets get sent. A new host-like param
+// must be added here, or it can redirect them.
+const DESTINATION_PARAM_KEYS = {
+  postgres: ["host", "port"],
+  redshift: ["host", "port"],
+  vertica: ["host", "port"],
+  clickhouse: ["url", "host", "port"],
+  growthbook_clickhouse: ["url", "host", "port"],
+  mysql: ["host", "port"],
+  mssql: ["server", "port"],
+  bigquery: ["apiEndpoint"],
+  athena: [],
+  presto: ["host", "port"],
+  databricks: ["host", "port"],
+  snowflake: ["account", "accessUrl"],
+  mixpanel: [],
+  google_analytics: [],
+  adobe_experience_platform_query_service: ["host", "port"],
+} satisfies {
+  [T in DataSourceType]: readonly (keyof DataSourceParamsForType<T>)[];
+};
+
+function normalizeDestination(value: unknown): unknown {
+  return typeof value === "string" || typeof value === "number"
+    ? String(value).trim().toLowerCase()
+    : value;
+}
+
+/**
+ * Whether an update points the connection somewhere new. Clearing a param back
+ * to the vendor default doesn't count.
+ */
+export function dataSourceDestinationChanged(
+  type: DataSourceType,
+  existing: unknown,
+  updates: unknown,
+): boolean {
+  if (!isRecord(updates)) return false;
+  const stored = isRecord(existing) ? existing : {};
+  const keys: readonly string[] = DESTINATION_PARAM_KEYS[type];
+  return keys.some((key) => {
+    const next = normalizeDestination(updates[key]);
+    return (next ?? "") !== "" && next !== normalizeDestination(stored[key]);
+  });
+}
+
 // Names from untyped config files that predate the current interfaces.
 const LEGACY_SECRET_PARAM_KEYS: ReadonlySet<string> = new Set(["pass"]);
 
@@ -279,6 +325,22 @@ export function redactSecretParams(
   params: unknown,
 ): unknown {
   return redactRecord(params, DATA_SOURCE_PARAM_SENSITIVITY[type]);
+}
+
+// The stored params with every secret and unclassified key removed.
+function publicRecord(
+  params: unknown,
+  classification: unknown,
+): Record<string, unknown> {
+  if (!isRecord(params) || !isRecord(classification)) return {};
+  const kept: Record<string, unknown> = {};
+  Object.entries(params).forEach(([key, value]) => {
+    const sensitivity = classification[key];
+    if (sensitivity === "public") kept[key] = value;
+    else if (isRecord(sensitivity))
+      kept[key] = publicRecord(value, sensitivity);
+  });
+  return kept;
 }
 
 function mergeRecord(
@@ -327,10 +389,15 @@ export function mergeDataSourceParams(
   existing: unknown,
   updates: unknown,
 ): unknown {
+  const classification = DATA_SOURCE_PARAM_SENSITIVITY[type];
+  // Stored secrets were saved for the old destination, so none of them follow
+  // it to a new one.
   const merged = mergeRecord(
-    existing,
+    dataSourceDestinationChanged(type, existing, updates)
+      ? publicRecord(existing, classification)
+      : existing,
     updates,
-    DATA_SOURCE_PARAM_SENSITIVITY[type],
+    classification,
   );
   // Blank secrets mean "keep existing", so a switch to workload identity must drop them explicitly.
   if (type === "snowflake" && merged.authMethod === "workload-identity") {

@@ -17,6 +17,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
+import { assertValidAttributeName } from "back-end/src/services/attributes";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { logger } from "back-end/src/util/logger";
@@ -50,6 +51,7 @@ async function createAttribute(
   if (attributeSchema.some((a) => a.property === attributeFields.property)) {
     context.throwBadRequestError("An attribute with that name already exists");
   }
+  assertValidAttributeName(attributeFields.property);
 
   if (attributeFields.customFields !== undefined) {
     await validateCustomFieldsForSectionAndProjects({
@@ -415,6 +417,9 @@ async function updateAttribute(
     context.permissions.throwPermissionError();
   }
 
+  if (previousName && attributeFields.property !== previousName) {
+    assertValidAttributeName(attributeFields.property);
+  }
   if (
     previousName &&
     attributeFields.property !== previousName &&

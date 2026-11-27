@@ -37,6 +37,7 @@ import {
 import { syncEventForwarderAfterDatasourceUpdate } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
+import { assertEventForwarderKeyStaysWithDestination } from "back-end/src/services/eventForwarder/config";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -265,6 +266,13 @@ export async function updateDataSourceWithChecks(
   // Only a connection change needs re-validating
   if (params) {
     const integration = getSourceIntegrationObject(context, datasource);
+    await assertEventForwarderKeyStaysWithDestination(
+      context,
+      datasource,
+      integration.params,
+      params,
+      eventForwarderConfig,
+    );
     mergeParams(integration, params);
     await integration.testConnection();
     updates.params = encryptParams(integration.params);

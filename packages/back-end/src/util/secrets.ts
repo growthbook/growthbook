@@ -1,5 +1,4 @@
-import Handlebars from "handlebars";
-import escapeRegExp from "lodash/escapeRegExp";
+import { WEBHOOK_SECRET_REFERENCE } from "shared/validators";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, parseEnvIntMap, stringToBoolean } from "shared/util";
 import {
@@ -554,41 +553,35 @@ export type SecretsReplacer = <T extends string | Record<string, string>>(
   },
 ) => T;
 
+// The origin a webhook URL resolves to once its secrets are filled in, which
+// is where the request goes. Null when the URL can't be rendered.
+export function renderedWebhookOrigin(
+  url: string,
+  secrets: Record<string, string>,
+): string | null {
+  try {
+    return new URL(
+      secretsReplacer(secrets)(url, { encode: encodeURIComponent }),
+    ).origin;
+  } catch {
+    return null;
+  }
+}
+
 export const secretsReplacer = (
   secrets: Record<string, string>,
 ): SecretsReplacer => {
   return ((s, options) => {
     const encode = options?.encode || ((s: string) => s);
 
-    const encodedSecrets = Object.keys(secrets).reduce<Record<string, string>>(
-      (encoded, key) => ({
-        ...encoded,
-        [key]: encode(secrets[key]),
-      }),
-      {},
-    );
-
-    const stringReplacer = (s: string) => {
-      // Handlebars can't resolve keys with spaces via plain {{ key }} syntax.
-      // Rewrite any such occurrences to bracket-literal form {{[key]}} so
-      // both new and previously-saved webhooks work correctly.
-      let processed = s;
-      for (const key of Object.keys(encodedSecrets)) {
-        if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
-          const escapedForRegex = escapeRegExp(key);
-          const escapedForReplacement = key.replace(/\$/g, "$$$$");
-          processed = processed.replace(
-            new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),
-            `{{[${escapedForReplacement}]}}`,
-          );
+    const stringReplacer = (s: string) =>
+      s.replace(WEBHOOK_SECRET_REFERENCE, (_match, reference: string) => {
+        const key = reference.trim();
+        if (!Object.prototype.hasOwnProperty.call(secrets, key)) {
+          throw new Error(`"${key}" not defined`);
         }
-      }
-      const template = Handlebars.compile(processed, {
-        noEscape: true,
-        strict: true,
+        return encode(secrets[key]);
       });
-      return template(encodedSecrets);
-    };
 
     if (typeof s === "string") return stringReplacer(s);
 

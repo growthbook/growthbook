@@ -58,6 +58,7 @@ import {
   findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
+  assertEventForwarderKeyStaysWithDestination,
   assertNoEventForwarderEnvironmentOverlap,
   setEventForwarderEnvironments,
   createUnconfiguredEventForwarderConfig,
@@ -91,6 +92,7 @@ import {
   createDataSource,
   getDataSourcesByOrganization,
   getDataSourceById,
+  getDataSourcesByIds,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
@@ -638,6 +640,13 @@ export async function putEventForwarderForDataSource(
     const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
 
     if (parsed.data.params) {
+      await assertEventForwarderKeyStaysWithDestination(
+        context,
+        datasource,
+        integration.params,
+        parsed.data.params,
+        parsed.data.eventForwarderConfig as EventForwarderConfigDraft,
+      );
       mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
@@ -926,6 +935,13 @@ export async function postTestEventForwarderAccessForDatasource(
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (parsed.data.params) {
+    await assertEventForwarderKeyStaysWithDestination(
+      context,
+      datasource,
+      integration.params,
+      parsed.data.params,
+      parsed.data.eventForwarderConfig as EventForwarderConfigDraft | undefined,
+    );
     mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
   }
 
@@ -1422,8 +1438,19 @@ export async function getQueries(
   const queries = ids.split(",");
 
   const docs = await getQueriesByIds(context, queries);
+  // Queries on a data source the caller can't read look the same as unknown ids
+  const readable = new Set(
+    (
+      await getDataSourcesByIds(
+        context,
+        docs.map((d) => d.datasource),
+      )
+    ).map((d) => d.id),
+  );
   // Lookup table so we can return queries in the same order we received them
-  const map = new Map(docs.map((d) => [d.id, d]));
+  const map = new Map(
+    docs.filter((d) => readable.has(d.datasource)).map((d) => [d.id, d]),
+  );
 
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),

@@ -17,6 +17,7 @@ import {
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  dataSourceDestinationChanged,
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
@@ -33,6 +34,7 @@ import {
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import { EVENT_FORWARDER_ENVIRONMENT_INDEX } from "back-end/src/models/EventForwarderConfigModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -380,14 +382,70 @@ function parseBigQueryServiceAccountKey(raw: string): {
   return parsed;
 }
 
+// The forwarder's saved BigQuery key is sent to the Data Source's endpoint, so
+// like the Data Source's own secrets it can't follow that endpoint somewhere
+// new. Call before merging submitted params into a Data Source.
+export async function assertEventForwarderKeyStaysWithDestination(
+  context: ReqContext,
+  datasource: Pick<DataSourceInterface, "id" | "type">,
+  storedParams: unknown,
+  submittedParams: unknown,
+  draft?: EventForwarderConfigDraft | null,
+): Promise<void> {
+  if (
+    !dataSourceDestinationChanged(
+      datasource.type,
+      storedParams,
+      submittedParams,
+    )
+  ) {
+    return;
+  }
+  if (
+    draft?.sinkType === "bigquery" &&
+    draft.config.serviceAccountKey?.trim()
+  ) {
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (
+    existing?.sinkType === "bigquery" &&
+    decryptSinkConfig<BigQueryEventForwarderStoredConfig>(existing.config)
+      .serviceAccountKey
+  ) {
+    throw new BadRequestError(
+      "Changing the BigQuery API endpoint requires re-entering the Event Forwarder's service account key.",
+    );
+  }
+}
+
+const normalizeEndpoint = (endpoint: string | undefined) =>
+  (endpoint ?? "").trim().toLowerCase();
+
+// The saved key is bound to the endpoint it was saved for and checked here,
+// where the two meet, so no write path can leave them mismatched and usable.
 export function getEventForwarderBigQueryConnectionParams(
   params: BigQueryConnectionParams,
-  serviceAccountKeyJson: string | undefined,
+  config: Pick<
+    BigQueryEventForwarderStoredConfig,
+    "serviceAccountKey" | "serviceAccountKeyEndpoint"
+  >,
 ): BigQueryConnectionParams {
+  const serviceAccountKeyJson = config.serviceAccountKey;
   const serviceAccountKey = parseBigQueryServiceAccountKey(
     serviceAccountKeyJson || "",
   );
   if (!serviceAccountKey) return params;
+  // Keys saved before the binding existed have none and stay usable anywhere.
+  if (
+    config.serviceAccountKeyEndpoint !== undefined &&
+    normalizeEndpoint(config.serviceAccountKeyEndpoint) !==
+      normalizeEndpoint(params.apiEndpoint)
+  ) {
+    throw new Error(
+      "The BigQuery API endpoint changed since the Event Forwarder's service account key was saved. Re-enter the key to continue.",
+    );
+  }
 
   return {
     ...params,
@@ -431,6 +489,10 @@ function buildBigQueryStoredConfigFromDraft(
     draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   );
 
+  // A reused key keeps the endpoint it was saved for; any other key is the
+  // caller's own, supplied for the endpoint in this request.
+  const reusesStoredKey =
+    !draft.serviceAccountKey?.trim() && !!existingStored?.serviceAccountKey;
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
     existingStored?.serviceAccountKey ||
@@ -446,6 +508,9 @@ function buildBigQueryStoredConfigFromDraft(
     dataset,
     tablePrefix,
     serviceAccountKey,
+    serviceAccountKeyEndpoint: reusesStoredKey
+      ? existingStored?.serviceAccountKeyEndpoint
+      : (datasourceParams?.apiEndpoint ?? ""),
     tables: {
       events: names.events,
       experiment_viewed: names.experimentViewed,

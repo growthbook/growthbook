@@ -234,9 +234,8 @@ async function runWebhookFetch({
   let res: CancellableFetchReturn | undefined = undefined;
 
   try {
-    const origin = new URL(url).origin;
     const applySecrets =
-      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(url);
 
     let customHeaders: Record<string, string> | undefined;
     if (headers) {

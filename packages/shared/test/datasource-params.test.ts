@@ -103,6 +103,77 @@ describe("mergeDataSourceParams", () => {
     ).toEqual({ apiEndpoint: "", privateKey: "stored private key" });
   });
 
+  it("drops stored secrets, and only those, when the destination changes", () => {
+    const stored = {
+      host: "db.example.com",
+      port: 5432,
+      user: "growthbook",
+      password: "stored password",
+      clientKey: "stored key",
+      pass: "legacy secret",
+    };
+
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: "evil.example.com",
+        password: "",
+      }),
+    ).toEqual({ host: "evil.example.com", port: 5432, user: "growthbook" });
+
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: "new.example.com",
+        password: "new password",
+      }),
+    ).toEqual({
+      host: "new.example.com",
+      port: 5432,
+      user: "growthbook",
+      password: "new password",
+    });
+
+    // Non-string values can't pass as "unchanged" and reach the driver
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: ["db.example.com"],
+      } as never),
+    ).toEqual({ host: ["db.example.com"], port: 5432, user: "growthbook" });
+
+    expect(
+      mergeDataSourceParams(
+        "bigquery",
+        { projectId: "p", privateKey: "stored private key" },
+        { apiEndpoint: "https://evil.example.com", privateKey: "" },
+      ),
+    ).toEqual({ projectId: "p", apiEndpoint: "https://evil.example.com" });
+
+    expect(
+      mergeDataSourceParams(
+        "mssql",
+        {
+          server: "sql.example.com",
+          password: "stored password",
+          options: { encrypt: true },
+        },
+        { server: "evil.example.com" },
+      ),
+    ).toEqual({ server: "evil.example.com", options: { encrypt: true } });
+  });
+
+  it("keeps stored secrets when the destination is resubmitted unchanged", () => {
+    expect(
+      mergeDataSourceParams(
+        "postgres",
+        { host: "db.example.com", port: 5432, password: "stored password" },
+        { host: " DB.example.com ", port: "5432", password: "" } as never,
+      ),
+    ).toEqual({
+      host: " DB.example.com ",
+      port: "5432",
+      password: "stored password",
+    });
+  });
+
   it("preserves unsubmitted secrets while applying classified nested updates", () => {
     const merged = mergeDataSourceParams(
       "mssql",

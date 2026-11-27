@@ -299,3 +299,64 @@ describe("whole-member role writes under manageProjects", () => {
     ).toBe(true);
   });
 });
+
+describe("admin as a project role", () => {
+  const adminRule = rule("prj_a", "admin");
+  const extraAdminRule = {
+    ...rule("prj_a"),
+    additionalRoles: [
+      { role: "admin", limitAccessByEnvironment: false, environments: [] },
+    ],
+  };
+  const member = (projectRoles: ProjectMemberRole[]) => ({
+    ...noaccess,
+    projectRoles,
+  });
+
+  it("can't be granted to a member without manageTeam", () => {
+    [adminRule, extraAdminRule].forEach((granted) => {
+      expect(
+        projectAdminOfA.canUpdateMemberRole(member([]), member([granted])),
+      ).toBe(false);
+      expect(teamAdmin.canUpdateMemberRole(member([]), member([granted]))).toBe(
+        true,
+      );
+    });
+    expect(
+      projectAdminOfA.canUpdateMemberRole(
+        member([]),
+        member([rule("prj_a", "gbDefault_projectAdmin")]),
+      ),
+    ).toBe(true);
+  });
+
+  it("can still be taken away, and doesn't block other edits", () => {
+    expect(
+      projectAdminOfA.canUpdateMemberRole(member([adminRule]), member([])),
+    ).toBe(true);
+    expect(
+      projectAdminOfA.canUpdateMemberRole(
+        member([rule("prj_b", "admin")]),
+        member([rule("prj_b", "admin"), rule("prj_a", "engineer")]),
+      ),
+    ).toBe(true);
+  });
+
+  it("can't be carried by a team or handed out through membership", () => {
+    const team = noaccessTeam([adminRule]);
+    expect(projectAdminOfA.canCreateTeam(team)).toBe(false);
+    expect(
+      projectAdminOfA.canUpdateTeam(noaccessTeam([rule("prj_a")]), {
+        projectRoles: [adminRule],
+      }),
+    ).toBe(false);
+    expect(projectAdminOfA.canAddTeamMembers(team)).toBe(false);
+    expect(projectAdminOfA.canManageTeamMembership(team)).toBe(true);
+    expect(projectAdminOfA.canDeleteTeam(team)).toBe(true);
+    expect(teamAdmin.canCreateTeam(team)).toBe(true);
+    expect(teamAdmin.canAddTeamMembers(team)).toBe(true);
+    expect(
+      projectAdminOfA.canAddTeamMembers(noaccessTeam([rule("prj_a")])),
+    ).toBe(true);
+  });
+});

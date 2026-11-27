@@ -178,7 +178,7 @@ export const addTeamMembers = async (
     });
   }
 
-  assertCanChangeTeamMembership(context, team, members);
+  assertCanChangeTeamMembership(context, team, members, "add");
 
   await addMembersToTeam({
     organization: org,
@@ -217,7 +217,7 @@ export const deleteTeamMember = async (
     });
   }
 
-  assertCanChangeTeamMembership(context, team, [memberId]);
+  assertCanChangeTeamMembership(context, team, [memberId], "remove");
 
   const member = org.members.find(
     (member) => member.teams?.includes(id) && member.id === memberId,

@@ -314,22 +314,18 @@ export async function getDataSourcesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
 ) {
-  if (usingFileConfig()) {
-    return getConfigDatasources(context.org.id).filter((d) =>
-      ids.includes(d.id),
-    );
-  }
+  const datasources = usingFileConfig()
+    ? getConfigDatasources(context.org.id).filter((d) => ids.includes(d.id))
+    : (
+        await DataSourceModel.find({
+          id: { $in: ids },
+          organization: context.org.id,
+        })
+      ).map((doc: DataSourceDocument) => toInterface(doc));
 
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    id: { $in: ids },
-    organization: context.org.id,
-  });
-
-  return docs
-    .map(toInterface)
-    .filter((datasource) =>
-      context.permissions.canReadMultiProjectResource(datasource.projects),
-    );
+  return datasources.filter((datasource) =>
+    context.permissions.canReadMultiProjectResource(datasource.projects),
+  );
 }
 
 export async function removeProjectFromDatasources(

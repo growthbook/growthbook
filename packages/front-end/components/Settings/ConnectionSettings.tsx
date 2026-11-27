@@ -1,4 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { dataSourceDestinationChanged } from "shared/util";
 import { ChangeEventHandler, ReactNode, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
@@ -61,6 +62,7 @@ export default function ConnectionSettings({
       (!!bigQueryParams?.defaultProject &&
         bigQueryParams.defaultProject !== bigQueryParams.projectId),
   );
+  const [savedParams] = useState(datasource.params);
 
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
@@ -94,9 +96,17 @@ export default function ConnectionSettings({
 
   if (!datasource.type) return null;
 
-  // A decryption failure blanks every param, so there is nothing to keep and
-  // the credentials have to be re-entered.
-  const storedCredentials = existing && !datasource.decryptionError;
+  // A decryption failure blanks every param, and the server drops stored
+  // secrets when the destination changes, so in both cases there is nothing
+  // to keep and the credentials have to be re-entered.
+  const storedCredentials =
+    existing &&
+    !datasource.decryptionError &&
+    !dataSourceDestinationChanged(
+      datasource.type,
+      savedParams,
+      datasource.params,
+    );
 
   let invalidType: never;
   let datasourceComponent = <></>;

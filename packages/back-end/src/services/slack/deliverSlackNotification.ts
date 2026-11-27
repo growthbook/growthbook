@@ -83,7 +83,7 @@ export async function deliverSlackMessage({
     if (!payload) return null;
     const applySecrets =
       await context.models.webhookSecrets.getBackEndSecretsReplacer(
-        new URL(eventWebHook.url).origin,
+        eventWebHook.url,
       );
     const result = await sendEventWebhook({
       payload,

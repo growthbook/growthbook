@@ -48,9 +48,10 @@ export const apiUpdateWebhookSecretBody = apiCreateWebhookSecretBody.partial();
 export type CreateWebhookSecretProps = CreateProps<WebhookSecretInterface>;
 export type UpdateWebhookSecretProps = UpdateProps<WebhookSecretInterface>;
 
-// The secrets a webhook's endpoint or headers reference: `{{ KEY }}`, or
-// `{{[key with spaces]}}` as the sender rewrites those.
+// A secret reference in a webhook's endpoint or headers: `{{ KEY }}`, with
+// optional square brackets as in `{{[key with spaces]}}`. This is the whole
+// template language: plain substitution, nothing a URL's author can program.
+export const WEBHOOK_SECRET_REFERENCE = /\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g;
+
 export const referencedWebhookSecrets = (text: string): string[] =>
-  [...text.matchAll(/\{\{\s*\[?([^\]{}]+?)\]?\s*\}\}/g)].map((match) =>
-    match[1].trim(),
-  );
+  [...text.matchAll(WEBHOOK_SECRET_REFERENCE)].map((match) => match[1].trim());

@@ -680,6 +680,14 @@ export async function getExperimentsFrequencyMonth(
   req: AuthRequest<null, { num: string }, { project?: string }>,
   res: Response,
 ) {
+  // Sizes every loop and the response below, so it has to be bounded first
+  const months = /^\d+$/.test(req.params.num) ? Number(req.params.num) : 0;
+  if (months < 1 || months > 120) {
+    throw new BadRequestError(
+      "Number of months must be a whole number between 1 and 120",
+    );
+  }
+
   const context = getContextFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -687,7 +695,6 @@ export async function getExperimentsFrequencyMonth(
   }
 
   const allProjects = await context.models.projects.getAll();
-  const { num } = req.params;
   const experiments = await getAllExperiments(context, {
     project,
     includeArchived: true,
@@ -696,7 +703,7 @@ export async function getExperimentsFrequencyMonth(
   const allData: { date: string; numExp: number }[] = [];
 
   // make the data array with all the months needed and 0 experiments.
-  for (let i = parseInt(num) - 1; i >= 0; i--) {
+  for (let i = months - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(1); // necessary because altering the month may result in an invalid date (ex: Feb 31)
     d.setMonth(d.getMonth() - i);
@@ -3285,6 +3292,11 @@ export async function deleteVisualChangeset(
   }
 
   const owner = await resolveChangesetOwner(context, visualChangeset);
+  // An unreadable owner has no project to check, and a check without one
+  // falls back to the global role, overriding a per-project denial.
+  if (!owner) {
+    throw new NotFoundError(ownerNotFoundMessage(visualChangeset));
+  }
 
   if (owner instanceof ContextualBanditChangesetOwner) {
     const envs = getEnvironments(context.org).map((e) => e.id);
@@ -3296,8 +3308,6 @@ export async function deleteVisualChangeset(
     }
   } else if (owner instanceof ExperimentChangesetOwner) {
     assertVisualChangesEditable(context, owner.experiment);
-  } else {
-    assertCanRunLinkedChanges(context, {});
   }
 
   await deleteVisualChangesetById({

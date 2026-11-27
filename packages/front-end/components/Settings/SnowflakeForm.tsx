@@ -67,7 +67,10 @@ const SnowflakeForm: FC<{
   // generated key in use" so uploading a file afterward keeps its name.
   const [generation, setGeneration] = useState(0);
   // Saved connections without authMethod used password; new ones default to key-pair.
-  const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
+  // Pinned at mount: `existing` turns false once the destination is edited.
+  const [savedConnection] = useState(existing);
+  const authMethod =
+    params.authMethod ?? (savedConnection ? "password" : "key-pair");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
     authMethod,

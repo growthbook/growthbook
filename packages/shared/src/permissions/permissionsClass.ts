@@ -8,6 +8,7 @@ import {
   GlobalPermission,
   MemberRoleWithProjects,
   Permission,
+  ProjectMemberRole,
   ProjectScopedPermission,
   SDKAttribute,
   UserPermissions,
@@ -53,6 +54,7 @@ import {
 import type { ReviewAuthorityFootprint } from "../util/features";
 import {
   changedProjectRoleProjects,
+  projectRulesGrantAdmin,
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
   isProjectScopedTeam,
@@ -1305,7 +1307,10 @@ export class Permissions {
   // project-scoped team, and only on projects they administer: the same
   // authority manageProjects already carries for a member's project roles.
   public canCreateTeam = (team: TeamAuthority): boolean => {
-    return this.canAdministerProjectScopedTeam(team);
+    return (
+      this.canAdministerProjectScopedTeam(team) &&
+      this.canChangeProjectRoles(undefined, team.projectRoles)
+    );
   };
 
   public canUpdateTeam = (
@@ -1323,11 +1328,9 @@ export class Permissions {
     );
     if (!changedKeys.length) return true;
     if (changedKeys.some((key) => key !== "projectRoles")) return false;
-    return this.canManageProjectRoles(
-      changedProjectRoleProjects(
-        existing.projectRoles,
-        updates.projectRoles ?? existing.projectRoles,
-      ),
+    return this.canChangeProjectRoles(
+      existing.projectRoles,
+      updates.projectRoles ?? existing.projectRoles,
     );
   };
 
@@ -1338,6 +1341,15 @@ export class Permissions {
   // Membership grants the whole team's authority, so it is gated like the team.
   public canManageTeamMembership = (team: TeamAuthority): boolean => {
     return this.canAdministerProjectScopedTeam(team);
+  };
+
+  // Joining a team that already carries admin hands it over; removal stays
+  // under canManageTeamMembership so a Project Admin can still take it away.
+  public canAddTeamMembers = (team: TeamAuthority): boolean => {
+    return (
+      this.canManageTeamMembership(team) &&
+      this.canChangeProjectRoles(undefined, team.projectRoles)
+    );
   };
 
   // A whole-member write without manageTeam must leave the global role alone
@@ -1354,8 +1366,24 @@ export class Permissions {
       additionalRoles: info.additionalRoles,
     });
     if (!sameRoleValue(globalRole(existing), globalRole(updated))) return false;
-    return this.canManageProjectRoles(
-      changedProjectRoleProjects(existing.projectRoles, updated.projectRoles),
+    return this.canChangeProjectRoles(
+      existing.projectRoles,
+      updated.projectRoles,
+    );
+  };
+
+  // Every path that grants project roles goes through here. Project-scoped
+  // admin carries more than Project Admin does, so without manageTeam a caller
+  // can't add or change a rule that names it.
+  public canChangeProjectRoles = (
+    before: ProjectMemberRole[] | undefined,
+    after: ProjectMemberRole[] | undefined,
+  ): boolean => {
+    if (this.canManageTeam()) return true;
+    const changed = changedProjectRoleProjects(before, after);
+    return (
+      this.canManageProjectRoles(changed) &&
+      !projectRulesGrantAdmin(after, changed)
     );
   };
 

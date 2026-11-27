@@ -31,6 +31,7 @@ export {
   secretParamKeys,
   redactSecretParams,
   mergeDataSourceParams,
+  dataSourceDestinationChanged,
   isSecretDatasourceParamKey,
 } from "./datasource-params";
 export type {
