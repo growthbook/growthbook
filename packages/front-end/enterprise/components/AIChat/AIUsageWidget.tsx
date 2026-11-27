@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Box, Flex, Progress } from "@radix-ui/themes";
 import { PiClock, PiSparkle } from "react-icons/pi";
 import Text from "@/ui/Text";
@@ -5,6 +6,7 @@ import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import { useAITokenUsage } from "@/enterprise/hooks/useAITokenUsage";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 
 function formatResetInLabel(nextResetAtMs: number): string {
   const remainingMs = Math.max(0, nextResetAtMs - Date.now());
@@ -62,6 +64,60 @@ const UsageBadge = ({ pct }: { pct: number }) => {
     />
   );
 };
+
+// A small ring for tight spots, such as under a chat input. Refreshes when a reply ends.
+export function AIUsageIndicator({ busy }: { busy: boolean }) {
+  const { data, mutate } = useAITokenUsage();
+  useEffect(() => {
+    if (!busy) mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
+  if (!data || data.dailyLimit === null) return null;
+
+  const pct = Math.min(
+    Math.round((data.numTokensUsed / data.dailyLimit) * 100),
+    100,
+  );
+  const status = getUsageStatus(pct);
+  const color = status
+    ? `var(--${getUsageStatusColor(status)}-9)`
+    : "var(--slate-9)";
+  const circumference = 2 * Math.PI * 6;
+  return (
+    <Tooltip content={`${pct}% used · ${formatResetInLabel(data.nextResetAt)}`}>
+      <Flex align="center" flexShrink="0">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          role="img"
+          aria-label={`${pct}% of daily AI usage used`}
+        >
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke="var(--slate-a5)"
+            strokeWidth="2"
+          />
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - pct / 100)}
+            transform="rotate(-90 8 8)"
+          />
+        </svg>
+      </Flex>
+    </Tooltip>
+  );
+}
 
 export default function AIUsageWidget() {
   const { data, error, isLoading } = useAITokenUsage();
