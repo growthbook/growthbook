@@ -41,9 +41,13 @@ import {
 } from "back-end/src/enterprise/models/DashboardModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import * as dashboardVersions from "back-end/src/enterprise/services/dashboardVersions";
+import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
+import { secondsUntilAICanBeUsedAgainForPrompt } from "back-end/src/enterprise/services/ai";
 import {
   createDashboardBody,
   publishDashboardDraftBody,
+  revertDashboardDraftBody,
+  saveDashboardDraftBody,
   updateDashboardBody,
 } from "./dashboards.router";
 export { postDashboardBuilderChat } from "back-end/src/enterprise/services/dashboard-builder-agent";
@@ -329,7 +333,7 @@ export async function refreshDashboardData(
 }
 
 export async function getDashboardSnapshots(
-  req: AuthRequest<never, { id: string }, never>,
+  req: AuthRequest<never, { id: string }, { version?: string }>,
   res: ResponseWithStatusAndError<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
@@ -348,6 +352,12 @@ export async function getDashboardSnapshots(
         ...dashboard.blocks,
         ...(await dashboardVersions.getDashboardWorkingContent(context, id))
           .blocks,
+        // A version being previewed from the history.
+        ...(req.query.version
+          ? ((await dashboardVersions.getDashboardVersions(context, id)).find(
+              (v) => String(v.version) === req.query.version,
+            )?.content.blocks ?? [])
+          : []),
       ];
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
@@ -482,6 +492,121 @@ export async function editDashboardDraft(
           req.body,
         );
   return res.status(200).json({ status: 200, draft });
+}
+
+export async function saveDashboardDraft(
+  req: AuthRequest<
+    z.infer<typeof saveDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const context = getContextFromReq(req);
+  const { blocks, ...settings } = req.body;
+  const saved = await dashboardVersions.saveDashboardDraftContent(
+    context,
+    req.params.id,
+    {
+      ...settings,
+      ...(blocks
+        ? {
+            blocks: blocks
+              .map(migrateBlock)
+              .map((block) =>
+                dashboardBlockHasIds(block)
+                  ? block
+                  : generateDashboardBlockIds(context.org.id, block),
+              ),
+          }
+        : {}),
+    },
+  );
+  // A new date range, filter or comparison needs the charts run again.
+  const draft =
+    settings.globalControls !== undefined || settings.comparison !== undefined
+      ? await dashboardVersions.rerunDashboardDraftCharts(
+          context,
+          req.params.id,
+          saved,
+        )
+      : saved;
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function getDashboardVersions(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<{
+    status: number;
+    versions: DashboardVersionInterface[];
+  }>,
+) {
+  const versions = await dashboardVersions.getDashboardVersions(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, versions });
+}
+
+export async function restoreDashboardVersion(
+  req: AuthRequest<{ version: number }, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.restoreDashboardVersion(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.version,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function revertDashboardDraftChange(
+  req: AuthRequest<
+    z.infer<typeof revertDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.revertDashboardDraftChange(
+    getContextFromReq(req),
+    req.params.id,
+    req.body,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function undoDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.undoDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function summarizeDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<{ status: number; summary: string }>,
+) {
+  const context = getContextFromReq(req);
+  if (!(await runAIEnabledGates(context, res))) return;
+  const retryAfter = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "product-analytics-chat",
+  );
+  if (retryAfter > 0) {
+    return res
+      .status(429)
+      .json({ status: 429, message: "Over AI usage limits", retryAfter });
+  }
+  const summary = await dashboardVersions.summarizeDashboardDraft(
+    context,
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, summary });
 }
 
 export async function publishDashboardDraft(

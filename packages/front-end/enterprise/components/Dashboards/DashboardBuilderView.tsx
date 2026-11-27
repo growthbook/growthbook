@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   PiChartLine,
+  PiArrowCounterClockwise,
   PiCloudArrowUp,
   PiDatabase,
   PiPencilSimple,
@@ -31,6 +32,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import DashboardEditor from "./DashboardEditor";
 import DashboardModal from "./DashboardModal";
+import DashboardDraftChanges from "./DashboardDraftChanges";
 import DashboardSnapshotProvider, {
   DashboardSnapshotContext,
 } from "./DashboardSnapshotProvider";
@@ -126,6 +128,7 @@ export default function DashboardBuilderView({
   const { apiCall } = useAuth();
   const [railOpen, setRailOpen] = useState(true);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [note, setNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const {
@@ -243,7 +246,7 @@ export default function DashboardBuilderView({
                 settings: { title: data.title },
               });
             }
-            await post("/draft/publish", "POST", {});
+            await post("/draft/publish", "POST", note.trim() ? { note } : {});
             // After publishing: a draft is only readable by its owner, so a new owner would lock this out.
             await post(
               "",
@@ -259,7 +262,16 @@ export default function DashboardBuilderView({
             );
             await mutate();
           }}
-        />
+        >
+          {draft ? (
+            <DashboardDraftChanges
+              dashboard={dashboard}
+              draft={draft}
+              note={note}
+              setNote={setNote}
+            />
+          ) : null}
+        </DashboardModal>
       ) : null}
       <Box
         flexGrow="1"
@@ -331,6 +343,14 @@ export default function DashboardBuilderView({
               AI Assistant
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            icon={<PiArrowCounterClockwise />}
+            onClick={() => draftCall("/undo")}
+            disabled={loading || !draft?.undo?.length}
+          >
+            Undo
+          </Button>
           <Button
             icon={<PiCloudArrowUp />}
             onClick={() => setPublishOpen(true)}
