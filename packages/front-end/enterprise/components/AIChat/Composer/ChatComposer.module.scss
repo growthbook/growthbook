@@ -170,6 +170,21 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
+// The design's labelled send button: full height, small type. The label inherits the size.
+.labelledSend {
+  gap: var(--space-1);
+  font-size: var(--font-size-1);
+}
+
+// One row, so the toolbar and the send button share a vertical centre.
+.heroBar {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 1;
+}
+
 .heroSendButton {
   position: absolute;
   right: 12px;

@@ -17,10 +17,11 @@ type UseAITokenUsageResult = {
   data: AITokenUsage | null | undefined;
   error: Error | undefined;
   isLoading: boolean;
+  mutate: () => void;
 };
 
 export function useAITokenUsage(): UseAITokenUsageResult {
-  const { data, error } = useApi<APIResponse>("/ai/token-usage", {
+  const { data, error, mutate } = useApi<APIResponse>("/ai/token-usage", {
     shouldRun: () => isCloud(),
   });
 
@@ -29,6 +30,7 @@ export function useAITokenUsage(): UseAITokenUsageResult {
       data: null,
       error: undefined,
       isLoading: false,
+      mutate: () => undefined,
     };
   }
 
@@ -36,5 +38,6 @@ export function useAITokenUsage(): UseAITokenUsageResult {
     data: data?.tokenUsage,
     error,
     isLoading: !data && !error,
+    mutate: () => void mutate(),
   };
 }
