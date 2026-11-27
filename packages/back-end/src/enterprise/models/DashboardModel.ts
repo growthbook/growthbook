@@ -54,8 +54,14 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   dashboardApiSpec,
+  addDashboardDraftBlockEndpoint,
   createDashboardV2Endpoint,
+  getDashboardDraftEndpoint,
   getDashboardsForExperimentEndpoint,
+  publishDashboardDraftEndpoint,
+  removeDashboardDraftBlockEndpoint,
+  replaceDashboardDraftBlockEndpoint,
+  updateDashboardDraftEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import {
@@ -64,13 +70,24 @@ import {
   shouldRecalculateNextUpdate,
   updateDashboardExplorations,
 } from "back-end/src/enterprise/services/dashboards";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, ConflictError } from "back-end/src/util/errors";
 import {
   resolveOwnerEmail,
   resolveOwnerEmails,
   resolveOwnerForCreate,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
+// Used only inside request handlers, so the import cycle with this file is safe.
+import {
+  addDashboardDraftBlock,
+  assertDashboardBuilderOn,
+  editDashboardDraft,
+  readApiDashboardDraft,
+  publishDashboardDraft,
+  replaceDashboardDraftBlock,
+  toApiDashboardDraft,
+  updateDashboardDraftSettings,
+} from "back-end/src/enterprise/services/dashboardVersions";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -117,6 +134,84 @@ const BaseClass = MakeModelClass({
             req.body,
           ),
         }),
+      }),
+      defineCustomApiHandler({
+        ...getDashboardDraftEndpoint,
+        reqHandler: async (req) => ({
+          draft: await readApiDashboardDraft(req.context, req.params.id),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...updateDashboardDraftEndpoint,
+        reqHandler: async (req) => {
+          const { title, globalControls } = req.body;
+          return {
+            draft: toApiDashboardDraft(
+              await updateDashboardDraftSettings(req.context, req.params.id, {
+                ...(title !== undefined ? { title } : {}),
+                ...(globalControls !== undefined ? { globalControls } : {}),
+              }),
+            ),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...addDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => {
+          const { draft, block } = await addDashboardDraftBlock(
+            req.context,
+            req.params.id,
+            req.body,
+          );
+          return {
+            block: toBlockApiInterface(block),
+            draft: toApiDashboardDraft(draft),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...replaceDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => {
+          const { draft, block } = await replaceDashboardDraftBlock(
+            req.context,
+            req.params.id,
+            req.params.blockId,
+            req.body,
+          );
+          return {
+            block: toBlockApiInterface(block),
+            draft: toApiDashboardDraft(draft),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...removeDashboardDraftBlockEndpoint,
+        reqHandler: async (req) => ({
+          draft: toApiDashboardDraft(
+            await editDashboardDraft(req.context, req.params.id, {
+              op: "remove-block",
+              blockId: req.params.blockId,
+            }),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...publishDashboardDraftEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<{ dashboard: ApiDashboardInterface }> => {
+          const { dashboard } = await publishDashboardDraft(
+            req.context,
+            req.params.id,
+            req.body?.note,
+          );
+          return {
+            dashboard: await resolveOwnerEmail(
+              req.context.models.dashboards.toApiInterface(dashboard),
+              req.context,
+            ),
+          };
+        },
       }),
       defineCustomApiHandler({
         ...getDashboardsForExperimentEndpoint,
@@ -186,6 +281,8 @@ export class DashboardModel extends BaseClass {
         isDefault: false,
         enableAutoUpdates: true,
         experimentId: null,
+        // Only its owner can load one, so the worker never could.
+        isDraft: { $ne: true },
         $or: [
           {
             nextUpdate: {
@@ -233,7 +330,10 @@ export class DashboardModel extends BaseClass {
       return false;
     }
 
-    if (doc.shareLevel === "private" && doc.userId !== this.context.userId) {
+    if (
+      (doc.shareLevel === "private" || doc.isDraft) &&
+      doc.userId !== this.context.userId
+    ) {
       return false;
     }
 
@@ -290,6 +390,13 @@ export class DashboardModel extends BaseClass {
         updates,
       );
     }
+  }
+
+  public canEdit(doc: DashboardInterface): boolean {
+    const isOwner = this.context.userId === doc.userId;
+    const isAdmin = this.context.permissions.canSuperDeleteReport();
+    if (doc.editLevel === "private" && !isOwner && !isAdmin) return false;
+    return this.canUpdate(doc, {});
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
@@ -398,7 +505,9 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected async afterDelete(_doc: DashboardDocument) {}
+  protected async afterDelete(doc: DashboardDocument) {
+    await this.context.models.dashboardVersions.deleteAllForDashboard(doc.id);
+  }
 
   protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
@@ -423,6 +532,7 @@ export class DashboardModel extends BaseClass {
   // When duplicating a dashboard, we need to create a new instance of each saved query so changes in
   // the new dashboard don't affect the existing one
   protected async beforeCreate(doc: DashboardDocument) {
+    if (doc.isDraft) assertDashboardBuilderOn(this.context);
     const savedQueryIds = new Set(
       doc.blocks
         .filter((block) => blockHasFieldOfType(block, "savedQueryId", isString))
@@ -531,14 +641,19 @@ export class DashboardModel extends BaseClass {
       globalControls,
       comparison,
       blocks,
-    }: ApiCreateDashboardBody,
+      isDraft,
+    }: ApiCreateDashboardBody & { isDraft?: boolean },
     userId: string,
   ) {
+    if (isDraft && experimentId) {
+      throw new BadRequestError("Experiment dashboards cannot be drafts.");
+    }
     const base = {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
       isDeleted: false,
       userId,
+      isDraft,
       editLevel,
       shareLevel,
       enableAutoUpdates,
@@ -607,6 +722,42 @@ export class DashboardModel extends BaseClass {
       );
     }
   }
+  // While a draft exists, publishing it replaces the live content: a direct content edit
+  // would be lost, so it is refused, and a rename is copied into the draft.
+  public async reconcileLiveEditWithDraft(
+    dashboard: DashboardInterface,
+    updates: Partial<
+      Pick<
+        DashboardInterface,
+        "title" | "blocks" | "globalControls" | "comparison"
+      >
+    >,
+  ): Promise<void> {
+    // Someone who cannot edit is refused by the write that follows; nothing changes for them here.
+    if (dashboard.experimentId || !this.canEdit(dashboard)) return;
+    const versions = this.context.models.dashboardVersions;
+    const draft = await versions.getDraft(dashboard.id);
+    if (!draft) return;
+    if (
+      updates.blocks !== undefined ||
+      updates.globalControls !== undefined ||
+      updates.comparison !== undefined
+    ) {
+      throw new ConflictError(
+        "This dashboard has unpublished changes. Edit its draft, or discard the draft, before changing it directly.",
+      );
+    }
+    const { title } = updates;
+    if (title !== undefined && title !== draft.content.title) {
+      // Merged into whatever the draft holds now, and only while it is still a draft.
+      await versions.updateWithCas(draft.id, ["dateUpdated"], (current) =>
+        current.status === "draft"
+          ? { content: { ...current.content, title } }
+          : null,
+      );
+    }
+  }
+
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ): Promise<ApiDashboardInterface> {
@@ -633,6 +784,10 @@ export class DashboardModel extends BaseClass {
       { ...dashboard, ...nonBlockUpdates },
       dashboard,
     );
+    await this.reconcileLiveEditWithDraft(dashboard, {
+      ...nonBlockUpdates,
+      ...(blocks ? { blocks: dashboard.blocks } : {}),
+    });
 
     // After the permission check: this rejects an id the dashboard doesn't have,
     // and a caller who may not write here should hear that before anything else.
@@ -1202,7 +1357,7 @@ export function migrateBlock(
   }
 }
 
-function toBlockApiInterface(
+export function toBlockApiInterface(
   block: DashboardBlockInterface,
 ): ApiDashboardBlockInterface {
   switch (block.type) {

@@ -18,6 +18,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
@@ -41,6 +42,7 @@ import {
 } from "@/ui/DropdownMenu";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
 
@@ -385,19 +387,30 @@ export default function DashboardsPage() {
                                 )}
                               </td>
                               <td>
-                                <ShareStatusBadge
-                                  shareLevel={
-                                    d.shareLevel === "published"
-                                      ? "organization"
-                                      : "private"
-                                  }
-                                  editLevel={
-                                    d.editLevel === "private"
-                                      ? "private"
-                                      : "organization"
-                                  }
-                                  isOwner={d.userId === userId}
-                                />
+                                {d.isDraft ? (
+                                  <UITooltip content="Never published. Only you can see this dashboard.">
+                                    <Badge
+                                      variant="soft"
+                                      color="gray"
+                                      label="Draft"
+                                      radius="full"
+                                    />
+                                  </UITooltip>
+                                ) : (
+                                  <ShareStatusBadge
+                                    shareLevel={
+                                      d.shareLevel === "published"
+                                        ? "organization"
+                                        : "private"
+                                    }
+                                    editLevel={
+                                      d.editLevel === "private"
+                                        ? "private"
+                                        : "organization"
+                                    }
+                                    isOwner={d.userId === userId}
+                                  />
+                                )}
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (

@@ -354,9 +354,28 @@ function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
  * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
  */
-function requiresMutationConfirmation(input: DispatchInput): boolean {
+// Draft edits are private to the dashboard's editors, so they go through unconfirmed. Publishing is not one.
+const DASHBOARD_DRAFT_RE = /^\/api\/v2\/dashboards\/([^/]+)\/draft(\/.*)?$/;
+const DASHBOARD_DRAFT_EDIT_RE =
+  /^\/api\/v2\/dashboards\/[^/]+\/draft(\/blocks(\/[^/]+)?)?\/?$/;
+
+/** A call that reads, or only runs a query: what a read-only agent may make. */
+export function isReadOnlyAgentCall(
+  input: Pick<DispatchInput, "method" | "path">,
+): boolean {
+  if (input.method === "GET") return true;
+  return (
+    !DASHBOARD_DRAFT_EDIT_RE.test(normalizePath(input.path)) &&
+    !requiresMutationConfirmation(input)
+  );
+}
+
+function requiresMutationConfirmation(
+  input: Pick<DispatchInput, "method" | "path">,
+): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
+  if (DASHBOARD_DRAFT_EDIT_RE.test(path)) return false;
   if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
@@ -390,11 +409,19 @@ function latestPageContext(messages: AIChatMessage[]): string | undefined {
 function offScreenDashboardWrite(
   input: DispatchInput,
   messages: AIChatMessage[],
+  // Set by an agent that lives on one dashboard's page, such as the builder.
+  onScreenDashboardId?: string,
 ): { status: "rejected"; message: string } | undefined {
+  const path = normalizePath(input.path);
+  // A draft write changes that dashboard as surely as a write to its root.
+  const draftOf =
+    input.method === "GET" ? undefined : path.match(DASHBOARD_DRAFT_RE)?.[1];
   const message = offScreenDashboardWriteRejection({
-    method: input.method,
-    path: normalizePath(input.path),
-    currentPage: latestPageContext(messages),
+    method: draftOf ? "PUT" : input.method,
+    path: draftOf ? `/api/v2/dashboards/${draftOf}` : path,
+    currentPage: onScreenDashboardId
+      ? `/product-analytics/dashboards/${onScreenDashboardId}`
+      : latestPageContext(messages),
   });
   return message ? { status: "rejected", message } : undefined;
 }
@@ -653,6 +680,7 @@ export function buildCoreAgentTools(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   emit?: AgentEmit,
+  onScreenDashboardId?: string,
 ) {
   return {
     loadSkill: aiTool({
@@ -687,6 +715,7 @@ export function buildCoreAgentTools(
         const offScreen = offScreenDashboardWrite(
           dispatchInput,
           buffer.getMessages(),
+          onScreenDashboardId,
         );
         if (offScreen) return offScreen;
 

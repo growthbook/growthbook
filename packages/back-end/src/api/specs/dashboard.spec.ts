@@ -1,7 +1,15 @@
 import { z } from "zod";
 import {
+  apiAddDashboardDraftBlockValidator,
   apiCreateDashboardBody,
   apiCreateDashboardBodyV2,
+  apiDashboardDraftBlockReturn,
+  apiDashboardDraftReturn,
+  apiGetDashboardDraftValidator,
+  apiPublishDashboardDraftValidator,
+  apiRemoveDashboardDraftBlockValidator,
+  apiReplaceDashboardDraftBlockValidator,
+  apiUpdateDashboardDraftValidator,
   apiDashboardInterface,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
@@ -33,6 +41,73 @@ export const createDashboardV2Endpoint = {
   version: "v2" as const,
 };
 
+// Held like any other dashboard write for a key that asks to confirm its writes.
+const draftEndpoint = {
+  version: "v2" as const,
+  confirmation: ["other.write"] as const,
+};
+
+export const getDashboardDraftEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft",
+  verb: "get" as const,
+  operationId: "getDashboardDraft",
+  validator: apiGetDashboardDraftValidator,
+  zodReturnObject: apiDashboardDraftReturn,
+  summary:
+    "Get a dashboard's draft, or the content a new draft would start from",
+};
+
+export const updateDashboardDraftEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft",
+  verb: "put" as const,
+  operationId: "updateDashboardDraft",
+  validator: apiUpdateDashboardDraftValidator,
+  zodReturnObject: apiDashboardDraftReturn,
+  summary: "Change a draft's title or dashboard-wide controls",
+};
+
+export const addDashboardDraftBlockEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft/blocks",
+  verb: "post" as const,
+  operationId: "addDashboardDraftBlock",
+  validator: apiAddDashboardDraftBlockValidator,
+  zodReturnObject: apiDashboardDraftBlockReturn,
+  summary: "Add one block to a dashboard's draft",
+};
+
+export const replaceDashboardDraftBlockEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft/blocks/:blockId",
+  verb: "put" as const,
+  operationId: "replaceDashboardDraftBlock",
+  validator: apiReplaceDashboardDraftBlockValidator,
+  zodReturnObject: apiDashboardDraftBlockReturn,
+  summary: "Replace one block in a dashboard's draft",
+};
+
+export const removeDashboardDraftBlockEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft/blocks/:blockId",
+  verb: "delete" as const,
+  operationId: "removeDashboardDraftBlock",
+  validator: apiRemoveDashboardDraftBlockValidator,
+  zodReturnObject: apiDashboardDraftReturn,
+  summary: "Remove one block from a dashboard's draft",
+};
+
+export const publishDashboardDraftEndpoint = {
+  ...draftEndpoint,
+  pathFragment: "/:id/draft/publish",
+  verb: "post" as const,
+  operationId: "publishDashboardDraft",
+  validator: apiPublishDashboardDraftValidator,
+  zodReturnObject: z.object({ dashboard: apiDashboardInterface }),
+  summary: "Publish a dashboard's draft as its next version",
+};
+
 export const dashboardApiSpec = {
   modelSingular: "dashboard",
   modelPlural: "dashboards",
@@ -51,6 +126,12 @@ export const dashboardApiSpec = {
   customEndpoints: [
     getDashboardsForExperimentEndpoint,
     createDashboardV2Endpoint,
+    getDashboardDraftEndpoint,
+    updateDashboardDraftEndpoint,
+    addDashboardDraftBlockEndpoint,
+    replaceDashboardDraftBlockEndpoint,
+    removeDashboardDraftBlockEndpoint,
+    publishDashboardDraftEndpoint,
   ],
   crudDescriptions: {
     create:
