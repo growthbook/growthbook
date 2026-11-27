@@ -17,6 +17,7 @@ import {
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  dataSourceDestinationChanged,
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
@@ -33,6 +34,7 @@ import {
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import { EVENT_FORWARDER_ENVIRONMENT_INDEX } from "back-end/src/models/EventForwarderConfigModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -378,6 +380,43 @@ function parseBigQueryServiceAccountKey(raw: string): {
   }
 
   return parsed;
+}
+
+// The forwarder's saved BigQuery key is sent to the Data Source's endpoint, so
+// like the Data Source's own secrets it can't follow that endpoint somewhere
+// new. Call before merging submitted params into a Data Source.
+export async function assertEventForwarderKeyStaysWithDestination(
+  context: ReqContext,
+  datasource: Pick<DataSourceInterface, "id" | "type">,
+  storedParams: unknown,
+  submittedParams: unknown,
+  draft?: EventForwarderConfigDraft | null,
+): Promise<void> {
+  if (
+    !dataSourceDestinationChanged(
+      datasource.type,
+      storedParams,
+      submittedParams,
+    )
+  ) {
+    return;
+  }
+  if (
+    draft?.sinkType === "bigquery" &&
+    draft.config.serviceAccountKey?.trim()
+  ) {
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (
+    existing?.sinkType === "bigquery" &&
+    decryptSinkConfig<BigQueryEventForwarderStoredConfig>(existing.config)
+      .serviceAccountKey
+  ) {
+    throw new BadRequestError(
+      "Changing the BigQuery API endpoint requires re-entering the Event Forwarder's service account key.",
+    );
+  }
 }
 
 export function getEventForwarderBigQueryConnectionParams(

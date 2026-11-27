@@ -327,6 +327,22 @@ export function redactSecretParams(
   return redactRecord(params, DATA_SOURCE_PARAM_SENSITIVITY[type]);
 }
 
+// The stored params with every secret and unclassified key removed.
+function publicRecord(
+  params: unknown,
+  classification: unknown,
+): Record<string, unknown> {
+  if (!isRecord(params) || !isRecord(classification)) return {};
+  const kept: Record<string, unknown> = {};
+  Object.entries(params).forEach(([key, value]) => {
+    const sensitivity = classification[key];
+    if (sensitivity === "public") kept[key] = value;
+    else if (isRecord(sensitivity))
+      kept[key] = publicRecord(value, sensitivity);
+  });
+  return kept;
+}
+
 function mergeRecord(
   existing: unknown,
   updates: unknown,
@@ -373,12 +389,15 @@ export function mergeDataSourceParams(
   existing: unknown,
   updates: unknown,
 ): unknown {
-  // Stored secrets were saved for the old destination, so a new one starts
-  // from the submitted params alone.
+  const classification = DATA_SOURCE_PARAM_SENSITIVITY[type];
+  // Stored secrets were saved for the old destination, so none of them follow
+  // it to a new one.
   const merged = mergeRecord(
-    dataSourceDestinationChanged(type, existing, updates) ? {} : existing,
+    dataSourceDestinationChanged(type, existing, updates)
+      ? publicRecord(existing, classification)
+      : existing,
     updates,
-    DATA_SOURCE_PARAM_SENSITIVITY[type],
+    classification,
   );
   // Blank secrets mean "keep existing", so a switch to workload identity must drop them explicitly.
   if (type === "snowflake" && merged.authMethod === "workload-identity") {

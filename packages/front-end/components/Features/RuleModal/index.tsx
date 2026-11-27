@@ -1317,6 +1317,7 @@ export default function RuleModal({
     }
 
     let safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined;
+    let safeRolloutFieldsChanged = false;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -1581,6 +1582,12 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
+        safeRolloutFieldsChanged =
+          JSON.stringify(safeRolloutFields) !==
+          JSON.stringify(
+            (defaultValues as Partial<SafeRolloutRuleCreateFields>)
+              .safeRolloutFields,
+          );
         // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
         const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
         // backend deals with the rest
@@ -1701,7 +1708,9 @@ export default function RuleModal({
 
       if (mode === "edit") {
         if (!ruleId) throw new Error("Missing ruleId for edit");
-        if (values.type === "safe-rollout") {
+        // Changing a started rollout's settings takes publish access, so a
+        // drafter's edit to the rule itself must not depend on this request.
+        if (values.type === "safe-rollout" && safeRolloutFieldsChanged) {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({

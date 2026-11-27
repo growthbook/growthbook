@@ -103,29 +103,41 @@ describe("mergeDataSourceParams", () => {
     ).toEqual({ apiEndpoint: "", privateKey: "stored private key" });
   });
 
-  it("replaces the params instead of merging when the destination changes", () => {
+  it("drops stored secrets, and only those, when the destination changes", () => {
     const stored = {
       host: "db.example.com",
       port: 5432,
       user: "growthbook",
       password: "stored password",
       clientKey: "stored key",
+      pass: "legacy secret",
     };
 
     expect(
       mergeDataSourceParams("postgres", stored, {
         host: "evil.example.com",
-        port: 5432,
         password: "",
       }),
-    ).toEqual({ host: "evil.example.com", port: 5432 });
+    ).toEqual({ host: "evil.example.com", port: 5432, user: "growthbook" });
+
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: "new.example.com",
+        password: "new password",
+      }),
+    ).toEqual({
+      host: "new.example.com",
+      port: 5432,
+      user: "growthbook",
+      password: "new password",
+    });
 
     // Non-string values can't pass as "unchanged" and reach the driver
     expect(
       mergeDataSourceParams("postgres", stored, {
         host: ["db.example.com"],
       } as never),
-    ).toEqual({ host: ["db.example.com"] });
+    ).toEqual({ host: ["db.example.com"], port: 5432, user: "growthbook" });
 
     expect(
       mergeDataSourceParams(
@@ -133,15 +145,19 @@ describe("mergeDataSourceParams", () => {
         { projectId: "p", privateKey: "stored private key" },
         { apiEndpoint: "https://evil.example.com", privateKey: "" },
       ),
-    ).toEqual({ apiEndpoint: "https://evil.example.com" });
+    ).toEqual({ projectId: "p", apiEndpoint: "https://evil.example.com" });
 
     expect(
       mergeDataSourceParams(
-        "snowflake",
-        { account: "xy12345", password: "hunter2" },
-        { accessUrl: "https://evil.example.com" },
+        "mssql",
+        {
+          server: "sql.example.com",
+          password: "stored password",
+          options: { encrypt: true },
+        },
+        { server: "evil.example.com" },
       ),
-    ).toEqual({ accessUrl: "https://evil.example.com" });
+    ).toEqual({ server: "evil.example.com", options: { encrypt: true } });
   });
 
   it("keeps stored secrets when the destination is resubmitted unchanged", () => {

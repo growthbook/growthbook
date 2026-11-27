@@ -1,13 +1,51 @@
-import { renderedWebhookOrigin } from "back-end/src/util/secrets";
+import {
+  renderedWebhookOrigin,
+  secretsReplacer,
+} from "back-end/src/util/secrets";
+
+describe("secretsReplacer", () => {
+  const apply = secretsReplacer({
+    TOKEN: "t&1",
+    "my-key": "hyphen",
+    "API KV": "space",
+  });
+
+  it("substitutes every supported reference form", () => {
+    expect(
+      apply("{{TOKEN}} {{ TOKEN }} {{[TOKEN]}} {{my-key}} {{ API KV }}"),
+    ).toBe("t&1 t&1 t&1 hyphen space");
+    expect(apply("?t={{ TOKEN }}", { encode: encodeURIComponent })).toBe(
+      "?t=t%261",
+    );
+    expect(apply({ "X-{{my-key}}": "Bearer {{TOKEN}}" })).toEqual({
+      "X-hyphen": "Bearer t&1",
+    });
+  });
+
+  it("throws on a reference that isn't a known secret", () => {
+    expect(() => apply("{{ NOPE }}")).toThrow('"NOPE" not defined');
+    expect(() => apply("{{ constructor }}")).toThrow();
+  });
+
+  it("runs no template syntax", () => {
+    [
+      "{{!-- comment --}}",
+      "{{#if TOKEN}}a{{/if}}",
+      '{{lookup this "TOKEN"}}',
+      "{{log TOKEN}}",
+    ].forEach((template) => expect(() => apply(template)).toThrow());
+    expect(apply("{{{TOKEN}}}")).toBe("{t&1}");
+  });
+});
 
 describe("renderedWebhookOrigin", () => {
-  it("sees through a template comment that hides the real host", () => {
-    const url =
-      "https://{{!--@allowed.host/--}}attacker.example/?s={{ SECRET }}";
-    expect(new URL(url).origin).toBe("https://allowed.host");
-    expect(renderedWebhookOrigin(url, { SECRET: "s" })).toBe(
-      "https://attacker.example",
-    );
+  it("can't be pointed away from the typed host by a template comment", () => {
+    expect(
+      renderedWebhookOrigin(
+        "https://{{!--@allowed.host/--}}attacker.example/?s={{ SECRET }}",
+        { SECRET: "s" },
+      ),
+    ).toBe(null);
   });
 
   it("resolves a secret in the host, encoded as the request encodes it", () => {
@@ -24,15 +62,4 @@ describe("renderedWebhookOrigin", () => {
       null,
     );
   });
-});
-
-// Handlebars `lookup` doesn't throw on a missing key, even in strict mode, so
-// a template can pick its host from whether a secret is present.
-it("lets a template change host when a secret is absent", () => {
-  const url =
-    'https://{{#if (lookup this "BLOCKED")}}allowed.example{{else}}evil.example{{/if}}/';
-  expect(renderedWebhookOrigin(url, { BLOCKED: "x" })).toBe(
-    "https://allowed.example",
-  );
-  expect(renderedWebhookOrigin(url, {})).toBe("https://evil.example");
 });

@@ -58,6 +58,7 @@ import {
   findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
+  assertEventForwarderKeyStaysWithDestination,
   assertNoEventForwarderEnvironmentOverlap,
   setEventForwarderEnvironments,
   createUnconfiguredEventForwarderConfig,
@@ -639,6 +640,13 @@ export async function putEventForwarderForDataSource(
     const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
 
     if (parsed.data.params) {
+      await assertEventForwarderKeyStaysWithDestination(
+        context,
+        datasource,
+        integration.params,
+        parsed.data.params,
+        parsed.data.eventForwarderConfig as EventForwarderConfigDraft,
+      );
       mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
@@ -927,6 +935,13 @@ export async function postTestEventForwarderAccessForDatasource(
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (parsed.data.params) {
+    await assertEventForwarderKeyStaysWithDestination(
+      context,
+      datasource,
+      integration.params,
+      parsed.data.params,
+      parsed.data.eventForwarderConfig as EventForwarderConfigDraft | undefined,
+    );
     mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
   }
 
