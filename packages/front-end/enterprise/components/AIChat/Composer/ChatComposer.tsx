@@ -94,6 +94,10 @@ export interface ChatComposerProps {
   suggestedReply?: { key: string; text: string };
   /** Canned prompts to complete against before asking the model. */
   quickSuggestions?: readonly string[];
+  /** Hero only: controls shown in the box's bottom-left corner. */
+  heroToolbar?: React.ReactNode;
+  /** Text on the send button, beside its arrow. */
+  sendLabel?: string;
 }
 
 type ActiveSuggestion =
@@ -156,6 +160,8 @@ function ChatComposer(
     conversationId,
     suggestedReply,
     quickSuggestions,
+    heroToolbar,
+    sendLabel,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -480,8 +486,14 @@ function ChatComposer(
   const Icon = isLocalStream ? PiStop : PiArrowRightBold;
   const action = isLocalStream
     ? { onClick: onCancel, label: "Cancel generation", disabled: false }
-    : { onClick: submit, label: "Send message", disabled: !canSend };
+    : {
+        onClick: submit,
+        // Matches the visible label, so voice control can name the button.
+        label: sendLabel ?? "Send message",
+        disabled: !canSend,
+      };
 
+  const labelled = !!sendLabel && !isLocalStream;
   const sendButton = isCompact ? (
     <button
       type="button"
@@ -495,15 +507,17 @@ function ChatComposer(
     </button>
   ) : (
     <Button
-      className={styles.wideSendButton}
+      className={labelled ? styles.labelledSend : styles.wideSendButton}
       color={isLocalStream ? "gray" : "violet"}
       variant={isLocalStream ? "soft" : "solid"}
       onClick={action.onClick}
       disabled={action.disabled}
       title={action.label}
       aria-label={action.label}
+      icon={labelled ? <Icon size={12} /> : undefined}
+      iconPosition="right"
     >
-      <Icon size={16} />
+      {labelled ? sendLabel : <Icon size={16} />}
     </Button>
   );
 
@@ -581,7 +595,23 @@ function ChatComposer(
         onBlur={handleBlur}
       />
       {isHero ? (
-        <div className={styles.heroSendButton}>{buttons}</div>
+        heroToolbar ? (
+          <Flex
+            align="center"
+            justify="between"
+            gap="3"
+            className={styles.heroBar}
+          >
+            <Flex align="center" gap="2">
+              {heroToolbar}
+            </Flex>
+            <Flex align="center" gap="2">
+              {buttons}
+            </Flex>
+          </Flex>
+        ) : (
+          <div className={styles.heroSendButton}>{buttons}</div>
+        )
       ) : (
         buttons
       )}

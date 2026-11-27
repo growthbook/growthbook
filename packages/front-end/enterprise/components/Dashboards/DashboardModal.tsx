@@ -49,6 +49,7 @@ export default function DashboardModal({
   close,
   submit,
   type = "experiment",
+  children,
 }: {
   mode: "create" | "edit" | "duplicate";
   initial?: CreateDashboardArgs["data"];
@@ -56,6 +57,7 @@ export default function DashboardModal({
   close: () => void;
   submit: (data: CreateDashboardArgs["data"]) => void;
   type?: "general" | "experiment";
+  children?: React.ReactNode;
 }) {
   const defaultRefreshInterval = getExperimentRefreshFrequency();
   const {
@@ -307,6 +309,7 @@ export default function DashboardModal({
             )}
           </>
         ) : null}
+        {children}
       </Flex>
     </Modal>
   );

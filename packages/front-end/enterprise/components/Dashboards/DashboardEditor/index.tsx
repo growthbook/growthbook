@@ -203,6 +203,8 @@ interface Props {
   setIsEditing?: (v: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
   editBlockProps?: EditBlockProps;
+  // The caller draws its own title row; only the controls and grid show.
+  hideHeader?: boolean;
 }
 
 function DashboardEditor({
@@ -233,6 +235,7 @@ function DashboardEditor({
   setIsEditing,
   enterEditModeForBlock,
   editBlockProps,
+  hideHeader,
 }: Props) {
   const {
     editSidebarDirty,
@@ -446,6 +449,7 @@ function DashboardEditor({
         {/* Viewing, as tall as what's in it, so it starts 24px under the
           header like other pages' title rows; editing, the editor's 40px. */}
         <Flex
+          display={hideHeader ? "none" : "flex"}
           align="center"
           height={isEditing ? DASHBOARD_TOPBAR_HEIGHT : undefined}
           gap="1"
@@ -470,17 +474,20 @@ function DashboardEditor({
               />
             </Flex>
           )}
-          <DashboardUpdateDisplay
-            dashboardId={id}
-            enableAutoUpdates={enableAutoUpdates}
-            nextUpdate={nextUpdate}
-            dashboardLastUpdated={dashboardLastUpdated}
-            disabled={!!editSidebarDirty}
-            isEditing={isEditing}
-            needsUpdate={needsUpdate}
-            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
-            onUpdated={() => setNeedsUpdate(false)}
-          />
+          {/* Not mounted when hidden: it is the row's only live control here. */}
+          {hideHeader ? null : (
+            <DashboardUpdateDisplay
+              dashboardId={id}
+              enableAutoUpdates={enableAutoUpdates}
+              nextUpdate={nextUpdate}
+              dashboardLastUpdated={dashboardLastUpdated}
+              disabled={!!editSidebarDirty}
+              isEditing={isEditing}
+              needsUpdate={needsUpdate}
+              updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+              onUpdated={() => setNeedsUpdate(false)}
+            />
+          )}
           {isGeneralDashboard && setIsEditing && !isEditing ? (
             <Flex align="center" gap="4" ml="4" flexShrink="0">
               {canManageSharingAndEditLevels && (
@@ -599,7 +606,7 @@ function DashboardEditor({
             </Flex>
           ) : null}
         </Flex>
-        {!isEditing && (
+        {!isEditing && !hideHeader && (
           <Flex align="center" gap="3">
             <Flex align="center" gap="1">
               <Text weight="medium">Projects:</Text>
@@ -916,6 +923,7 @@ function DashboardGrid({
             return (
               <div
                 key={key}
+                data-block-id={key}
                 className={clsx("dashboard-grid-item", {
                   "is-grid-interaction-disabled":
                     isDefined(stagedBlockIndex) && i !== stagedBlockIndex,
