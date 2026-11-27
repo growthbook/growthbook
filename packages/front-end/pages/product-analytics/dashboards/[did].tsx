@@ -18,6 +18,7 @@ import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
+import DashboardBuilderView from "@/enterprise/components/Dashboards/DashboardBuilderView";
 
 function SingleDashboardPage() {
   const router = useRouter();
@@ -166,6 +167,11 @@ function SingleDashboardPage() {
   if (!dashboard) {
     router.replace("/404");
     return null;
+  }
+
+  // Never published: only its owner can load it, and it is still being built.
+  if (dashboard.isDraft) {
+    return <DashboardBuilderView dashboard={dashboard} mutate={mutate} />;
   }
 
   return (
