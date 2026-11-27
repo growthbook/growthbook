@@ -25,6 +25,9 @@ export const athenaDialect: SqlDialect = {
     return isNumeric ? athenaDialect.castToFloat(raw) : raw;
   },
   jsonArray: trinoJsonArray,
+  // Athena runs on Trino, which can't parse `IS TRUE` / `IS FALSE` before 482.
+  evalBoolean: (col: string, value: boolean) =>
+    `${col} = ${value ? "true" : "false"}`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(${col})`,
