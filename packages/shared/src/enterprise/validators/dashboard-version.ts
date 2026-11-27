@@ -37,6 +37,7 @@ export const dashboardVersionInterface = z
     status: z.enum(["draft", "published"]),
     content: dashboardVersionContent,
     changes: z.array(dashboardVersionChange),
+    undo: z.array(dashboardVersionContent).optional(), // Earlier contents, newest last
     note: z.string().optional(),
     publishedBy: z.string().optional(),
     datePublished: z.date().optional(),

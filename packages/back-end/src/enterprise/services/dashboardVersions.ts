@@ -7,11 +7,13 @@ import {
   applyDashboardDraftOp,
   dashboardBlockHasIds,
   dashboardDraftChangeFromOp,
+  diffDashboardContent,
   DashboardDraftOp,
   DashboardDraftOpInput,
   DashboardInterface,
   DashboardVersionContent,
   DashboardVersionInterface,
+  DashboardVersionSetting,
   DASHBOARD_GRID_COLS,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
@@ -23,6 +25,7 @@ import {
   toBlockApiInterface,
 } from "back-end/src/enterprise/models/DashboardModel";
 import { runNewApiExplorationBlocks } from "back-end/src/enterprise/services/dashboards";
+import { simpleCompletion } from "back-end/src/enterprise/services/ai";
 import {
   currentRequestSource,
   getBackendFeatureValue,
@@ -141,12 +144,39 @@ export async function getOrCreateDashboardDraft(
   }
 }
 
+// ponytail: whole-content snapshots; store per-change inverses if drafts get large.
+const UNDO_STEPS = 20;
+
+export async function undoDashboardDraft(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardVersionInterface> {
+  const draft = await getDashboardDraft(context, dashboardId);
+  const updated = draft
+    ? await context.models.dashboardVersions.updateWithCas(
+        draft.id,
+        ["dateUpdated"],
+        (current) => {
+          const undo = current.undo ?? [];
+          if (current.status !== "draft" || !undo.length) return null;
+          return {
+            content: undo[undo.length - 1],
+            undo: undo.slice(0, -1),
+            changes: current.changes.slice(0, -1),
+          };
+        },
+      )
+    : null;
+  if (!updated) throw new BadRequestError("There is nothing to undo");
+  return updated;
+}
+
 // ponytail: two edits to the same block are last-write-wins; add a per-block revision when editors collide.
 export async function editDashboardDraft(
   context: ReqContext,
   dashboardId: string,
   input: DashboardDraftOpInput,
-  // silent: part of a larger change, so no change record of its own.
+  // silent: part of a larger change, so no change record and no Undo step of its own.
   // draftId: the draft the caller started from; fails if it has since been published or discarded.
   options: { byAI?: boolean; silent?: boolean; draftId?: string } = {},
 ): Promise<DashboardVersionInterface> {
@@ -194,7 +224,14 @@ export async function editDashboardDraft(
             content.grid?.cols ?? DASHBOARD_GRID_COLS,
           ),
         },
-        ...(options.silent ? {} : { changes: [...current.changes, change] }),
+        ...(options.silent
+          ? {}
+          : {
+              changes: [...current.changes, change],
+              undo: [...(current.undo ?? []), current.content].slice(
+                -UNDO_STEPS,
+              ),
+            }),
       };
     },
   );
@@ -249,6 +286,8 @@ export async function publishDashboardDraft(
       isDraft: false,
       publishedVersion: version.version,
     });
+    // Only now: a failed publish reopens the draft, which should keep its Undo steps.
+    await versions.update(version, { undo: [] });
     return { dashboard: published, version };
   } catch (e) {
     // The write can land and a later hook still throw; only reopen what is not live.
@@ -258,6 +297,145 @@ export async function publishDashboardDraft(
     }
     throw e;
   }
+}
+
+// The manual editor saves whole content; the draft's change list is derived from the difference.
+export async function saveDashboardDraftContent(
+  context: ReqContext,
+  dashboardId: string,
+  updates: Partial<DashboardVersionContent>,
+): Promise<DashboardVersionInterface> {
+  const draft = await getOrCreateDashboardDraft(context, dashboardId);
+  const updated = await context.models.dashboardVersions.updateWithCas(
+    draft.id,
+    ["dateUpdated"],
+    (current) => {
+      if (current.status !== "draft") return null;
+      const next = { ...current.content, ...updates };
+      const content = {
+        ...next,
+        blocks: normalizeLayouts(
+          resolveGlobalControlsBlockEnrollment({
+            existingGlobalControls: current.content.globalControls,
+            nextGlobalControls: next.globalControls,
+            nextBlocks: next.blocks,
+          }) ?? next.blocks,
+          next.grid?.cols ?? DASHBOARD_GRID_COLS,
+        ),
+      };
+      const changes = diffDashboardContent(current.content, content).map(
+        ({ type, blockId }) => ({
+          type: type === "block-moved" ? ("block-edited" as const) : type,
+          blockId,
+          userId: context.userId,
+          date: new Date(),
+        }),
+      );
+      if (!changes.length) return { content };
+      return {
+        content,
+        changes: [...current.changes, ...changes],
+        undo: [...(current.undo ?? []), current.content].slice(-UNDO_STEPS),
+      };
+    },
+  );
+  if (!updated) {
+    throw new ConflictError("This draft was published or discarded");
+  }
+  return updated;
+}
+
+// Published versions for anyone who can read the dashboard; the draft only for its editors.
+export async function getDashboardVersions(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardVersionInterface[]> {
+  const dashboard = await context.models.dashboards.getById(dashboardId);
+  if (!dashboard) throw new NotFoundError("Cannot find dashboard");
+  const canEdit = context.models.dashboards.canEdit(dashboard);
+  const versions = await context.models.dashboardVersions.getAllForDashboard(
+    dashboard.id,
+  );
+  return versions
+    .filter((v) => v.status === "published" || canEdit)
+    .sort((a, b) => b.version - a.version)
+    .map((v) => omit(v, "undo"));
+}
+
+// Copies an earlier version into the draft; nothing is live until that draft is published.
+export async function restoreDashboardVersion(
+  context: ReqContext,
+  dashboardId: string,
+  version: number,
+): Promise<DashboardVersionInterface> {
+  const source = (await getDashboardVersions(context, dashboardId)).find(
+    (v) => v.version === version && v.status === "published",
+  );
+  if (!source) throw new NotFoundError("Cannot find that version");
+  // Settings this version predates are cleared, not kept from the current draft.
+  return saveDashboardDraftContent(context, dashboardId, {
+    globalControls: undefined,
+    comparison: undefined,
+    grid: undefined,
+    ...source.content,
+  });
+}
+
+// Puts one block, or one dashboard setting, back to what is published.
+export async function revertDashboardDraftChange(
+  context: ReqContext,
+  dashboardId: string,
+  target: { blockId?: string; setting?: DashboardVersionSetting },
+): Promise<DashboardVersionInterface> {
+  const dashboard = await getEditableDashboard(context, dashboardId);
+  const draft = await context.models.dashboardVersions.getDraft(dashboard.id);
+  if (!draft) throw new BadRequestError("There is no draft to revert");
+  const published = contentOf(dashboard);
+
+  if (target.setting) {
+    return saveDashboardDraftContent(context, dashboardId, {
+      [target.setting]: published[target.setting],
+    });
+  }
+  const at = draft.content.blocks.findIndex((b) => b.id === target.blockId);
+  const blocks = draft.content.blocks.filter((b) => b.id !== target.blockId);
+  const original = published.blocks.find((b) => b.id === target.blockId);
+  if (original) {
+    blocks.splice(
+      at === -1 ? published.blocks.indexOf(original) : at,
+      0,
+      original,
+    );
+  }
+  return saveDashboardDraftContent(context, dashboardId, { blocks });
+}
+
+// A version note drafted from the difference between the draft and what is published.
+export async function summarizeDashboardDraft(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<string> {
+  const dashboard = await getEditableDashboard(context, dashboardId);
+  const draft = await context.models.dashboardVersions.getDraft(dashboard.id);
+  const changes = draft
+    ? diffDashboardContent(contentOf(dashboard), draft.content)
+    : [];
+  if (!draft || !changes.length) {
+    throw new BadRequestError("This draft has no changes to summarize");
+  }
+  return simpleCompletion({
+    context,
+    type: "product-analytics-chat",
+    isDefaultPrompt: true,
+    temperature: 0.2,
+    maxOutputTokens: 200,
+    lowEffort: true,
+    instructions:
+      "Write a note for a dashboard's version history: one or two sentences saying what changed, for someone deciding whether to open this version. Plain text, no markdown, no preamble.",
+    prompt: `Dashboard: ${draft.content.title}\nChanges:\n${changes
+      .map((c) => `- ${c.summary}`)
+      .join("\n")}`,
+  });
 }
 
 export async function discardDashboardDraft(
