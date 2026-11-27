@@ -6,6 +6,7 @@ import {
   DashboardInterface,
   DashboardBlockInterface,
   DashboardDraftOpInput,
+  DashboardCommentThreadInterface,
   DashboardVersionInterface,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
@@ -40,11 +41,13 @@ import {
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import * as dashboardComments from "back-end/src/enterprise/services/dashboardComments";
 import * as dashboardVersions from "back-end/src/enterprise/services/dashboardVersions";
 import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
 import { secondsUntilAICanBeUsedAgainForPrompt } from "back-end/src/enterprise/services/ai";
 import {
   createDashboardBody,
+  addDashboardCommentBody,
   publishDashboardDraftBody,
   revertDashboardDraftBody,
   saveDashboardDraftBody,
@@ -574,6 +577,58 @@ export async function revertDashboardDraftChange(
     req.body,
   );
   return res.status(200).json({ status: 200, draft });
+}
+
+interface CommentThreadResponse {
+  status: number;
+  thread: DashboardCommentThreadInterface;
+}
+
+export async function getDashboardComments(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<{
+    status: number;
+    threads: DashboardCommentThreadInterface[];
+  }>,
+) {
+  const threads = await dashboardComments.getDashboardComments(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, threads });
+}
+
+export async function addDashboardComment(
+  req: AuthRequest<
+    z.infer<typeof addDashboardCommentBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<CommentThreadResponse>,
+) {
+  const thread = await dashboardComments.addDashboardComment(
+    getContextFromReq(req),
+    req.params.id,
+    req.body,
+  );
+  return res.status(200).json({ status: 200, thread });
+}
+
+export async function resolveDashboardComment(
+  req: AuthRequest<
+    { resolved: boolean },
+    { id: string; threadId: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<CommentThreadResponse>,
+) {
+  const thread = await dashboardComments.resolveDashboardComment(
+    getContextFromReq(req),
+    req.params.id,
+    req.params.threadId,
+    req.body.resolved,
+  );
+  return res.status(200).json({ status: 200, thread });
 }
 
 export async function undoDashboardDraft(

@@ -109,7 +109,10 @@ export default function DashboardBuilderEmptyState() {
   const { apiCall } = useAuth();
   const { datasources, project } = useDefinitions();
   const { mutateDashboards } = useDashboards(false);
-  const [input, setInput] = useState("");
+  // The global AI Assistant links here with the user's request filled in.
+  const [input, setInput] = useState(
+    typeof router.query.prompt === "string" ? router.query.prompt : "",
+  );
   const [mode, setMode] = useState<"build" | "ask">("build");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);

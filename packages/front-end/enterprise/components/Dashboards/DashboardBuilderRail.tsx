@@ -1,5 +1,5 @@
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { KeyboardEvent, RefObject } from "react";
+import { KeyboardEvent, MouseEvent, RefObject } from "react";
 import clsx from "clsx";
 import {
   PiArrowUp,
@@ -37,6 +37,21 @@ import {
   toolCallsFromMessages,
 } from "./dashboardBuilderSteps";
 import styles from "./DashboardBuilder.module.scss";
+
+// Replies link to a block as #block-<id>; scroll to it and flash it.
+function showLinkedBlock(e: MouseEvent<HTMLElement>) {
+  const id = (e.target as HTMLElement)
+    .closest("a")
+    ?.getAttribute("href")
+    ?.match(/^#block-(.+)$/)?.[1];
+  if (!id) return;
+  e.preventDefault();
+  const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add(styles.highlight);
+  setTimeout(() => el.classList.remove(styles.highlight), 1500);
+}
 
 export type BuilderMode = "build" | "ask";
 
@@ -290,7 +305,7 @@ export default function DashboardBuilderRail({
   const hasActive = activeCalls.length > 0 || activeTexts.length > 0;
 
   return (
-    <div className={styles.rail}>
+    <div className={styles.rail} onClick={showLinkedBlock}>
       <Flex align="center" gap="2" px="3" py="3" className={styles.railHeader}>
         <span className={styles.iconCircle}>
           <PiSparkle />

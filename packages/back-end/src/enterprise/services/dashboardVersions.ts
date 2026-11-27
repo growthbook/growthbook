@@ -444,6 +444,10 @@ export async function discardDashboardDraft(
 ): Promise<void> {
   const dashboard = await getEditableDashboard(context, dashboardId);
   await context.models.dashboardVersions.deleteDraft(dashboard.id);
+  await context.models.dashboardComments.deleteNewerThan(
+    dashboard.id,
+    dashboard.publishedVersion ?? 0,
+  );
 }
 
 // Runs the chart so a block only reaches the draft with data behind it.

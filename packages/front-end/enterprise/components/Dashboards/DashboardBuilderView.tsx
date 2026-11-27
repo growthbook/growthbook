@@ -1,13 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import pick from "lodash/pick";
-import {
-  KeyboardEvent,
-  MouseEvent,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { KeyboardEvent, useContext, useEffect, useRef, useState } from "react";
 import {
   PiChartLine,
   PiArrowCounterClockwise,
@@ -32,6 +25,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import DashboardEditor from "./DashboardEditor";
 import DashboardModal from "./DashboardModal";
+import { DashboardCommentsProvider } from "./DashboardComments";
 import DashboardDraftChanges from "./DashboardDraftChanges";
 import DashboardSnapshotProvider, {
   DashboardSnapshotContext,
@@ -142,7 +136,7 @@ export default function DashboardBuilderView({
   const draft = draftData?.draft ?? null;
   const content = draft?.content ?? dashboard;
 
-  const { mode, datasourceName, loading, activeTurnItems, rail } =
+  const { mode, datasourceName, send, loading, activeTurnItems, rail } =
     useDashboardBuilderChat(dashboard.id, () => void mutateDraft());
 
   const buildingBlocks = activeTurnItems.flatMap((item) => {
@@ -175,21 +169,6 @@ export default function DashboardBuilderView({
   };
   const editDraft = (op: DashboardDraftOpInput) => draftCall("/ops", op);
 
-  // Replies link to a block as #block-<id>; scroll to it and flash it.
-  const showBlock = (e: MouseEvent<HTMLElement>) => {
-    const id = (e.target as HTMLElement)
-      .closest("a")
-      ?.getAttribute("href")
-      ?.match(/^#block-(.+)$/)?.[1];
-    if (!id) return;
-    e.preventDefault();
-    const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add(styles.highlight);
-    setTimeout(() => el.classList.remove(styles.highlight), 1500);
-  };
-
   if (draftLoading) return <LoadingOverlay />;
   // Without this a failed read would show an empty dashboard.
   if (draftError) {
@@ -202,7 +181,6 @@ export default function DashboardBuilderView({
 
   return (
     <Flex
-      onClick={showBlock}
       // Fills the page frame to its top, right and bottom edges so the rail sits flush.
       style={{
         height: "calc(100vh - var(--page-top-offset))",
@@ -367,47 +345,57 @@ export default function DashboardBuilderView({
         ) : null}
 
         {blockCount > 0 ? (
-          <DashboardSnapshotProvider
-            dashboard={{ ...dashboard, ...content }}
-            mutateDefinitions={mutateDraft}
+          <DashboardCommentsProvider
+            canComment
+            dashboardId={dashboard.id}
+            version={draft?.version ?? 1}
+            onSendToAI={(text) => {
+              setRailOpen(true);
+              send(text);
+            }}
           >
-            <RefreshBlockData stamp={String(draft?.dateUpdated ?? "")} />
-            <DashboardEditor
-              hideHeader
-              isTabActive
-              id={dashboard.id}
-              initialEditLevel={dashboard.editLevel}
-              ownerId={dashboard.userId}
-              initialShareLevel={dashboard.shareLevel}
-              dashboardOwnerId={dashboard.userId}
-              isGeneralDashboard={true}
-              isEditing={false}
-              title={content.title}
-              blocks={content.blocks}
-              globalControls={content.globalControls}
-              enableAutoUpdates={dashboard.enableAutoUpdates}
-              setBlock={undefined}
-              projects={dashboard.projects ?? []}
-              mutate={() => void mutateDraft()}
-              updateSchedule={dashboard.updateSchedule || undefined}
-              nextUpdate={dashboard.nextUpdate}
-              dashboardLastUpdated={dashboard.lastUpdated}
-              dashboardComparison={content.comparison}
-              onGlobalControlsChange={(globalControls) =>
-                editDraft({
-                  op: "set-settings",
-                  settings: { globalControls },
-                })
-              }
-              onDashboardComparisonChange={(comparison) =>
-                editDraft({
-                  op: "set-settings",
-                  // An absent comparison would be read as "leave it alone".
-                  settings: { comparison: comparison ?? { enabled: false } },
-                })
-              }
-            />
-          </DashboardSnapshotProvider>
+            <DashboardSnapshotProvider
+              dashboard={{ ...dashboard, ...content }}
+              mutateDefinitions={mutateDraft}
+            >
+              <RefreshBlockData stamp={String(draft?.dateUpdated ?? "")} />
+              <DashboardEditor
+                hideHeader
+                isTabActive
+                id={dashboard.id}
+                initialEditLevel={dashboard.editLevel}
+                ownerId={dashboard.userId}
+                initialShareLevel={dashboard.shareLevel}
+                dashboardOwnerId={dashboard.userId}
+                isGeneralDashboard={true}
+                isEditing={false}
+                title={content.title}
+                blocks={content.blocks}
+                globalControls={content.globalControls}
+                enableAutoUpdates={dashboard.enableAutoUpdates}
+                setBlock={undefined}
+                projects={dashboard.projects ?? []}
+                mutate={() => void mutateDraft()}
+                updateSchedule={dashboard.updateSchedule || undefined}
+                nextUpdate={dashboard.nextUpdate}
+                dashboardLastUpdated={dashboard.lastUpdated}
+                dashboardComparison={content.comparison}
+                onGlobalControlsChange={(globalControls) =>
+                  editDraft({
+                    op: "set-settings",
+                    settings: { globalControls },
+                  })
+                }
+                onDashboardComparisonChange={(comparison) =>
+                  editDraft({
+                    op: "set-settings",
+                    // An absent comparison would be read as "leave it alone".
+                    settings: { comparison: comparison ?? { enabled: false } },
+                  })
+                }
+              />
+            </DashboardSnapshotProvider>
+          </DashboardCommentsProvider>
         ) : buildingBlocks.length === 0 ? (
           <Flex
             direction="column"

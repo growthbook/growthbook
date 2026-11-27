@@ -84,6 +84,16 @@ export const revertDashboardDraftBody = z
   })
   .strict();
 
+export const addDashboardCommentBody = z
+  .object({
+    threadId: z.string().optional(),
+    blockId: z.string().optional(),
+    version: z.number().int().min(1).optional(),
+    annotationDate: z.iso.date().optional(),
+    content: z.string(),
+  })
+  .strict();
+
 export const publishDashboardDraftBody = z
   .object({ note: z.string().optional() })
   .strict();
@@ -210,6 +220,27 @@ router.post(
   "/:id/draft/summary",
   validateRequestMiddleware({ params: dashboardParams }),
   dashboardsController.summarizeDashboardDraft,
+);
+router.get(
+  "/:id/comments",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboardComments,
+);
+router.post(
+  "/:id/comments",
+  validateRequestMiddleware({
+    body: addDashboardCommentBody,
+    params: dashboardParams,
+  }),
+  dashboardsController.addDashboardComment,
+);
+router.put(
+  "/:id/comments/:threadId",
+  validateRequestMiddleware({
+    body: z.object({ resolved: z.boolean() }).strict(),
+    params: dashboardParams.extend({ threadId: z.string() }),
+  }),
+  dashboardsController.resolveDashboardComment,
 );
 router.get(
   "/:id/versions",
