@@ -3,8 +3,13 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { canBypassStartApproval } from "shared/permissions";
+import type { AutoExperimentFeature } from "shared/types/organization";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import { hasCustomJs, isCrossOriginRedirect } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { isBypassableStartItem } from "@/components/PreLaunchChecklist/checklistSummary";
 import {
@@ -15,16 +20,21 @@ import {
 import { StartExperiment } from "./useStartExperiment";
 
 export type StartUpgrade = "visual-editor" | "redirects";
+export type StartNotEnabled = AutoExperimentFeature;
 
 /** What stands between the viewer and starting: checklist, bypass, button. */
 export default function useStartGate({
   experiment,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   start,
   bypassed,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   start: Pick<
     StartExperiment,
     "startExperiment" | "approveScheduledExperimentStart" | "checklistFailures"
@@ -40,6 +50,20 @@ export default function useStartGate({
       : experiment.hasURLRedirects && !hasCommercialFeature("redirects")
         ? "redirects"
         : null;
+  const { isEnabled } = useAutoExperiments();
+  // Not a hard block: an admin enables it from the popover.
+  const notEnabled: StartNotEnabled | null =
+    experiment.hasVisualChangesets && !isEnabled("visualEditor")
+      ? "visualEditor"
+      : experiment.hasURLRedirects && !isEnabled("urlRedirects")
+        ? "urlRedirects"
+        : !isEnabled("customJs") &&
+            visualChangesets.some((c) => hasCustomJs(c.visualChanges))
+          ? "customJs"
+          : !isEnabled("crossOriginRedirects") &&
+              urlRedirects.some(isCrossOriginRedirect)
+            ? "crossOriginRedirects"
+            : null;
 
   const now = new Date();
   const scheduledStartAt = experiment.statusUpdateSchedule?.startAt
@@ -93,6 +117,7 @@ export default function useStartGate({
     scheduledStartAt,
     schedule,
     upgrade,
+    notEnabled,
     actions,
     blockers,
     runPrimary,

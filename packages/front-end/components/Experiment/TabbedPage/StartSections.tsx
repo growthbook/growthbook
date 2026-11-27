@@ -1,12 +1,15 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Button from "@/ui/Button";
+import EnableAutoExperimentDialog from "@/components/AutoExperiments/EnableAutoExperimentDialog";
+import useAutoExperiments from "@/hooks/useAutoExperiments";
 import HoldoutTrafficBreakdown from "@/components/Holdout/HoldoutTrafficBreakdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -17,7 +20,7 @@ import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChe
 import { percentFormatter } from "./DecisionMakingSettings";
 import { ServerChecklistItem } from "./startActions";
 import { revisionHref } from "./draftPicks";
-import { StartUpgrade } from "./useStartGate";
+import { StartNotEnabled, StartUpgrade } from "./useStartGate";
 import { PendingDraftFailure } from "./useStartExperiment";
 
 const PENDING_DRAFT_FAILURE_LABELS: Record<
@@ -212,13 +215,63 @@ export function StartUpgradeCallout({
   );
 }
 
+const NOT_ENABLED_REASONS: Record<StartNotEnabled, string> = {
+  visualEditor:
+    "This experiment contains AI Visual Editor changes, which are not enabled for your organization.",
+  urlRedirects:
+    "This experiment contains URL redirects, which are not enabled for your organization.",
+  customJs:
+    "This experiment contains custom JavaScript, which is not enabled for your organization.",
+  crossOriginRedirects:
+    "This experiment contains a URL redirect to a different origin, which is not enabled for your organization.",
+};
+
+export function StartNotEnabledCallout({
+  notEnabled,
+  project,
+}: {
+  notEnabled: StartNotEnabled | null;
+  project?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { canManage } = useAutoExperiments();
+  if (!notEnabled) return null;
+  return (
+    <>
+      <Callout
+        status="warning"
+        size="sm"
+        action={
+          canManage ? (
+            <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+              Enable
+            </Button>
+          ) : undefined
+        }
+      >
+        {NOT_ENABLED_REASONS[notEnabled]}
+        {canManage ? null : " Ask an admin to enable this."}
+      </Callout>
+      {open ? (
+        <EnableAutoExperimentDialog
+          feature={notEnabled}
+          project={project}
+          close={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
 /** What blocks a start the viewer can't bypass, read only. */
 export function StartBlockers({
   items,
   upgrade,
+  notEnabled,
 }: {
   items: CheckListItem[];
   upgrade: StartUpgrade | null;
+  notEnabled: StartNotEnabled | null;
 }) {
   return (
     <Flex direction="column" gap="2">
@@ -228,6 +281,11 @@ export function StartBlockers({
       {upgrade ? (
         <Text size="sm" color="text-mid">
           {UPGRADE_REASONS[upgrade]}
+        </Text>
+      ) : null}
+      {notEnabled ? (
+        <Text size="sm" color="text-mid">
+          {NOT_ENABLED_REASONS[notEnabled]}
         </Text>
       ) : null}
       <ReadOnlyChecklistRows items={items} />

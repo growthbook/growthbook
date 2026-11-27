@@ -6,6 +6,8 @@ import {
   changesetOwnerRef,
   includeExperimentInPayload,
   hasVisualChanges,
+  hasCustomJs,
+  isCrossOriginRedirect,
 } from "shared/util";
 import {
   generateTrackingKey,
@@ -50,6 +52,10 @@ import {
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { getOwnerEmail } from "back-end/src/services/owner";
+import {
+  assertAutoExperimentFeatureEnabled,
+  orgHasAutoExperimentFeature,
+} from "back-end/src/services/autoExperiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
@@ -97,6 +103,7 @@ import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
 import {
   findVisualChangesets,
+  findVisualChangesetsByExperiment,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
@@ -1071,6 +1078,36 @@ export async function setExperimentNotificationState({
   );
 }
 
+// The payload would drop the experiment, so starting it would reach no one.
+export async function assertAutoExperimentsCanStart(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (experiment.hasVisualChangesets) {
+    assertAutoExperimentFeatureEnabled(context, "visualEditor");
+    if (!orgHasAutoExperimentFeature(context.org, "customJs")) {
+      const changesets = await findVisualChangesetsByExperiment(
+        experiment.id,
+        context.org.id,
+      );
+      if (changesets.some((c) => hasCustomJs(c.visualChanges))) {
+        assertAutoExperimentFeatureEnabled(context, "customJs");
+      }
+    }
+  }
+  if (experiment.hasURLRedirects) {
+    assertAutoExperimentFeatureEnabled(context, "urlRedirects");
+    if (!orgHasAutoExperimentFeature(context.org, "crossOriginRedirects")) {
+      const redirects = await context.models.urlRedirects.findByExperiment(
+        experiment.id,
+      );
+      if (redirects.some(isCrossOriginRedirect)) {
+        assertAutoExperimentFeatureEnabled(context, "crossOriginRedirects");
+      }
+    }
+  }
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -1117,6 +1154,9 @@ export async function updateExperiment({
       experiment.phases,
       startsRunning,
     );
+  }
+  if (startsRunning) {
+    await assertAutoExperimentsCanStart(context, experiment);
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
   assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);

@@ -37,6 +37,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { assertNoInjectedJs } from "back-end/src/util/visualChanges";
+import {
+  assertUrlRedirectAllowed,
+  assertVisualChangesAllowed,
+} from "back-end/src/services/autoExperiments";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import {
   asJson,
@@ -242,6 +246,10 @@ export async function planLinkedChanges(
       assertRedirectOrigin(redirect);
       assertRedirectDestinations(redirect, variationIds, { exact: true });
     }
+    for (const add of adds) assertUrlRedirectAllowed(context, add);
+    for (const edit of edits) {
+      assertUrlRedirectAllowed(context, edit, redirectsById.get(edit.id));
+    }
     if (staged.some((r) => r.checkCircularDependencies)) {
       const replaced = new Set([...edits.map((e) => e.id), ...removes]);
       // One org-wide load for the save. This experiment's own redirects count
@@ -275,6 +283,13 @@ export async function planLinkedChanges(
         { stored: current.visualChanges, variations },
       );
     }
+    assertVisualChangesAllowed(context, staged, {
+      stored: current.visualChanges,
+      // As the write does for a change to where the changeset applies.
+      always:
+        edit.changes.urlPatterns !== undefined ||
+        edit.changes.editorUrl !== undefined,
+    });
     assertListedOnce(
       staged.map((c) => c.id),
       "visual change",

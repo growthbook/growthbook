@@ -6,6 +6,11 @@ import {
 } from "shared/types/sdk-connection";
 import type { AppFeatures } from "shared/types/app-features";
 import { Box, Flex } from "@radix-ui/themes";
+import type { AutoExperimentFeature } from "shared/types/organization";
+import { useAutoExperimentGate } from "@/components/AutoExperiments/EnableAutoExperimentDialog";
+import useAutoExperiments, {
+  AUTO_EXPERIMENTS_ENV_HINT,
+} from "@/hooks/useAutoExperiments";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -76,25 +81,98 @@ export function ExperimentSettings({
     languages,
     sdkVersion,
   );
+  const enableGate = useAutoExperimentGate();
+  // Turning one on needs the organization's opt-in; turning one off never does.
+  const setOptIn = (
+    feature: AutoExperimentFeature,
+    patch: Partial<SDKConnectionAdvancedValue>,
+  ) =>
+    Object.values(patch).some(Boolean)
+      ? enableGate.guard(feature, () => onChange(patch))
+      : onChange(patch);
+  const { isEnabled, canManage, mode } = useAutoExperiments();
+  // Why a box that is off can't be ticked: the organization hasn't opted in
+  // and this viewer can't opt it in from here. Unticking is always allowed.
+  const optInBlock = (feature: AutoExperimentFeature, checked: boolean) => {
+    if (checked || isEnabled(feature)) return undefined;
+    if (mode !== "allowed") return AUTO_EXPERIMENTS_ENV_HINT;
+    return canManage
+      ? undefined
+      : "An admin must enable this for your organization";
+  };
   return (
     <>
+      {enableGate.dialog}
       {showVisualEditor && (
         <Checkbox
           weight="regular"
-          disabled={disabled}
+          disabled={
+            disabled ||
+            !!optInBlock("visualEditor", value.includeVisualExperiments)
+          }
+          disabledMessage={optInBlock(
+            "visualEditor",
+            value.includeVisualExperiments,
+          )}
           value={value.includeVisualExperiments}
-          setValue={(v) => onChange({ includeVisualExperiments: v })}
+          setValue={(v) =>
+            setOptIn("visualEditor", { includeVisualExperiments: v })
+          }
           label={<VisualEditorLabel />}
         />
+      )}
+      {showVisualEditor && value.includeVisualExperiments && (
+        <Box pl="5">
+          <Checkbox
+            weight="regular"
+            disabled={disabled || !!optInBlock("customJs", value.allowCustomJs)}
+            disabledMessage={optInBlock("customJs", value.allowCustomJs)}
+            value={value.allowCustomJs}
+            setValue={(v) => setOptIn("customJs", { allowCustomJs: v })}
+            label={SETTING_TITLES.customJs}
+          />
+        </Box>
       )}
       {showRedirects && (
         <Checkbox
           weight="regular"
-          disabled={disabled}
+          disabled={
+            disabled ||
+            !!optInBlock("urlRedirects", value.includeRedirectExperiments)
+          }
+          disabledMessage={optInBlock(
+            "urlRedirects",
+            value.includeRedirectExperiments,
+          )}
           value={value.includeRedirectExperiments}
-          setValue={(v) => onChange({ includeRedirectExperiments: v })}
+          setValue={(v) =>
+            setOptIn("urlRedirects", { includeRedirectExperiments: v })
+          }
           label={<UrlRedirectLabel />}
         />
+      )}
+      {showRedirects && value.includeRedirectExperiments && (
+        <Box pl="5">
+          <Checkbox
+            weight="regular"
+            disabled={
+              disabled ||
+              !!optInBlock(
+                "crossOriginRedirects",
+                value.allowCrossOriginRedirects,
+              )
+            }
+            disabledMessage={optInBlock(
+              "crossOriginRedirects",
+              value.allowCrossOriginRedirects,
+            )}
+            value={value.allowCrossOriginRedirects}
+            setValue={(v) =>
+              setOptIn("crossOriginRedirects", { allowCrossOriginRedirects: v })
+            }
+            label={SETTING_TITLES.crossOriginRedirects}
+          />
+        </Box>
       )}
       <Checkbox
         weight="regular"

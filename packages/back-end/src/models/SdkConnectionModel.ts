@@ -20,10 +20,12 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
+import { connectionServesAutoExperimentFeature } from "shared/util";
 import {
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
 } from "shared/sdk-versioning";
+import { assertConnectionAutoExperimentsAllowed } from "back-end/src/services/autoExperiments";
 import {
   cancellableFetch,
   trimTrailingSlashes,
@@ -87,6 +89,8 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperimentRefs: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
+  allowCustomJs: Boolean,
+  allowCrossOriginRedirects: Boolean,
   includeRuleIds: Boolean,
   includeProjectIdInMetadata: Boolean,
   includeCustomFieldsInMetadata: Boolean,
@@ -326,6 +330,8 @@ export const createSDKConnectionValidator = z
     includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    allowCustomJs: z.boolean().optional(),
+    allowCrossOriginRedirects: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectIdInMetadata: z.boolean().optional(),
     includeCustomFieldsInMetadata: z.boolean().optional(),
@@ -370,6 +376,7 @@ export async function createSDKConnection(
   const { proxyEnabled, proxyHost, languages, ...otherParams } =
     withNewSdkConnectionDefaults(createSDKConnectionValidator.parse(params));
   if (otherParams.tracesEnabled) assertCanEnableTraces(context);
+  assertConnectionAutoExperimentsAllowed(context, otherParams);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -454,6 +461,8 @@ export const editSDKConnectionValidator = z
     includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    allowCustomJs: z.boolean().optional(),
+    allowCrossOriginRedirects: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectIdInMetadata: z.boolean().optional(),
     includeCustomFieldsInMetadata: z.boolean().optional(),
@@ -485,6 +494,12 @@ export async function editSDKConnection(
   if (rest.tracesEnabled && !connection.tracesEnabled) {
     assertCanEnableTraces(context);
   }
+
+  assertConnectionAutoExperimentsAllowed(
+    context,
+    { ...connection, ...omitBy(rest, isUndefined) },
+    connection,
+  );
 
   // Keep only the fields that were sent. A field that was left out comes
   // through as `undefined`, and the payload rebuild below would use that
@@ -546,6 +561,8 @@ export async function editSDKConnection(
     "includeDraftExperimentRefs",
     "includeExperimentNames",
     "includeRedirectExperiments",
+    "allowCustomJs",
+    "allowCrossOriginRedirects",
     "includeRuleIds",
     "includeProjectIdInMetadata",
     "includeCustomFieldsInMetadata",
@@ -934,6 +951,14 @@ export function toApiSDKConnectionInterface(
     includeDraftExperimentRefs: !!connection.includeDraftExperimentRefs,
     includeExperimentNames: !!connection.includeExperimentNames,
     includeRedirectExperiments: !!connection.includeRedirectExperiments,
+    allowCustomJs: connectionServesAutoExperimentFeature(
+      connection,
+      "customJs",
+    ),
+    allowCrossOriginRedirects: connectionServesAutoExperimentFeature(
+      connection,
+      "crossOriginRedirects",
+    ),
     includeRuleIds: !!connection.includeRuleIds,
     includeProjectIdInMetadata: !!connection.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: !!connection.includeCustomFieldsInMetadata,

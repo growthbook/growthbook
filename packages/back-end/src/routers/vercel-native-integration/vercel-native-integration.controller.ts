@@ -577,7 +577,7 @@ export async function provisionResource(req: Request, res: Response) {
     name: payload.name,
     languages: ["nextjs"],
     environment: "production",
-    includeVisualExperiments: true,
+    includeVisualExperiments: false,
     includeDraftExperiments: true,
     includeRuleIds: true,
     includeRedirectExperiments: false,

@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
@@ -81,6 +81,7 @@ import {
   revokeInvite,
   setLicenseKey,
   assertProjectRulesReferenceProjects,
+  getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
@@ -154,9 +155,24 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getAllExperiments,
+  getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
+  getAllVisualExperiments,
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getAllCbVisualExperiments } from "back-end/src/models/VisualChangesetModel";
+import { filterServedCbVisualExperiments } from "back-end/src/services/contextualBanditPayload";
+import {
+  queueSDKPayloadRefresh,
+  refreshSDKPayloadCache,
+} from "back-end/src/services/features";
+import { findServingSDKConnections } from "back-end/src/models/SdkConnectionModel";
+import {
+  getAutoExperimentAccess,
+  getAutoExperimentSettingsUpdate,
+  getLiveAutoExperimentUsage,
+} from "back-end/src/services/autoExperiments";
 import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
   canReadApiKeyHistory,
@@ -1659,7 +1675,12 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating organization environments not supported via this route.",
         );
-      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
+      } else if (k === "autoExperiments") {
+        settings.autoExperiments = getAutoExperimentSettingsUpdate(
+          context,
+          settings.autoExperiments,
+        );
+      } else if (k === "sdkInstructionsViewed") {
         if (
           !context.permissions.canCreateSDKConnection({
             projects: [],
@@ -1843,7 +1864,42 @@ export async function putOrganization(
       );
     }
 
+    // Only the SDK Connections whose payload can change: most serve no
+    // visual editor or URL redirect experiments either way.
+    // Read with full access: the admin may not be able to see every Project,
+    // and a connection they can't see must stop serving too.
+    const autoExperimentConnections =
+      updates.settings &&
+      !isEqual(updates.settings.autoExperiments, org.settings?.autoExperiments)
+        ? (
+            await findServingSDKConnections(
+              getContextForAgendaJobByOrgObject(org),
+            )
+          ).filter(
+            (c) =>
+              !isEqual(
+                getAutoExperimentAccess(org, c),
+                getAutoExperimentAccess({ settings: updates.settings }, c),
+              ),
+          )
+        : [];
+
     await updateOrganization(org.id, updates);
+
+    if (autoExperimentConnections.length) {
+      // The rebuild reads the opt-ins off the context's organization.
+      org.settings = updates.settings;
+      queueSDKPayloadRefresh({
+        context,
+        payloadKeys: [],
+        sdkConnections: autoExperimentConnections,
+        auditContext: {
+          event: "updated",
+          model: "organization",
+          id: org.id,
+        },
+      });
+    }
 
     await req.audit({
       event: "organization.update",
@@ -2342,6 +2398,64 @@ export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
     webhooks: webhooks.filter((webhook) =>
       context.permissions.canReadSingleProjectResource(webhook.project),
     ),
+  });
+}
+
+// What turning each opt-in off would stop serving, so the settings page can
+// say so first.
+export async function getAutoExperimentUsage(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  // Read with full access: what stops serving doesn't depend on who asks.
+  const full = getContextForAgendaJobByOrgObject(context.org);
+  const experimentMap = await getAllPayloadExperiments(full);
+  const [visualExperiments, redirectExperiments, cbVisualExperiments] =
+    await Promise.all([
+      getAllVisualExperiments(full, experimentMap),
+      getAllURLRedirectExperiments(full, experimentMap),
+      getAllCbVisualExperiments(full),
+    ]);
+  res.status(200).json({
+    status: 200,
+    usage: getLiveAutoExperimentUsage({
+      visualExperiments,
+      redirectExperiments,
+      cbVisualExperiments: filterServedCbVisualExperiments(cbVisualExperiments),
+      // Names stay hidden for Projects the caller can't read.
+      canReadProject: (project) =>
+        context.permissions.canReadSingleProjectResource(project),
+    }),
+  });
+}
+
+// For a change that nothing else rebuilds payloads for, such as an environment
+// variable that alters what they carry.
+export async function postRebuildSDKPayloads(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  // Read with full access: the admin may not be able to see every Project.
+  const sdkConnections = await findServingSDKConnections(
+    getContextForAgendaJobByOrgObject(context.org),
+  );
+  // Awaited, so the response comes after the rebuild. A single connection
+  // that fails to rebuild is still only logged.
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys: [],
+    sdkConnections,
+    auditContext: {
+      event: "rebuilt",
+      model: "organization",
+      id: context.org.id,
+    },
+  });
+  res.status(200).json({
+    status: 200,
+    sdkConnections: sdkConnections.length,
   });
 }
 

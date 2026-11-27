@@ -27,6 +27,7 @@ import {
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
+  assertAutoExperimentsCanStart,
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
@@ -659,6 +660,8 @@ export async function assertStartAllowed(
   experiment: ExperimentInterface,
   options: Parameters<typeof planStartGates>[2],
 ): Promise<StartPlan> {
+  // Also checked on the write; here so a refused start publishes no drafts.
+  await assertAutoExperimentsCanStart(context, experiment);
   await assertCanPublishPendingFeatureDrafts(context, experiment);
   const plan = await planStartGates(context, experiment, options);
   assertStartNotBlocked(plan);
@@ -671,6 +674,7 @@ export async function assertScheduledStartNotHardBlocked(
   experiment: ExperimentInterface,
   bypassApproval = false,
 ): Promise<void> {
+  await assertAutoExperimentsCanStart(context, experiment);
   assertStartNotBlocked(
     await planStartGates(context, experiment, {
       when: "fire",

@@ -1,3 +1,5 @@
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import {
@@ -25,6 +27,7 @@ import {
   StartChecklistFailures,
   StartFailures,
   StartUpgradeCallout,
+  StartNotEnabledCallout,
   SummaryGrid,
   SummaryRow,
 } from "./StartSections";
@@ -38,6 +41,8 @@ import { useEditsBlockedReason } from "./ExperimentEdits";
 type ContentProps = {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
 };
@@ -107,6 +112,8 @@ export default function StartExperimentPopover({
 function StartContent({
   experiment,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   start,
   editSchedule,
   close,
@@ -117,7 +124,14 @@ function StartContent({
   useEffect(() => {
     if (start.checklistFailures.length) setBypassed(false);
   }, [start.checklistFailures]);
-  const gate = useStartGate({ experiment, linkedFeatures, start, bypassed });
+  const gate = useStartGate({
+    experiment,
+    linkedFeatures,
+    visualChangesets,
+    urlRedirects,
+    start,
+    bypassed,
+  });
   const { bypassLabel, waivesApproval } = gate.actions;
   // A tick agrees to the bypass its label named; a new label needs a new tick.
   const [tickedLabel, setTickedLabel] = useState(bypassLabel);
@@ -158,7 +172,7 @@ function StartContent({
             {dateLabel}
           </Text>{" "}
           has passed.{" "}
-          {gate.checklistLoading || gate.upgrade ? (
+          {gate.checklistLoading || gate.upgrade || gate.notEnabled ? (
             <>{scheduleLink("Update the schedule")}.</>
           ) : gate.actions.hardBlocked ? (
             <>
@@ -177,6 +191,10 @@ function StartContent({
         </Callout>
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
+      <StartNotEnabledCallout
+        notEnabled={gate.notEnabled}
+        project={experiment.project}
+      />
 
       <SummaryGrid>
         <SummaryRow
@@ -273,7 +291,9 @@ function StartContent({
                 close();
               }}
               setError={setError}
-              disabled={gate.actions.disabled || !!blockedReason}
+              disabled={
+                gate.actions.disabled || !!blockedReason || !!gate.notEnabled
+              }
             >
               {gate.actions.label}
             </Button>

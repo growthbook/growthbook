@@ -22597,6 +22597,10 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                allowCustomJs:
+                  type: boolean
+                allowCrossOriginRedirects:
+                  type: boolean
                 includeRuleIds:
                   type: boolean
                 includeProjectIdInMetadata:
@@ -22761,6 +22765,10 @@ paths:
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
+                  type: boolean
+                allowCustomJs:
+                  type: boolean
+                allowCrossOriginRedirects:
                   type: boolean
                 includeRuleIds:
                   type: boolean
@@ -23372,6 +23380,10 @@ paths:
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
+                  type: boolean
+                allowCustomJs:
+                  type: boolean
+                allowCrossOriginRedirects:
                   type: boolean
                 includeRuleIds:
                   type: boolean
@@ -77294,6 +77306,10 @@ components:
           type: boolean
         includeRedirectExperiments:
           type: boolean
+        allowCustomJs:
+          type: boolean
+        allowCrossOriginRedirects:
+          type: boolean
         includeRuleIds:
           type: boolean
         includeProjectIdInMetadata:
@@ -77805,6 +77821,10 @@ components:
         includeExperimentNames:
           type: boolean
         includeRedirectExperiments:
+          type: boolean
+        allowCustomJs:
+          type: boolean
+        allowCrossOriginRedirects:
           type: boolean
         includeRuleIds:
           type: boolean

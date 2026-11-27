@@ -180,6 +180,7 @@ import { productAnalyticsRouter } from "./routers/product-analytics/product-anal
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
 import { adminManagedWarehouseRouter } from "./routers/admin-managed-warehouse/admin-managed-warehouse.router";
+import { adminAutoExperimentsRouter } from "./routers/admin-auto-experiments/admin-auto-experiments.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -1295,6 +1296,7 @@ app.post(
   adminController._dangerousAdminUpsertSSOConnection,
 );
 app.use(adminManagedWarehouseRouter);
+app.use(adminAutoExperimentsRouter);
 
 // License
 app.get("/license", licenseController.getLicenseData);
@@ -1309,19 +1311,18 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get("/generated-hypothesis/:uuid", (async (
-  req: express.Request,
-  res: express.Response,
-  _next: express.NextFunction,
-) => {
-  const authReq = req as AuthRequest<null, { uuid: string }>;
-  const context = getContextFromReq(authReq);
-  const generatedHypothesis = await findOrCreateGeneratedHypothesis(
-    context,
-    authReq.params.uuid,
-  );
-  return res.json({ generatedHypothesis });
-}) as unknown as RequestHandler);
+app.get(
+  "/generated-hypothesis/:uuid",
+  asyncHandler(async (req, res) => {
+    const authReq = req as AuthRequest<null, { uuid: string }>;
+    const context = getContextFromReq(authReq);
+    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+      context,
+      authReq.params.uuid,
+    );
+    res.json({ generatedHypothesis });
+  }),
+);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);

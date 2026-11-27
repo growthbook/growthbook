@@ -1008,7 +1008,10 @@ export const sdkConnectionSettingsEqual = (
 // How the payload reads a setting a snapshot leaves out. A revert sends these
 // for what the older snapshot lacked, so options added since are turned back
 // off rather than kept. The legacy saved-group boolean is left out: sent on its
-// own it would switch the format to inline.
+// own it would switch the format to inline. So are `allowCustomJs` and
+// `allowCrossOriginRedirects`: a snapshot from before them served both, so a
+// revert keeps what the connection has now rather than cutting off experiments
+// that are running.
 const ABSENT_SDK_SETTING_VALUES: Record<string, unknown> = {
   hashSecureAttributes: false,
   includeVisualExperiments: false,

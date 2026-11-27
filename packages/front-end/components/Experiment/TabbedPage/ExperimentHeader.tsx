@@ -612,6 +612,8 @@ export default function ExperimentHeader({
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
+    visualChangesets,
+    urlRedirects,
     start,
     bypassed: false,
   });
@@ -645,6 +647,8 @@ export default function ExperimentHeader({
     <StartExperimentPopover
       experiment={experiment}
       linkedFeatures={linkedFeatures}
+      visualChangesets={visualChangesets}
+      urlRedirects={urlRedirects}
       start={start}
       editSchedule={editSchedule ?? null}
       open={startOpen}
@@ -1149,6 +1153,7 @@ export default function ExperimentHeader({
                                 <StartBlockers
                                   items={startGate.blockers}
                                   upgrade={startGate.upgrade}
+                                  notEnabled={startGate.notEnabled}
                                 />
                               }
                               trigger={

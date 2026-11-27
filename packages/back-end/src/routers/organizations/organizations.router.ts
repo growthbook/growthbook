@@ -26,6 +26,10 @@ router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
 router.put("/organization", organizationsController.putOrganization);
+router.get(
+  "/organization/auto-experiments/usage",
+  organizationsController.getAutoExperimentUsage,
+);
 router.post(
   "/organization/config/import",
   organizationsController.postImportConfig,
@@ -177,6 +181,14 @@ if (!IS_CLOUD) {
   router.post(
     "/orphaned-users/:id/add",
     organizationsController.addOrphanedUser,
+  );
+}
+
+// Rebuilding every payload on request would be costly to offer on Cloud.
+if (!IS_CLOUD) {
+  router.post(
+    "/organization/rebuild-sdk-payloads",
+    organizationsController.postRebuildSDKPayloads,
   );
 }
 

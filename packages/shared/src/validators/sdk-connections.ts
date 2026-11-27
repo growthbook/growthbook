@@ -65,6 +65,8 @@ export const apiSdkConnectionValidator = namedSchema(
         ),
       includeExperimentNames: z.boolean().optional(),
       includeRedirectExperiments: z.boolean().optional(),
+      allowCustomJs: z.boolean().optional(),
+      allowCrossOriginRedirects: z.boolean().optional(),
       includeRuleIds: z.boolean().optional(),
       includeProjectIdInMetadata: z.boolean().optional(),
       includeCustomFieldsInMetadata: z.boolean().optional(),
@@ -125,6 +127,8 @@ export const sdkConnectionSettingsSnapshotValidator = z
     includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    allowCustomJs: z.boolean().optional(),
+    allowCrossOriginRedirects: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectIdInMetadata: z.boolean().optional(),
     includeCustomFieldsInMetadata: z.boolean().optional(),
@@ -256,11 +260,20 @@ export function webhookHeadersObject(headers?: string): Record<string, string> {
 // What a new connection is saved with where the request leaves a setting out.
 // Written explicitly so "absent" keeps one meaning: off, for the connections
 // that predate the setting.
+//
+// `allowCustomJs` and `allowCrossOriginRedirects` are the exception: absent
+// means the connection predates the opt-in and keeps serving what it served.
 export const withNewSdkConnectionDefaults = <T extends object>(
-  params: T & { includeReferencedPrerequisites?: boolean },
+  params: T & {
+    includeReferencedPrerequisites?: boolean;
+    allowCustomJs?: boolean;
+    allowCrossOriginRedirects?: boolean;
+  },
 ) => ({
   ...params,
   includeReferencedPrerequisites: params.includeReferencedPrerequisites ?? true,
+  allowCustomJs: params.allowCustomJs ?? false,
+  allowCrossOriginRedirects: params.allowCrossOriginRedirects ?? false,
 });
 
 // What a Custom Hook receives: the settings, and each webhook with its headers
@@ -303,6 +316,8 @@ const postSdkConnectionBody = z
       ),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    allowCustomJs: z.boolean().optional(),
+    allowCrossOriginRedirects: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
     includeProjectIdInMetadata: z.boolean().optional(),
     includeCustomFieldsInMetadata: z.boolean().optional(),

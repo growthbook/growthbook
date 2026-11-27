@@ -544,6 +544,8 @@ export type SDKPayloadParams = Pick<
   | "includeDraftExperimentRefs"
   | "includeExperimentNames"
   | "includeRedirectExperiments"
+  | "allowCustomJs"
+  | "allowCrossOriginRedirects"
   | "includeRuleIds"
   | "hashSecureAttributes"
   | "savedGroupFormat"
@@ -599,6 +601,8 @@ export async function getPayloadParamsFromApiKey(
       includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      allowCustomJs: connection.allowCustomJs,
+      allowCrossOriginRedirects: connection.allowCrossOriginRedirects,
       includeRuleIds: connection.includeRuleIds,
       includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
@@ -724,6 +728,8 @@ export async function getFeatureDefinitionsWithCache({
       includeDraftExperimentRefs: params.includeDraftExperimentRefs,
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
+      allowCustomJs: params.allowCustomJs,
+      allowCrossOriginRedirects: params.allowCrossOriginRedirects,
       includeRuleIds: params.includeRuleIds,
       includeProjectIdInMetadata: params.includeProjectIdInMetadata,
       includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,

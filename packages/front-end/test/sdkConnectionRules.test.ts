@@ -12,6 +12,8 @@ import {
 const allOn: SDKConnectionAdvancedValue = {
   includeVisualExperiments: true,
   includeRedirectExperiments: true,
+  allowCustomJs: true,
+  allowCrossOriginRedirects: true,
   includeExperimentNames: false,
   savedGroupFormat: "referencesV2",
   includeProjectIdInMetadata: true,
@@ -63,6 +65,8 @@ describe("advancedValueFromConnection", () => {
     expect(advancedValueFromConnection()).toEqual({
       includeVisualExperiments: false,
       includeRedirectExperiments: false,
+      allowCustomJs: false,
+      allowCrossOriginRedirects: false,
       includeExperimentNames: true,
       savedGroupFormat: "inline",
       includeProjectIdInMetadata: false,
@@ -223,5 +227,11 @@ describe("withAbsentSdkSettings", () => {
     const filled = withAbsentSdkSettings({});
     expect(filled).not.toHaveProperty("savedGroupReferencesEnabled");
     expect(filled).not.toHaveProperty("savedGroupFormat");
+  });
+
+  it("leaves the auto experiment opt-ins alone, so a revert keeps them", () => {
+    const filled = withAbsentSdkSettings({ includeVisualExperiments: true });
+    expect(filled).not.toHaveProperty("allowCustomJs");
+    expect(filled).not.toHaveProperty("allowCrossOriginRedirects");
   });
 });

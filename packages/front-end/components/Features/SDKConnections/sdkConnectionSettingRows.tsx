@@ -420,6 +420,8 @@ export const PAYLOAD_ROWS: SettingRow[] = [
     fields: [
       "includeVisualExperiments",
       "includeRedirectExperiments",
+      "allowCustomJs",
+      "allowCrossOriginRedirects",
       "includeExperimentNames",
     ],
     shown: () => true,
@@ -432,6 +434,14 @@ export const PAYLOAD_ROWS: SettingRow[] = [
           latestCaps.includes("redirects") && v.includeRedirectExperiments && (
             <UrlRedirectLabel />
           ),
+          latestCaps.includes("visualEditor") &&
+            v.includeVisualExperiments &&
+            v.allowCustomJs &&
+            SETTING_TITLES.customJs,
+          latestCaps.includes("redirects") &&
+            v.includeRedirectExperiments &&
+            v.allowCrossOriginRedirects &&
+            SETTING_TITLES.crossOriginRedirects,
           !v.includeExperimentNames && <HideNamesLabel />,
         ]}
       />

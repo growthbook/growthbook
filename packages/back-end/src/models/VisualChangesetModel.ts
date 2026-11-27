@@ -24,6 +24,7 @@ import type {
 import { ApiReqContext } from "back-end/types/api";
 import { NotFoundError } from "back-end/src/util/errors";
 import { assertNoInjectedJs } from "back-end/src/util/visualChanges";
+import { assertVisualChangesAllowed } from "back-end/src/services/autoExperiments";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(
@@ -293,6 +294,7 @@ export async function createVisualChange(
   owner: ChangesetOwner,
 ): Promise<{ nModified: number }> {
   assertNoInjectedJs([visualChange]);
+  assertVisualChangesAllowed(context, [visualChange], { always: true });
   const organization = context.org.id;
   const visualChangeset = await findVisualChangesetById(id, organization);
 
@@ -366,6 +368,11 @@ export async function updateVisualChange({
     throw new NotFoundError("Visual Changeset not found");
   }
 
+  assertVisualChangesAllowed(context, [{ ...payload, id: visualChangeId }], {
+    stored: visualChangeset.visualChanges,
+    always: true,
+  });
+
   // Strip `id` from the payload so callers can't rename a visual change
   // and orphan it from the URL-param id used to look it up.
   const safePayload = omit(payload, ["id"]);
@@ -422,6 +429,7 @@ export const createVisualChangeset = async ({
   visualChanges?: VisualChange[];
 }): Promise<VisualChangesetInterface> => {
   assertNoInjectedJs(visualChanges ?? []);
+  assertVisualChangesAllowed(context, visualChanges ?? [], { always: true });
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
       id: uniqid("vcs_"),
@@ -487,6 +495,11 @@ export const updateVisualChangeset = async ({
   assertNoInjectedJs(updates.visualChanges ?? [], {
     stored: visualChangeset.visualChanges,
     variations: owner?.editableVariations(),
+  });
+  assertVisualChangesAllowed(context, updates.visualChanges ?? [], {
+    stored: visualChangeset.visualChanges,
+    always:
+      updates.urlPatterns !== undefined || updates.editorUrl !== undefined,
   });
   // pick() preserves explicit-undefined keys, which would flow into $set and
   // could unset fields if Mongoose's casting behavior changes. Strip them.
