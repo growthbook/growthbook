@@ -235,6 +235,52 @@ export const dataSourceTypes = Object.keys(DATA_SOURCE_PARAM_SENSITIVITY) as [
   ...DataSourceType[],
 ];
 
+// Params that decide where the stored secrets get sent. A new host-like param
+// must be added here, or it can redirect them.
+const DESTINATION_PARAM_KEYS = {
+  postgres: ["host", "port"],
+  redshift: ["host", "port"],
+  vertica: ["host", "port"],
+  clickhouse: ["url", "host", "port"],
+  growthbook_clickhouse: ["url", "host", "port"],
+  mysql: ["host", "port"],
+  mssql: ["server", "port"],
+  bigquery: ["apiEndpoint"],
+  athena: [],
+  presto: ["host", "port"],
+  databricks: ["host", "port"],
+  snowflake: ["account", "accessUrl"],
+  mixpanel: [],
+  google_analytics: [],
+  adobe_experience_platform_query_service: ["host", "port"],
+} satisfies {
+  [T in DataSourceType]: readonly (keyof DataSourceParamsForType<T>)[];
+};
+
+function normalizeDestination(value: unknown): unknown {
+  return typeof value === "string" || typeof value === "number"
+    ? String(value).trim().toLowerCase()
+    : value;
+}
+
+/**
+ * Whether an update points the connection somewhere new. Clearing a param back
+ * to the vendor default doesn't count.
+ */
+export function dataSourceDestinationChanged(
+  type: DataSourceType,
+  existing: unknown,
+  updates: unknown,
+): boolean {
+  if (!isRecord(updates)) return false;
+  const stored = isRecord(existing) ? existing : {};
+  const keys: readonly string[] = DESTINATION_PARAM_KEYS[type];
+  return keys.some((key) => {
+    const next = normalizeDestination(updates[key]);
+    return (next ?? "") !== "" && next !== normalizeDestination(stored[key]);
+  });
+}
+
 // Names from untyped config files that predate the current interfaces.
 const LEGACY_SECRET_PARAM_KEYS: ReadonlySet<string> = new Set(["pass"]);
 
@@ -327,8 +373,10 @@ export function mergeDataSourceParams(
   existing: unknown,
   updates: unknown,
 ): unknown {
+  // Stored secrets were saved for the old destination, so a new one starts
+  // from the submitted params alone.
   const merged = mergeRecord(
-    existing,
+    dataSourceDestinationChanged(type, existing, updates) ? {} : existing,
     updates,
     DATA_SOURCE_PARAM_SENSITIVITY[type],
   );

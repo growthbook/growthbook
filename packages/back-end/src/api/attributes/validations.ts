@@ -1,5 +1,6 @@
 import { SDKAttributeType } from "shared/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { assertValidAttributeName } from "back-end/src/services/attributes";
 import { validateCustomFieldsForSectionAndProjects } from "back-end/src/util/custom-fields";
 
 export const validatePayload = async (
@@ -19,6 +20,7 @@ export const validatePayload = async (
   },
 ) => {
   if (property === "") throw Error("Attribute property cannot be empty!");
+  assertValidAttributeName(property);
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();

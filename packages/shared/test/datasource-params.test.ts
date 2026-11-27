@@ -103,6 +103,61 @@ describe("mergeDataSourceParams", () => {
     ).toEqual({ apiEndpoint: "", privateKey: "stored private key" });
   });
 
+  it("replaces the params instead of merging when the destination changes", () => {
+    const stored = {
+      host: "db.example.com",
+      port: 5432,
+      user: "growthbook",
+      password: "stored password",
+      clientKey: "stored key",
+    };
+
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: "evil.example.com",
+        port: 5432,
+        password: "",
+      }),
+    ).toEqual({ host: "evil.example.com", port: 5432 });
+
+    // Non-string values can't pass as "unchanged" and reach the driver
+    expect(
+      mergeDataSourceParams("postgres", stored, {
+        host: ["db.example.com"],
+      } as never),
+    ).toEqual({ host: ["db.example.com"] });
+
+    expect(
+      mergeDataSourceParams(
+        "bigquery",
+        { projectId: "p", privateKey: "stored private key" },
+        { apiEndpoint: "https://evil.example.com", privateKey: "" },
+      ),
+    ).toEqual({ apiEndpoint: "https://evil.example.com" });
+
+    expect(
+      mergeDataSourceParams(
+        "snowflake",
+        { account: "xy12345", password: "hunter2" },
+        { accessUrl: "https://evil.example.com" },
+      ),
+    ).toEqual({ accessUrl: "https://evil.example.com" });
+  });
+
+  it("keeps stored secrets when the destination is resubmitted unchanged", () => {
+    expect(
+      mergeDataSourceParams(
+        "postgres",
+        { host: "db.example.com", port: 5432, password: "stored password" },
+        { host: " DB.example.com ", port: "5432", password: "" } as never,
+      ),
+    ).toEqual({
+      host: " DB.example.com ",
+      port: "5432",
+      password: "stored password",
+    });
+  });
+
   it("preserves unsubmitted secrets while applying classified nested updates", () => {
     const merged = mergeDataSourceParams(
       "mssql",

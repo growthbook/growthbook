@@ -962,8 +962,13 @@ export function assertCanChangeTeamMembership(
   context: ReqContext | ApiReqContext,
   team: TeamInterface,
   userIds: string[],
+  action: "add" | "remove",
 ) {
-  if (!context.permissions.canManageTeamMembership(team)) {
+  if (
+    action === "add"
+      ? !context.permissions.canAddTeamMembers(team)
+      : !context.permissions.canManageTeamMembership(team)
+  ) {
     context.permissions.throwPermissionError();
   }
   if (

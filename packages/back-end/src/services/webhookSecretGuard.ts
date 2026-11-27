@@ -32,7 +32,8 @@ export async function missingWebhookSecrets(
     const keys = new Set(referencedWebhookSecrets(text));
     if (!keys.size || !URL.canParse(webhook.endpoint)) continue;
     const usable = await context.models.webhookSecrets.getUsableKeys(
-      new URL(webhook.endpoint).origin,
+      webhook.endpoint,
+      [...keys],
     );
     for (const key of keys) {
       if (usable.has(key)) continue;

@@ -554,6 +554,22 @@ export type SecretsReplacer = <T extends string | Record<string, string>>(
   },
 ) => T;
 
+// The origin a webhook URL resolves to once its secrets are filled in, which
+// is where the request goes. The raw URL can't answer this: a template comment
+// can hide the real host from it. Null when the URL can't be rendered.
+export function renderedWebhookOrigin(
+  url: string,
+  secrets: Record<string, string>,
+): string | null {
+  try {
+    return new URL(
+      secretsReplacer(secrets)(url, { encode: encodeURIComponent }),
+    ).origin;
+  } catch {
+    return null;
+  }
+}
+
 export const secretsReplacer = (
   secrets: Record<string, string>,
 ): SecretsReplacer => {

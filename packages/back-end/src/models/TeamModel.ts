@@ -48,7 +48,12 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req) => {
           const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
-          assertCanChangeTeamMembership(req.context, team, req.body.members);
+          assertCanChangeTeamMembership(
+            req.context,
+            team,
+            req.body.members,
+            "add",
+          );
           await addMembersToTeam({
             organization: req.context.org,
             userIds: req.body.members,
@@ -64,7 +69,12 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req) => {
           const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
-          assertCanChangeTeamMembership(req.context, team, req.body.members);
+          assertCanChangeTeamMembership(
+            req.context,
+            team,
+            req.body.members,
+            "remove",
+          );
           await removeMembersFromTeam({
             organization: req.context.org,
             userIds: req.body.members,

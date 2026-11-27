@@ -8,6 +8,14 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
+// Attribute names become column identifiers in generated warehouse SQL, and
+// neither character has a legitimate use in one.
+export function assertValidAttributeName(name: string): void {
+  if (/[\\`]/.test(name)) {
+    throw new Error("Attribute names cannot contain backslashes or backticks");
+  }
+}
+
 export async function removeTagInAttribute(
   context: ReqContext,
   tag: string,

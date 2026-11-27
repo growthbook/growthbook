@@ -1,4 +1,5 @@
 import {
+  assertValidAttributeName,
   assertRegisteredAttributes,
   assertRegisteredAttributesScoped,
   lazyAttributeScope,
@@ -574,5 +575,15 @@ describe("lazyAttributeScope", () => {
     await expect(scope()).resolves.toEqual(["p1"]);
     await expect(scope()).resolves.toEqual(["p1"]);
     expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("assertValidAttributeName", () => {
+  it("rejects backslashes and backticks, and allows ordinary names", () => {
+    expect(() => assertValidAttributeName("a\\b")).toThrow();
+    expect(() => assertValidAttributeName("a`b")).toThrow();
+    ["deviceId", "company id", "user.plan", "$groups"].forEach((name) =>
+      expect(() => assertValidAttributeName(name)).not.toThrow(),
+    );
   });
 });

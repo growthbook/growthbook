@@ -575,7 +575,9 @@ export function getManagedWarehouseExposureQueryIdForAttribute({
 
 /** Quote a ClickHouse identifier (column/alias/JSON path segment) with backticks. */
 function chQuoteIdentifier(name: string): string {
-  return "`" + name.replace(/`/g, "``") + "`";
+  // ClickHouse reads backslash-backtick as an escaped backtick too, so an
+  // unescaped backslash would swallow half of a doubled backtick.
+  return "`" + name.replace(/\\/g, "\\\\").replace(/`/g, "``") + "`";
 }
 
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;

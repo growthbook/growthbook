@@ -304,6 +304,14 @@ describe("buildManagedWarehouseEventsFactTableSql", () => {
     );
   });
 
+  it("escapes backslashes so a name can't close its own quoted identifier", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "a\\` x", datatype: "string", hashAttribute: true },
+    ];
+    const sql = buildManagedWarehouseEventsFactTableSql(schema);
+    expect(sql).toContain("AS `a\\\\`` x`");
+  });
+
   it("aliases preserved dimensions out of the attributes JSON column", () => {
     const sql = buildManagedWarehouseEventsFactTableSql(
       defaultSchema,

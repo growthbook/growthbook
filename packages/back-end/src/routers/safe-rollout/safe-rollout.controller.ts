@@ -1,24 +1,70 @@
 import type { Response } from "express";
 import { omit } from "lodash";
+import { getRulesForEnvironment } from "shared/util";
 import {
+  FeatureInterface,
   MetricTimeSeries,
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
+  assertCanControlRampSchedule,
   runLockedRampScheduleAction,
   setRampMonitoringMode,
 } from "back-end/src/services/rampSchedule";
 import { NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { ReqContext } from "back-end/types/request";
+
+// SafeRolloutModel allows everything so SDK payloads can read every rollout;
+// these routes authorize against the rollout's Feature Flag instead.
+async function getReadableSafeRollout(context: ReqContext, id: string) {
+  const safeRollout = await context.models.safeRollout.getById(id);
+  const feature = safeRollout
+    ? await getFeature(context, safeRollout.featureId)
+    : null;
+  if (!safeRollout || !feature) {
+    throw new NotFoundError("Could not find Safe Rollout");
+  }
+  return { safeRollout, feature };
+}
+
+// A running rollout is live, so changing it takes publish authority.
+async function assertCanPublishSafeRollout(
+  context: ReqContext,
+  feature: FeatureInterface,
+  safeRollout: SafeRolloutInterface,
+) {
+  const schedule = safeRollout.rampScheduleId
+    ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
+    : null;
+  if (schedule) return assertCanControlRampSchedule(context, schedule);
+
+  const ruleEnvs = Object.keys(feature.environmentSettings).filter((env) =>
+    getRulesForEnvironment(feature.rules ?? [], env).some(
+      (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
+    ),
+  );
+  // An empty list passes the environment check vacuously, so an unreferenced
+  // rollout takes every environment.
+  const envs = ruleEnvs.length
+    ? ruleEnvs
+    : getEnvironmentIdsFromOrg(context.org);
+  if (!envs.length || !context.permissions.canPublishFeature(feature, envs)) {
+    context.permissions.throwPermissionError();
+  }
+}
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -36,6 +82,7 @@ export const getLatestSafeRolloutSnapshot = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
+  await getReadableSafeRollout(context, req.params.id);
 
   const snapshot =
     await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
@@ -178,10 +225,8 @@ export async function putSafeRolloutStatus(
   const { id } = req.params;
   const { status } = req.body;
   const context = getContextFromReq(req);
-  const safeRollout = await context.models.safeRollout.getById(id);
-  if (!safeRollout) {
-    throw new NotFoundError("Could not find safe rollout");
-  }
+  const { safeRollout, feature } = await getReadableSafeRollout(context, id);
+  await assertCanPublishSafeRollout(context, feature, safeRollout);
 
   await context.models.safeRollout.update(safeRollout, {
     status,
@@ -212,18 +257,19 @@ export async function putSafeRollout(
   const { id } = req.params;
   const { safeRolloutFields } = req.body;
   const context = getContextFromReq(req);
-  const safeRollout = await context.models.safeRollout.getById(id);
-  if (!safeRollout) {
-    throw new NotFoundError("Could not find safe rollout");
+  const { safeRollout, feature } = await getReadableSafeRollout(context, id);
+  if (safeRollout.startedAt) {
+    await assertCanPublishSafeRollout(context, feature, safeRollout);
+  } else if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
   }
 
   // The resolver only scope-checks a changed selection, so a rollout whose
   // query later fell out of scope can still be edited.
-  const feature = await getFeature(context, safeRollout.featureId);
   const validatedSafeRolloutFields = await validateSafeRolloutFields(
     safeRolloutFields,
     context,
-    { previous: safeRollout, project: feature?.project ?? "" },
+    { previous: safeRollout, project: feature.project ?? "" },
   );
 
   await context.models.safeRollout.update(safeRollout, {
@@ -243,10 +289,8 @@ export async function putAutoSnapshots(
   const { id } = req.params;
   const { enabled } = req.body;
   const context = getContextFromReq(req);
-  const safeRollout = await context.models.safeRollout.getById(id);
-  if (!safeRollout) {
-    throw new NotFoundError("Could not find safe rollout");
-  }
+  const { safeRollout, feature } = await getReadableSafeRollout(context, id);
+  await assertCanPublishSafeRollout(context, feature, safeRollout);
 
   if (safeRollout.rampScheduleId) {
     // Both writes run under the lock: contention 409s BEFORE anything applies,
@@ -304,10 +348,7 @@ export const getSafeRolloutTimeSeries = async (
   }
 
   const { id } = req.params;
-  const safeRollout = await context.models.safeRollout.getById(id);
-  if (!safeRollout) {
-    throw new NotFoundError("Safe rollout not found");
-  }
+  await getReadableSafeRollout(context, id);
 
   const timeSeries =
     await context.models.metricTimeSeries.getBySourceAndMetricIds({
@@ -332,12 +373,7 @@ export const getSafeRolloutById = async (
   >,
 ) => {
   const context = getContextFromReq(req);
-  const safeRollout = await context.models.safeRollout.getById(req.params.id);
-  if (!safeRollout) {
-    return res
-      .status(404)
-      .json({ status: 404, message: "Safe Rollout not found" });
-  }
+  const { safeRollout } = await getReadableSafeRollout(context, req.params.id);
   res.status(200).json({ status: 200, safeRollout });
 };
 
@@ -352,7 +388,13 @@ export const getSafeRollouts = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const safeRollouts = await context.models.safeRollout.getAll();
+  const all = await context.models.safeRollout.getAll();
+  const readable = new Set(
+    (
+      await getFeaturesByIds(context, [...new Set(all.map((s) => s.featureId))])
+    ).map((f) => f.id),
+  );
+  const safeRollouts = all.filter((s) => readable.has(s.featureId));
   res.status(200).json({
     status: 200,
     safeRollouts,

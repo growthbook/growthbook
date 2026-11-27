@@ -24,12 +24,11 @@ const AsyncQueriesModal: FC<{
   error?: string;
   inline?: boolean;
 }> = ({ queries, savedQueries, close, error: _error, inline }) => {
-  const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
-    `/queries/${queries.join(",")}`,
-    {
-      shouldRun: () => queries.length > 0,
-    },
-  );
+  const { data, error: apiError } = useApi<{
+    queries: (QueryInterface | null)[];
+  }>(`/queries/${queries.join(",")}`, {
+    shouldRun: () => queries.length > 0,
+  });
   const shouldFetchSavedQueries = () => savedQueries.length > 0;
   const { data: savedQueryData, error: savedQueryError } = useApi<{
     savedQueries: SavedQuery[];
@@ -38,8 +37,10 @@ const AsyncQueriesModal: FC<{
   });
 
   const [showStats, setShowStats] = useState(false);
-  const hasStats = data?.queries?.some((q) => q.statistics !== undefined);
-  const datasourceId = data?.queries?.find((q) => q.datasource)?.datasource;
+  const hasStats = data?.queries?.some(
+    (q) => q !== null && q.statistics !== undefined,
+  );
+  const datasourceId = data?.queries?.find((q) => q?.datasource)?.datasource;
 
   const { error, traceback } = useMemo(() => {
     if (!_error) {

@@ -178,6 +178,19 @@ export function changedProjectRoleProjects(
   );
 }
 
+// Whether any rule on the given projects names the admin role, as its base
+// role or an additional one.
+export function projectRulesGrantAdmin(
+  rules: ProjectMemberRole[] | undefined,
+  projects?: string[],
+): boolean {
+  return (rules ?? []).some(
+    (rule) =>
+      (!projects || projects.includes(rule.project)) &&
+      [rule, ...(rule.additionalRoles ?? [])].some((r) => r.role === "admin"),
+  );
+}
+
 const ROLE_RULE_FIELDS = [
   "role",
   "limitAccessByEnvironment",
