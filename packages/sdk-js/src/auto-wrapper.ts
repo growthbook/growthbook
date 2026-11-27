@@ -18,23 +18,51 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
+import { visualEditorPlugin } from "./plugins/visual-editor";
+import { urlRedirectsPlugin } from "./plugins/url-redirects";
+import {
+  legacyAutoExperimentPlugins,
+  LegacyAutoExperimentOptions,
+} from "./legacy-auto-experiments";
 
-type WindowContext = Context & {
-  uuidCookieName?: string;
-  uuidCookieDomain?: string;
-  eventTransport?: string;
-  uuidKey?: string;
-  uuid?: string;
-  persistUuidOnLoad?: boolean;
-  noStreaming?: boolean;
-  useStickyBucketService?: "cookie" | "localStorage";
-  stickyBucketPrefix?: string;
-  payload?: FeatureApiResponse;
-  cacheSettings?: CacheSettings;
-  antiFlicker?: boolean;
-  antiFlickerTimeout?: number;
-  additionalTrackingCallback?: TrackingCallback;
+// This file builds two kinds of bundle, set by rollup.config.mjs:
+//
+// - auto.min.js has every feature and behaves as it did before 3.0. It runs
+//   visual editor and URL redirect experiments unless a `disable*` setting
+//   says not to.
+// - The script bundles (core.min.js, core-visual.min.js, ...) only contain the
+//   features in their name. Custom JavaScript and cross-origin redirects are
+//   each a separate setting on the page.
+// @ts-expect-error replaced by the build with true or false
+const AUTO: boolean = __GB_AUTO__;
+// @ts-expect-error replaced by the build with true or false
+const VISUAL: boolean = __GB_VISUAL__;
+// @ts-expect-error replaced by the build with true or false
+const REDIRECTS: boolean = __GB_REDIRECTS__;
+
+// The script bundles ignore the `disable*` options and take these two instead
+type AutoExperimentSettings = LegacyAutoExperimentOptions & {
+  allowCustomJs?: boolean;
+  allowCrossOriginRedirects?: boolean;
 };
+
+type WindowContext = Context &
+  AutoExperimentSettings & {
+    uuidCookieName?: string;
+    uuidCookieDomain?: string;
+    eventTransport?: string;
+    uuidKey?: string;
+    uuid?: string;
+    persistUuidOnLoad?: boolean;
+    noStreaming?: boolean;
+    useStickyBucketService?: "cookie" | "localStorage";
+    stickyBucketPrefix?: string;
+    payload?: FeatureApiResponse;
+    cacheSettings?: CacheSettings;
+    antiFlicker?: boolean;
+    antiFlickerTimeout?: number;
+    additionalTrackingCallback?: TrackingCallback;
+  };
 declare global {
   interface Window {
     _growthbook?: GrowthBook;
@@ -56,6 +84,46 @@ window.dataLayer = window.dataLayer || [];
 const currentScript = document.currentScript;
 const dataContext: DOMStringMap = currentScript ? currentScript.dataset : {};
 const windowContext: WindowContext = window.growthbook_config || {};
+
+// An on/off data attribute. In the script bundles "off", "false" and "0" are
+// off and anything else is on, including no value. auto.min.js keeps its old
+// rule, where any non-empty value is on, even "false".
+function isOn(value: string | undefined): boolean {
+  if (AUTO) return !!value;
+  return (
+    value !== undefined &&
+    !["off", "false", "0"].includes(value.trim().toLowerCase())
+  );
+}
+
+// GrowthBook options that are on/off, so the script bundles read their data
+// attributes with isOn. This fails to compile when a new one is left out.
+type BooleanOption = {
+  [K in keyof Context]-?: NonNullable<Context[K]> extends boolean ? K : never;
+}[keyof Context];
+const BOOLEAN_OPTIONS: Record<BooleanOption, true> = {
+  enabled: true,
+  disableExperimentsOnLoad: true,
+  debug: true,
+  qaMode: true,
+  backgroundSync: true,
+  subscribeToChanges: true,
+  enableDevMode: true,
+  disableCache: true,
+  disableDevTools: true,
+  remoteEval: true,
+  antiFlicker: true,
+};
+const dataOptions: Record<string, string | boolean | undefined> = {
+  ...dataContext,
+};
+if (!AUTO) {
+  for (const key in BOOLEAN_OPTIONS) {
+    if (key in dataContext) dataOptions[key] = isOn(dataContext[key]);
+  }
+}
+
+const antiFlicker = windowContext.antiFlicker || isOn(dataContext.antiFlicker);
 
 let antiFlickerTimeout: number | undefined;
 
@@ -98,7 +166,7 @@ function unsetAntiFlicker() {
   }
 }
 
-if (windowContext.antiFlicker || dataContext.antiFlicker) {
+if (antiFlicker) {
   setAntiFlicker();
 }
 
@@ -141,7 +209,11 @@ const plugins: Plugin[] = [
     uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
     uuidCookieDomain,
     uuidKey: windowContext.uuidKey || dataContext.uuidKey,
-    uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
+    uuidAutoPersist:
+      !uuid &&
+      (AUTO
+        ? dataContext.noAutoCookies === undefined
+        : !isOn(dataContext.noAutoCookies)),
   }),
 ];
 
@@ -178,11 +250,41 @@ if (tracking !== "none") {
   }
 }
 
+const autoExperiments: AutoExperimentSettings = {
+  ...dataContext,
+  ...windowContext,
+};
+if (AUTO) {
+  plugins.push(...legacyAutoExperimentPlugins(autoExperiments));
+} else {
+  const allowed = (key: "allowCustomJs" | "allowCrossOriginRedirects") =>
+    windowContext[key] ?? isOn(dataContext[key]);
+  if (VISUAL) {
+    plugins.push(
+      visualEditorPlugin({
+        allowCustomJs: allowed("allowCustomJs"),
+        jsInjectionNonce: autoExperiments.jsInjectionNonce,
+        applyDomChangesCallback: autoExperiments.applyDomChangesCallback,
+      }),
+    );
+  }
+  if (REDIRECTS) {
+    plugins.push(
+      urlRedirectsPlugin({
+        allowCrossOriginRedirects: allowed("allowCrossOriginRedirects"),
+        navigate: autoExperiments.navigate,
+        navigateDelay: autoExperiments.navigateDelay,
+        maxNavigateDelay: autoExperiments.maxNavigateDelay,
+      }),
+    );
+  }
+}
+
 // Create GrowthBook instance
 const gb = new GrowthBook({
   enableDevMode: true,
-  ...dataContext,
-  remoteEval: !!dataContext.remoteEval,
+  ...dataOptions,
+  remoteEval: isOn(dataContext.remoteEval),
   ...windowContext,
   plugins,
   stickyBucketService,
@@ -198,12 +300,12 @@ gb.init({
   payload: windowContext.payload,
   streaming: !(
     windowContext.noStreaming ||
-    dataContext.noStreaming ||
-    windowContext.backgroundSync === false
+    isOn(dataContext.noStreaming) ||
+    (windowContext.backgroundSync ?? dataOptions.backgroundSync) === false
   ),
   cacheSettings: windowContext.cacheSettings,
 }).then(() => {
-  if (!(windowContext.antiFlicker || dataContext.antiFlicker)) return;
+  if (!antiFlicker) return;
 
   if (gb.getRedirectUrl()) {
     setAntiFlicker();

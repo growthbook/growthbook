@@ -1,0 +1,40 @@
+name: Script CDN promote
+
+# Makes an uploaded SDK version the one sites load from /script/v<major>/.
+# To roll back, run it again with the earlier version.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SDK version to make live, for example 3.0.1"
+        required: true
+        type: string
+
+concurrency:
+  group: script-cdn-promote
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Promote
+        env:
+          SCRIPT_CDN_BUCKET: ${{ vars.SCRIPT_CDN_BUCKET }}
+          FASTLY_API_TOKEN: ${{ secrets.FASTLY_API_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: bash packages/sdk-js/scripts/script-cdn.sh promote "$VERSION"

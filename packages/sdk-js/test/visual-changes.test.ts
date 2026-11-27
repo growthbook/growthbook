@@ -1,4 +1,5 @@
 import { GrowthBook } from "../src";
+import { visualEditorPlugin } from "../src/plugins";
 import {
   AutoExperiment,
   UrlTarget,
@@ -180,6 +181,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>title</h1>";
 
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: [
@@ -244,6 +246,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>title</h1>";
 
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       experiments: [
         {
@@ -294,6 +297,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>title</h1>";
 
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       experiments: [
         {
@@ -376,6 +380,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>title</h1>";
 
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       experiments: [
         {
@@ -475,6 +480,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>title</h1>";
 
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
       experiments: [
@@ -557,6 +563,7 @@ describe("Auto experiments", () => {
 
     // Blocked
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       blockedChangeIds: ["bar", "foo"],
       url: "http://www.example.com/home",
@@ -586,15 +593,11 @@ describe("Auto experiments", () => {
   });
 
   it("Never blocks feature flag rule experiments", async () => {
-    // Not blocked
+    // Not blocked, even with neither plugin
     const gb = new GrowthBook({
       attributes: { id: "1" },
       blockedChangeIds: ["bar", "foo"],
-      disableCrossOriginUrlRedirectExperiments: true,
       disableExperimentsOnLoad: true,
-      disableJsInjection: true,
-      disableUrlRedirectExperiments: true,
-      disableVisualExperiments: true,
       url: "http://www.example.com/home",
     });
     await gb.init({
@@ -619,7 +622,7 @@ describe("Auto experiments", () => {
     gb.destroy();
   });
 
-  it("Skips various experiments and changes based on the context", async () => {
+  it("Skips various experiments and changes based on the plugin and its options", async () => {
     document.head.innerHTML = "";
     document.body.innerHTML = "<h1>title</h1>";
 
@@ -654,6 +657,7 @@ describe("Auto experiments", () => {
 
     // Nothing blocked
     const gb = new GrowthBook({
+      plugins: [visualEditorPlugin({ allowCustomJs: true })],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
     });
@@ -666,11 +670,10 @@ describe("Auto experiments", () => {
     gb.destroy();
     await sleep();
 
-    // Blocked visual changes
+    // No plugin, so no visual changes
     const gb2 = new GrowthBook({
       attributes: { id: "1" },
       url: "http://www.example.com/home",
-      disableVisualExperiments: true,
     });
     gb2.init({ payload: { experiments } });
     await sleep();
@@ -679,11 +682,11 @@ describe("Auto experiments", () => {
     gb2.destroy();
     await sleep();
 
-    // Blocked JS changes, entire experiment should be blocked
+    // Custom JS isn't allowed by default, entire experiment should be blocked
     const gb3 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
-      disableJsInjection: true,
     });
     gb3.init({ payload: { experiments } });
     await sleep();
@@ -692,11 +695,11 @@ describe("Auto experiments", () => {
     gb3.destroy();
     await sleep();
 
-    // Blocked JS changes, experiment without js changes should be allowed
+    // Custom JS not allowed, experiment without js changes should be allowed
     const gb4 = new GrowthBook({
+      plugins: [visualEditorPlugin()],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
-      disableJsInjection: true,
     });
     const experimentsWithoutJs = structuredClone(experiments);
     experimentsWithoutJs[0].variations[1].js = "";
@@ -711,9 +714,11 @@ describe("Auto experiments", () => {
 
     // Adds a nonce to the script tag and doesn't run experiments automatically
     const gb5 = new GrowthBook({
+      plugins: [
+        visualEditorPlugin({ allowCustomJs: true, jsInjectionNonce: "123" }),
+      ],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
-      jsInjectionNonce: "123",
       disableExperimentsOnLoad: true,
     });
     gb5.init({ payload: { experiments } });
@@ -769,9 +774,14 @@ describe("Auto experiments", () => {
     const cb = jest.fn(() => () => undo());
 
     const gb = new GrowthBook({
+      plugins: [
+        visualEditorPlugin({
+          allowCustomJs: true,
+          applyDomChangesCallback: cb,
+        }),
+      ],
       attributes: { id: "1" },
       url: "http://www.example.com/home",
-      applyDomChangesCallback: cb,
     });
     await gb.init({ payload: { experiments } });
     await sleep();

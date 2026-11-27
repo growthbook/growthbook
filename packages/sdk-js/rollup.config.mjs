@@ -19,6 +19,8 @@ const terserSettings = terser({
     properties: {
       regex: /^_/,
       reserved: [
+        "_autoExperimentRunner",
+        "_evalAutoExperiment",
         "_experimentsDisabled",
         "_hasEventConsumer",
         "_subscribeCustomEvents",
@@ -30,9 +32,51 @@ const terserSettings = terser({
   ecma: 5,
 });
 
+// The script bundles served from our CDN as /script/v<major>/<name>.min.js.
+// A bundle's name is "core" followed by its features in this (alphabetical)
+// order, joined with hyphens.
+const SCRIPT_FEATURES = ["redirects", "visual"];
+const scriptBundles = SCRIPT_FEATURES.reduce(
+  (bundles, feature) => bundles.concat(bundles.map((b) => [...b, feature])),
+  [[]],
+);
+
+// A build of src/auto-wrapper.ts. `auto` is the legacy auto.min.js, which has
+// every feature.
+function wrapper({ auto = false, features = [], output }) {
+  return {
+    input: "src/auto-wrapper.ts",
+    external: () => false,
+    output,
+    plugins: [
+      resolve({ extensions, jsnext: true }),
+      replace({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      replace({
+        __SDK_VERSION__: JSON.stringify(version),
+        __GB_AUTO__: JSON.stringify(auto),
+        ...Object.fromEntries(
+          SCRIPT_FEATURES.map((feature) => [
+            `__GB_${feature.toUpperCase()}__`,
+            JSON.stringify(features.includes(feature)),
+          ]),
+        ),
+        preventAssignment: true,
+      }),
+      babel({
+        babelHelpers: "bundled",
+        extensions,
+      }),
+    ],
+  };
+}
+
 export default [
   {
-    input: "src/index.ts",
+    // Not src/index.ts: these keep the pre-3.0 behavior. See src/bundle.ts.
+    input: "src/bundle.ts",
     external: () => false,
     output: [
       {
@@ -72,9 +116,8 @@ export default [
       }),
     ],
   },
-  {
-    input: "src/auto-wrapper.ts",
-    external: () => false,
+  wrapper({
+    auto: true,
     output: [
       {
         file: "dist/bundles/auto.js",
@@ -90,20 +133,19 @@ export default [
         sourcemap: true,
       },
     ],
-    plugins: [
-      resolve({ extensions, jsnext: true }),
-      replace({
-        "process.env.NODE_ENV": JSON.stringify("production"),
-        preventAssignment: true,
-      }),
-      replace({
-        __SDK_VERSION__: JSON.stringify(version),
-        preventAssignment: true,
-      }),
-      babel({
-        babelHelpers: "bundled",
-        extensions,
-      }),
-    ],
-  },
+  }),
+  ...scriptBundles.map((features) =>
+    wrapper({
+      features,
+      output: [
+        {
+          file: `dist/script/${["core", ...features].join("-")}.min.js`,
+          format: "iife",
+          name: "_growthbook",
+          plugins: [terserSettings],
+          sourcemap: true,
+        },
+      ],
+    }),
+  ),
 ];
