@@ -5,6 +5,8 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  DashboardDraftOpInput,
+  DashboardVersionInterface,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
@@ -37,8 +39,15 @@ import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
-import { NotFoundError } from "back-end/src/util/errors";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import * as dashboardVersions from "back-end/src/enterprise/services/dashboardVersions";
+import {
+  createDashboardBody,
+  publishDashboardDraftBody,
+  updateDashboardBody,
+} from "./dashboards.router";
+export { postDashboardBuilderChat } from "back-end/src/enterprise/services/dashboard-builder-agent";
+
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;
@@ -106,7 +115,12 @@ export async function createDashboard(
     globalControls,
     comparison,
     userId,
+    isDraft,
   } = req.body;
+
+  if (isDraft && experimentId) {
+    throw new BadRequestError("Experiment dashboards cannot be drafts.");
+  }
 
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
@@ -120,7 +134,9 @@ export async function createDashboard(
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
     isDeleted: false,
-    userId: userId || context.userId,
+    // A draft always belongs to its creator, since only the owner can read it.
+    userId: isDraft ? context.userId : userId || context.userId,
+    isDraft,
     editLevel,
     shareLevel,
     enableAutoUpdates,
@@ -156,6 +172,12 @@ export async function updateDashboard(
     experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment) throw new Error("Cannot find connected experiment");
   }
+  await context.models.dashboards.reconcileLiveEditWithDraft(dashboard, {
+    title: updates.title,
+    globalControls: updates.globalControls,
+    comparison: updates.comparison,
+    ...(updates.blocks ? { blocks: dashboard.blocks } : {}),
+  });
 
   if (updates.blocks) {
     const migratedBlocks = updates.blocks.map(migrateBlock);
@@ -319,13 +341,21 @@ export async function getDashboardSnapshots(
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new NotFoundError("Cannot find dashboard");
+  // An editor's page renders the draft, so its blocks need their data too.
+  const blocks = dashboard.experimentId
+    ? dashboard.blocks
+    : [
+        ...dashboard.blocks,
+        ...(await dashboardVersions.getDashboardWorkingContent(context, id))
+          .blocks,
+      ];
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);
     const snapshotIds = [
       ...new Set([
         experiment?.analysisSummary?.snapshotId,
-        ...dashboard.blocks.map((block) => block.snapshotId),
+        ...blocks.map((block) => block.snapshotId),
       ]),
     ].filter(
       (snapId): snapId is string => isDefined(snapId) && snapId.length > 0,
@@ -336,7 +366,7 @@ export async function getDashboardSnapshots(
   }
   const savedQueries = await context.models.savedQueries.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter(
           (
             block,
@@ -352,7 +382,7 @@ export async function getDashboardSnapshots(
   ]);
   const metricAnalyses = await context.models.metricAnalysis.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter(
           (
             block,
@@ -369,7 +399,7 @@ export async function getDashboardSnapshots(
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks.flatMap((block) => {
+      blocks.flatMap((block) => {
         if (
           block.type !== "metric-exploration" &&
           block.type !== "fact-table-exploration" &&
@@ -402,4 +432,83 @@ export async function getDashboardSnapshots(
     metricAnalyses,
     explorations,
   });
+}
+
+interface DraftResponse {
+  status: number;
+  draft: DashboardVersionInterface | null;
+}
+
+export async function getDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.getDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function createDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const draft = await dashboardVersions.getOrCreateDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function editDashboardDraft(
+  req: AuthRequest<DashboardDraftOpInput, { id: string }, never>,
+  res: ResponseWithStatusAndError<DraftResponse>,
+) {
+  const context = getContextFromReq(req);
+  // Dashboard-wide controls change what charts show, so this path re-runs them.
+  const draft =
+    req.body.op === "set-settings" &&
+    (req.body.settings.globalControls !== undefined ||
+      req.body.settings.comparison !== undefined)
+      ? await dashboardVersions.updateDashboardDraftSettings(
+          context,
+          req.params.id,
+          req.body.settings,
+        )
+      : await dashboardVersions.editDashboardDraft(
+          context,
+          req.params.id,
+          req.body,
+        );
+  return res.status(200).json({ status: 200, draft });
+}
+
+export async function publishDashboardDraft(
+  req: AuthRequest<
+    z.infer<typeof publishDashboardDraftBody>,
+    { id: string },
+    never
+  >,
+  res: ResponseWithStatusAndError<
+    SingleDashboardResponse & { version: DashboardVersionInterface }
+  >,
+) {
+  const result = await dashboardVersions.publishDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.note,
+  );
+  return res.status(200).json({ status: 200, ...result });
+}
+
+export async function discardDashboardDraft(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError,
+) {
+  await dashboardVersions.discardDashboardDraft(
+    getContextFromReq(req),
+    req.params.id,
+  );
+  return res.status(200).json({ status: 200 });
 }

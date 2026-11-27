@@ -4,18 +4,27 @@ import {
   blockComparisonValidator,
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  dashboardDraftOpInput,
   dashboardGlobalControlsValidator,
   legacyDashboardBlockInterface,
   dashboardEditLevel,
   dashboardShareLevel,
   dashboardUpdateSchedule,
 } from "shared/enterprise";
+import { aiChatMentionValidator } from "shared/validators";
+import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import {
+  cancelChat,
+  getChat,
+} from "back-end/src/routers/product-analytics/product-analytics.controller";
 import * as rawDashboardsController from "./dashboards.controller";
 
 const router = express.Router();
 const dashboardsController = wrapController(rawDashboardsController);
+// Conversation reads and cancels are the same for every agent.
+const chatController = wrapController({ cancelChat, getChat });
 
 const dashboardParams = z.object({ id: z.string() }).strict();
 export const createDashboardBody = z
@@ -31,6 +40,7 @@ export const createDashboardBody = z
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
+    isDraft: z.boolean().optional(),
   })
   .strict();
 
@@ -59,6 +69,46 @@ export const updateDashboardBody = z
       .optional(),
   })
   .strict();
+
+export const publishDashboardDraftBody = z
+  .object({ note: z.string().optional() })
+  .strict();
+
+const conversationParams = z
+  .object({ conversationId: z.string().min(1) })
+  .strict();
+
+// Before the /:id routes so "chat" is never read as a dashboard id.
+router.post(
+  "/chat",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        message: z.string().min(1),
+        conversationId: z.string().min(1),
+        dashboardId: z.string().min(1),
+        datasourceId: z.string(),
+        mode: z.enum(["build", "ask"]).optional(),
+        model: aiModelValidator,
+        mentions: aiChatMentionValidator.array().optional(),
+        // The reply to a parked action, such as a query's cost approval.
+        confirmActionId: z.string().min(1).optional(),
+        confirmDecision: z.enum(["confirm", "cancel"]).optional(),
+      })
+      .strict(),
+  }),
+  dashboardsController.postDashboardBuilderChat,
+);
+router.get(
+  "/chat/:conversationId",
+  validateRequestMiddleware({ params: conversationParams }),
+  chatController.getChat,
+);
+router.post(
+  "/chat/:conversationId/cancel",
+  validateRequestMiddleware({ params: conversationParams }),
+  chatController.cancelChat,
+);
 
 router.get(
   "/",
@@ -114,6 +164,38 @@ router.get(
   "/:id/snapshots",
   validateRequestMiddleware({ params: dashboardParams }),
   dashboardsController.getDashboardSnapshots,
+);
+
+router.get(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboardDraft,
+);
+router.post(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.createDashboardDraft,
+);
+router.post(
+  "/:id/draft/ops",
+  validateRequestMiddleware({
+    body: dashboardDraftOpInput,
+    params: dashboardParams,
+  }),
+  dashboardsController.editDashboardDraft,
+);
+router.post(
+  "/:id/draft/publish",
+  validateRequestMiddleware({
+    body: publishDashboardDraftBody,
+    params: dashboardParams,
+  }),
+  dashboardsController.publishDashboardDraft,
+);
+router.delete(
+  "/:id/draft",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.discardDashboardDraft,
 );
 
 export { router as dashboardsRouter };
