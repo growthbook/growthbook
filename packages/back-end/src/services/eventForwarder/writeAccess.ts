@@ -165,7 +165,7 @@ function getProbeParams(
     case "bigquery":
       return getEventForwarderBigQueryConnectionParams(
         input.params,
-        input.config.serviceAccountKey,
+        input.config,
       );
     case "snowflake":
       // Probe as the forwarder's role (the one streaming writes with) and warehouse.

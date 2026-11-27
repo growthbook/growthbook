@@ -36,6 +36,7 @@ it("creates tables through the data source endpoint with the Event Forwarder's s
       client_email: "forwarder@example.invalid",
       private_key: "forwarder-key",
     }),
+    serviceAccountKeyEndpoint: "https://proxy.example/tenant",
   });
 
   expect(BigQuery).toHaveBeenCalledWith({

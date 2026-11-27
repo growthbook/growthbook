@@ -264,6 +264,7 @@ export async function provisionEventForwarderThroughLicenseServer(
           dataset: decrypted.dataset.trim(),
           tablePrefix,
           serviceAccountKey: decrypted.serviceAccountKey,
+          serviceAccountKeyEndpoint: decrypted.serviceAccountKeyEndpoint,
         });
 
         result = await postProvisionEventForwarderToLicenseServer({

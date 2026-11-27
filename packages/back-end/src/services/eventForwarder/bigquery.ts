@@ -117,6 +117,7 @@ export type EnsureEventForwarderBigQueryTablesParams = {
   dataset: string;
   tablePrefix: string;
   serviceAccountKey?: string;
+  serviceAccountKeyEndpoint?: string;
 };
 
 /**
@@ -135,10 +136,7 @@ export async function ensureEventForwarderBigQueryTables(
   params: EnsureEventForwarderBigQueryTablesParams,
 ): Promise<void> {
   const client = createBigQueryClient(
-    getEventForwarderBigQueryConnectionParams(
-      params.datasourceParams,
-      params.serviceAccountKey,
-    ),
+    getEventForwarderBigQueryConnectionParams(params.datasourceParams, params),
   );
   const ds = client.dataset(params.dataset, { projectId: params.projectId });
   const tableNames = resolveBigQueryEventForwarderTableNames(

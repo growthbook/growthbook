@@ -30,6 +30,7 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  createSafeRolloutValidator,
   isActiveDraftStatus,
   CreateSafeRolloutInterface,
   RampScheduleInterface,
@@ -1246,6 +1247,12 @@ export default function RuleModal({
       }
     }
   };
+  // The values the form opened with; `defaultValues` is rebuilt from the
+  // latest page data on every render.
+  const [openingSafeRolloutFields] = useState(
+    () =>
+      (defaultValues as Partial<SafeRolloutRuleCreateFields>).safeRolloutFields,
+  );
   const safeRolloutRuleHasChanges = (values: SafeRolloutRuleCreateFields) => {
     return Object.keys(values).some((key) => {
       if (key === "safeRolloutFields") return false;
@@ -1582,12 +1589,15 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
-        safeRolloutFieldsChanged =
-          JSON.stringify(safeRolloutFields) !==
+        // Only the settings this form edits, against the values it opened
+        // with: the rollout also carries server-updated fields like
+        // lastSnapshotAttempt, which change under an open editor.
+        const editable = (fields: unknown) =>
           JSON.stringify(
-            (defaultValues as Partial<SafeRolloutRuleCreateFields>)
-              .safeRolloutFields,
+            pick(fields, Object.keys(createSafeRolloutValidator.shape)),
           );
+        safeRolloutFieldsChanged =
+          editable(safeRolloutFields) !== editable(openingSafeRolloutFields);
         // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
         const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
         // backend deals with the rest

@@ -419,14 +419,33 @@ export async function assertEventForwarderKeyStaysWithDestination(
   }
 }
 
+const normalizeEndpoint = (endpoint: string | undefined) =>
+  (endpoint ?? "").trim().toLowerCase();
+
+// The saved key is bound to the endpoint it was saved for and checked here,
+// where the two meet, so no write path can leave them mismatched and usable.
 export function getEventForwarderBigQueryConnectionParams(
   params: BigQueryConnectionParams,
-  serviceAccountKeyJson: string | undefined,
+  config: Pick<
+    BigQueryEventForwarderStoredConfig,
+    "serviceAccountKey" | "serviceAccountKeyEndpoint"
+  >,
 ): BigQueryConnectionParams {
+  const serviceAccountKeyJson = config.serviceAccountKey;
   const serviceAccountKey = parseBigQueryServiceAccountKey(
     serviceAccountKeyJson || "",
   );
   if (!serviceAccountKey) return params;
+  // Keys saved before the binding existed have none and stay usable anywhere.
+  if (
+    config.serviceAccountKeyEndpoint !== undefined &&
+    normalizeEndpoint(config.serviceAccountKeyEndpoint) !==
+      normalizeEndpoint(params.apiEndpoint)
+  ) {
+    throw new Error(
+      "The BigQuery API endpoint changed since the Event Forwarder's service account key was saved. Re-enter the key to continue.",
+    );
+  }
 
   return {
     ...params,
@@ -470,6 +489,10 @@ function buildBigQueryStoredConfigFromDraft(
     draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   );
 
+  // A reused key keeps the endpoint it was saved for; any other key is the
+  // caller's own, supplied for the endpoint in this request.
+  const reusesStoredKey =
+    !draft.serviceAccountKey?.trim() && !!existingStored?.serviceAccountKey;
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
     existingStored?.serviceAccountKey ||
@@ -485,6 +508,9 @@ function buildBigQueryStoredConfigFromDraft(
     dataset,
     tablePrefix,
     serviceAccountKey,
+    serviceAccountKeyEndpoint: reusesStoredKey
+      ? existingStored?.serviceAccountKeyEndpoint
+      : (datasourceParams?.apiEndpoint ?? ""),
     tables: {
       events: names.events,
       experiment_viewed: names.experimentViewed,

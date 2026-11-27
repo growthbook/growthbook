@@ -30,6 +30,8 @@ export interface BigQueryEventForwarderStoredConfig {
   dataset: string;
   tablePrefix: string;
   serviceAccountKey?: string;
+  /** The Data Source API endpoint the key was saved for; absent on keys saved before this was tracked. */
+  serviceAccountKeyEndpoint?: string;
   /** Table names within `dataset`. */
   tables: { events: string; experiment_viewed: string; feature_usage: string };
 }
