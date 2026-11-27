@@ -103,16 +103,23 @@ export class WebhookSecretDataModel extends BaseClass {
   // don't stop the URL from rendering.
   private async usableAt(url: string, placeholders: string[] = []) {
     const all = await this.getAll();
-    const origin = renderedWebhookOrigin(url, {
-      ...Object.fromEntries(placeholders.map((key) => [key, "x"])),
-      ...Object.fromEntries(all.map((secret) => [secret.key, secret.value])),
-    });
+    const originWith = (secrets: typeof all) =>
+      renderedWebhookOrigin(url, {
+        ...Object.fromEntries(placeholders.map((key) => [key, "x"])),
+        ...Object.fromEntries(
+          secrets.map((secret) => [secret.key, secret.value]),
+        ),
+      });
+    const origin = originWith(all);
     if (origin === null) return [];
-    return all.filter(
+    const usable = all.filter(
       (secret) =>
         !secret.allowedOrigins?.length ||
         secret.allowedOrigins.includes(origin),
     );
+    // The send renders with only these, and a template can branch on a secret
+    // being absent, so the origin has to hold for the set actually sent.
+    return originWith(usable) === origin ? usable : [];
   }
 
   public async getUsableKeys(

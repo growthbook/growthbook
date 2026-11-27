@@ -56,11 +56,17 @@ async function assertCanPublishSafeRollout(
       (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
     ),
   );
-  // An empty list passes the environment check vacuously, so an unreferenced
-  // rollout takes every environment.
-  const envs = ruleEnvs.length
-    ? ruleEnvs
-    : getEnvironmentIdsFromOrg(context.org);
+  // A disabled environment serves nothing, so it isn't part of the footprint.
+  const servingEnvs = ruleEnvs.filter(
+    (env) => feature.environmentSettings[env]?.enabled,
+  );
+  // An empty list passes the environment check vacuously, so fall back to
+  // every environment the rule is in, then to every environment there is.
+  const envs = servingEnvs.length
+    ? servingEnvs
+    : ruleEnvs.length
+      ? ruleEnvs
+      : getEnvironmentIdsFromOrg(context.org);
   if (!envs.length || !context.permissions.canPublishFeature(feature, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -272,9 +278,14 @@ export async function putSafeRollout(
     { previous: safeRollout, project: feature.project ?? "" },
   );
 
-  await context.models.safeRollout.update(safeRollout, {
-    ...omit(validatedSafeRolloutFields, "rampUpSchedule"),
-  });
+  const updates = omit(validatedSafeRolloutFields, "rampUpSchedule");
+  if (safeRollout.startedAt) {
+    await context.models.safeRollout.update(safeRollout, updates);
+  } else {
+    // Draft authority only covers an unstarted rollout, so the write is
+    // refused if it started since the check above.
+    await context.models.safeRollout.updateIfUnchanged(safeRollout, updates);
+  }
 
   res.status(200).json({
     status: 200,

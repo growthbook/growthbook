@@ -25,3 +25,14 @@ describe("renderedWebhookOrigin", () => {
     );
   });
 });
+
+// Handlebars `lookup` doesn't throw on a missing key, even in strict mode, so
+// a template can pick its host from whether a secret is present.
+it("lets a template change host when a secret is absent", () => {
+  const url =
+    'https://{{#if (lookup this "BLOCKED")}}allowed.example{{else}}evil.example{{/if}}/';
+  expect(renderedWebhookOrigin(url, { BLOCKED: "x" })).toBe(
+    "https://allowed.example",
+  );
+  expect(renderedWebhookOrigin(url, {})).toBe("https://evil.example");
+});
