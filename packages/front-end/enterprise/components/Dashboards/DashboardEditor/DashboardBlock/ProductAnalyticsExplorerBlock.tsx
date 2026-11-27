@@ -28,6 +28,7 @@ import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
+import { useBlockAnnotations } from "@/enterprise/components/Dashboards/DashboardComments";
 import { BlockProps } from ".";
 
 // Poll interval for a tile's exploration: back off while it's still running,
@@ -78,6 +79,7 @@ export function ProductAnalyticsExplorerVisualization({
   dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
 }) {
   const { getFactMetricById } = useDefinitions();
+  const annotations = useBlockAnnotations("id" in block ? block.id : undefined);
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -241,6 +243,7 @@ export function ProductAnalyticsExplorerVisualization({
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}
           submittedExploreState={submittedConfig ?? data?.exploration.config}
+          annotations={annotations}
         />
       )}
     </Flex>

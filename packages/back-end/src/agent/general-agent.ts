@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { AIChatMessage } from "shared/ai-chat";
 import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import type { ReqContext } from "back-end/types/request";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -821,11 +825,34 @@ export function buildCoreAgentTools(
   };
 }
 
+// Building happens in the dashboard builder, which reuses the prompt above without this.
+const NEW_DASHBOARD_HANDOFF = `
+
+<new_dashboards>
+Do not build a new Analytics dashboard yourself; this replaces the earlier
+instruction about creating one. When the user asks for a new dashboard, reply
+with one short sentence and this link, which opens the dashboard builder with
+their request filled in:
+[Open the dashboard builder](/product-analytics/dashboards/new?prompt=<request>)
+Replace <request> with a complete, URL-encoded description of the dashboard
+they asked for, including anything they clarified earlier. Do not load a
+skill, query data, or create anything first. Changing the dashboard the user
+is viewing is unaffected.
+</new_dashboards>`;
+
 export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   ...sharedAgentSettings,
   agentType: "general",
   injectDatasourceHint: true,
-  buildSystemPrompt: async (ctx) => buildGeneralAgentSystemPrompt(ctx),
+  buildSystemPrompt: async (ctx) =>
+    buildGeneralAgentSystemPrompt(ctx) +
+    (getBackendFeatureValue(
+      "new-dashboard-builder",
+      false,
+      getTrustedOrgAttributes(ctx.org),
+    )
+      ? NEW_DASHBOARD_HANDOFF
+      : ""),
   buildTools: (ctx, buffer, ...[, emit]) => ({
     ...buildCoreAgentTools(ctx, buffer, emit),
     askUser: aiTool({
