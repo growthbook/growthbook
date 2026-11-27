@@ -28,7 +28,7 @@ jest.mock("back-end/src/services/email", () => ({
 const { isReady } = setupApp();
 
 it.each([false, true])(
-  "preserves history and email, and checks subscriptions once per batch: subscribed=%s",
+  "labels metric slices in history and email, and checks subscriptions once per batch: subscribed=%s",
   async (subscribed) => {
     await isReady;
     const queue = getAgendaInstance();
@@ -68,9 +68,18 @@ it.each([false, true])(
         headers: {},
       });
     }
-    const ids = ["US", "CA", "GB"].map(
-      (country) => `${metric.id}?dim:country=${country}`,
-    );
+    const metricNames = new Map([
+      [metric.id, metric.name],
+      [`${metric.id}?dim:country=US`, `${metric.name} (country: US)`],
+      [`${metric.id}?dim:country=CA`, `${metric.name} (country: CA)`],
+      [`${metric.id}?dim:country=GB`, `${metric.name} (country: GB)`],
+      [
+        `${metric.id}?dim:country=Fran%C3%A7ais&dim:browser=Safari`,
+        `${metric.name} (country: Français, browser: Safari)`,
+      ],
+      [`${metric.id}?dim:country=`, `${metric.name} (country: other)`],
+    ]);
+    const ids = [...metricNames.keys()];
     const baseline: SnapshotMetric = { users: 10000, value: 8000, cr: 0.8 };
     const treatment: SnapshotMetric = {
       users: 10000,
@@ -116,16 +125,29 @@ it.each([false, true])(
 
     expect(hasEventSubscribers).toHaveBeenCalledTimes(1);
     expect(sendExperimentChangesEmail).toHaveBeenCalledTimes(1);
+    expect(sendExperimentChangesEmail).toHaveBeenCalledWith(
+      expect.any(Array),
+      experiment.id,
+      experiment.name,
+      expect.arrayContaining(
+        [...metricNames.values()].map((name) =>
+          expect.stringContaining(`The metric ${name} for variation `),
+        ),
+      ),
+    );
     const history = await EventModel.find({
       event: "experiment.info.significance",
     });
-    expect(history).toHaveLength(3);
+    expect(history).toHaveLength(ids.length);
     expect(history.map((event) => event.data)).toEqual(
       expect.arrayContaining(
         ids.map((metricId) =>
           expect.objectContaining({
             data: expect.objectContaining({
-              object: expect.objectContaining({ metricId }),
+              object: expect.objectContaining({
+                metricId,
+                metricName: metricNames.get(metricId),
+              }),
             }),
           }),
         ),
@@ -133,6 +155,6 @@ it.each([false, true])(
     );
     expect(
       await queue._collection.countDocuments({ name: "eventCreated" }),
-    ).toBe(subscribed ? 3 : 0);
+    ).toBe(subscribed ? ids.length : 0);
   },
 );
