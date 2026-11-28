@@ -635,7 +635,9 @@ export default function DatePicker({
                   // caller never set (the range branch above already does this).
                   selected={date ? clock.toCalendar(date) : undefined}
                   onSelect={(day: Date) => {
-                    const selectedDate = clock.fromCalendar(day, date);
+                    const selectedDate = clampParsedDate(
+                      clock.fromCalendar(day, date),
+                    );
                     setDate(selectedDate);
                     setBufferedDate(clock.toText(selectedDate));
                     // A day is the whole choice at date precision; datetime
